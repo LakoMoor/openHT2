@@ -1,0 +1,9 @@
+[package]
+name = "ht2-sim"
+description = "Vehicle simulation ported from the behaviour of the original game"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ht2-formats = { path = "../ht2-formats" }

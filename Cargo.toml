@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/ht2-formats", "crates/ht2-tool", "crates/ht2-render", "crates/ht2-view", "crates/ht2-game"]
+members = ["crates/ht2-formats", "crates/ht2-tool", "crates/ht2-render", "crates/ht2-view", "crates/ht2-game", "crates/ht2-sim"]
 
 [workspace.package]
 version = "0.1.0"

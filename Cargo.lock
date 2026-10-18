@@ -648,6 +648,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ht2-sim"
+version = "0.1.0"
+dependencies = [
+ "ht2-formats",
+]
+
+[[package]]
 name = "ht2-tool"
 version = "0.1.0"
 dependencies = [
