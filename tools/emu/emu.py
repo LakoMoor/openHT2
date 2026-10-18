@@ -19,6 +19,8 @@ TECH_BASE = 0x697868  # engine table of vehicle.tech records, 0x970 bytes each
 STACK_TOP = 0x30000000
 SCRATCH = 0x20000000
 STUB = 0x1f000000
+HEAP_BASE = 0x28000000   # bump allocator used by the hooked malloc (mirrors ht2-sim Mem::alloc)
+OBJ_BASE = 0x2a000000    # free area for test objects
 
 
 class Emu:
@@ -36,10 +38,38 @@ class Emu:
         self.mu.mem_map(SCRATCH, 0x1000000)
         self.mu.mem_map(STACK_TOP - 0x100000, 0x100000)
         self.mu.mem_map(STUB, 0x1000)
+        self.mu.mem_map(HEAP_BASE, 0x1000000)
+        self.mu.mem_map(OBJ_BASE, 0x1000000)
+        self.heap_next = HEAP_BASE
         # return stub: fstp qword [SCRATCH]; nop
         self.mu.mem_write(STUB, b'\xdd\x1d' + struct.pack('<I', SCRATCH) + b'\x90')
         self.stub_end = STUB + 7
         self.mu.reg_write(UC_X86_REG_FPCW, 0x27f)  # 53-bit mantissa, round to nearest
+
+    # --- hooks ----------------------------------------------------------
+    def hook_ret(self, addr, fn):
+        """Replace the function at `addr` (cdecl, caller cleans) with `fn(emu) -> eax`."""
+        def cb(uc, address, size, user):
+            sp = uc.reg_read(UC_X86_REG_ESP)
+            ret = struct.unpack('<I', uc.mem_read(sp, 4))[0]
+            uc.reg_write(UC_X86_REG_EAX, fn(self) & 0xffffffff)
+            uc.reg_write(UC_X86_REG_ESP, sp + 4)
+            uc.reg_write(UC_X86_REG_EIP, ret)
+        self.mu.hook_add(UC_HOOK_CODE, cb, begin=addr, end=addr)
+
+    def arg(self, n):
+        """n-th (0-based) stack argument inside a hook."""
+        sp = self.mu.reg_read(UC_X86_REG_ESP)
+        return struct.unpack('<I', self.mu.mem_read(sp + 4 + 4 * n, 4))[0]
+
+    def install_crt_hooks(self):
+        def malloc(emu):
+            size = emu.arg(0)
+            a = emu.heap_next
+            emu.heap_next += (size + 15) & ~15
+            return a
+        self.hook_ret(0x632643, malloc)          # malloc
+        self.hook_ret(0x4e260c, lambda emu: 0)   # error log / assert
 
     # --- memory helpers -------------------------------------------------
     def write(self, va, data):

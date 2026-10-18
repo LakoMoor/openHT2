@@ -6,6 +6,11 @@
 //! until then so they can always be traced back.
 
 pub mod curves;
+pub mod filter;
+pub mod gearbox;
+pub mod globals;
+pub mod mem;
+pub mod tech_system;
 pub mod tech_rec;
 
 pub use tech_rec::TechRec;

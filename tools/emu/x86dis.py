@@ -5,7 +5,7 @@ def raw(va,n):
     for v,o,sz in SECT:
         if v<=va<v+sz: return b[o+va-v:o+va-v+n]
 md=capstone.Cs(capstone.CS_ARCH_X86,capstone.CS_MODE_32)
-def show(a,maxn=0x400):
+def show(a,maxn=0x400,whole=False):
     s=a-base; n=0
     for i in md.disasm(b[s:s+maxn],a):
         extra=''
@@ -16,8 +16,11 @@ def show(a,maxn=0x400):
                 if r: extra='   ; f32=%.9g f64=%.9g u32=0x%x'%(struct.unpack('<f',r[:4])[0],struct.unpack('<d',r)[0],struct.unpack('<I',r[:4])[0])
             except Exception: pass
         print('%08x  %-7s %s%s'%(i.address,i.mnemonic,i.op_str,extra))
-        if i.mnemonic=='ret' and n>3: break
+        if not whole and i.mnemonic=='ret' and n>3: break
         n+=1
 if __name__=='__main__':
     for a in sys.argv[1:]:
-        print('----',a); show(int(a,16))
+        if ':' in a:
+            ad,ln=a.split(':'); print('----',a); show(int(ad,16),int(ln,0),True)
+        else:
+            print('----',a); show(int(a,16))

@@ -34,7 +34,7 @@ pub fn fn_00507380(rpm: f32, peak: f32, torque: f32, scale: f32) -> f32 {
     let mut factor = 1.0f64;
     if rpm < peak {
         let ratio = rpm as f64 / peak_f;
-        t = ((ratio * std::f64::consts::FRAC_PI_2).sin().sqrt() * t as f64) as f32;
+        t = ((ratio * 1.5707963f64).sin().sqrt() * t as f64) as f32;
         factor = ratio.powf(0.2);
     }
     (factor * t as f64) as f32
@@ -68,7 +68,7 @@ pub fn fn_00507550(rec: TechRec, g: i32, y: f32) -> (f32, f32) {
         return (0.0, 0.0);
     }
     let r = rec.wheel_radius();
-    let tau = std::f32::consts::TAU;
+    let tau = 6.2831852f64 as f32;
     let total = rec.rear_axle() * rec.gear_ratio(g);
     let peak = rec.tach_peak();
     let mut best = 0.0f32;
