@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>openHT2 — свободный движок Дальнобойщиков 2</title>
+<meta name="description" content="Свободная реализация движка Hard Truck 2 / Дальнобойщики 2 на Rust и wgpu.">
+<style>
+  :root { --bg:#fafaf7; --fg:#1d1d1b; --muted:#66655f; --accent:#c2410c; --card:#fff; --line:#e4e2da; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161614; --fg:#ecebe6; --muted:#9a988f; --accent:#fb923c; --card:#1f1f1c; --line:#33322e; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:48px 16px 64px; }
+  h1 { font-size:2.4rem; line-height:1.15; margin:0 0 .4em; }
+  h1 span { color:var(--accent); }
+  h2 { margin:2.2em 0 .6em; font-size:1.3rem; }
+  p.lead { font-size:1.15rem; color:var(--muted); margin-top:0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:4px 20px; }
+  ul.status { list-style:none; margin:0; padding:0; }
+  ul.status li { padding:10px 0; border-bottom:1px solid var(--line); display:flex; gap:12px; }
+  ul.status li:last-child { border-bottom:0; }
+  .tag { flex:none; width:5.5em; font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; padding-top:.2em; color:var(--muted); }
+  .done .tag { color:var(--accent); font-weight:600; }
+  code, pre { font-family:ui-monospace,Consolas,monospace; font-size:.9rem; }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; }
+  a { color:var(--accent); }
+  footer { margin-top:3em; color:var(--muted); font-size:.9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>open<span>HT2</span></h1>
+  <p class="lead">Свободная реализация движка <b>Hard Truck 2 / «Дальнобойщики 2»</b> на Rust и wgpu. Цель — 1:1 совместимость с оригиналом.</p>
+
+  <h2>Статус</h2>
+  <div class="card">
+    <ul class="status">
+      <li class="done"><span class="tag">готово</span><span>Чтение <code>.RES</code> (141 из 141 файлов), <code>.way</code> (41 из 41), <code>.b3d</code> (45 из 45) и текстур <code>.txr</code></span></li>
+      <li class="done"><span class="tag">готово</span><span>Консольный инспектор <code>ht2-tool</code> и просмотрщик моделей на wgpu <code>ht2-view</code></span></li>
+      <li><span class="tag">в работе</span><span>Террейн и сборка мира из локаций</span></li>
+      <li><span class="tag">план</span><span>Дороги по графам <code>.way</code>, интерфейс, звук</span></li>
+      <li><span class="tag">план</span><span>Физика грузовиков, задания, торговля, ИИ</span></li>
+    </ul>
+  </div>
+
+  <h2>Как это работает</h2>
+  <p>openHT2 — это замена движка, а не отдельная игра. Он читает файлы вашей установленной копии игры и ничего в них не изменяет. Код и ассеты оригинала в проект не входят: форматы описываются clean-room, по самим файлам данных.</p>
+
+  <h2>Попробовать</h2>
+<pre>git clone https://github.com/LakoMoor/openHT2
+cd openHT2
+cargo run --release -p ht2-tool -- res-ls "&lt;папка игры&gt;/ENV/aa.res"</pre>
+
+  <h2>Документация</h2>
+  <p><a href="https://github.com/LakoMoor/openHT2/blob/main/docs/FORMATS.md">Описание форматов файлов</a> — что уже расшифровано и что нет.</p>
+
+  <footer>
+    Проект независимый и неофициальный, не связан с правообладателями игры. Лицензия AGPL-3.0-only.
+  </footer>
+</main>
+</body>
+</html>

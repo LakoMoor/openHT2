@@ -1,0 +1,15 @@
+[package]
+name = "ht2-view"
+description = "Model viewer for Hard Truck 2 data (wgpu)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ht2-formats = { path = "../ht2-formats" }
+wgpu = "24"
+winit = "0.30"
+pollster = "0.4"
+bytemuck = { version = "1", features = ["derive"] }
+glam = "0.29"
+png = "0.17"

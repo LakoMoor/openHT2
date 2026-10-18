@@ -1,0 +1,9 @@
+[package]
+name = "ht2-formats"
+description = "Readers for Hard Truck 2 / King of the Road data formats"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror = "2"

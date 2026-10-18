@@ -1,0 +1,10 @@
+[package]
+name = "ht2-tool"
+description = "Command-line inspector for Hard Truck 2 data files"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ht2-formats = { path = "../ht2-formats" }
+png = "0.17"

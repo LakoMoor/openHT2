@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = ["crates/ht2-formats", "crates/ht2-tool", "crates/ht2-view"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+repository = "https://github.com/LakoMoor/openHT2"
