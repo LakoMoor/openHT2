@@ -4,6 +4,7 @@
 use crate::scene::{Look, Scene};
 use bytemuck::{Pod, Zeroable};
 use glam::Mat4;
+use ht2_formats::b3d::Batch;
 use wgpu::util::DeviceExt;
 
 const SHADER: &str = r#"
@@ -167,10 +168,20 @@ impl Renderer {
 
     /// Upload a scene's geometry and textures and return a handle to place it with [`set_model`](Self::set_model).
     pub fn add(&mut self, scene: &Scene) -> ObjectId {
+        self.add_many(scene, &[&scene.batches])[0]
+    }
+
+    /// Upload the textures of `scene` once and make one object per geometry part, all drawn
+    /// with that scene's materials (e.g. a vehicle body and its wheels).
+    pub fn add_many(&mut self, scene: &Scene, parts: &[&[Batch]]) -> Vec<ObjectId> {
         let tex_views: Vec<_> = scene.textures.iter().map(|t| upload(&self.device, &self.queue, t.width, t.height, &t.rgba)).collect();
-        let batches = scene
-            .batches
+        parts.iter().map(|part| self.build_object(scene, &tex_views, part)).collect()
+    }
+
+    fn build_object(&mut self, scene: &Scene, tex_views: &[wgpu::TextureView], part: &[Batch]) -> ObjectId {
+        let batches = part
             .iter()
+            .filter(|b| !b.verts.is_empty())
             .map(|b| {
                 let verts: Vec<GpuVertex> = b.verts.iter().map(|v| GpuVertex { pos: v.pos, uv: v.uv }).collect();
                 let mut blend = false;

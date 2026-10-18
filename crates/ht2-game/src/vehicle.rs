@@ -74,6 +74,8 @@ pub struct Vehicle {
     pub speed: f32,
     /// 1-based forward gear.
     pub gear: usize,
+    /// Accumulated wheel rotation in radians (grows when driving forward).
+    pub wheel_spin: f32,
     steer: f32,
     /// Distance from the model origin to its lowest point.
     pub ride_height: f32,
@@ -81,7 +83,12 @@ pub struct Vehicle {
 
 impl Vehicle {
     pub fn new(params: Params, pos: Vec3, heading: f32, ride_height: f32) -> Self {
-        Self { params, pos, heading, pitch: 0.0, roll: 0.0, speed: 0.0, gear: 1, steer: 0.0, ride_height }
+        Self { params, pos, heading, pitch: 0.0, roll: 0.0, speed: 0.0, gear: 1, wheel_spin: 0.0, steer: 0.0, ride_height }
+    }
+
+    /// Current steering angle of the front wheels in radians, positive to the left.
+    pub fn steer_angle(&self) -> f32 {
+        self.steer
     }
 
     pub fn forward(&self) -> Vec3 {
@@ -146,6 +153,7 @@ impl Vehicle {
             self.speed = 0.0;
         }
 
+        self.wheel_spin += self.speed / p.wheel_radius * dt;
         self.heading += self.speed / p.wheelbase() * self.steer.tan() * dt;
         let fwd = self.forward();
         self.pos.x += fwd.x * self.speed * dt;

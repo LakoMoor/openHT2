@@ -29,7 +29,41 @@ fn parse_material(token: &str) -> Option<(&str, usize)> {
     Some((kind, w.next()?.parse().ok()?))
 }
 
+/// Load a model and the textures and materials of its `.res`, with the geometry of the whole
+/// file (see [`load`] to pick a part). Several parts can share one `Scene`'s textures.
 pub fn load(b3d_path: &Path, only: Option<&str>) -> Result<Scene, String> {
+    let (model, mut scene) = load_assets(b3d_path)?;
+    let batches = model.triangles_in(only);
+    if batches.is_empty() {
+        return Err(match only {
+            Some(n) => format!("no triangles under a block named {n:?}"),
+            None => "model has no triangles".into(),
+        });
+    }
+    scene.set_batches(batches);
+    Ok(scene)
+}
+
+impl Scene {
+    /// Replace the geometry and recompute the bounds.
+    pub fn set_batches(&mut self, batches: Vec<b3d::Batch>) {
+        let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
+        for v in batches.iter().flat_map(|b| &b.verts) {
+            for i in 0..3 {
+                lo[i] = lo[i].min(v.pos[i]);
+                hi[i] = hi[i].max(v.pos[i]);
+            }
+        }
+        if !batches.is_empty() {
+            self.center = std::array::from_fn(|i| (lo[i] + hi[i]) / 2.0);
+            self.radius = (0..3).map(|i| (hi[i] - lo[i]) / 2.0).fold(0.0f32, f32::max).max(0.001);
+        }
+        self.batches = batches;
+    }
+}
+
+/// The parsed model plus a `Scene` holding its textures and materials but no geometry yet.
+pub fn load_assets(b3d_path: &Path) -> Result<(b3d::B3d, Scene), String> {
     let model = b3d::parse(&fs::read(b3d_path).map_err(|e| format!("{}: {e}", b3d_path.display()))?)
         .map_err(|e| e.to_string())?;
 
@@ -97,23 +131,9 @@ pub fn load(b3d_path: &Path, only: Option<&str>) -> Result<Scene, String> {
         })
         .collect();
 
-    let batches = model.triangles_in(only);
-    let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
-    for v in batches.iter().flat_map(|b| &b.verts) {
-        for i in 0..3 {
-            lo[i] = lo[i].min(v.pos[i]);
-            hi[i] = hi[i].max(v.pos[i]);
-        }
-    }
-    if batches.is_empty() {
-        return Err(match only {
-            Some(n) => format!("no triangles under a block named {n:?}"),
-            None => "model has no triangles".into(),
-        });
-    }
-    let center = std::array::from_fn(|i| (lo[i] + hi[i]) / 2.0);
-    let radius = (0..3).map(|i| (hi[i] - lo[i]) / 2.0).fold(0.0f32, |a, b| a.max(b)).max(0.001);
-    Ok(Scene { textures, looks, batches, material_names: model.materials, center, radius })
+    let material_names = model.materials.clone();
+    let scene = Scene { textures, looks, batches: Vec::new(), material_names, center: [0.0; 3], radius: 1.0 };
+    Ok((model, scene))
 }
 
 /// Case-insensitive sibling with the same stem (`aa.b3d` -> `aa.res` / `AA.RES`).

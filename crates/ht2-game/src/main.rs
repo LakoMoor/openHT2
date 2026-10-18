@@ -29,7 +29,7 @@ struct World {
     ground: Ground,
     vehicle: Vehicle,
     world_scenes: Vec<Scene>,
-    truck_scene: Scene,
+    truck: Truck,
     spawn: (Vec3, f32, f32),
 }
 
@@ -83,18 +83,72 @@ fn load_scenes(dir: &Path, map: &str) -> Result<(Vec<Scene>, PathBuf), String> {
     }
 }
 
-fn truck_params(dir: &Path, prefix: &str) -> Result<Params, String> {
+/// One wheel: where it sits on the body and whether the steering turns it.
+struct Wheel {
+    /// Space of the wheel in body coordinates (axes are the columns).
+    mount: Mat4,
+    steered: bool,
+    /// +1 if the wheel axle points along the body X axis, -1 if the mount mirrors it.
+    spin_sign: f32,
+}
+
+/// The truck model split into the body and one part per wheel.
+struct Truck {
+    params: Params,
+    scene: Scene,
+    wheel_parts: Vec<Vec<b3d::Batch>>,
+    wheels: Vec<Wheel>,
+    ride_height: f32,
+}
+
+fn load_truck(dir: &Path, prefix: &str) -> Result<Truck, String> {
     let techs = tech::parse(&fs::read(dir.join("vehicle.tech")).map_err(|e| format!("vehicle.tech: {e}"))?)
         .map_err(|e| e.to_string())?;
     let t = techs
         .iter()
         .find(|t| t.prefix.eq_ignore_ascii_case(prefix))
         .ok_or_else(|| format!("no vehicle with model prefix {prefix:?} in vehicle.tech"))?;
-    let model = b3d::parse(&fs::read(dir.join("COMMON/TRUCKS.B3D")).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
-    let wheels: Vec<Vec3> = (0..8).map_while(|i| model.space_origin(&format!("{}Wheel{i}Space", t.prefix)).map(Vec3::from)).collect();
-    if wheels.len() < 2 {
-        return Err(format!("could not find the wheel positions of {prefix:?}"));
+    let (model, mut scene) = scene::load_assets(&dir.join("COMMON/TRUCKS.B3D"))?;
+
+    // Wheels are separate groups placed by `<prefix>Wheel<N>Space` links.
+    let mut wheels = Vec::new();
+    let mut wheel_groups = Vec::new();
+    let mut wheel_parts = Vec::new();
+    for i in 0..8 {
+        let space = format!("{}Wheel{i}Space", t.prefix);
+        let (Some((axes, pos)), Some(group)) = (model.space(&space), model.linked_group(&space)) else { break };
+        let axes = axes.map(Vec3::from);
+        wheel_parts.push(model.group_triangles(group));
+        wheel_groups.push(group.to_owned());
+        wheels.push(Wheel {
+            mount: Mat4::from_cols(axes[0].extend(0.0), axes[1].extend(0.0), axes[2].extend(0.0), Vec3::from(pos).extend(1.0)),
+            steered: t.steering_wheels[i],
+            spin_sign: if axes[0].x < 0.0 { -1.0 } else { 1.0 },
+        });
     }
+    if wheels.len() < 2 {
+        return Err(format!("could not find the wheels of {prefix:?}"));
+    }
+    let skip: Vec<&str> = wheel_groups.iter().map(String::as_str).collect();
+    let body = model.triangles_skipping(Some(&t.prefix), &skip);
+    if body.is_empty() {
+        return Err(format!("no model blocks named {:?}", t.prefix));
+    }
+    scene.set_batches(body);
+
+    // The lowest point of a wheel in body coordinates sets the ride height.
+    let low = wheel_parts
+        .iter()
+        .zip(&wheels)
+        .flat_map(|(p, w)| p.iter().flat_map(|b| &b.verts).map(|v| w.mount.transform_point3(Vec3::from(v.pos)).z))
+        .fold(f32::MAX, f32::min);
+
+    let positions: Vec<Vec3> = wheels.iter().map(|w| w.mount.w_axis.truncate()).collect();
+    let params = truck_params(t, &positions)?;
+    Ok(Truck { params, scene, wheel_parts, wheels, ride_height: -low })
+}
+
+fn truck_params(t: &tech::Tech, wheels: &[Vec3]) -> Result<Params, String> {
     let front_y = wheels.iter().map(|w| w.y).fold(f32::MIN, f32::max);
     let rear: Vec<f32> = wheels.iter().map(|w| w.y).filter(|y| *y < front_y - 0.3).collect();
     let rear_y = if rear.is_empty() { front_y - 3.0 } else { rear.iter().sum::<f32>() / rear.len() as f32 };
@@ -116,21 +170,18 @@ fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, Strin
     let (world_scenes, folder) = load_scenes(dir, map)?;
     let scenario = read_scenario(&folder);
     let truck = truck.map(str::to_owned).or(scenario.truck).unwrap_or_else(|| "Kamaz".into());
-    let truck_scene = scene::load(&dir.join("COMMON/TRUCKS.B3D"), Some(&truck))?;
-    let params = truck_params(dir, &truck)?;
+    let truck_model = load_truck(dir, &truck)?;
     let ground = Ground::new(&world_scenes);
-    let (pos, heading) = match scenario.start {
-        Some(p) => {
-            let z = ground.height_at(p.x, p.y, p.z + 200.0, 0.0).unwrap_or(p.z);
-            (Vec3::new(p.x, p.y, z), Ground::road_heading_near(&world_scenes, p))
-        }
+    // The scenario start is only usable if there is ground under it (the menu scenes have none).
+    let start = scenario.start.and_then(|p| ground.height_at(p.x, p.y, p.z + 200.0, 0.0).map(|z| Vec3::new(p.x, p.y, z)));
+    let (pos, heading) = match start {
+        Some(p) => (p, Ground::road_heading_near(&world_scenes, p)),
         None => Ground::spawn_on_road(&world_scenes).ok_or("no road found to spawn on")?,
     };
-    let low = truck_scene.batches.iter().flat_map(|b| b.verts.iter()).map(|v| v.pos[2]).fold(f32::MAX, f32::min);
-    let ride = -low;
+    let ride = truck_model.ride_height;
     println!("{truck}: ground {} triangles, spawn at {pos:?}, heading {heading:.2}, ride height {ride:.2}", ground.triangle_count());
-    let vehicle = Vehicle::new(params, pos, heading, ride);
-    Ok(World { ground, vehicle, world_scenes, truck_scene, spawn: (pos, heading, ride) })
+    let vehicle = Vehicle::new(truck_model.params.clone(), pos, heading, ride);
+    Ok(World { ground, vehicle, world_scenes, truck: truck_model, spawn: (pos, heading, ride) })
 }
 
 fn chase_view_proj(v: &Vehicle, aspect: f32) -> Mat4 {
@@ -188,7 +239,8 @@ fn run() -> Result<(), String> {
             }
             let v = &game.world.vehicle;
             println!("after {seconds}s: pos {:?}, speed {:.1} m/s, gear {}, {:.0} rpm", v.pos, v.speed, v.gear, v.rpm());
-            game.renderer.set_model(game.truck, v.model());
+            game.place_truck();
+            let v = &game.world.vehicle;
             let aspect = size.0 as f32 / size.1 as f32;
             let vp = if overview { overview_view_proj(v, aspect, 1500.0) } else { chase_view_proj(v, aspect) };
             let rgba = game.renderer.screenshot(size, vp);
@@ -206,7 +258,8 @@ fn run() -> Result<(), String> {
 
 struct Game {
     renderer: Renderer,
-    truck: ObjectId,
+    /// Body first, then one object per wheel.
+    truck_objects: Vec<ObjectId>,
     world: World,
 }
 
@@ -215,9 +268,24 @@ impl Game {
         for scene in &world.world_scenes {
             renderer.add(scene);
         }
-        let truck = renderer.add(&world.truck_scene);
-        renderer.set_model(truck, world.vehicle.model());
-        Game { renderer, truck, world }
+        let t = &world.truck;
+        let parts: Vec<&[b3d::Batch]> = std::iter::once(&t.scene.batches[..]).chain(t.wheel_parts.iter().map(|p| &p[..])).collect();
+        let truck_objects = renderer.add_many(&t.scene, &parts);
+        let mut game = Game { renderer, truck_objects, world };
+        game.place_truck();
+        game
+    }
+
+    /// Move the body and wheels to where the vehicle currently is.
+    fn place_truck(&mut self) {
+        let v = &self.world.vehicle;
+        let body = v.model();
+        self.renderer.set_model(self.truck_objects[0], body);
+        for (i, w) in self.world.truck.wheels.iter().enumerate() {
+            let steer = if w.steered { Mat4::from_rotation_z(v.steer_angle()) } else { Mat4::IDENTITY };
+            let spin = Mat4::from_rotation_x(-v.wheel_spin * w.spin_sign);
+            self.renderer.set_model(self.truck_objects[i + 1], body * w.mount * steer * spin);
+        }
     }
 }
 
@@ -304,7 +372,7 @@ impl ApplicationHandler for App {
                     g.game.world.vehicle.step(input, &g.game.world.ground, STEP);
                     self.acc -= STEP;
                 }
-                g.game.renderer.set_model(g.game.truck, g.game.world.vehicle.model());
+                g.game.place_truck();
                 match g.surface.get_current_texture() {
                     Ok(frame) => {
                         let view = frame.texture.create_view(&Default::default());

@@ -401,17 +401,55 @@ impl B3d {
 
     /// Like [`triangles`](Self::triangles) but keeps only the subtrees of blocks named `only`.
     pub fn triangles_in(&self, only: Option<&str>) -> Vec<Batch> {
-        let mut ctx = Ctx { spaces: HashMap::new(), defs: HashMap::new(), targets: HashSet::new(), only };
-        index(&self.nodes, &mut ctx);
+        self.triangles_skipping(only, &[])
+    }
+
+    /// Like [`triangles_in`](Self::triangles_in), leaving out links that instantiate the groups in `skip`.
+    pub fn triangles_skipping(&self, only: Option<&str>, skip: &[&str]) -> Vec<Batch> {
+        let ctx = self.context(only, skip);
         let mut batches: Vec<Batch> = Vec::new();
         for n in &self.nodes {
             collect(n, &Xf::IDENTITY, &[], &ctx, only.is_none(), 0, false, &mut batches);
         }
         batches
     }
+
+    /// Geometry of one prototype group in its own coordinates, without any link transform.
+    pub fn group_triangles(&self, group: &str) -> Vec<Batch> {
+        let ctx = self.context(None, &[]);
+        let mut batches = Vec::new();
+        if let Some(def) = ctx.defs.get(group) {
+            collect(def, &Xf::IDENTITY, &[], &ctx, true, 0, true, &mut batches);
+        }
+        batches
+    }
+
+    /// Transform (axes and origin) of the `Space` block called `name`.
+    pub fn space(&self, name: &str) -> Option<([Vec3; 3], Vec3)> {
+        let ctx = self.context(None, &[]);
+        ctx.spaces.get(name).map(|x| (x.axes, x.pos))
+    }
+
+    /// Name of the group that the first link using space `space` instantiates.
+    pub fn linked_group(&self, space: &str) -> Option<&str> {
+        fn find<'a>(ns: &'a [Node], space: &str) -> Option<&'a str> {
+            ns.iter().find_map(|n| match (n.kind, n.names.as_slice()) {
+                (18, [s, g]) if s == space => Some(g.as_str()),
+                _ => find(&n.children, space),
+            })
+        }
+        find(&self.nodes, space)
+    }
+
+    fn context<'a>(&'a self, only: Option<&'a str>, skip: &'a [&'a str]) -> Ctx<'a> {
+        let mut ctx = Ctx { spaces: HashMap::new(), defs: HashMap::new(), targets: HashSet::new(), only, skip };
+        index(&self.nodes, &mut ctx);
+        ctx
+    }
 }
 
 struct Ctx<'a> {
+    skip: &'a [&'a str],
     spaces: HashMap<&'a str, Xf>,
     /// First block of each name, in file order.
     defs: HashMap<&'a str, &'a Node>,
@@ -470,6 +508,9 @@ fn collect(n: &Node, xf: &Xf, pool: &[Vertex], ctx: &Ctx, emit: bool, depth: u32
         return; // cyclic or absurdly deep link chain
     }
     if let (18, [space, group]) = (n.kind, n.names.as_slice()) {
+        if ctx.skip.contains(&group.as_str()) {
+            return;
+        }
         if let Some(def) = ctx.defs.get(group.as_str()) {
             let at = ctx.spaces.get(space.as_str()).map_or(*xf, |local| xf.then(local));
             collect(def, &at, &[], ctx, emit, depth + 1, true, out);
