@@ -14,11 +14,33 @@ pub struct Ground {
     tris: Vec<[Vec3; 3]>,
 }
 
+fn material_name(scene: &Scene, material: u32) -> String {
+    scene.material_names.get(material as usize).map_or(String::new(), |s| s.to_lowercase())
+}
+
+/// Every triangle of every scene together with the name of its material (lower case).
+fn road_triangles<'a>(scenes: &'a [Scene], name_part: &'a str) -> impl Iterator<Item = [Vec3; 3]> + 'a {
+    scenes
+        .iter()
+        .flat_map(|s| s.batches.iter().map(move |b| (s, b)))
+        .filter(move |(s, b)| material_name(s, b.material).contains(name_part))
+        .flat_map(|(_, b)| b.verts.chunks_exact(3).map(|t| [Vec3::from(t[0].pos), Vec3::from(t[1].pos), Vec3::from(t[2].pos)]))
+}
+
+fn longest_edge(t: &[Vec3; 3]) -> Vec3 {
+    [t[1] - t[0], t[2] - t[1], t[0] - t[2]].into_iter().max_by(|a, b| a.length().total_cmp(&b.length())).unwrap()
+}
+
+/// Heading of a direction: 0 faces +Y and positive turns left, so forward is (-sin h, cos h).
+fn heading_of(dir: Vec3) -> f32 {
+    (-dir.x).atan2(dir.y)
+}
+
 impl Ground {
-    pub fn new(scene: &Scene) -> Self {
+    pub fn new(scenes: &[Scene]) -> Self {
         let mut tris = Vec::new();
-        for b in &scene.batches {
-            let name = scene.material_names.get(b.material as usize).map_or("", |s| s.as_str()).to_lowercase();
+        for (scene, b) in scenes.iter().flat_map(|s| s.batches.iter().map(move |b| (s, b))) {
+            let name = material_name(scene, b.material);
             if NOT_GROUND.iter().any(|w| name.contains(w)) {
                 continue;
             }
@@ -36,7 +58,7 @@ impl Ground {
             lo = (lo.0.min(p.x), lo.1.min(p.y));
             hi = (hi.0.max(p.x), hi.1.max(p.y));
         }
-        let cell = 8.0;
+        let cell = 16.0;
         let dims = (((hi.0 - lo.0) / cell) as usize + 1, ((hi.1 - lo.1) / cell) as usize + 1);
         let mut cells = vec![Vec::new(); dims.0 * dims.1];
         for (i, t) in tris.iter().enumerate() {
@@ -82,17 +104,21 @@ impl Ground {
         best
     }
 
-    /// A point on a road triangle and the direction of its longest edge, used as a spawn position.
-    pub fn spawn_on(scene: &Scene, name_part: &str) -> Option<(Vec3, f32)> {
-        let batch = scene.batches.iter().find(|b| {
-            scene.material_names.get(b.material as usize).is_some_and(|n| n.to_lowercase().contains(name_part))
-        })?;
-        let tris: Vec<_> = batch.verts.chunks_exact(3).collect();
+    /// Heading of the road triangle closest to `pos`, or 0 when there are no roads.
+    pub fn road_heading_near(scenes: &[Scene], pos: Vec3) -> f32 {
+        road_triangles(scenes, "road")
+            .map(|t| {
+                let c = (t[0] + t[1] + t[2]) / 3.0;
+                ((c.x - pos.x).hypot(c.y - pos.y), t)
+            })
+            .min_by(|a, b| a.0.total_cmp(&b.0))
+            .map_or(0.0, |(_, t)| heading_of(longest_edge(&t)))
+    }
+
+    /// A point in the middle of the road surface and its heading, as a fallback spawn position.
+    pub fn spawn_on_road(scenes: &[Scene]) -> Option<(Vec3, f32)> {
+        let tris: Vec<_> = road_triangles(scenes, "road").collect();
         let t = tris.get(tris.len() / 2)?;
-        let p: Vec<Vec3> = t.iter().map(|v| Vec3::from(v.pos)).collect();
-        let centre = (p[0] + p[1] + p[2]) / 3.0;
-        let edge = [(p[1] - p[0]), (p[2] - p[1]), (p[0] - p[2])].into_iter().max_by(|a, b| a.length().total_cmp(&b.length()))?;
-        // heading 0 faces +Y; forward is (-sin h, cos h).
-        Some((centre, (-edge.x).atan2(edge.y)))
+        Some(((t[0] + t[1] + t[2]) / 3.0, heading_of(longest_edge(t))))
     }
 }

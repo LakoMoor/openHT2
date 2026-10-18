@@ -28,7 +28,7 @@ cargo run --release -p ht2-tool -- way-ls "<папка игры>/ENV/aa.way"
 cargo run --release -p ht2-tool -- txr-png "<папка игры>/ENV/aa.res" out/
 cargo run --release -p ht2-view -- "<папка игры>/ENV/aa.b3d" --only Combinat
 ```
-Игровой прототип: `cargo run --release -p ht2-game -- "<папка игры>" --map MENV/dr --truck Kamaz`. Управление: W/S или стрелки — газ и тормоз, A/D — руль, пробел — тормоз, R — вернуть на старт, Esc — выход.
+Игровой прототип: `cargo run --release -p ht2-game -- "<папка игры>" --map ENV`. `--map ENV` собирает весь открытый мир из 39 районов, старт и машина берутся из `GAME.CNF` (аэропорт, ЗИЛ); для отдельной локации — `--map MENV/dr --truck Kamaz`. Управление: W/S или стрелки — газ и тормоз, A/D — руль, пробел — тормоз, R — вернуть на старт, Esc — выход.
 
 В просмотрщике: левая кнопка мыши вращает камеру, колесо приближает. Параметры `--shot файл.png` (снимок без окна), `--yaw`, `--pitch`, `--size ШxВ`.
 

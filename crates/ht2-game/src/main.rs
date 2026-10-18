@@ -3,9 +3,16 @@ mod vehicle;
 
 use glam::{Mat4, Vec3};
 use ground::Ground;
+use ht2_formats::{b3d, sdte, sexpr, tech};
 use ht2_render::{request_device, save_png, scene, ObjectId, Renderer, Scene};
-use std::{collections::HashSet, fs, path::{Path, PathBuf}, process::ExitCode, sync::Arc, time::Instant};
-use ht2_formats::{b3d, tech};
+use std::{
+    collections::HashSet,
+    fs,
+    path::{Path, PathBuf},
+    process::ExitCode,
+    sync::Arc,
+    time::Instant,
+};
 use vehicle::{Input, Params, Vehicle};
 use winit::{
     application::ApplicationHandler,
@@ -15,15 +22,65 @@ use winit::{
     window::{Window, WindowId},
 };
 
-const USAGE: &str = "usage: ht2-game <game dir> [--map MENV/dr] [--truck Kamaz] [--shot out.png [--seconds N]]";
+const USAGE: &str = "usage: ht2-game <game dir> [--map MENV/dr | ENV] [--truck Kamaz] [--shot out.png [--seconds N] [--overview]]";
 const STEP: f32 = 1.0 / 120.0;
 
 struct World {
     ground: Ground,
     vehicle: Vehicle,
-    world_scene: Scene,
+    world_scenes: Vec<Scene>,
     truck_scene: Scene,
     spawn: (Vec3, f32, f32),
+}
+
+/// What a `GAME.CNF` says about where and as what the player starts.
+#[derive(Default)]
+struct Scenario {
+    start: Option<Vec3>,
+    truck: Option<String>,
+}
+
+fn read_scenario(dir: &Path) -> Scenario {
+    let Ok(raw) = fs::read(dir.join("GAME.CNF")) else { return Scenario::default() };
+    let Ok(plain) = sdte::decrypt(&raw) else { return Scenario::default() };
+    let Ok(top) = sexpr::parse(&sdte::cp1251_to_string(&plain)) else { return Scenario::default() };
+    let Some(root) = top.first() else { return Scenario::default() };
+    let start = root.find_form("startposition").and_then(|v| match v {
+        [x, y, z] => Some(Vec3::new(x.as_f32()?, y.as_f32()?, z.as_f32()?)),
+        _ => None,
+    });
+    let truck = root
+        .find_form("playertypes")
+        .and_then(|l| l.iter().find_map(|c| c.form("live")))
+        .and_then(|live| live.get(1)?.as_text().map(str::to_owned));
+    Scenario { start, truck }
+}
+
+/// `map` is either a model path without extension (one scene) or a folder holding many.
+fn load_scenes(dir: &Path, map: &str) -> Result<(Vec<Scene>, PathBuf), String> {
+    let path = dir.join(map);
+    if path.is_dir() {
+        let mut files: Vec<_> = fs::read_dir(&path)
+            .map_err(|e| e.to_string())?
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("b3d")))
+            .collect();
+        files.sort();
+        let mut scenes = Vec::new();
+        for f in files {
+            match scene::load(&f, None) {
+                Ok(s) => scenes.push(s),
+                Err(e) => eprintln!("skipping {}: {e}", f.display()),
+            }
+        }
+        println!("loaded {} scenes from {}", scenes.len(), path.display());
+        Ok((scenes, path))
+    } else {
+        let scene = scene::load(&path.with_extension("b3d"), None)?;
+        let folder = path.parent().map(Path::to_path_buf).unwrap_or_else(|| dir.to_path_buf());
+        Ok((vec![scene], folder))
+    }
 }
 
 fn truck_params(dir: &Path, prefix: &str) -> Result<Params, String> {
@@ -44,29 +101,49 @@ fn truck_params(dir: &Path, prefix: &str) -> Result<Params, String> {
     let half_track = wheels.iter().map(|w| w.x.abs()).fold(0.0, f32::max);
     println!(
         "{}: {:.0} kg, {} hp, {} gears, {:.0} N*m, wheelbase {:.2} m, track {:.2} m",
-        t.name, t.mass, t.horse_power, t.num_gears, t.max_torque, front_y - rear_y, half_track * 2.0
+        t.name,
+        t.mass,
+        t.horse_power,
+        t.num_gears,
+        t.max_torque,
+        front_y - rear_y,
+        half_track * 2.0
     );
     Ok(Params::from_tech(t, front_y, rear_y, half_track))
 }
 
-fn load_world(dir: &Path, map: &str, truck: &str) -> Result<World, String> {
-    let world_scene = scene::load(&dir.join(format!("{map}.b3d")), None)?;
-    let truck_scene = scene::load(&dir.join("COMMON/TRUCKS.B3D"), Some(truck))?;
-    let params = truck_params(dir, truck)?;
-    let ground = Ground::new(&world_scene);
-    let (pos, heading) = Ground::spawn_on(&world_scene, "road").ok_or("no road found to spawn on")?;
+fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, String> {
+    let (world_scenes, folder) = load_scenes(dir, map)?;
+    let scenario = read_scenario(&folder);
+    let truck = truck.map(str::to_owned).or(scenario.truck).unwrap_or_else(|| "Kamaz".into());
+    let truck_scene = scene::load(&dir.join("COMMON/TRUCKS.B3D"), Some(&truck))?;
+    let params = truck_params(dir, &truck)?;
+    let ground = Ground::new(&world_scenes);
+    let (pos, heading) = match scenario.start {
+        Some(p) => {
+            let z = ground.height_at(p.x, p.y, p.z + 200.0, 0.0).unwrap_or(p.z);
+            (Vec3::new(p.x, p.y, z), Ground::road_heading_near(&world_scenes, p))
+        }
+        None => Ground::spawn_on_road(&world_scenes).ok_or("no road found to spawn on")?,
+    };
     let low = truck_scene.batches.iter().flat_map(|b| b.verts.iter()).map(|v| v.pos[2]).fold(f32::MAX, f32::min);
     let ride = -low;
-    println!("ground: {} triangles, spawn at {pos:?}, heading {heading:.2}, ride height {ride:.2}", ground.triangle_count());
+    println!("{truck}: ground {} triangles, spawn at {pos:?}, heading {heading:.2}, ride height {ride:.2}", ground.triangle_count());
     let vehicle = Vehicle::new(params, pos, heading, ride);
-    Ok(World { ground, vehicle, world_scene, truck_scene, spawn: (pos, heading, ride) })
+    Ok(World { ground, vehicle, world_scenes, truck_scene, spawn: (pos, heading, ride) })
 }
 
 fn chase_view_proj(v: &Vehicle, aspect: f32) -> Mat4 {
     let fwd = v.forward();
     let eye = v.pos - fwd * 16.0 + Vec3::Z * 6.5;
     let target = v.pos + fwd * 10.0 + Vec3::Z * 1.5;
-    Mat4::perspective_rh(60f32.to_radians(), aspect, 0.3, 4000.0) * Mat4::look_at_rh(eye, target, Vec3::Z)
+    Mat4::perspective_rh(60f32.to_radians(), aspect, 0.3, 6000.0) * Mat4::look_at_rh(eye, target, Vec3::Z)
+}
+
+/// Looking straight down at the vehicle from `height` metres.
+fn overview_view_proj(v: &Vehicle, aspect: f32, height: f32) -> Mat4 {
+    let eye = v.pos + Vec3::Z * height;
+    Mat4::perspective_rh(50f32.to_radians(), aspect, 1.0, height * 4.0) * Mat4::look_at_rh(eye, v.pos, Vec3::Y)
 }
 
 fn main() -> ExitCode {
@@ -82,19 +159,20 @@ fn main() -> ExitCode {
 fn run() -> Result<(), String> {
     let mut args = std::env::args().skip(1);
     let mut dir = None;
-    let (mut map, mut truck, mut shot, mut seconds) = ("MENV/dr".to_string(), "Kamaz".to_string(), None, 10.0f32);
+    let (mut map, mut truck, mut shot, mut seconds, mut overview) = ("MENV/dr".to_string(), None, None, 10.0f32, false);
     while let Some(a) = args.next() {
         let mut val = || args.next().ok_or(USAGE.to_string());
         match a.as_str() {
             "--map" => map = val()?,
-            "--truck" => truck = val()?,
+            "--truck" => truck = Some(val()?),
             "--shot" => shot = Some(PathBuf::from(val()?)),
             "--seconds" => seconds = val()?.parse().map_err(|_| USAGE)?,
+            "--overview" => overview = true,
             _ => dir = Some(PathBuf::from(a)),
         }
     }
     let dir = dir.ok_or(USAGE)?;
-    let world = load_world(&dir, &map, &truck)?;
+    let world = load_world(&dir, &map, truck.as_deref())?;
     let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
 
     match shot {
@@ -108,9 +186,12 @@ fn run() -> Result<(), String> {
                 game.world.vehicle.step(Input { steer: (t * 0.6).sin() * 0.25, throttle: 1.0, brake: 0.0 }, &game.world.ground, STEP);
                 t += STEP;
             }
-            println!("after {seconds}s: pos {:?}, speed {:.1} m/s, gear {}, {:.0} rpm", game.world.vehicle.pos, game.world.vehicle.speed, game.world.vehicle.gear, game.world.vehicle.rpm());
-            game.renderer.set_model(game.truck, game.world.vehicle.model());
-            let rgba = game.renderer.screenshot(size, chase_view_proj(&game.world.vehicle, size.0 as f32 / size.1 as f32));
+            let v = &game.world.vehicle;
+            println!("after {seconds}s: pos {:?}, speed {:.1} m/s, gear {}, {:.0} rpm", v.pos, v.speed, v.gear, v.rpm());
+            game.renderer.set_model(game.truck, v.model());
+            let aspect = size.0 as f32 / size.1 as f32;
+            let vp = if overview { overview_view_proj(v, aspect, 1500.0) } else { chase_view_proj(v, aspect) };
+            let rgba = game.renderer.screenshot(size, vp);
             save_png(&path, size, &rgba)?;
             println!("wrote {}", path.display());
             Ok(())
@@ -131,7 +212,9 @@ struct Game {
 
 impl Game {
     fn new(mut renderer: Renderer, world: World) -> Self {
-        renderer.add(&world.world_scene);
+        for scene in &world.world_scenes {
+            renderer.add(scene);
+        }
         let truck = renderer.add(&world.truck_scene);
         renderer.set_model(truck, world.vehicle.model());
         Game { renderer, truck, world }
