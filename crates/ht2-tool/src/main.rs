@@ -14,6 +14,7 @@ fn main() -> ExitCode {
     let r = match cmd.as_str() {
         "res-ls" => res_ls(&data),
         "way-ls" => way_ls(&data),
+        "way-rooms" => way_rooms(&data),
         "b3d-ls" => b3d_ls(&data),
         "tech-ls" => tech_ls(&data),
         "sdte-cat" => ht2_formats::sdte::decrypt(&data).map_err(|e| e.to_string()).map(|b| println!("{}", ht2_formats::sdte::cp1251_to_string(&b))),
@@ -118,6 +119,20 @@ fn tech_ls(data: &[u8]) -> Result<(), String> {
     for t in tech::parse(data).map_err(|e| e.to_string())? {
         println!("{:<20} {:<14} {:>6.0} {:>6} {:>7} {:>7.2} {:>6}", t.name, t.prefix, t.mass, t.horse_power, t.price, t.wheel_radius, t.num_gears);
     }
+    Ok(())
+}
+
+fn way_rooms(data: &[u8]) -> Result<(), String> {
+    let chunks = way::parse(data).map_err(|e| e.to_string())?;
+    let (mut nodes, mut segs, mut length) = (0, 0, 0.0f64);
+    for r in way::rooms(&chunks) {
+        let len: f64 = r.segments.iter().map(|s| s.points.windows(2).map(|w| ((w[1][0] - w[0][0]).powi(2) + (w[1][1] - w[0][1]).powi(2)).sqrt()).sum::<f64>()).sum();
+        println!("{:<16} {:>4} nodes {:>4} segments {:>8.0} m of road", r.name, r.nodes.len(), r.segments.len(), len);
+        nodes += r.nodes.len();
+        segs += r.segments.len();
+        length += len;
+    }
+    println!("total: {nodes} nodes, {segs} segments, {length:.0} m");
     Ok(())
 }
 
