@@ -12,7 +12,7 @@
 //! Structure cross-checked against the MIT-licensed reRNR/RNRFileFormats descriptions.
 
 use crate::{Error, Result};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub type Vec3 = [f32; 3];
 
@@ -381,45 +381,49 @@ pub struct Batch {
 impl B3d {
     /// Flatten the node tree into triangles grouped by material.
     ///
-    /// `Space` blocks only define transforms. A type-18 "link" block names a space and a group;
-    /// the transform then applies to the group of that name and everything below it.
+    /// Groups are prototypes: a type-18 "link" block names a `Space` (a transform) and a group,
+    /// and instantiates that group there. Groups that some link refers to are therefore drawn
+    /// only through their links, never in place.
     pub fn triangles(&self) -> Vec<Batch> {
         self.triangles_in(None)
     }
 
     /// Like [`triangles`](Self::triangles) but keeps only the subtrees of blocks named `only`.
     pub fn triangles_in(&self, only: Option<&str>) -> Vec<Batch> {
-        let mut spaces = HashMap::new();
-        let mut links = HashMap::new();
-        find_spaces(&self.nodes, &mut spaces, &mut links);
-        let ctx = Ctx { spaces, links, only: only.map(str::to_owned) };
+        let mut ctx = Ctx { spaces: HashMap::new(), defs: HashMap::new(), targets: HashSet::new(), only };
+        index(&self.nodes, &mut ctx);
         let mut batches: Vec<Batch> = Vec::new();
         for n in &self.nodes {
-            collect(n, &Xf::IDENTITY, &[], &ctx, only.is_none(), &mut batches);
+            collect(n, &Xf::IDENTITY, &[], &ctx, only.is_none(), 0, false, &mut batches);
         }
         batches
     }
 }
 
-struct Ctx {
-    spaces: HashMap<String, Xf>,
-    /// group name -> space name
-    links: HashMap<String, String>,
-    only: Option<String>,
+struct Ctx<'a> {
+    spaces: HashMap<&'a str, Xf>,
+    /// First block of each name, in file order.
+    defs: HashMap<&'a str, &'a Node>,
+    /// Names of groups that some link instantiates.
+    targets: HashSet<&'a str>,
+    only: Option<&'a str>,
 }
 
-fn find_spaces(ns: &[Node], spaces: &mut HashMap<String, Xf>, links: &mut HashMap<String, String>) {
+fn index<'a>(ns: &'a [Node], ctx: &mut Ctx<'a>) {
     for n in ns {
         match (&n.data, n.kind, n.names.as_slice()) {
             (Data::Space { axes, pos }, _, _) => {
-                spaces.insert(n.name.clone(), Xf { axes: *axes, pos: *pos });
+                ctx.spaces.insert(&n.name, Xf { axes: *axes, pos: *pos });
             }
-            (_, 18, [space, group]) => {
-                links.insert(group.clone(), space.clone());
+            (_, 18, [_, group]) => {
+                ctx.targets.insert(group);
+            }
+            _ if !n.name.is_empty() => {
+                ctx.defs.entry(&n.name).or_insert(n);
             }
             _ => {}
         }
-        find_spaces(&n.children, spaces, links);
+        index(&n.children, ctx);
     }
 }
 
@@ -449,12 +453,22 @@ impl Xf {
     }
 }
 
-fn collect(n: &Node, xf: &Xf, pool: &[Vertex], ctx: &Ctx, emit: bool, out: &mut Vec<Batch>) {
-    let emit = emit || ctx.only.as_deref() == Some(n.name.as_str());
-    let mut xf = *xf;
-    if let Some(local) = ctx.links.get(&n.name).and_then(|sp| ctx.spaces.get(sp)) {
-        xf = xf.then(local);
+#[allow(clippy::too_many_arguments)]
+fn collect(n: &Node, xf: &Xf, pool: &[Vertex], ctx: &Ctx, emit: bool, depth: u32, via_link: bool, out: &mut Vec<Batch>) {
+    if depth > 24 {
+        return; // cyclic or absurdly deep link chain
     }
+    if let (18, [space, group]) = (n.kind, n.names.as_slice()) {
+        if let Some(def) = ctx.defs.get(group.as_str()) {
+            let at = ctx.spaces.get(space.as_str()).map_or(*xf, |local| xf.then(local));
+            collect(def, &at, &[], ctx, emit, depth + 1, true, out);
+        }
+        return;
+    }
+    if !via_link && ctx.targets.contains(n.name.as_str()) {
+        return; // a prototype: drawn only where a link places it
+    }
+    let emit = emit || ctx.only == Some(n.name.as_str());
     let mut pool = pool;
     match &n.data {
         Data::Verts(v) => pool = v,
@@ -479,7 +493,7 @@ fn collect(n: &Node, xf: &Xf, pool: &[Vertex], ctx: &Ctx, emit: bool, out: &mut 
         _ => {}
     }
     for c in &n.children {
-        collect(c, &xf, pool, ctx, emit, out);
+        collect(c, xf, pool, ctx, emit, depth, false, out);
     }
 }
 
