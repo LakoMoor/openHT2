@@ -27,6 +27,12 @@ struct VOut { @builtin(position) pos: vec4<f32>, @location(0) uv: vec2<f32> };
     if (c.a < 0.5) { discard; }
     return vec4<f32>(c.rgb, 1.0);
 }
+
+@fragment fn fs_blend(i: VOut) -> @location(0) vec4<f32> {
+    let c = textureSample(tex, smp, i.uv) * tint;
+    if (c.a < 0.01) { discard; }
+    return c;
+}
 "#;
 
 #[repr(C)]
@@ -37,6 +43,8 @@ struct GpuVertex {
 }
 
 struct DrawBatch {
+    /// Textures with partial transparency are drawn in a second, blended pass.
+    blend: bool,
     vbuf: wgpu::Buffer,
     count: u32,
     bind: wgpu::BindGroup,
@@ -56,6 +64,7 @@ pub struct Renderer {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pipeline: wgpu::RenderPipeline,
+    pipeline_blend: wgpu::RenderPipeline,
     obj_layout: wgpu::BindGroupLayout,
     mat_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
@@ -110,37 +119,41 @@ impl Renderer {
             bind_group_layouts: &[&obj_layout, &mat_layout],
             push_constant_ranges: &[],
         });
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("main"),
-            layout: Some(&layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs"),
-                compilation_options: Default::default(),
-                buffers: &[wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<GpuVertex>() as u64,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2],
-                }],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs"),
-                compilation_options: Default::default(),
-                targets: &[Some(format.into())],
-            }),
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: Default::default(),
-                bias: Default::default(),
-            }),
-            multisample: Default::default(),
-            multiview: None,
-            cache: None,
-        });
+        let make_pipeline = |entry: &str, blend: Option<wgpu::BlendState>, depth_write: bool| {
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some(entry),
+                layout: Some(&layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: Some("vs"),
+                    compilation_options: Default::default(),
+                    buffers: &[wgpu::VertexBufferLayout {
+                        array_stride: std::mem::size_of::<GpuVertex>() as u64,
+                        step_mode: wgpu::VertexStepMode::Vertex,
+                        attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2],
+                    }],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: Some(entry),
+                    compilation_options: Default::default(),
+                    targets: &[Some(wgpu::ColorTargetState { format, blend, write_mask: wgpu::ColorWrites::ALL })],
+                }),
+                primitive: wgpu::PrimitiveState::default(),
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: wgpu::TextureFormat::Depth32Float,
+                    depth_write_enabled: depth_write,
+                    depth_compare: wgpu::CompareFunction::Less,
+                    stencil: Default::default(),
+                    bias: Default::default(),
+                }),
+                multisample: Default::default(),
+                multiview: None,
+                cache: None,
+            })
+        };
+        let pipeline = make_pipeline("fs", None, true);
+        let pipeline_blend = make_pipeline("fs_blend", Some(wgpu::BlendState::ALPHA_BLENDING), false);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
             address_mode_v: wgpu::AddressMode::Repeat,
@@ -149,7 +162,7 @@ impl Renderer {
             ..Default::default()
         });
         let white = upload(&device, &queue, 1, 1, &[255; 4]);
-        Self { device, queue, pipeline, obj_layout, mat_layout, sampler, white, objects: Vec::new(), depth: None }
+        Self { device, queue, pipeline, pipeline_blend, obj_layout, mat_layout, sampler, white, objects: Vec::new(), depth: None }
     }
 
     /// Upload a scene's geometry and textures and return a handle to place it with [`set_model`](Self::set_model).
@@ -160,8 +173,12 @@ impl Renderer {
             .iter()
             .map(|b| {
                 let verts: Vec<GpuVertex> = b.verts.iter().map(|v| GpuVertex { pos: v.pos, uv: v.uv }).collect();
+                let mut blend = false;
                 let (view, tint) = match scene.looks.get(b.material as usize) {
-                    Some(Look::Texture(i)) => (&tex_views[*i], [1.0; 4]),
+                    Some(Look::Texture(i)) => {
+                        blend = scene.textures[*i].is_translucent();
+                        (&tex_views[*i], [1.0; 4])
+                    }
                     Some(Look::Flat(c)) => (&self.white, [c[0], c[1], c[2], 1.0]),
                     None => (&self.white, [1.0, 0.0, 1.0, 1.0]),
                 };
@@ -180,6 +197,7 @@ impl Renderer {
                     ],
                 });
                 DrawBatch {
+                    blend,
                     vbuf: self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                         label: None,
                         contents: bytemuck::cast_slice(&verts),
@@ -253,13 +271,15 @@ impl Renderer {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-            pass.set_pipeline(&self.pipeline);
-            for o in &self.objects {
-                pass.set_bind_group(0, &o.bind, &[]);
-                for b in &o.batches {
-                    pass.set_bind_group(1, &b.bind, &[]);
-                    pass.set_vertex_buffer(0, b.vbuf.slice(..));
-                    pass.draw(0..b.count, 0..1);
+            for blended in [false, true] {
+                pass.set_pipeline(if blended { &self.pipeline_blend } else { &self.pipeline });
+                for o in &self.objects {
+                    pass.set_bind_group(0, &o.bind, &[]);
+                    for b in o.batches.iter().filter(|b| b.blend == blended) {
+                        pass.set_bind_group(1, &b.bind, &[]);
+                        pass.set_vertex_buffer(0, b.vbuf.slice(..));
+                        pass.draw(0..b.count, 0..1);
+                    }
                 }
             }
         }

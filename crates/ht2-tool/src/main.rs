@@ -16,6 +16,7 @@ fn main() -> ExitCode {
         "way-ls" => way_ls(&data),
         "b3d-ls" => b3d_ls(&data),
         "tech-ls" => tech_ls(&data),
+        "sdte-cat" => ht2_formats::sdte::decrypt(&data).map_err(|e| e.to_string()).map(|b| println!("{}", ht2_formats::sdte::cp1251_to_string(&b))),
         "b3d-batches" => b3d_batches(&data),
         "txr-png" => match args.get(2) {
             Some(out) => txr_png(&data, out),
