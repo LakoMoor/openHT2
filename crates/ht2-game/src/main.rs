@@ -4,8 +4,9 @@ mod vehicle;
 use glam::{Mat4, Vec3};
 use ground::Ground;
 use ht2_render::{request_device, save_png, scene, ObjectId, Renderer, Scene};
-use std::{collections::HashSet, path::PathBuf, process::ExitCode, sync::Arc, time::Instant};
-use vehicle::{Input, Vehicle};
+use std::{collections::HashSet, fs, path::{Path, PathBuf}, process::ExitCode, sync::Arc, time::Instant};
+use ht2_formats::{b3d, tech};
+use vehicle::{Input, Params, Vehicle};
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -25,15 +26,39 @@ struct World {
     spawn: (Vec3, f32, f32),
 }
 
-fn load_world(dir: &PathBuf, map: &str, truck: &str) -> Result<World, String> {
+fn truck_params(dir: &Path, prefix: &str) -> Result<Params, String> {
+    let techs = tech::parse(&fs::read(dir.join("vehicle.tech")).map_err(|e| format!("vehicle.tech: {e}"))?)
+        .map_err(|e| e.to_string())?;
+    let t = techs
+        .iter()
+        .find(|t| t.prefix.eq_ignore_ascii_case(prefix))
+        .ok_or_else(|| format!("no vehicle with model prefix {prefix:?} in vehicle.tech"))?;
+    let model = b3d::parse(&fs::read(dir.join("COMMON/TRUCKS.B3D")).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    let wheels: Vec<Vec3> = (0..8).map_while(|i| model.space_origin(&format!("{}Wheel{i}Space", t.prefix)).map(Vec3::from)).collect();
+    if wheels.len() < 2 {
+        return Err(format!("could not find the wheel positions of {prefix:?}"));
+    }
+    let front_y = wheels.iter().map(|w| w.y).fold(f32::MIN, f32::max);
+    let rear: Vec<f32> = wheels.iter().map(|w| w.y).filter(|y| *y < front_y - 0.3).collect();
+    let rear_y = if rear.is_empty() { front_y - 3.0 } else { rear.iter().sum::<f32>() / rear.len() as f32 };
+    let half_track = wheels.iter().map(|w| w.x.abs()).fold(0.0, f32::max);
+    println!(
+        "{}: {:.0} kg, {} hp, {} gears, {:.0} N*m, wheelbase {:.2} m, track {:.2} m",
+        t.name, t.mass, t.horse_power, t.num_gears, t.max_torque, front_y - rear_y, half_track * 2.0
+    );
+    Ok(Params::from_tech(t, front_y, rear_y, half_track))
+}
+
+fn load_world(dir: &Path, map: &str, truck: &str) -> Result<World, String> {
     let world_scene = scene::load(&dir.join(format!("{map}.b3d")), None)?;
     let truck_scene = scene::load(&dir.join("COMMON/TRUCKS.B3D"), Some(truck))?;
+    let params = truck_params(dir, truck)?;
     let ground = Ground::new(&world_scene);
     let (pos, heading) = Ground::spawn_on(&world_scene, "road").ok_or("no road found to spawn on")?;
     let low = truck_scene.batches.iter().flat_map(|b| b.verts.iter()).map(|v| v.pos[2]).fold(f32::MAX, f32::min);
     let ride = -low;
     println!("ground: {} triangles, spawn at {pos:?}, heading {heading:.2}, ride height {ride:.2}", ground.triangle_count());
-    let vehicle = Vehicle::new(pos, heading, ride);
+    let vehicle = Vehicle::new(params, pos, heading, ride);
     Ok(World { ground, vehicle, world_scene, truck_scene, spawn: (pos, heading, ride) })
 }
 
@@ -68,7 +93,8 @@ fn run() -> Result<(), String> {
             _ => dir = Some(PathBuf::from(a)),
         }
     }
-    let world = load_world(&dir.ok_or(USAGE)?, &map, &truck)?;
+    let dir = dir.ok_or(USAGE)?;
+    let world = load_world(&dir, &map, &truck)?;
     let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
 
     match shot {
@@ -82,7 +108,7 @@ fn run() -> Result<(), String> {
                 game.world.vehicle.step(Input { steer: (t * 0.6).sin() * 0.25, throttle: 1.0, brake: 0.0 }, &game.world.ground, STEP);
                 t += STEP;
             }
-            println!("after {seconds}s: pos {:?}, speed {:.1} m/s", game.world.vehicle.pos, game.world.vehicle.speed);
+            println!("after {seconds}s: pos {:?}, speed {:.1} m/s, gear {}, {:.0} rpm", game.world.vehicle.pos, game.world.vehicle.speed, game.world.vehicle.gear, game.world.vehicle.rpm());
             game.renderer.set_model(game.truck, game.world.vehicle.model());
             let rgba = game.renderer.screenshot(size, chase_view_proj(&game.world.vehicle, size.0 as f32 / size.1 as f32));
             save_png(&path, size, &rgba)?;
@@ -170,7 +196,7 @@ impl ApplicationHandler for App {
                         if code == KeyCode::KeyR {
                             if let Some(g) = self.gfx.as_mut() {
                                 let (p, h, r) = g.game.world.spawn;
-                                g.game.world.vehicle = Vehicle::new(p, h, r);
+                                g.game.world.vehicle = Vehicle::new(g.game.world.vehicle.params.clone(), p, h, r);
                             }
                         }
                     } else {
@@ -202,7 +228,8 @@ impl ApplicationHandler for App {
                         let size = (g.config.width, g.config.height);
                         let vp = chase_view_proj(&g.game.world.vehicle, size.0 as f32 / size.1 as f32);
                         g.game.renderer.draw(&view, size, vp);
-                        g.window.set_title(&format!("openHT2 - {:.0} km/h", g.game.world.vehicle.speed * 3.6));
+                        let v = &g.game.world.vehicle;
+                        g.window.set_title(&format!("openHT2 - {:.0} km/h, gear {}, {:.0} rpm", v.speed * 3.6, v.gear, v.rpm()));
                         g.window.pre_present_notify();
                         frame.present();
                     }

@@ -379,6 +379,17 @@ pub struct Batch {
 }
 
 impl B3d {
+    /// Origin of the `Space` block called `name`, if there is one.
+    pub fn space_origin(&self, name: &str) -> Option<Vec3> {
+        fn find(ns: &[Node], name: &str) -> Option<Vec3> {
+            ns.iter().find_map(|n| match &n.data {
+                Data::Space { pos, .. } if n.name == name => Some(*pos),
+                _ => find(&n.children, name),
+            })
+        }
+        find(&self.nodes, name)
+    }
+
     /// Flatten the node tree into triangles grouped by material.
     ///
     /// Groups are prototypes: a type-18 "link" block names a `Space` (a transform) and a group,

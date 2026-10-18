@@ -1,4 +1,4 @@
-use ht2_formats::{b3d, res, txr, way};
+use ht2_formats::{b3d, res, tech, txr, way};
 use std::{env, fs, process::ExitCode};
 
 fn main() -> ExitCode {
@@ -15,6 +15,7 @@ fn main() -> ExitCode {
         "res-ls" => res_ls(&data),
         "way-ls" => way_ls(&data),
         "b3d-ls" => b3d_ls(&data),
+        "tech-ls" => tech_ls(&data),
         "b3d-batches" => b3d_batches(&data),
         "txr-png" => match args.get(2) {
             Some(out) => txr_png(&data, out),
@@ -107,6 +108,14 @@ fn b3d_batches(data: &[u8]) -> Result<(), String> {
         }
         let name = m.materials.get(b.material as usize).map_or("?", String::as_str);
         println!("{:>4} {:<24} {:>6} tris  x {:>8.0}..{:<8.0} y {:>8.0}..{:<8.0} z {:>7.0}..{:<7.0}", b.material, name, b.verts.len() / 3, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]);
+    }
+    Ok(())
+}
+
+fn tech_ls(data: &[u8]) -> Result<(), String> {
+    println!("{:<20} {:<14} {:>6} {:>6} {:>7} {:>7} {:>6}", "name", "model prefix", "mass", "hp", "price", "wheelR", "gears");
+    for t in tech::parse(data).map_err(|e| e.to_string())? {
+        println!("{:<20} {:<14} {:>6.0} {:>6} {:>7} {:>7.2} {:>6}", t.name, t.prefix, t.mass, t.horse_power, t.price, t.wheel_radius, t.num_gears);
     }
     Ok(())
 }

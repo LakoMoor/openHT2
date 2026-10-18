@@ -4,6 +4,7 @@
 
 pub mod b3d;
 pub mod res;
+pub mod tech;
 pub mod txr;
 pub mod way;
 
