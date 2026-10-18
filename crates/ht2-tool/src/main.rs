@@ -15,6 +15,7 @@ fn main() -> ExitCode {
         "res-ls" => res_ls(&data),
         "way-ls" => way_ls(&data),
         "b3d-ls" => b3d_ls(&data),
+        "b3d-batches" => b3d_batches(&data),
         "txr-png" => match args.get(2) {
             Some(out) => txr_png(&data, out),
             None => Err("usage: ht2-tool txr-png <file.res> <out-dir>".into()),
@@ -90,6 +91,23 @@ fn b3d_ls(data: &[u8]) -> Result<(), String> {
     walk(&m.nodes, 0);
     let tris: usize = m.triangles().iter().map(|b| b.verts.len() / 3).sum();
     println!("{tris} triangles");
+    Ok(())
+}
+
+/// Per-material triangle counts and bounding boxes, to find out what a model is made of.
+fn b3d_batches(data: &[u8]) -> Result<(), String> {
+    let m = b3d::parse(data).map_err(|e| e.to_string())?;
+    for b in m.triangles() {
+        let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
+        for v in &b.verts {
+            for i in 0..3 {
+                lo[i] = lo[i].min(v.pos[i]);
+                hi[i] = hi[i].max(v.pos[i]);
+            }
+        }
+        let name = m.materials.get(b.material as usize).map_or("?", String::as_str);
+        println!("{:>4} {:<24} {:>6} tris  x {:>8.0}..{:<8.0} y {:>8.0}..{:<8.0} z {:>7.0}..{:<7.0}", b.material, name, b.verts.len() / 3, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]);
+    }
     Ok(())
 }
 
