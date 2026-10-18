@@ -625,6 +625,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "ht2-game"
+version = "0.1.0"
+dependencies = [
+ "glam",
+ "ht2-formats",
+ "ht2-render",
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
+name = "ht2-render"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "glam",
+ "ht2-formats",
+ "png",
+ "wgpu",
+]
+
+[[package]]
 name = "ht2-tool"
 version = "0.1.0"
 dependencies = [
@@ -636,10 +659,8 @@ dependencies = [
 name = "ht2-view"
 version = "0.1.0"
 dependencies = [
- "bytemuck",
  "glam",
- "ht2-formats",
- "png",
+ "ht2-render",
  "pollster",
  "wgpu",
  "winit",

@@ -1,13 +1,14 @@
-//! wgpu renderer for a [`Scene`]. Works against a window surface or an offscreen texture.
+//! wgpu renderer. Holds any number of objects (loaded scenes) that each have a model matrix.
+//! Works against a window surface or an offscreen texture.
 
 use crate::scene::{Look, Scene};
 use bytemuck::{Pod, Zeroable};
-use glam::{Mat4, Vec3};
+use glam::Mat4;
 use wgpu::util::DeviceExt;
 
 const SHADER: &str = r#"
-struct Globals { vp: mat4x4<f32> };
-@group(0) @binding(0) var<uniform> g: Globals;
+struct Object { mvp: mat4x4<f32> };
+@group(0) @binding(0) var<uniform> obj: Object;
 @group(1) @binding(0) var tex: texture_2d<f32>;
 @group(1) @binding(1) var smp: sampler;
 @group(1) @binding(2) var<uniform> tint: vec4<f32>;
@@ -16,7 +17,7 @@ struct VOut { @builtin(position) pos: vec4<f32>, @location(0) uv: vec2<f32> };
 
 @vertex fn vs(@location(0) p: vec3<f32>, @location(1) uv: vec2<f32>) -> VOut {
     var o: VOut;
-    o.pos = g.vp * vec4<f32>(p, 1.0);
+    o.pos = obj.mvp * vec4<f32>(p, 1.0);
     o.uv = uv;
     return o;
 }
@@ -41,51 +42,46 @@ struct DrawBatch {
     bind: wgpu::BindGroup,
 }
 
-#[derive(Clone, Copy)]
-pub struct Camera {
-    pub yaw: f32,
-    pub pitch: f32,
-    pub dist: f32,
+struct Object {
+    batches: Vec<DrawBatch>,
+    mvp: wgpu::Buffer,
+    bind: wgpu::BindGroup,
+    model: Mat4,
 }
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ObjectId(usize);
 
 pub struct Renderer {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pipeline: wgpu::RenderPipeline,
-    globals: wgpu::Buffer,
-    globals_bind: wgpu::BindGroup,
-    batches: Vec<DrawBatch>,
+    obj_layout: wgpu::BindGroupLayout,
+    mat_layout: wgpu::BindGroupLayout,
+    sampler: wgpu::Sampler,
+    white: wgpu::TextureView,
+    objects: Vec<Object>,
     depth: Option<(wgpu::TextureView, (u32, u32))>,
-    center: Vec3,
-    pub radius: f32,
+}
+
+fn uniform_entry(binding: u32, visibility: wgpu::ShaderStages) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility,
+        ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None },
+        count: None,
+    }
 }
 
 impl Renderer {
-    pub fn new(device: wgpu::Device, queue: wgpu::Queue, format: wgpu::TextureFormat, scene: &Scene) -> Self {
+    pub fn new(device: wgpu::Device, queue: wgpu::Queue, format: wgpu::TextureFormat) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("shader"),
             source: wgpu::ShaderSource::Wgsl(SHADER.into()),
         });
-        let globals = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("globals"),
-            size: 64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let uniform_entry = |binding, visibility| wgpu::BindGroupLayoutEntry {
-            binding,
-            visibility,
-            ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None },
-            count: None,
-        };
-        let globals_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let obj_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
             entries: &[uniform_entry(0, wgpu::ShaderStages::VERTEX)],
-        });
-        let globals_bind = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: None,
-            layout: &globals_layout,
-            entries: &[wgpu::BindGroupEntry { binding: 0, resource: globals.as_entire_binding() }],
         });
         let mat_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
@@ -111,7 +107,7 @@ impl Renderer {
         });
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[&globals_layout, &mat_layout],
+            bind_group_layouts: &[&obj_layout, &mat_layout],
             push_constant_ranges: &[],
         });
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -145,7 +141,6 @@ impl Renderer {
             multiview: None,
             cache: None,
         });
-
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
             address_mode_v: wgpu::AddressMode::Repeat,
@@ -153,28 +148,13 @@ impl Renderer {
             min_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         });
-        let upload = |w: u32, h: u32, rgba: &[u8]| {
-            device
-                .create_texture_with_data(
-                    &queue,
-                    &wgpu::TextureDescriptor {
-                        label: None,
-                        size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
-                        mip_level_count: 1,
-                        sample_count: 1,
-                        dimension: wgpu::TextureDimension::D2,
-                        format: wgpu::TextureFormat::Rgba8Unorm,
-                        usage: wgpu::TextureUsages::TEXTURE_BINDING,
-                        view_formats: &[],
-                    },
-                    wgpu::util::TextureDataOrder::LayerMajor,
-                    rgba,
-                )
-                .create_view(&Default::default())
-        };
-        let white = upload(1, 1, &[255; 4]);
-        let tex_views: Vec<_> = scene.textures.iter().map(|t| upload(t.width, t.height, &t.rgba)).collect();
+        let white = upload(&device, &queue, 1, 1, &[255; 4]);
+        Self { device, queue, pipeline, obj_layout, mat_layout, sampler, white, objects: Vec::new(), depth: None }
+    }
 
+    /// Upload a scene's geometry and textures and return a handle to place it with [`set_model`](Self::set_model).
+    pub fn add(&mut self, scene: &Scene) -> ObjectId {
+        let tex_views: Vec<_> = scene.textures.iter().map(|t| upload(&self.device, &self.queue, t.width, t.height, &t.rgba)).collect();
         let batches = scene
             .batches
             .iter()
@@ -182,25 +162,25 @@ impl Renderer {
                 let verts: Vec<GpuVertex> = b.verts.iter().map(|v| GpuVertex { pos: v.pos, uv: v.uv }).collect();
                 let (view, tint) = match scene.looks.get(b.material as usize) {
                     Some(Look::Texture(i)) => (&tex_views[*i], [1.0; 4]),
-                    Some(Look::Flat(c)) => (&white, [c[0], c[1], c[2], 1.0]),
-                    None => (&white, [1.0, 0.0, 1.0, 1.0]),
+                    Some(Look::Flat(c)) => (&self.white, [c[0], c[1], c[2], 1.0]),
+                    None => (&self.white, [1.0, 0.0, 1.0, 1.0]),
                 };
-                let tint_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                let tint_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: None,
                     contents: bytemuck::cast_slice(&tint),
                     usage: wgpu::BufferUsages::UNIFORM,
                 });
-                let bind = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: None,
-                    layout: &mat_layout,
+                    layout: &self.mat_layout,
                     entries: &[
                         wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(view) },
-                        wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&sampler) },
+                        wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&self.sampler) },
                         wgpu::BindGroupEntry { binding: 2, resource: tint_buf.as_entire_binding() },
                     ],
                 });
                 DrawBatch {
-                    vbuf: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    vbuf: self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                         label: None,
                         contents: bytemuck::cast_slice(&verts),
                         usage: wgpu::BufferUsages::VERTEX,
@@ -210,21 +190,26 @@ impl Renderer {
                 }
             })
             .collect();
-
-        Self {
-            device,
-            queue,
-            pipeline,
-            globals,
-            globals_bind,
-            batches,
-            depth: None,
-            center: Vec3::from(scene.center),
-            radius: scene.radius,
-        }
+        let mvp = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("mvp"),
+            size: 64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &self.obj_layout,
+            entries: &[wgpu::BindGroupEntry { binding: 0, resource: mvp.as_entire_binding() }],
+        });
+        self.objects.push(Object { batches, mvp, bind, model: Mat4::IDENTITY });
+        ObjectId(self.objects.len() - 1)
     }
 
-    fn depth_view(&mut self, size: (u32, u32)) -> &wgpu::TextureView {
+    pub fn set_model(&mut self, id: ObjectId, model: Mat4) {
+        self.objects[id.0].model = model;
+    }
+
+    fn depth_view(&mut self, size: (u32, u32)) {
         if self.depth.as_ref().is_none_or(|(_, s)| *s != size) {
             let t = self.device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("depth"),
@@ -238,17 +223,14 @@ impl Renderer {
             });
             self.depth = Some((t.create_view(&Default::default()), size));
         }
-        &self.depth.as_ref().unwrap().0
     }
 
-    pub fn draw(&mut self, target: &wgpu::TextureView, size: (u32, u32), cam: Camera) {
-        let eye = self.center
-            + Vec3::new(cam.yaw.sin() * cam.pitch.cos(), cam.yaw.cos() * cam.pitch.cos(), cam.pitch.sin()) * cam.dist;
-        let aspect = size.0 as f32 / size.1.max(1) as f32;
-        let vp = Mat4::perspective_rh(50f32.to_radians(), aspect, self.radius * 0.01, self.radius * 50.0)
-            * Mat4::look_at_rh(eye, self.center, Vec3::Z); // the game's world is Z-up
-        self.queue.write_buffer(&self.globals, 0, bytemuck::cast_slice(&vp.to_cols_array()));
-
+    /// Draw every object with the combined `proj * view` matrix.
+    pub fn draw(&mut self, target: &wgpu::TextureView, size: (u32, u32), view_proj: Mat4) {
+        for o in &self.objects {
+            let mvp = view_proj * o.model;
+            self.queue.write_buffer(&o.mvp, 0, bytemuck::cast_slice(&mvp.to_cols_array()));
+        }
         self.depth_view(size);
         let depth = &self.depth.as_ref().unwrap().0;
         let mut enc = self.device.create_command_encoder(&Default::default());
@@ -272,18 +254,20 @@ impl Renderer {
                 occlusion_query_set: None,
             });
             pass.set_pipeline(&self.pipeline);
-            pass.set_bind_group(0, &self.globals_bind, &[]);
-            for b in &self.batches {
-                pass.set_bind_group(1, &b.bind, &[]);
-                pass.set_vertex_buffer(0, b.vbuf.slice(..));
-                pass.draw(0..b.count, 0..1);
+            for o in &self.objects {
+                pass.set_bind_group(0, &o.bind, &[]);
+                for b in &o.batches {
+                    pass.set_bind_group(1, &b.bind, &[]);
+                    pass.set_vertex_buffer(0, b.vbuf.slice(..));
+                    pass.draw(0..b.count, 0..1);
+                }
             }
         }
         self.queue.submit([enc.finish()]);
     }
 
     /// Render offscreen and return tightly packed RGBA8.
-    pub fn screenshot(&mut self, size: (u32, u32), cam: Camera) -> Vec<u8> {
+    pub fn screenshot(&mut self, size: (u32, u32), view_proj: Mat4) -> Vec<u8> {
         let tex = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("shot"),
             size: wgpu::Extent3d { width: size.0, height: size.1, depth_or_array_layers: 1 },
@@ -294,7 +278,7 @@ impl Renderer {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
             view_formats: &[],
         });
-        self.draw(&tex.create_view(&Default::default()), size, cam);
+        self.draw(&tex.create_view(&Default::default()), size, view_proj);
 
         let row = (size.0 * 4).next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
         let buf = self.device.create_buffer(&wgpu::BufferDescriptor {
@@ -316,10 +300,26 @@ impl Renderer {
         buf.slice(..).map_async(wgpu::MapMode::Read, |r| r.expect("map screenshot buffer"));
         self.device.poll(wgpu::Maintain::Wait);
         let mapped = buf.slice(..).get_mapped_range();
-        mapped
-            .chunks(row as usize)
-            .flat_map(|r| &r[..(size.0 * 4) as usize])
-            .copied()
-            .collect()
+        mapped.chunks(row as usize).flat_map(|r| &r[..(size.0 * 4) as usize]).copied().collect()
     }
+}
+
+fn upload(device: &wgpu::Device, queue: &wgpu::Queue, w: u32, h: u32, rgba: &[u8]) -> wgpu::TextureView {
+    device
+        .create_texture_with_data(
+            queue,
+            &wgpu::TextureDescriptor {
+                label: None,
+                size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+            wgpu::util::TextureDataOrder::LayerMajor,
+            rgba,
+        )
+        .create_view(&Default::default())
 }

@@ -15,6 +15,8 @@ pub struct Scene {
     /// One entry per `.b3d` material index.
     pub looks: Vec<Look>,
     pub batches: Vec<b3d::Batch>,
+    /// `.b3d` material names, indexed like `looks` and `Batch::material`.
+    pub material_names: Vec<String>,
     pub center: [f32; 3],
     pub radius: f32,
 }
@@ -111,7 +113,7 @@ pub fn load(b3d_path: &Path, only: Option<&str>) -> Result<Scene, String> {
     }
     let center = std::array::from_fn(|i| (lo[i] + hi[i]) / 2.0);
     let radius = (0..3).map(|i| (hi[i] - lo[i]) / 2.0).fold(0.0f32, |a, b| a.max(b)).max(0.001);
-    Ok(Scene { textures, looks, batches, center, radius })
+    Ok(Scene { textures, looks, batches, material_names: model.materials, center, radius })
 }
 
 /// Case-insensitive sibling with the same stem (`aa.b3d` -> `aa.res` / `AA.RES`).
