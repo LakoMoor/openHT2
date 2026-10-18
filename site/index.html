@@ -26,6 +26,11 @@
   code, pre { font-family:ui-monospace,Consolas,monospace; font-size:.9rem; }
   pre { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; }
   a { color:var(--accent); }
+  .shots { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin:0; }
+  .shots figure { margin:0; background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .shots img { display:block; width:100%; aspect-ratio:4/3; object-fit:cover; }
+  .shots figcaption { padding:8px 12px 10px; font-size:.85rem; color:var(--muted); }
+  p.note { font-size:.85rem; color:var(--muted); margin-top:.8em; }
   footer { margin-top:3em; color:var(--muted); font-size:.9rem; }
 </style>
 </head>
@@ -45,6 +50,19 @@
       <li><span class="tag">план</span><span>Физика грузовиков, задания, торговля, ИИ</span></li>
     </ul>
   </div>
+
+  <h2>Скриншоты</h2>
+  <p>Это работа самого движка openHT2 на данных установленной копии игры: открытый мир, гоночная трасса, грузовик, комбинат и арена.</p>
+  <div class="shots">
+    <figure><img src="img/airport.jpg" alt="Старт в аэропорту: ЗИЛ с тентом" loading="lazy"><figcaption>Старт из <code>GAME.CNF</code>: аэропорт, ЗИЛ</figcaption></figure>
+    <figure><img src="img/track.jpg" alt="Грузовик едет по трассе" loading="lazy"><figcaption>Езда по трассе, физика по числам <code>vehicle.tech</code></figcaption></figure>
+    <figure><img src="img/world.jpg" alt="Вид сверху на открытый мир" loading="lazy"><figcaption>Открытый мир из 39 районов, вид сверху</figcaption></figure>
+    <figure><img src="img/kamaz.jpg" alt="Модель КамАЗ" loading="lazy"><figcaption>КамАЗ, собранный из ссылок на детали</figcaption></figure>
+    <figure><img src="img/combinat.jpg" alt="Промышленный комбинат" loading="lazy"><figcaption>Комбинат из <code>ENV/aa.b3d</code></figcaption></figure>
+    <figure><img src="img/stadium.jpg" alt="Арена со стадионом" loading="lazy"><figcaption>Арена из <code>MTB/tb.b3d</code></figcaption></figure>
+    <figure><img src="img/race.jpg" alt="Гоночная трасса" loading="lazy"><figcaption>Трасса из <code>MENV/dr.b3d</code></figcaption></figure>
+  </div>
+  <p class="note">Модели, текстуры и сцены на скриншотах принадлежат правообладателям оригинальной игры и показаны только для иллюстрации работы движка. В репозиторий они не входят.</p>
 
   <h2>Как это работает</h2>
   <p>openHT2 — это замена движка, а не отдельная игра. Он читает файлы вашей установленной копии игры и ничего в них не изменяет. Код и ассеты оригинала в проект не входят: форматы описываются clean-room, по самим файлам данных.</p>
