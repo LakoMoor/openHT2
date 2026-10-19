@@ -13,8 +13,10 @@ def f32(x):
 
 
 def collide(e):
-    obj = e.ecx
-    mode, rec = e.arg(0), e.arg(1)
+    return _collide(e, e.ecx, e.arg(1))
+
+
+def _collide(e, obj, rec):
     rd = lambda a: struct.unpack('<f', bytes(e.read(a, 4)))[0]
     ru = lambda a: struct.unpack('<I', bytes(e.read(a, 4)))[0]
     z0 = rd(obj + 8)
@@ -44,3 +46,13 @@ def make_obj(obj, vtbl, z0, surf, room, extra):
     return [(vtbl + 0x34, struct.pack('<I', WORLD_FN)), (obj, struct.pack('<I', vtbl)),
             (obj + 8, struct.pack('<f', z0)), (obj + 0xc, struct.pack('<I', surf)),
             (obj + 0x10, struct.pack('<I', room)), (obj + 0x14, struct.pack('<I', extra))]
+
+
+def room_query(e):
+    """`0x4e6059` / `0x4e623e` (cdecl room, mode, rec): the stub object is the room itself."""
+    return _collide(e, e.arg(0), e.arg(2))
+
+
+def install_rooms(e):
+    e.hook_ret(0x4e6059, room_query)
+    e.hook_ret(0x4e623e, room_query)
