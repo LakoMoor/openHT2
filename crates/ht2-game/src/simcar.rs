@@ -57,6 +57,8 @@ pub struct SimCar {
     /// Computer vehicles: their address and their driver.
     traffic: Vec<(u32, ai::Driver)>,
     vid: i32,
+    /// The player's vehicle driven by the ported computer driver (for demos).
+    autopilot: Option<ai::Driver>,
 }
 
 /// What is needed to draw a vehicle.
@@ -125,14 +127,40 @@ impl SimCar {
         m.set_i16(CAR + 0x2704, 1);
         m.set_i16(CAR + 0x2706, 1);
         ht2_sim::gearbox::fn_004ff770(&mut m, CAR, 1);
-        Ok(SimCar { m, time: 0.0, rooms, traffic: Vec::new(), vid })
+        Ok(SimCar { m, time: 0.0, rooms, traffic: Vec::new(), vid, autopilot: None })
     }
 
     /// One step of `dt` seconds with the pedals in `0..=1` and the steering keys (-1 right, 1 left).
+    /// Let the computer driver drive the player's vehicle from its place on the nearest road.
+    pub fn set_autopilot(&mut self, ground: &Ground) {
+        let net = &ground.roads;
+        let p = self.pos();
+        let Some(mut place) = net.nearest([p.x as f64, p.y as f64, p.z as f64]) else { return };
+        let t = net.direction(&place, false);
+        let fwd = self.body().y_axis;
+        if t[0] * (fwd.x as f64) + t[1] * (fwd.y as f64) < 0.0 {
+            place.reversed = true;
+        }
+        let m = &mut self.m;
+        ai::init_driver(m, CAR, true);
+        m.set_u32(CAR + 0x4078, 1);
+        m.set_i16(CAR + 0x2704, 1);
+        m.set_i16(CAR + 0x2706, 1);
+        m.set_i16(CAR + 0x2746, REQUEST_DRIVE);
+        self.autopilot = Some(ai::Driver::new(place, 0x9e37_79b9));
+    }
+
     pub fn step(&mut self, ground: &Ground, dt: f32, throttle: f32, brake: f32, steer: i32) {
         let m = &mut self.m;
         self.time += dt as f64;
         globals::install_clock(m, CLOCK, self.time, dt as f64);
+        if let Some(drv) = &mut self.autopilot {
+            let others: Vec<u32> = std::iter::once(CAR).chain(self.traffic.iter().map(|(c, _)| *c)).collect();
+            ai::drive(m, CAR, &ground.roads, drv, 0, dt as f64, &others);
+            with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, CAR));
+            self.step_traffic(ground, dt);
+            return;
+        }
         m.wr8(CAR + 0x2702, (steer > 0) as u8);
         m.wr8(CAR + 0x2703, (steer < 0) as u8);
         let speed = m.f32(CAR + 0xdc8);
@@ -158,6 +186,11 @@ impl SimCar {
         m.set_f32(CAR + 0x2710, 0.0);
         m.set_i16(CAR + 0x2714, (braking > 0.0) as i16);
         with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, CAR));
+        self.step_traffic(ground, dt);
+    }
+
+    fn step_traffic(&mut self, ground: &Ground, dt: f32) {
+        let m = &mut self.m;
         let others: Vec<u32> = std::iter::once(CAR).chain(self.traffic.iter().map(|(c, _)| *c)).collect();
         for (car, drv) in &mut self.traffic {
             ai::drive(m, *car, &ground.roads, drv, 0, dt as f64, &others);

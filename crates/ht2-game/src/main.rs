@@ -301,10 +301,16 @@ fn run() -> Result<(), String> {
 
     match shot {
         Some(path) => {
-            // Headless demo: full throttle with a gentle weave, then one frame.
+            // Headless demo: some seconds of driving, then one frame.
             let size = (1024, 768);
             let (_, device, queue) = pollster::block_on(request_device(&instance, None))?;
             let mut game = Game::new(Renderer::new(device, queue, wgpu::TextureFormat::Rgba8Unorm), world);
+            // The demo is driven by the ported computer driver (HT2_WEAVE=1: full throttle with a
+            // gentle weave instead).
+            let weave = std::env::var_os("HT2_WEAVE").is_some();
+            if !weave {
+                game.world.vehicle.set_autopilot(&game.world.ground);
+            }
             let mut t = 0.0;
             let trace = std::env::var_os("HT2_TRACE").is_some();
             let mut next_print = 0.0;

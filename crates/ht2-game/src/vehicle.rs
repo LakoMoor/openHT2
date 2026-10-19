@@ -147,6 +147,13 @@ impl Vehicle {
         self.sim.as_mut().and_then(|s| s.room_below(ground))
     }
 
+    /// Let the ported computer driver drive this vehicle.
+    pub fn set_autopilot(&mut self, ground: &Ground) {
+        if let Some(s) = &mut self.sim {
+            s.set_autopilot(ground);
+        }
+    }
+
     /// Put `count` computer vehicles on the roads around (ported physics only).
     pub fn add_traffic(&mut self, ground: &Ground, count: usize, seed: u32) {
         if let Some(s) = &mut self.sim {
