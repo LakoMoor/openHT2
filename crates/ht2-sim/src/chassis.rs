@@ -558,3 +558,52 @@ pub fn fn_004eba10(m: &mut Mem, this: u32) {
     m.set_u32(this + 0xc4, 0);
     m.set_u32(this + 0x7c, 0);
 }
+
+/// `0x5de950`: decompose the transform `mat` into a position (`p13..p15`) and three angles
+/// (`p16`, `p17`, `p18`, doubles written through the pointers).
+pub fn fn_005de950(m: &mut Mem, mat: [f32; 12], p13: u32, p14: u32, p15: u32, p16: u32, p17: u32, p18: u32) {
+    use crate::matrix as mx;
+    const S: u32 = 0x2ffc_0000;
+    const HALF_PI: f64 = 1.5707963;
+    m.set_f64(p13, mat[9] as f64);
+    m.set_f64(p14, mat[10] as f64);
+    m.set_f64(p15, mat[11] as f64);
+    let g = |k: u32| m.f32(k) as f64;
+    let ky = [g(0x702620), g(0x702624), g(0x702628)];
+    let kz = [g(0x702630), g(0x702634), g(0x702638)];
+    let q: Vec<f64> = mat.iter().map(|v| *v as f64).collect();
+    let (az, pol) = mx::dir_to_angles(
+        m,
+        r(ky[0] * q[0] + ky[1] * q[3] + ky[2] * q[6]),
+        r(ky[0] * q[1] + ky[1] * q[4] + ky[2] * q[7]),
+        r(ky[0] * q[2] + ky[1] * q[5] + ky[2] * q[8]),
+    );
+    m.set_f64(p17, pol as f64 - HALF_PI);
+    let a16 = az as f64 - HALF_PI;
+    m.set_f64(p16, a16);
+    let b = [
+        r(kz[2] * q[6] + kz[1] * q[3] + kz[0] * q[0]),
+        r(kz[2] * q[7] + kz[1] * q[4] + kz[0] * q[1]),
+        r(kz[2] * q[8] + kz[1] * q[5] + kz[0] * q[2]),
+    ];
+    set3(m, S, b);
+    mx::mat_rot_z(m, S + 0x20, (-a16) as f32);
+    mx::transform(m, S + 0x10, S, S + 0x20);
+    let ang = m.f64(p17) as f32;
+    mx::mat_rot_x(m, S + 0x60, ang);
+    mx::transform(m, S + 0x50, S + 0x10, S + 0x60);
+    let d = v3(m, S + 0x50);
+    if d[2] < 0.5 {
+        let a = d[2].acos();
+        m.set_f64(p18, a);
+        if d[0] < 0.0 {
+            m.set_f64(p18, -a);
+        }
+    } else {
+        let a = d[0].asin();
+        m.set_f64(p18, a);
+        if d[2] < 0.0 {
+            m.set_f64(p18, 3.1415926 - a);
+        }
+    }
+}

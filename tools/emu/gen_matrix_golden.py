@@ -85,3 +85,38 @@ for _ in range(60):
     h.case(IDENT, lambda e: e.call(0x5abc90, [C] + p + d + [ro], 'i' + 'f' * 7),
            f'matrix::mat_look(&mut m, {T(C)}, [{q[0]!r}f32, {q[1]!r}f32, {q[2]!r}f32], [{q[3]!r}f32, {q[4]!r}f32, {q[5]!r}f32], {q[6]!r}f32)', WATCH)
 h.save()
+
+# 5da950, 4e6362, 5de950 (added later)
+h = Harness('golden_matrix2', ['use ht2_sim::matrix;', 'use ht2_sim::chassis;'])
+r = h.rnd
+import math as _m
+for _ in range(80):
+    vals = [r.uniform(-30, 30) for _ in range(3)] + [r.uniform(-4, 4) for _ in range(3)]
+    h.case(IDENT, lambda e, vals=vals: e.call(0x5da950, [C] + vals, 'i' + 'd' * 6),
+           f'matrix::mat_from_euler(&mut m, {T(C)}, {vals[0]!r}f64, {vals[1]!r}f64, {vals[2]!r}f64, {vals[3]!r}f64, {vals[4]!r}f64, {vals[5]!r}f64)', WATCH)
+for _ in range(80):
+    w = vec(A) + vec(B) + vec(D)
+    h.case(IDENT + w, lambda e: e.call(0x4e6362, [C, A, B, D], 'iiii'), f'matrix::point_to_plane(&mut m, {T(C)}, {T(A)}, {T(B)}, {T(D)})', WATCH)
+OUTS = [CAR + 0x3a00 + 8 * k for k in range(6)]
+for k in range(200):
+    if k % 3 == 0:
+        t, u, v = r.uniform(-3, 3), r.uniform(-1.4, 1.4), r.uniform(-3, 3)
+        a = [_m.cos(t), _m.sin(t), 0, -_m.sin(t), _m.cos(t), 0, 0, 0, 1]
+        mat = [x + r.uniform(-0.05, 0.05) for x in a] + [r.uniform(-50, 50) for _ in range(3)]
+    else:
+        mat = [r.uniform(-1, 1) for _ in range(9)] + [r.uniform(-50, 50) for _ in range(3)]
+    # orthonormal-ish: build from random rotations
+    ax, ay, az = r.uniform(-3, 3), r.uniform(-1.5, 1.5), r.uniform(-3, 3)
+    cz, sz, cx, sx, cy, sy = _m.cos(az), _m.sin(az), _m.cos(ax), _m.sin(ax), _m.cos(ay), _m.sin(ay)
+    if k % 3 != 0:
+        Rz = [[cz, sz, 0], [-sz, cz, 0], [0, 0, 1]]
+        Rx = [[1, 0, 0], [0, cx, sx], [0, -sx, cx]]
+        Ry = [[cy, 0, -sy], [0, 1, 0], [sy, 0, cy]]
+        mm = lambda a, b: [[sum(a[i][k2] * b[k2][j] for k2 in range(3)) for j in range(3)] for i in range(3)]
+        Mx = mm(mm(Ry, Rx), Rz)
+        mat = [Mx[i][j] for i in range(3) for j in range(3)] + mat[9:]
+    fm = [struct.unpack('<f', pack('f', v))[0] for v in mat]
+    h.case([], lambda e, mat=mat: e.call(0x5de950, mat + OUTS, 'f' * 12 + 'i' * 6),
+           f'chassis::fn_005de950(&mut m, [{", ".join(repr(v) + "f32" for v in fm)}], {OUTS[0]:#x}, {OUTS[1]:#x}, {OUTS[2]:#x}, {OUTS[3]:#x}, {OUTS[4]:#x}, {OUTS[5]:#x})',
+           [(CAR + 0x3a00, 0x40)])
+h.save()

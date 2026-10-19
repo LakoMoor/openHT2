@@ -291,3 +291,26 @@ pub fn mat_look(m: &mut Mem, dst: u32, pos: [f32; 3], dir: [f32; 3], roll: f32) 
     let out: [f32; 12] = core::array::from_fn(|i| m.f32(a + 4 * i as u32));
     put12(m, dst, &out);
 }
+
+/// `0x5da950`: compose a transform from a position and three angles: `Ry(c) * Rx(-b) * Rz(a)`,
+/// then translated by `(x, y, z)` (all arguments are doubles, narrowed to `f32`).
+pub fn mat_from_euler(m: &mut Mem, dst: u32, x: f64, y: f64, z: f64, a: f64, b: f64, c: f64) {
+    const S: u32 = 0x2ffd_0000;
+    let (t, rz, rx, ry, m1, m2) = (S, S + 0x30, S + 0x60, S + 0x90, S + 0xc0, S + 0xf0);
+    mat_translation(m, t, x as f32, y as f32, z as f32);
+    mat_rot_z(m, rz, a as f32);
+    mat_rot_x(m, rx, (-b) as f32);
+    mat_rot_y(m, ry, c as f32);
+    mat_mul(m, m1, ry, rx);
+    mat_mul(m, m2, m1, rz);
+    mat_mul(m, dst, m2, t);
+}
+
+/// `0x4e6362`: the point `p4` moved along the plane normal `p3` onto the plane through `p2`.
+pub fn point_to_plane(m: &mut Mem, dst: u32, p2: u32, p3: u32, p4: u32) {
+    const S: u32 = 0x2ffd_1000;
+    vec_sub(m, S, p4, p2);
+    let d = vec_dot(m, p3, S);
+    vec_scale(m, S + 16, p3, d as f32);
+    vec_sub(m, dst, p4, S + 16);
+}
