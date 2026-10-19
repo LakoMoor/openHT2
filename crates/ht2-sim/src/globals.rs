@@ -68,7 +68,13 @@ pub fn install_constants(m: &mut Mem) {
             m.set_f32(addr + 4 * i as u32, *c);
         }
     }
+    for (i, c) in crate::matrix::IDENTITY.iter().enumerate() {
+        m.set_f32(MAT_IDENTITY + 4 * i as u32, *c);
+    }
 }
+
+/// The identity transform (12 floats), filled in by the original at start-up.
+pub const MAT_IDENTITY: u32 = 0x7025f0;
 
 /// `0x4e27a5` at full precision: the value the original leaves on the FPU stack (not rounded to `f32`).
 pub fn time_hi(m: &Mem) -> f64 {
