@@ -217,7 +217,7 @@ impl SimCar {
             m.set_i16(car + 0x2704, 1);
             m.set_i16(car + 0x2706, 1);
             ht2_sim::gearbox::fn_004ff770(m, car, 1);
-            ai::init_driver(m, car, next());
+            ai::init_driver(m, car, true);
             // Traffic follows the vehicle ahead (`0x4d13e1`; other roles of the original differ).
             m.set_u32(car + 0x4078, 1);
             m.set_i16(car + 0x2746, REQUEST_DRIVE);

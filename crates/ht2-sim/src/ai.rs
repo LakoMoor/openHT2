@@ -290,23 +290,30 @@ pub const OBSTACLE: u32 = 0x40b0;
 /// `+0x40b8`: sideways offset from the lane (double).
 pub const LATERAL: u32 = 0x40b8;
 
-/// `0x4d2890`: the fields of a driver when it is made: the preferred lane (`rand % 4`), a 3.5 m
-/// lane, nothing followed.
-pub fn init_driver(m: &mut Mem, this: u32, rand: u32) {
-    let lane = (rand % 4) as i32;
+/// The driver's part of the `SecondCar` constructor (`0x4d2790`, after the `_Car_V` one):
+/// everything cleared, preferred lane `rand % 4` (`+0x407c`, twice it in `+0x405c`), 3.5 m
+/// lanes, 10 half lanes (`+0x4060`), nothing followed; `+0x2768` set when the game flag
+/// `0x6cec6c + 0x518` is clear (`clear_game_flag`); `+4` / `+6` set (`0x4ebaa0(1, 1)`).
+pub fn init_driver(m: &mut Mem, this: u32, clear_game_flag: bool) {
+    for o in [0x4050, 0x4054, 0x4058, 0x40b8, 0x4038, 0x4040, 0x4030, 0x4028, 0x40bc, 0x403c, 0x4044, 0x402c, 0x406c, 0x4068, 0x4070, 0x4074] {
+        m.set_u32(this + o, 0);
+    }
+    m.set_u32(this + 0x2768, clear_game_flag as u32);
+    m.set_i16(this + 4, 1);
+    m.set_i16(this + 6, 1);
+    for o in (0x4088..=0x40a4).step_by(4) {
+        m.set_u32(this + o, 0);
+    }
+    let lane = crate::globals::rand(m) % 4;
     m.set_i32(this + 0x407c, lane);
-    m.set_i32(this + LANE, lane * 2);
-    m.set_f64(this + LANE_WIDTH, 3.5);
+    m.set_u32(this + 0x40a8, 0);
     m.set_u32(this + 0x4078, 0);
     m.set_i32(this + 0x4084, -1);
     m.set_i32(this + 0x4080, -1);
     m.set_u32(this + 0x4064, 0);
-    // Not from 0x4d2890: the obstacle search that would set these is not ported.
-    m.set_f64(this + OBSTACLE, -1.0);
-    m.set_u32(this + MODE, 0);
-    m.set_u32(this + 0x4068, 0);
-    m.set_u32(this + 0x402c, 0);
-    m.set_u32(this + BACK, 0);
+    m.set_i32(this + LANE, lane * 2);
+    m.set_u32(this + 0x40ac, 0x400c_0000);
+    m.set_i32(this + 0x4060, 10);
 }
 
 /// What the driver of a computer vehicle knows about its way: the place on the road network
