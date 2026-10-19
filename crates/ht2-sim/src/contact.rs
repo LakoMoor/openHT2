@@ -49,6 +49,14 @@ fn copy_words(m: &mut Mem, dst: u32, src: u32, n: u32) {
     }
 }
 
+/// Fill `len` bytes at `a` with the pattern that stands for uninitialised stack memory of the
+/// original (records only partly initialised by [`rec_init`] carry it into the vehicle state).
+pub fn poison(m: &mut Mem, a: u32, len: u32) {
+    for i in (0..len).step_by(4) {
+        m.set_u32(a + i, 0xcccc_cccc);
+    }
+}
+
 /// `0x5ef5c0`: initialise a query record.
 pub fn rec_init(m: &mut Mem, rec: u32) {
     for i in 1..13 {
@@ -928,6 +936,9 @@ pub fn fn_00506210(m: &mut Mem, this: u32, flag: u32) {
     crate::matrix::vec_unit(m, this + 0xd0, sum);
 }
 
+/// Value standing for uninitialised locals of the original.
+pub const UNINIT: u32 = 0xcccc_cccc;
+
 /// `0x4e6490`: where the line through `p4` along `p5` meets the plane through `p2` with normal `p3`.
 pub fn line_plane_dir(m: &mut Mem, dst: u32, p2: u32, p3: u32, p4: u32, p5: u32) {
     let s = SCRATCH + 0x800;
@@ -1002,7 +1013,10 @@ pub fn fn_00505530(m: &mut Mem, world: &mut dyn World, this: u32, mat: u32) -> u
         }
     }
     let mut queried = [false; 8];
-    let mut res = [0u32; 8];
+    // results of wheels that are neither queried nor borrow a neighbour's contact are left
+    // uninitialised by the original; in practice that is stack garbage (neither 0 nor 1), so
+    // those wheels are queried later
+    let mut res = [UNINIT; 8];
     if m.f32(this + 0xdc8) < 0.0 {
         queried[lo1_i as usize] = true;
         queried[lo2_i as usize] = true;

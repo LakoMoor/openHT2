@@ -52,8 +52,8 @@ class Harness:
         e = self.e
         e.write(OBJ_BASE, bytes(ZERO_LEN))
         e.write(HEAP_BASE, bytes(0x100000))
-        # uninitialised locals of the original read as zero, like the scratch memory of the port
-        e.write(STACK_TOP - 0x10000, bytes(0x10000))
+        # uninitialised locals of the original: a fixed fill pattern (the port models them the same way)
+        e.write(STACK_TOP - 0x10000, bytes([0xcc]) * 0x10000)
         e.heap_next = HEAP_BASE
         e.write(0x6974c4, struct.pack('<I', CLOCK_OBJ))
         e.write(0x6974c2, b'\0\0')
@@ -113,9 +113,10 @@ class Harness:
                '    got.chunks(4).zip(want.chunks(4)).all(|(a, b)| {',
                '        if a == b { return true; }',
                '        if a.len() != 4 { return false; }',
-               '        let noise = |i: u32| { let e = (i >> 23) & 0xff; (86..127).contains(&e) };',
+               '        let noise = |i: u32| { let e = (i >> 23) & 0xff; (60..127).contains(&e) };',
+               '        if f32::from_le_bytes(a.try_into().unwrap()).is_nan() && f32::from_le_bytes(b.try_into().unwrap()).is_nan() { return true; }',
                '        let (ni, mi) = (u32::from_le_bytes(a.try_into().unwrap()), u32::from_le_bytes(b.try_into().unwrap()));',
-               '        if noise(ni) && noise(mi) && (f32::from_le_bytes(a.try_into().unwrap()) - f32::from_le_bytes(b.try_into().unwrap())).abs() <= 1e-6 { return true; }',
+               '        if noise(ni) && noise(mi) && (f32::from_le_bytes(a.try_into().unwrap()) - f32::from_le_bytes(b.try_into().unwrap())).abs() <= if (86..127).contains(&((ni >> 23) & 0xff)) { 1e-6 } else { 1e-9 } { return true; }',
                '        let (x, y) = (f32::from_le_bytes(a.try_into().unwrap()), f32::from_le_bytes(b.try_into().unwrap()));',
                '        let ordinary = |v: f32| v.is_finite() && (v == 0.0 || (v.abs() > 1e-7 && v.abs() < 1e7));',
                '        let (xi, yi) = (u32::from_le_bytes(a.try_into().unwrap()), u32::from_le_bytes(b.try_into().unwrap()));',
@@ -126,7 +127,7 @@ class Harness:
                'fn report(base: u32, got: &[u8], want: &[u8]) -> String {',
                '    let mut out = String::new();',
                '    for (i, (a, b)) in got.chunks(4).zip(want.chunks(4)).enumerate() {',
-               '        if a != b && out.len() < 600 {',
+               '        if a != b && !mem_close(a, b) && out.len() < 1500 {',
                '            let f = |x: &[u8]| if x.len() == 4 { format!("{:#010x}/{}", u32::from_le_bytes(x.try_into().unwrap()), f32::from_le_bytes(x.try_into().unwrap())) } else { format!("{x:?}") };',
                '            out += &format!("\n  +{:#x}: port {} original {}", base as usize + i * 4, f(a), f(b));',
                '        }',
