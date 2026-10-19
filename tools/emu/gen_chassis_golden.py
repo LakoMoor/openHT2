@@ -62,3 +62,21 @@ for k in range(160):
     h.case(CONST + w, lambda e, p7=p7: e.call(0x4f2670, [P2, P3, P4, P5, P6, p7, P8], 'iiiiifi', this=CAR),
            f'chassis::fn_004f2670(&mut m, {T}, {P2:#x}, {P3:#x}, {P4:#x}, {P5:#x}, {P6:#x}, {sp7!r}f32, {P8:#x})', [(CAR, 0x3a00)])
 h.save()
+
+# simple snapshot helpers
+h = Harness('golden_snapshots', ['use ht2_sim::chassis;'])
+r = h.rnd
+CLK = CAR + 0x3f00
+for name, addr in (('fn_004f0720', 0x4f0720), ('fn_004f07e0', 0x4f07e0), ('fn_004f09f0', 0x4f09f0)):
+    for _ in range(60):
+        w, _f = state(addr, r, fill=[(0x10, 0x60), (0x900, 0x930), (0xd58, 0xd64), (0x9f0, 0xa44), (0xdc0, 0xdcc), (0x2670, 0x2690), (0x29d8, 0x29e0), (0x64, 0x64 + 72), (0x1cbc, 0x1cbc + 72)],
+                      overrides={0xdd4: lambda r: ('i', r.randint(0, 6)), 0x8cc: lambda r: ('i', 3)})
+        w.append((0x697868 + 3 * 0x970 + 0x810, pack('f', r.uniform(-2, 3))))
+        w += [(CLK + 0x18 + 8 * k, pack('d', r.uniform(-50, 50))) for k in range(3)]
+        for i in range(6):
+            w.append((CAR + 0x3cdc + 20 * i, pack('i', r.choice([0, 1, 5]))))
+        call = f'snap::{name}(&mut m, {T}, {CLK:#x})' if name == 'fn_004f09f0' else f'chassis::{name}(&mut m, {T})'
+        call = call.replace('snap::', 'chassis::')
+        args = [CLK] if name == 'fn_004f09f0' else []
+        h.case(CONST + w, lambda e, addr=addr, args=args: e.call(addr, args, 'i' * len(args), this=CAR), call, [(CAR, 0x4000)])
+h.save()

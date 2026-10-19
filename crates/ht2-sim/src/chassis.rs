@@ -231,3 +231,79 @@ pub fn fn_004f2670(m: &mut Mem, this: u32, p2: u32, p3: u32, p4: u32, p5: u32, p
         m.set_f32(this + 0xd00 + f4, r(f(m, this + 0xd20 + f4) * f(m, this + 0x2670 + f4)));
     }
 }
+
+fn copy_words(m: &mut Mem, dst: u32, src: u32, n: u32) {
+    for i in 0..n {
+        let w = m.u32(src + 4 * i);
+        m.set_u32(dst + 4 * i, w);
+    }
+}
+
+/// `0x4f0720`: remember the velocities, forces and per-wheel values of this step for the next one.
+pub fn fn_004f0720(m: &mut Mem, this: u32) {
+    copy_words(m, this + 0x2a50, this + 0x40, 3);
+    copy_words(m, this + 0x2a5c, this + 0x9f0, 3);
+    copy_words(m, this + 0x2a68, this + 0xa20, 3);
+    copy_words(m, this + 0x332c, this + 0xdc4, 1);
+    copy_words(m, this + 0x3328, this + 0xdc0, 1);
+    copy_words(m, this + 0x3330, this + 0xdc8, 1);
+    copy_words(m, this + 0x3338, this + 0xee0, 1);
+    copy_words(m, this + 0x333c, this + 0xee4, 1);
+    for i in 0..m.i32(this + 0xdd4).max(0) as u32 {
+        copy_words(m, this + 0x3bb0 + 4 * i, this + 0x2670 + 4 * i, 1);
+    }
+}
+
+/// `0x4f07e0`: remember the angular velocity.
+pub fn fn_004f07e0(m: &mut Mem, this: u32) {
+    copy_words(m, this + 0x2a74, this + 0x58, 3);
+}
+
+/// `0x4f09f0`: snapshot of the vehicle state for the recorder / network (`clock` points at an object
+/// holding three doubles at `+0x18`, `+0x20`, `+0x28`).
+pub fn fn_004f09f0(m: &mut Mem, this: u32, clock: u32) {
+    copy_words(m, this + 0x29f0, this + 0x10, 12);
+    copy_words(m, this + 0x2a20, this + 0x900, 12);
+    copy_words(m, this + 0x2b4c, this + 0xf4, 1);
+    for (k, o) in [0x18u32, 0x20, 0x28].iter().enumerate() {
+        let d = m.f64(clock + o);
+        m.set_f32(this + 0x331c + 4 * k as u32, d as f32);
+    }
+    let g = |m: &Mem, o: u32| f(m, this + o);
+    let v = [
+        r(g(m, 0xd58) * g(m, 0x900) + g(m, 0x918) * g(m, 0xd60) + g(m, 0x90c) * g(m, 0xd5c)),
+        r(g(m, 0x91c) * g(m, 0xd60) + g(m, 0x904) * g(m, 0xd58) + g(m, 0x910) * g(m, 0xd5c)),
+        r(g(m, 0x920) * g(m, 0xd60) + g(m, 0x908) * g(m, 0xd58) + g(m, 0x914) * g(m, 0xd5c)),
+    ];
+    set3(m, this + 0x33ac, v);
+    for i in 0..m.i32(this + 0xdd4).max(0) as u32 {
+        copy_words(m, this + 0x2a80 + 12 * i, this + 0x64 + 12 * i, 3);
+        copy_words(m, this + 0x2ae0 + 12 * i, this + 0x1cbc + 12 * i, 3);
+    }
+    copy_words(m, this + 0x3c38, this + 0x29d8, 1);
+    copy_words(m, this + 0x3bd0, this + 0x29dc, 1);
+    copy_words(m, this + 0x3bd8, this + 0x1c1c, 1);
+    copy_words(m, this + 0x3c3c, this + 0x1c84, 1);
+    copy_words(m, this + 0x3c40, this + 0x1c84, 1);
+    let tech = crate::gearbox::TECH_TABLE + (m.i32(this + 0x8cc) as u32).wrapping_mul(0x970);
+    if m.f32(tech + 0x810) < m.f32(this + 0x1c84) {
+        copy_words(m, this + 0x3c40, tech + 0x810, 1);
+    }
+    copy_words(m, this + 0x3c44, this + 0x1c88, 1);
+    copy_words(m, this + 0x3c80, this + 0x1b24, 1);
+    copy_words(m, this + 0x3c90, this + 0x3cb4, 1);
+    m.set_u32(this + 0x3c94, 0);
+    for i in 0..m.i32(this + 0xdd4).max(0) as u32 {
+        if m.u32(this + 0x3cdc + 20 * i) != 0 {
+            let b = m.u32(this + 0x3c94) | (1u32 << (i & 31));
+            m.set_u32(this + 0x3c94, b);
+        }
+    }
+    copy_words(m, this + 0x3c98, this + 0x3cc8, 1);
+}
+
+/// `0x4f2630`: `fn_004f2670` with the vehicle's own transforms and vectors.
+pub fn fn_004f2630(m: &mut Mem, this: u32, p2: u32) {
+    let p7 = m.f32(this + 0xdc8);
+    fn_004f2670(m, this, p2, this + 0x10, this + 0x900, this + 0x9f0, this + 0x4c, p7, this + 0xa38);
+}
