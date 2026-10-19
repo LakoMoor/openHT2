@@ -23,7 +23,7 @@ def fread(emu):
 
 
 e.hook_ret(0x61e20f, fread)
-CONST = [(0x7025f0, struct.pack('<12f', 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)), (0x702650, bytes(12))]
+CONST = [(0x7025f0, struct.pack('<12f', 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)), (0x702650, bytes(12)), (0x702630, struct.pack('<3f', 0, 0, 1))]
 VOL, POLYS, START, END = OBJ_BASE + 0x1000, OBJ_BASE + 0x2000, OBJ_BASE + 0x3000, OBJ_BASE + 0x3010
 r = h.rnd
 
@@ -95,5 +95,31 @@ for case in range(300):
     rad = r.uniform(0.1, 1.0)
     h.case(w, lambda e, mode=mode, rad=rad: e.call(0x5f6820, [mode, START, END, rad], 'iiif', this=VOL),
            f'shape::fn_005f6820(&mut m, {VOL:#x}, {mode}, {START:#x}, {END:#x}, {rs_f32(rad)})',
+           [(START, 0x1c)], ret=True, ret_int=True)
+# walls along a polyline (kind 7, 0x5f5a80): segments moving across them
+for case in range(150):
+    cx, cy, cz = r.uniform(-500, 500), r.uniform(-500, 500), r.uniform(-50, 50)
+    n = r.randint(2, 5)
+    a0 = r.uniform(0, 6.28)
+    pts, x, y = [], cx, cy
+    for i in range(n):
+        pts.append((x, y, cz + r.uniform(-3, 3)))
+        a = a0 + r.uniform(-1.2, 1.2)
+        step = r.uniform(2, 30)
+        x, y = x + step * math.cos(a), y + step * math.sin(a)
+    k = r.randrange(n - 1)
+    f = r.uniform(-0.2, 1.2)
+    bx, by = pts[k][0] + (pts[k + 1][0] - pts[k][0]) * f, pts[k][1] + (pts[k + 1][1] - pts[k][1]) * f
+    ang = r.uniform(0, 6.28)
+    d1, d2 = r.uniform(-4, 4), r.uniform(-4, 4)
+    s = (bx + d1 * math.cos(ang), by + d1 * math.sin(ang), cz + r.uniform(-5, 5))
+    t = (bx + d2 * math.cos(ang), by + d2 * math.sin(ang), cz + r.uniform(-5, 5))
+    if r.random() < 0.1:
+        t = s
+    mode = r.choice([4, 5, 1, 0])
+    w = list(CONST) + [(POLYS, b''.join(struct.pack('<3f', *p) for p in pts)), (VOL, struct.pack('<iiI', 7, n, POLYS)),
+                       (START, struct.pack('<3f', *s)), (END, struct.pack('<3f', *t))]
+    h.case(w, lambda e, mode=mode: e.call(0x5f6820, [mode, START, END, 0.5], 'iiif', this=VOL),
+           f'shape::fn_005f6820(&mut m, {VOL:#x}, {mode}, {START:#x}, {END:#x}, 0.5)',
            [(START, 0x1c)], ret=True, ret_int=True)
 h.save()

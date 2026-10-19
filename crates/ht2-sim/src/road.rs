@@ -351,6 +351,8 @@ pub struct RoadNet {
     pub nodes: Vec<Node>,
     pub segments: Vec<Segment>,
     pub roads: Vec<Road>,
+    /// The `.way` room each segment comes from (`RNAM`).
+    pub segment_rooms: Vec<String>,
 }
 
 struct Endpoint {
@@ -391,6 +393,7 @@ impl RoadNet {
                     let b = seg.point(1.0, seg.pieces() - 1);
                     let id = net.segments.len();
                     net.segments.push(seg);
+                    net.segment_rooms.push(room.name.clone());
                     seg_done.push(false);
                     let ea = find(&mut eps, a);
                     let eb = find(&mut eps, b);
@@ -562,6 +565,48 @@ fn norm(v: [f64; 3]) -> [f64; 3] {
 impl RoadNet {
     fn seg(&self, p: &Place) -> &Segment {
         &self.segments[self.roads[p.road].segments[p.segment]]
+    }
+
+    /// The `.way` room of the segment a place is on.
+    pub fn room_of(&self, p: &Place) -> &str {
+        &self.segment_rooms[self.roads[p.road].segments[p.segment]]
+    }
+
+    /// The place on the roads nearest to `q` (horizontally; stand-in for the road module's
+    /// `findPlayerPosition(vector)`): each piece sampled, then the best sample refined.
+    pub fn nearest(&self, q: [f64; 3]) -> Option<Place> {
+        let d2 = |a: [f64; 3]| (a[0] - q[0]).powi(2) + (a[1] - q[1]).powi(2) + 0.01 * (a[2] - q[2]).powi(2);
+        let mut best: Option<(f64, Place)> = None;
+        for (road, r) in self.roads.iter().enumerate() {
+            for (segment, &s) in r.segments.iter().enumerate() {
+                let seg = &self.segments[s];
+                for piece in 0..seg.pieces() {
+                    for k in 0..=16 {
+                        let t = k as f64 / 16.0;
+                        let d = d2(seg.point(t, piece));
+                        if best.as_ref().is_none_or(|(b, _)| d < *b) {
+                            best = Some((d, Place { road, node: None, t, piece, segment, reversed: false }));
+                        }
+                    }
+                }
+            }
+        }
+        let (_, mut p) = best?;
+        let seg = &self.segments[self.roads[p.road].segments[p.segment]];
+        let mut step = 1.0 / 32.0;
+        for _ in 0..20 {
+            let here = d2(seg.point(p.t, p.piece));
+            let lo = (p.t - step).max(0.0);
+            let hi = (p.t + step).min(1.0);
+            if d2(seg.point(lo, p.piece)) < here {
+                p.t = lo;
+            } else if d2(seg.point(hi, p.piece)) < here {
+                p.t = hi;
+            } else {
+                step *= 0.5;
+            }
+        }
+        Some(p)
     }
 
     /// `getCoordinates` (`0x439580` → `0x435bf0`): the point of a place (a node's position when

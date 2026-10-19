@@ -10,8 +10,8 @@
 //! The test moves `start` to the hit point and puts the surface normal into `end`. `mode` bit 1
 //! (2) sweeps a sphere of radius `r` instead of a point.
 //!
-//! Ported: kinds 0, 5 and 6 for point queries (what the wheels and the vehicle placement use).
-//! The sphere sweeps and kinds 1..4 and 7 are not ported yet and report no hit.
+//! Ported: kinds 0, 5, 6 and 7 for point queries (what the wheels and the vehicle placement use).
+//! The sphere sweeps and kinds 1..4 are not ported yet and report no hit.
 
 use crate::mem::Mem;
 
@@ -36,6 +36,7 @@ fn set3(m: &mut Mem, a: u32, v: [f32; 3]) {
 pub const VOL_ALL: u32 = 0;
 pub const VOL_PLANE: u32 = 5;
 pub const VOL_POLYS: u32 = 6;
+pub const VOL_WALL: u32 = 7;
 pub const POLY_SIZE: u32 = 0x30;
 
 /// `0x5ac6d0`: the plane `(n, d)` through `a`, `b`, `c` (`n = (b-a) x (c-a)`, unit length, or
@@ -209,6 +210,69 @@ pub fn fn_005f6820(m: &mut Mem, vol: u32, mode: u32, start: u32, end: u32, rad: 
             }
             0
         }
+        VOL_WALL => {
+            // `count` points 12 bytes apart; a wall between each two in turn.
+            let (n, data) = (m.i32(vol + 4), m.u32(vol + 8));
+            for i in 0..(n - 1).max(0) as u32 {
+                if fn_005f5a80(m, mode, data + 12 * i, data + 12 * (i + 1), start, end, rad) != 0 {
+                    return i + 1;
+                }
+            }
+            0
+        }
         _ => 0,
     }
+}
+
+/// `0x5f5a80`: the segment `start`..`end` against the wall standing on the line from `a` to
+/// `b`: vertical, unbounded up and down, facing `(a - b) x up`. Only a segment moving into
+/// the wall from its front hits; the hit point (its height taken along the segment) goes to
+/// `start`, the wall normal to `end`. The sphere sweep (`mode` bit 2) is not ported (no hit).
+pub fn fn_005f5a80(m: &mut Mem, mode: u32, a: u32, b: u32, start: u32, end: u32, _rad: f32) -> u32 {
+    let (pa, pb) = (v3(m, a), v3(m, b));
+    let (s0, e0) = (v3(m, start), v3(m, end));
+    let up = v3(m, crate::globals::VEC_UP);
+    let e = [r(pa[0] - pb[0]) as f64, r(pa[1] - pb[1]) as f64, r(pa[2] - pb[2]) as f64];
+    let c = [r(e[1] * up[2] - e[2] * up[1]) as f64, r(e[2] * up[0] - e[0] * up[2]) as f64, r(e[0] * up[1] - e[1] * up[0]) as f64];
+    let len = r((c[2] * c[2] + c[1] * c[1] + c[0] * c[0]).sqrt()) as f64;
+    let n = if len < 1e-5f64 as f32 as f64 {
+        v3(m, crate::globals::VEC_ZERO)
+    } else {
+        [r(c[0] / len) as f64, r(c[1] / len) as f64, r(c[2] / len) as f64]
+    };
+    let neg = [r(-n[0]) as f64, r(-n[1]) as f64, r(-n[2]) as f64];
+    // The plane offset, then everything flat.
+    let d = r(neg[1] * pa[1] + neg[2] * pa[2] + neg[0] * pa[0]) as f64;
+    let (s, en) = ([s0[0], s0[1], 0.0], [e0[0], e0[1], 0.0]);
+    let (pa, pb) = ([pa[0], pa[1], 0.0], [pb[0], pb[1], 0.0]);
+    let dir = [r(en[0] - s[0]) as f64, r(en[1] - s[1]) as f64, 0.0];
+    let dot = |u: [f64; 3], v: [f64; 3]| u[2] * v[2] + u[1] * v[1] + u[0] * v[0];
+    if !(dir[1] * n[1] + dir[2] * n[2] + dir[0] * n[0] <= 1e-5f64 as f32 as f64 && (-1e-5f64 as f32 as f64) <= s[1] * n[1] + n[2] * s[2] + n[0] * s[0] + d) {
+        return 0;
+    }
+    if mode & 2 != 0 {
+        return 0;
+    }
+    if 1e-5 < dot(en, n) + d {
+        return 0;
+    }
+    let diff = [r(en[0] - s[0]) as f64, r(en[1] - s[1]) as f64, r(en[2] - s[2]) as f64];
+    let dn = dot(diff, n);
+    let t = if 0.0001 <= dn.abs() { r(-((dot(s, n) + d) / dn)) as f64 } else { 0.5 };
+    if !((-1e-5f64 as f32 as f64) <= t && t <= 1.00001f64 as f32 as f64) {
+        return 0;
+    }
+    let sc = [r(diff[0] * t) as f64, r(diff[1] * t) as f64, r(diff[2] * t) as f64];
+    let hit = [r(s[0] + sc[0]) as f64, r(s[1] + sc[1]) as f64, r(s[2] + sc[2]) as f64];
+    let length = |u: [f64; 3], v: [f64; 3]| {
+        let w = [r(u[0] - v[0]) as f64, r(u[1] - v[1]) as f64, r(u[2] - v[2]) as f64];
+        (w[2] * w[2] + w[1] * w[1] + w[0] * w[0]).sqrt()
+    };
+    let span = length(pb, pa) + 1e-5;
+    if length(hit, pa) <= span && length(hit, pb) <= span {
+        set3(m, start, [r(hit[0]), r(hit[1]), r((e0[2] - s0[2]) * t + s0[2])]);
+        set3(m, end, [r(n[0]), r(n[1]), r(n[2])]);
+        return 1;
+    }
+    0
 }

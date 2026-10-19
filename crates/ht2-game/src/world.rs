@@ -166,6 +166,14 @@ impl Scene {
                         let surface = b.surface(*surface, params);
                         Op::Volume { vol: b.plane_vol(shape::VOL_PLANE, *plane), surface }
                     }
+                    (Data::Wall { surface, params, points }, _) if 1 < points.len() => {
+                        let surface = b.surface(*surface, params);
+                        let pts = b.alloc(12 * points.len() as u32);
+                        b.image.push((pts, points.iter().flat_map(|v| v.map(f32::to_bits)).collect()));
+                        let vol = b.alloc(12);
+                        b.image.push((vol, vec![shape::VOL_WALL, points.len() as u32, pts]));
+                        Op::Volume { vol, surface }
+                    }
                     (Data::Split { plane }, _) => Op::Split { vol: b.plane_vol(shape::VOL_PLANE, *plane) },
                     (Data::Portal { a, b: q }, _) => {
                         // the rectangle between the two corners; the normal is horizontal,
@@ -238,6 +246,23 @@ impl Scene {
             }
         }
         Scene { nodes, rooms, image: b.image, polys: b.polys }
+    }
+
+    /// For diagnostics: the portals below the room with id `room`.
+    pub fn debug_portals(&self, room: u32) -> Vec<String> {
+        let mut out = Vec::new();
+        let mut stack = vec![room - 1];
+        while let Some(n) = stack.pop() {
+            let node = &self.nodes[n as usize];
+            if let Op::Portal { n: nv, c0, c2, target } = &node.op {
+                let to = target.map(|t| (self.nodes[t as usize].name.clone(), Self::room_id(t)));
+                out.push(format!("{} c0={c0:?} c2={c2:?} n={nv:?} -> {to:?}", node.name));
+            }
+            for l in &node.lists {
+                stack.extend(l.iter().copied());
+            }
+        }
+        out
     }
 
     pub fn room_count(&self) -> usize {
@@ -558,11 +583,19 @@ impl Scene {
         r | 2
     }
 
-    /// The room whose road is right below `p` (the vehicle is created in it).
+    /// The id of the room called `name`.
+    pub fn room_named(&self, name: &str) -> Option<u32> {
+        self.rooms.get(&name.to_ascii_lowercase()).map(|&n| Self::room_id(n))
+    }
+
+    /// The room whose road is right below `p` (the vehicle is created in it; where rooms
+    /// overlap, the one first in the files).
     pub fn room_at(&self, m: &mut Mem, p: [f32; 3]) -> Option<u32> {
         let rec = SCRATCH + 0x200;
         let mut best: Option<(f32, u32)> = None;
-        for &room in self.rooms.values() {
+        let mut rooms: Vec<u32> = self.rooms.values().copied().collect();
+        rooms.sort_unstable();
+        for room in rooms {
             ht2_sim::contact::rec_init(m, rec);
             for i in 0..12u32 {
                 let w = m.u32(ht2_sim::globals::MAT_IDENTITY + 4 * i);

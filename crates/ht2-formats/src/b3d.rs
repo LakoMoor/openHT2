@@ -52,6 +52,9 @@ pub enum Data {
     Split { plane: [f32; 4] },
     /// Type 30: a portal into the room named in `names[0]`, the rectangle with opposite corners `a`, `b`.
     Portal { a: Vec3, b: Vec3 },
+    /// Type 20: a wall standing on the polyline `points` (vertical, see `0x5f5a80`), with its
+    /// surface record.
+    Wall { surface: [u32; 2], params: Vec<u32>, points: Vec<Vec3> },
     /// Type 12: a collision plane `(n, d)` with its bounding sphere and surface record.
     CollisionPlane { sphere: [f32; 4], plane: [f32; 4], surface: [u32; 2], params: Vec<u32> },
     /// Every other type; its data was consumed but is not retained.
@@ -291,9 +294,11 @@ impl R<'_> {
             20 => {
                 self.skip(4)?;
                 let coords = self.u32()? as usize;
-                self.skip(2)?;
-                self.counted_words()?;
-                self.skip(3 * coords)?;
+                let surface = [self.u32()?, self.u32()?];
+                let k = self.u32()? as usize;
+                let params = (0..k).map(|_| self.u32()).collect::<Result<Vec<_>>>()?;
+                let points = (0..coords).map(|_| self.vec3()).collect::<Result<Vec<_>>>()?;
+                data = Data::Wall { surface, params, points };
             }
             21 => {
                 self.skip(4 + 2)?;

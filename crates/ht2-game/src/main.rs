@@ -226,6 +226,13 @@ fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, Strin
     let mut ground = Ground::new(&world_scenes);
     ground.scene = world::Scene::new(&coll);
     println!("collision: {} rooms", ground.scene.room_count());
+    if let Ok(ids) = std::env::var("HT2_PORTALS") {
+        for id in ids.split(',').filter_map(|v| v.parse::<u32>().ok()) {
+            for l in ground.scene.debug_portals(id) {
+                println!("room {id}: {l}");
+            }
+        }
+    }
     ground.roads = load_roads(&folder, map, dir.join(map).is_dir());
     println!("roads: {} nodes, {} roads", ground.roads.nodes.len(), ground.roads.roads.len());
     // The scenario start is only usable if there is ground under it (the menu scenes have none).

@@ -111,7 +111,10 @@ impl SimCar {
         loader::init_vehicle_nodes(&mut m, vid, wheels, add);
         let (c, s) = (heading.cos(), heading.sin());
         let mat = [c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0, pos.x, pos.y, pos.z];
-        let start_room = ground.scene.room_at(&mut m, pos.to_array());
+        // The room of the road place nearest to the start (as the road module places players),
+        // else the room whose road is below.
+        let named = ground.roads.nearest([pos.x as f64, pos.y as f64, pos.z as f64]).and_then(|p| ground.scene.room_named(ground.roads.room_of(&p)));
+        let start_room = named.or_else(|| ground.scene.room_at(&mut m, pos.to_array()));
         let rooms = start_room.is_some();
         let room = start_room.unwrap_or(ROOM);
         with_world(ground, rooms, |w| ctor::fn_004ebd00(&mut m, w, CAR, room, mat, vid));
@@ -203,7 +206,8 @@ impl SimCar {
             let Some(z) = ground.height_at(at.x, at.y, at.z + 3.0, 0.0) else { continue };
             let pos = Vec3::new(at.x, at.y, z + 1.0);
             let car = CAR + CAR_STRIDE * (self.traffic.len() as u32 + 1);
-            let Some(room) = ground.scene.room_at(&mut self.m, pos.to_array()).or((!self.rooms).then_some(ROOM)) else { continue };
+            let named = ground.scene.room_named(net.room_of(&place));
+            let Some(room) = named.or_else(|| ground.scene.room_at(&mut self.m, pos.to_array())).or((!self.rooms).then_some(ROOM)) else { continue };
             let heading = (-fx).atan2(fy);
             let (c, s) = (heading.cos(), heading.sin());
             let mat = [c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0, pos.x, pos.y, pos.z];
