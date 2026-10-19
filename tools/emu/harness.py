@@ -69,8 +69,14 @@ class Harness:
             init.append((addr, data))
         if prepare:
             prepare(e)   # e.g. run original constructors; mirror them in `setup_rust`
-        before = [(b, e.read(b, n)) for b, n in watch]
+        dynamic = callable(watch)
+        before = [] if dynamic else [(b, e.read(b, n)) for b, n in watch]
         r = call(e)
+        if dynamic:                       # regions known only after the original ran (heap objects)
+            watch = watch(e)
+            before = [(b, bytes(n)) for b, n in watch]
+        if callable(setup_rust):
+            setup_rust = setup_rust(e)
         if ret_int:
             r = e.eax
         after = [(b, e.read(b, n)) for b, n in watch]

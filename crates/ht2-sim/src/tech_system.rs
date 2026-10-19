@@ -40,7 +40,8 @@ pub fn define(m: &mut Mem, this: u32, idx: i32, lo: f32, hi: f32, rate: f32) {
     let i = idx as u32 * 4;
     m.set_f32(this + i, lo);
     m.set_f32(this + 0xc + i, hi);
-    if rate != 0.0 {
+    // x87 compares of NaN leave the zero flag set, so a NaN rate counts as "no rate" like the original.
+    if rate != 0.0 && !rate.is_nan() {
         m.set_f32(this + 0x18 + i, (1.0f64 / rate as f64) as f32);
     } else {
         m.set_f32(this + 0x18 + i, 0.0);

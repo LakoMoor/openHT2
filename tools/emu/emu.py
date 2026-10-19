@@ -11,7 +11,7 @@ import struct
 import pefile
 from unicorn import Uc, UC_ARCH_X86, UC_MODE_32, UC_HOOK_MEM_UNMAPPED, UC_HOOK_CODE
 from unicorn.x86_const import (UC_X86_REG_ESP, UC_X86_REG_EBP, UC_X86_REG_ECX, UC_X86_REG_EDX, UC_X86_REG_EAX,
-                               UC_X86_REG_EIP, UC_X86_REG_FPCW)
+                               UC_X86_REG_EIP, UC_X86_REG_FPCW, UC_X86_REG_FS_BASE)
 
 GAME = r'E:\openHT2\Hard Truck 2 King of the Road'
 EXE = GAME + r'\king.exe'
@@ -45,6 +45,39 @@ class Emu:
         self.mu.mem_write(STUB, b'\xdd\x1d' + struct.pack('<I', SCRATCH) + b'\x90')
         self.stub_end = STUB + 7
         self.mu.reg_write(UC_X86_REG_FPCW, 0x27f)  # 53-bit mantissa, round to nearest
+        self._patch_fs(0x7ffd0000)
+
+    def _patch_fs(self, teb):
+        """Give the emulated CPU a flat GDT and an `fs` segment that points at a fake thread block.
+
+        The original code keeps its SEH chain at `fs:[0]`; unicorn has no TEB of its own."""
+        from unicorn.x86_const import (UC_X86_REG_GDTR, UC_X86_REG_FS, UC_X86_REG_CS, UC_X86_REG_DS,
+                                       UC_X86_REG_ES, UC_X86_REG_SS, UC_X86_REG_GS)
+        self.mu.mem_map(teb, 0x1000)
+        gdt = 0x7ffe0000
+        self.mu.mem_map(gdt, 0x1000)
+
+        def entry(base, limit, access, flags):
+            v = limit & 0xffff
+            v |= (base & 0xffffff) << 16
+            v |= (access & 0xff) << 40
+            v |= ((limit >> 16) & 0xf) << 48
+            v |= (flags & 0xf) << 52
+            v |= ((base >> 24) & 0xff) << 56
+            return struct.pack('<Q', v)
+
+        table = entry(0, 0, 0, 0)                       # null
+        table += entry(0, 0xfffff, 0x9a, 0xc)           # 1: flat code
+        table += entry(0, 0xfffff, 0x92, 0xc)           # 2: flat data / stack
+        table += entry(teb, 0xfff, 0x92, 0x4)           # 3: fs -> thread block
+        self.mu.mem_write(gdt, table)
+        self.mu.reg_write(UC_X86_REG_GDTR, (0, gdt, len(table) - 1, 0))
+        self.mu.reg_write(UC_X86_REG_DS, 2 << 3)
+        self.mu.reg_write(UC_X86_REG_ES, 2 << 3)
+        self.mu.reg_write(UC_X86_REG_SS, 2 << 3)
+        self.mu.reg_write(UC_X86_REG_CS, 1 << 3)
+        self.mu.reg_write(UC_X86_REG_GS, 2 << 3)
+        self.mu.reg_write(UC_X86_REG_FS, 3 << 3)
 
     # --- hooks ----------------------------------------------------------
     def hook_ret(self, addr, fn):
@@ -70,6 +103,8 @@ class Emu:
             return a
         self.hook_ret(0x632643, malloc)          # malloc
         self.hook_ret(0x4e260c, lambda emu: 0)   # error log / assert
+        self.hook_ret(0x61edde, lambda emu: 12345)  # rand(): fixed so that results are repeatable
+        self.hook_ret(0x61cca9, lambda emu: 0)   # sprintf: messages are not needed (float formatting needs CRT start-up state)
 
     # --- memory helpers -------------------------------------------------
     def write(self, va, data):

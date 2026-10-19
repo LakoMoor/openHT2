@@ -11,6 +11,7 @@ pub mod filter;
 pub mod gearbox;
 pub mod gearbox_update;
 pub mod globals;
+pub mod init;
 pub mod math;
 pub mod mem;
 pub mod motion;

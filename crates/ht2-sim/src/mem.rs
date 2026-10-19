@@ -86,6 +86,11 @@ impl Mem {
         self.write(a, &v.to_le_bytes());
     }
 
+    /// Continue allocating from `addr` (for reproducing the addresses of an existing run).
+    pub fn set_heap_next(&mut self, addr: u32) {
+        self.heap_next = addr;
+    }
+
     /// Allocate `n` zeroed bytes (the original `malloc`; memory is never reused).
     pub fn alloc(&mut self, n: u32) -> u32 {
         let a = self.heap_next;
