@@ -5,6 +5,7 @@
 //! Where the meaning of a function is known it is documented; the names stay address-based
 //! until then so they can always be traced back.
 
+pub mod ai;
 pub mod carv;
 pub mod chassis;
 pub mod contact;
