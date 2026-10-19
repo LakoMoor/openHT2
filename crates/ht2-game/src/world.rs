@@ -12,10 +12,11 @@
 //! - portals (type 30, `0x5fc2c0`): a segment crossing the portal rectangle along its normal
 //!   continues in the room behind it and reports bit 2 with that room in `rec + 0x68`.
 //!
-//! Not ported yet: links with their transforms (type 18), the sphere sweeps (mode bit 2), the
-//! volumes of types 14..17 and the walls (type 20); they report nothing. The query record's
-//! transform is the identity at the top level, so it is applied to the segment but the final
-//! transform back (`0x4e5698`) is left out.
+//! - links (type 18, `0x5f9b00`): the linked group in the space of the link; the room queries take
+//!   the hit back to world space (`0x4e5698`).
+//!
+//! Not ported yet: the sphere sweeps (mode bit 2), the volumes of types 14..17 and the walls
+//! (type 20); they report nothing. Spaces inside spaces are taken as absolute.
 
 use ht2_formats::b3d::{self, Data, Node};
 use ht2_sim::contact::World;
@@ -34,6 +35,8 @@ enum Op {
     Split { vol: u32 },
     Volume { vol: u32, surface: u32 },
     Portal { n: [f32; 3], c0: [f32; 3], c2: [f32; 3], target: Option<u32> },
+    /// Type 18: a group placed by a space; `inv` is the inverse of the space's transform.
+    Link { target: Option<u32>, inv: Option<[f32; 12]> },
     Nothing,
 }
 
@@ -122,12 +125,23 @@ impl Scene {
         let mut refs: Vec<(u32, String, usize)> = Vec::new();
         let mut portals: Vec<(u32, String)> = Vec::new();
         let mut file_names: Vec<HashMap<String, u32>> = Vec::new();
+        let mut file_spaces: Vec<HashMap<String, [f32; 12]>> = Vec::new();
+        let mut links: Vec<(u32, String, String, usize)> = Vec::new();
         for (fi, f) in files.iter().enumerate() {
             let mut names = HashMap::new();
-            fn add(n: &Node, fi: usize, nodes: &mut Vec<SNode>, b: &mut Builder, names: &mut HashMap<String, u32>, rooms: &mut HashMap<String, u32>, refs: &mut Vec<(u32, String, usize)>, portals: &mut Vec<(u32, String)>) -> u32 {
+            let mut spaces = HashMap::new();
+            #[allow(clippy::too_many_arguments)]
+            fn add(n: &Node, fi: usize, nodes: &mut Vec<SNode>, b: &mut Builder, names: &mut HashMap<String, u32>, spaces: &mut HashMap<String, [f32; 12]>, rooms: &mut HashMap<String, u32>, refs: &mut Vec<(u32, String, usize)>, links: &mut Vec<(u32, String, String, usize)>, portals: &mut Vec<(u32, String)>) -> u32 {
                 let id = nodes.len() as u32;
                 nodes.push(SNode { name: n.name.clone(), lists: Vec::new(), op: Op::Nothing });
-                if !n.name.is_empty() {
+                if let Data::Space { axes, pos } = &n.data {
+                    let mut t = [0.0f32; 12];
+                    for (i, a) in axes.iter().enumerate() {
+                        t[3 * i..3 * i + 3].copy_from_slice(a);
+                    }
+                    t[9..].copy_from_slice(pos);
+                    spaces.entry(n.name.to_ascii_lowercase()).or_insert(t);
+                } else if !n.name.is_empty() {
                     names.entry(n.name.to_ascii_lowercase()).or_insert(id);
                 }
                 let op = match (&n.data, n.kind) {
@@ -165,6 +179,10 @@ impl Scene {
                         refs.push((id, n.names[0].to_ascii_lowercase(), fi));
                         Op::Ref(None)
                     }
+                    (_, 18) if n.names.len() == 2 => {
+                        links.push((id, n.names[0].to_ascii_lowercase(), n.names[1].to_ascii_lowercase(), fi));
+                        Op::Link { target: None, inv: None }
+                    }
                     (_, 13) => Op::Nothing,
                     (_, 18 | 14 | 15 | 16 | 17 | 20) => Op::Nothing,
                     _ => Op::Group,
@@ -179,7 +197,7 @@ impl Scene {
                 }
                 let mut lists: Vec<Vec<u32>> = Vec::new();
                 for c in &n.children {
-                    let cid = add(c, fi, nodes, b, names, rooms, refs, portals);
+                    let cid = add(c, fi, nodes, b, names, spaces, rooms, refs, links, portals);
                     let l = c.list as usize;
                     if lists.len() <= l {
                         lists.resize(l + 1, Vec::new());
@@ -191,13 +209,26 @@ impl Scene {
                 id
             }
             for n in &f.nodes {
-                add(n, fi, &mut nodes, &mut b, &mut names, &mut rooms, &mut refs, &mut portals);
+                add(n, fi, &mut nodes, &mut b, &mut names, &mut spaces, &mut rooms, &mut refs, &mut links, &mut portals);
             }
             file_names.push(names);
+            file_spaces.push(spaces);
         }
         for (id, name, fi) in refs {
             let target = file_names[fi].get(&name).copied().filter(|t| *t != id).or_else(|| file_names.iter().find_map(|m| m.get(&name).copied().filter(|t| *t != id)));
             nodes[id as usize].op = Op::Ref(target);
+        }
+        let mut scratch = Mem::new();
+        for (id, space, group, fi) in links {
+            let target = file_names[fi].get(&group).copied().filter(|t| *t != id);
+            let inv = file_spaces[fi].get(&space).map(|t| {
+                for (i, v) in t.iter().enumerate() {
+                    scratch.set_f32(4 * i as u32, *v);
+                }
+                ht2_sim::math::mat_inverse(&mut scratch, 0x100, 0);
+                core::array::from_fn(|i| scratch.f32(0x100 + 4 * i as u32))
+            });
+            nodes[id as usize].op = Op::Link { target, inv };
         }
         for (id, to) in portals {
             // a portal into another file names it as `file:room`
@@ -374,6 +405,25 @@ impl Scene {
                 m.set_u32(rec + 0x70, hit);
                 1
             }
+            Op::Link { target, inv } => {
+                // 0x5f9b00: the query continues in the space of the link (the query transform is
+                // replaced by the inverse of the space's); it is kept on a hit for 0x4e5698
+                let Some(t) = target else { return 0 };
+                if mode & 4 == 0 {
+                    return 0;
+                }
+                let saved = m.read(rec + 4, 48);
+                if let Some(inv) = inv {
+                    for (i, v) in inv.iter().enumerate() {
+                        m.set_f32(rec + 4 + 4 * i as u32, *v);
+                    }
+                }
+                let r = self.collide(m, *t, mode, rec);
+                if r == 0 {
+                    m.write(rec + 4, &saved);
+                }
+                r
+            }
             Op::Portal { n: nv, c0, c2, target } => {
                 let s0 = to_node(m, rec, v3(m, rec + 0x4c));
                 let e0 = to_node(m, rec, v3(m, rec + 0x58));
@@ -408,6 +458,20 @@ impl Scene {
                     }
                 }
             }
+        }
+    }
+
+    /// `0x4e5698`: the hit point and normal back from the space of the query transform.
+    fn hit_to_world(m: &mut Mem, rec: u32) {
+        let inv = SCRATCH + 0x300;
+        ht2_sim::math::mat_inverse(m, inv, rec + 4);
+        let (p, n) = (SCRATCH + 0x340, SCRATCH + 0x350);
+        ht2_sim::matrix::transform(m, p, rec + 0x34, inv);
+        ht2_sim::matrix::rotate(m, n, rec + 0x40, inv);
+        for k in 0..3 {
+            let (a, b) = (m.u32(p + 4 * k), m.u32(n + 4 * k));
+            m.set_u32(rec + 0x34 + 4 * k, a);
+            m.set_u32(rec + 0x40 + 4 * k, b);
         }
     }
 
@@ -532,10 +596,10 @@ impl World for SceneWorld<'_> {
 
     fn room_collide(&mut self, m: &mut Mem, which: u32, room: u32, mode: u32, rec: u32) -> u32 {
         let Some(n) = self.scene.room_node(room) else { return 0 };
-        if which == 0 {
-            self.scene.road_query(m, n, mode, rec, true)
-        } else {
-            self.scene.obj_query(m, n, mode, rec)
+        let r = if which == 0 { self.scene.road_query(m, n, mode, rec, true) } else { self.scene.obj_query(m, n, mode, rec) };
+        if r & 1 != 0 {
+            Scene::hit_to_world(m, rec);
         }
+        r
     }
 }
