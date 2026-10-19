@@ -8473,3 +8473,10749 @@ fn case_449() {
     patch(&mut want0, 0x2a003000, &[]);
     assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
 }
+
+#[test]
+fn case_450() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "88820600000000288b945bc33f6da343190bf4c0db431d42a4dcddc5c1702e40b1f29b3e0b0a2ebc2ad273bf4c5b7c42");
+    w(&mut m, 0x28000000, "620266c35db1a843594531c174ac57c36293aa43232ed1c0a27c5fc31c479c433f770bc1b32651c321299e43bc5c85c0a27c5fc31c479c433f770bc174ac57c36293aa431250d1c00000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "7e105bc3a5eda943b87ac8bd");
+    w(&mut m, 0x2a003010, "41f157c3c2c5a8439d03f4c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.8388652801513672f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_451() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8882040000000028728149c3c701c0c3b06b4441db431d42e68f91a487c7294050257ebe093784bd5970773f2255adc20000030030000028f5fd45c3d8f3bec3303135410000000006f6bab2bce90140098780be7f7282bd0044773f5beea9c2");
+    w(&mut m, 0x28000000, "afdc41c3d6fcbac3e8836e41558b53c3662fbcc34d4f2341352651c3b906c5c3cb401a418f773fc329d4c3c3c29a65415faf44c395d0bfc3b7ce3841ec2645c398f4bdc307ca3a41952348c35b16bfc3d4fa2b41000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "dad85bc3d915c4c312117841");
+    w(&mut m, 0x2a003010, "7b0658c38313c6c36f1bb040");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.799523949623108f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_452() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "88820400000000282caa80c3440323c2323d13c2db431d429eb07be873fd2c408968ad3e870e473e5eac6b3f08f70043");
+    w(&mut m, 0x28000000, "8cb87ec39337d8c16dad22c2b9ab83c3e4d129c2def508c2ebe977c37c4d4cc2fa6118c2b9ab83c3e4d129c280ef08c2");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "3d8d87c3c2cbf2c1150716c2");
+    w(&mut m, 0x2a003010, "de4287c3cfedd6c15efb1bc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.1592644453048706f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_453() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8882030000000028cbc9d7434c4e51c323bf1441db431d42d9628ef4ca5a2340a4366a3f55b0ce3e00000000362d9bc3000005003000002858c1da43d66e4ac343ebb64000000000f0d5a82900fe3a40773fb3be64a9e13e8198533fa1aa6d43");
+    w(&mut m, 0x28000000, "2928d64353e949c3d75a7e409a9ad843c80055c33b613f419a9ad843c80055c378453f41000000000000000000000000b284d243e22755c368988e40ded2db4326ca61c3229b98414be4e04372d53ec3f15597404be4e04372d53ec3f15597408da6d543488d3fc37e188dc000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "5090db435f2b3dc3ccd12941");
+    w(&mut m, 0x2a003010, "1fdedd43f18c41c39217d240");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.6110026836395264f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_454() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "163581be90dcadbc9aa7773fb2c303c2");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "11689ac3e9920443e73f08c2");
+    w(&mut m, 0x2a003010, "5c889cc307da034351d92dc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.27558743953704834f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_455() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "835989bdd0b3a23dd89c7e3fd8538642");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "1552a2c214747ec3102f40c2");
+    w(&mut m, 0x2a003010, "24be96c2667481c39e8f3cc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.6893649697303772f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_456() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8359050000000028e60abfc38d68ddc28ad48741000000004db5fd6874f231403a06e23d25ebf43c2f527ebf6a5e794200000400400000289da2bfc3a2f2cec25c38864100000000dea08f26718825400353e2bd1d8500bd204e7e3f990e79c2");
+    w(&mut m, 0x28000000, "0e8db7c3990fdcc25d489541c5cabdc3499ff3c2625a87419d52c5c31c29e3c2fbe577419d52c5c31c29e3c2fbe577417439bbc3a109bdc2f89d9241000000009826bec39e7fe3c2b73b86415e7fbac38c02c9c21d159041a31ec1c3a465bac246248641ddc5c4c3b6e2d4c2aed87841");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "13bcc7c32aa4d8c2585baa41");
+    w(&mut m, 0x2a003010, "61b2c6c3a3b1ddc2b3be6441");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.369788646697998f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_457() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8359040000000028aea604c3e1411443e77e964000000000111d12dfb5eb3640d0161e3e9bde413e5f3e783f6f5f42c1");
+    w(&mut m, 0x28000000, "514914c37d730443a26b24413167f6c21a2a1143f539734035ea07c3d23f2a43c6476d3f3167f6c21a2a1143ccbc7340");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "955ceec238000d438ac9d140");
+    w(&mut m, 0x2a003010, "dbf3e7c279370743f70ee940");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.3220136165618896f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_458() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8359040000000028eb7f8342473858c2e65cf7c100000000102a3b206e89314057e19dbd5baaedbddd807d3fee50eb41");
+    w(&mut m, 0x28000000, "26cd7b42ea5813c2c8f6e8c179204242f66a63c2fc5a02c243198942d28b8ec282e102c299efa54297054dc2d503eac1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "8a6da0423d486cc2da73efc1");
+    w(&mut m, 0x2a003010, "b8ffa64215a456c2c0d60bc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.9175175428390503f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_459() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "e8e7583e1f2c25be7fc2763f7eadbbc2");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "4d91e3433507744335784a42");
+    w(&mut m, 0x2a003010, "da06e643525d7343a6ef2142");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 0.43380168080329895f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_460() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "e8e70400000000285968a2424792bf42f00bd1c0000000002c658e370006304098198e3df4aacfbe5b52693f91ae1c420000030030000028e6a29842dd9eca42f7f5a5c0000000005325bd8972003040f1118e3df59ecfbe1a55693f830f22420000050060000028328e91429172c242e33d9ac0000000003f27575a1630234050d38f3d6c8acfbe5d55693fefc01a42");
+    w(&mut m, 0x28000000, "465290426a0ba7421ad434c135efba42357cad42f2d937c16b7eb4422419d842acbee1bf7ce1894259a8d142eb8fc9bf80f19242303be7429e8ab23f8cb482429062b74248170ac1a642b442da3ec142ff2a05c10000000000000000000000000534a24256f4bc42b3b7d5c092ec9b424195d042b69c04c0dd50874243add042c3eea0bfbfdb80422f1bbd421ae6abc0c5799142c7eab042cb860bc100000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "62038a42bb27e242dcc38ec0");
+    w(&mut m, 0x2a003010, "fd4495427a71df425b849dc0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.553313970565796f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_461() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "e69d12bd16de2c3eca287c3f995411c1");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "72b3dfc32b3355c34e992142");
+    w(&mut m, 0x2a003010, "c656ddc3e3ec58c3ed090242");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.2775026559829712f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_462() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "57d88a3d6f0be0bca6507f3fba1f2242");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "0ec933423480f9c2cae021c2");
+    w(&mut m, 0x2a003010, "41bd3f420113fac2cf0045c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.4095830917358398f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "cfb33a421bc6"), (0x2a003008, "05f33c"), (0x2a003010, "57d88a3d6f0be0bca6507f3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_463() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "57d8050000000028ee1ab042ba481443941d82c1000000000ee8e16e0ea42240c58cbdbe56ee663e2cb2663ff50d5d410000040040000028fdceb342e0890c4325875ec1000000000654f6e78b232e40012abd3e3ec767bed8b866bf320c5fc1000005007000002873bbbb427a040e4320fd8ac100000000aa62b62bbfc52a40f835bdbe884e673ef7bd663f91259241");
+    w(&mut m, 0x28000000, "2076ac4284150c4394666fc19d93be4276041043039d43c15bb1bc42e1d81943ea2971c1d169a9422bfd1b439c8b9cc1be619f429c7b134387f19bc100000000e207c0421c5f1943fa026ac165a1bb420d8707436dbd30c148f197424cba09435f4f97c165a1bb420d8707436dbd30c112decb4210ea0443d08d3cc19808d24290e012432f5160c14761b942c71f1a43ca1ea7c125faa342dda310436633b7c12c67af421d880343f12f8ac100000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "a542a9420163f74296004fc1");
+    w(&mut m, 0x2a003010, "987fa642d3ebf3428640b0c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.022599458694458f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_464() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "57d804000000002854f99d43d5fd48439e7d99c100000000316b1390ec7214404984f13e363935bcfcb5613f73e501c3000004003000002831ac9b4303c34a4313635dc10000000079b5148beb5731409f72f1be9351353cb4ba61bfd8600443");
+    w(&mut m, 0x28000000, "cc4e9d43d4a54443503b94c15425a043c6a847433439acc1dba39e43d6554d43a4c39ec153cd9b43e4524a4352be86c12ea69f43a4003c436e3592c1ebec97434c884a43c2501dc1bf309f43d1fa594300468bc1ebec97434c884a43ab441dc1");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "3ad28f43789a3c43e68f75c1");
+    w(&mut m, 0x2a003010, "6f208d430559424371969bc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.7467172145843506f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_465() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7640d8bd7afc1ebdf65f7e3fb6bc4ac0");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "f94707c3414bcfc36539c5c1");
+    w(&mut m, 0x2a003010, "26fb0bc39f4cd1c302f3f1c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.6794013381004333f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "812809c3bf1cd0c38c2bdd"), (0x2a003010, "7640d8bd7afc1ebdf65f7e3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_466() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "764003000000002808026543b00398c19c0e144200000000f2bb4572eb3d074000000000000080bf00000000f2e596c10000050030000028b0b86c43c8b98ac1c86a1542000000008234169d37412540c75fab3cf03b9abd82377f3facff2dc2");
+    w(&mut m, 0x28000000, "cde86743f2e596c1f3da1342a68e63438f9298c171281442a68e63438f9298c171281442000000000000000000000000f1c775430a903dc1ae521642fc4b6a43eedde0c056be1842d12962433fad83c177931642ee9e6843d1e0d8c178d01242c6be74435913c2c1f2a0124200000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "42b47743201fa64050842e42");
+    w(&mut m, 0x2a003010, "bd7c784321ba0d3f146c1142");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5858007669448853f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_467() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "764003000000002863075dc2008c96434b8fdc4000000000d16c0bea5b6722405696c4be72faedbead3e4c3f6877e242000003003000002804767cc210d99a4385b7f4400000000008d1e0d9f8740a404568c3be7279eebe18624c3f571be4420000030060000028db057ec21cc59a4398eaf64000000000e88403820d2930402665c4bed2eaedbe0d4f4c3fbaa3e242");
+    w(&mut m, 0x28000000, "7caa66c2c4039a43ac601c41763c70c20cc593435841ac3f372f40c231db954319ee1841000000000000000000000000b58c83c2e5c19a4341a7c840ca8376c2d5bd9943d225e240d8c477c2770b9c43beac19410000000000000000000000007a4155c251ce9e4323848a41292f97c2462a9d433c479640c27176c2bc569443f89f913f000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "2e7682c28c9b934353d30441");
+    w(&mut m, 0x2a003010, "c87575c24acb95434126c940");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.7928162217140198f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_468() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7640030000000028139ee9430d3b5442bcd8e0c100000000166b0af0c2e40a402f313e3f325b2b3f000000001552bfc300000300300000286445ea437ba96a4288fcdac100000000b1ad8c4dcb1c2e40023176be57c020be4b38753fe21314430000060060000028b86ceb4329057c42c9a7c3c100000000d43bf5e34a15294074b9763e7e52223e291f75bf00db12c3");
+    w(&mut m, 0x28000000, "5e7ee843ad355e42cd1ce2c1ec2dea43bd3d4f422d2fe0c1ec2dea43bd3d4f42393ee0c1000000000000000000000000777ee54323383f42dd68fcc1c75cf14378495f42b13cc2c1eff4e7436bbd90420c50d2c10000000000000000000000008167e5436b9a8242e3e0d8c1b46aea4300968942c612c0c1546fee43536d77421b15b9c1c070ed437bb74d4201aecac1546fee43536d77421b15b9c1b46aea4300968942d522c0c10000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "1276e4434a457342235ad7c1");
+    w(&mut m, 0x2a003010, "6da0e243d589754299b2efc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.39866307377815247f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_469() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f361053e94b2bfbd72af7c3fc328cb42");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "8fa3cbc33da82743206ee6c1");
+    w(&mut m, 0x2a003010, "102bc9c36e682b4338ac15c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 0.6219525337219238f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "7c8acac395712943568c05c2"), (0x2a003010, "f361053e94b2bfbd72af7c3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_470() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f36103000000002819601b43170716c2dd923cc200000000aee0cc9a469930404eaac9bcd9a9c5bea9116c3fa2450342");
+    w(&mut m, 0x28000000, "56432a43982426c210bb41c2ae6b1743a6cbb4c1150824c249711043d78a41c276f54fc2000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "f9b11f433ce22cc11a6c24c2");
+    w(&mut m, 0x2a003010, "0be92243f1ce08c1d8c93bc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.42940643429756165f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_471() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f3610400000000280fa9bec31d79a542e4435e4000000000fd0c7275c2280f40606bd83ec9527bbe00565f3f1c753243");
+    w(&mut m, 0x28000000, "43cbbdc30b619f421d82e33f0b23bdc34ef0a84200101f40db86bfc32f91ab427e78a540142fc0c3ec01a242c3a68e40");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "30b8b2c316c3cf42b0622b41");
+    w(&mut m, 0x2a003010, "1b39b3c36bcac9424a0cb840");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.5120069980621338f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_472() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f36105000000002863fff743f61e9dc271b48a4100000000468276bd16fb26407006c13eff2ba9be7a825d3f06f363c300000400400000289b30f5434c30a5c2946d864100000000b7045cd888d62640eceac03e1246a9be7e835d3f599e62c3");
+    w(&mut m, 0x28000000, "0807f34354769cc20e58ae411d4ef6432ed3afc290d67341f7ebfb43e056a9c257573941861dfc43e5f791c2b0097e414d9ef64384028ac25d92b14100000000e793f243032894c212aab24188eef04318a3afc2e52194414ecdf7439338b6c231683441ac72f9437ebd9ac2826c7141");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "1480ec43a9e08ec29f50c141");
+    w(&mut m, 0x2a003010, "e02aee43d86d8cc2b8f37341");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 0.9850609302520752f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_473() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f361030000000028af259dc327a36c43d52fe84100000000e52478ede4ef39409f8045bf69e022bf0000000074d6b7c2");
+    w(&mut m, 0x28000000, "b3fb95c369435b43303e8141adbaa0c3055375431cd70d42adbaa0c3055375438bd10d42000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "cd44abc32e897f4363d3df41");
+    w(&mut m, 0x2a003010, "ec60abc3b07f8043146abd41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.713644802570343f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_474() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f361030000000028c392ee429d104a438bc990c100000000de805bba529e044028b46fbe08b8963e48346d3fd6a16cc10000060030000028072be24261924343712597c100000000475b99c1b9c61e40bdc270be7c4d963e0d346d3f441655c10000040080000028d0fee34200314d4359319dc100000000b5d2fca7c1a82840bb5670be7fca963e0f276d3f7c8377c1");
+    w(&mut m, 0x28000000, "6643ef42b1a847439ef989c14165f24210914b43d8bd90c1a20fea4218f84a432aa597c1000000000000000000000000aae7e142f7613c43143185c10b7dee4201dd3f43cc3d81c167c0ee426c0d47431d3293c1636ee242ccc24a43b819a9c103d9d542c2474743450dadc1a795d54257174043ae189bc100000000000000002599f842d2ef474304f675c11614e442e75c5243134baac1eb39cf42601a4843c354a5c11614e442e75c52438d2aaac1");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "aaf8b342517f2d438b5c37c1");
+    w(&mut m, 0x2a003010, "2bb0a94288be2f43303f8cc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.6250126361846924f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_475() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f36106000000002830f082c04dd282c35be0b3410000000030b4e2b91af22140386e073e3464bfbecf036bbfa93e99c200000600500000284552b0c0a2d984c3e92bca4100000000c0e42ae2f28f3540c35907be0a58bf3e05076b3fffbb964200000400a000002842ee77c16ec781c39cd4c241000000004437d8f0ea242440094f07be9b5dbf3e45066b3f8d369142");
+    w(&mut m, 0x28000000, "3f8335c1ac5982c3e472a8419342b6c0bd4280c37958a141c8813f3f77a981c3c9e6b141687cc53f1e2785c3a68bc941c8813f3f77a981c3a4eab141cfcb28c153d785c3b019c0410000000000000000202a30c163ea8cc3325ff8415fc96240f32989c318b3f0414a508a406bfc80c36455bc41863e17c1a81e79c373b08f417f0dc0c1c44f80c3e24f97415fc96240f32989c36d9ff0410000000000000000a21dc7c0dd7081c3ac4ecb412a6081c1e5487ac3d7d9a341da26c6c1fe1d82c3715bba41301c6dc1696a86c37ecee141");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "52d3dac19e718ec3f8a7f641");
+    w(&mut m, 0x2a003010, "ee49eac15e998bc362459641");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.5998090505599976f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_476() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f361060000000028d80692433ce6a4c3d1e74cc2000000000f3c3be1dcb11a40fce4fabe232dbabbf2265fbfa62bc142");
+    w(&mut m, 0x28000000, "1bcc8f43bc6ba3c31af742c26153924390f5a2c33c5c4ec2c9989043d9cca7c3255546c20f209343ad56a7c3bdb151c25bfd934309eba4c38eb955c26153924390f5a2c3215b4ec20000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "91d78c439d9797c3877e43c2");
+    w(&mut m, 0x2a003010, "03548a43206e96c3b48148c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 0.22313876450061798f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_477() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f3610300000000286f9b64438dc331430dee864000000000aa8ceb299b9f0640009db1be2d6e37ba511a703f8af29642");
+    w(&mut m, 0x28000000, "3bb663430c432f43f08b7840ba3867434f3d32439ae2a54057e362434dca33432a436540000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "e6105443d5041d43d5ce0541");
+    w(&mut m, 0x2a003010, "80db4f438a701f43d44ed240");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.2236998081207275f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_478() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f3610300000000287527c1c38c73a0c22d89d7c000000000995c46dc84cf2540834b0c3d4aa6c1be1ed26c3f8e162ec100000500300000282e4ec0c3487fa7c2056ee6c000000000561c45d0c3d824404bd90a3d5782c1be52da6c3f3c3d3fc1");
+    w(&mut m, 0x28000000, "b73cc2c3134bb4c24f622bc11651bcc33a489ac251a4bac095e8c4c359c792c234656ac0000000000000000000000000ed2ec2c3834ab9c2e3292bc1aba7bcc3c723b4c292cf20c1e12bbcc351849dc259e4aec0a066c1c3baaf94c2cad351c0cf1dc5c312daa5c2f364d0c000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "9327b5c3824fc1c22b9f92c0");
+    w(&mut m, 0x2a003010, "6997b7c3bb5ecac2722801c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.0097532272338867f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_479() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f3610300000000289b92eac3f1d6bb430393eac1000000006b0c7c210e6e0c40cb47a03e2c1e2abe5a626f3f05b26c43");
+    w(&mut m, 0x28000000, "2fcaebc337fbbc433ccfe0c1edf3eac3f836ba432528edc1b2f9e8c3a552bc43a7c1f1c1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "4c11eec3b017b343eba2b8c1");
+    w(&mut m, 0x2a003010, "f53feec31f26b0432030fac1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.129683017730713f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_480() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "74efd43c5b791bbed0f17c3f68d85942");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "331f3143fe513943a3acc8c1");
+    w(&mut m, 0x2a003010, "88b7364341e33d43866303c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.0794682502746582f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "8c8a3443644c3c43d278f7"), (0x2a003010, "74efd43c5b791bbed0f17c3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_481() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "74ef0600000000286475f641fd9bef4375609141000000005ac764fa0bae3340db2cab3d6ceacabe930f6abfc2f64b43");
+    w(&mut m, 0x28000000, "bc369941f6acf6438eb12f41530d084241e6f34369f06b415c8a12428113ec432925ae41e02ac3417807e7438d43c8415c8a12428113ec432925ae41530d084241e6f343c9c76b410000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "a0435441024bf14371e1c641");
+    w(&mut m, 0x2a003010, "4e777d41b8cdf04358ef9541");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.060560703277588f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_482() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "74ef0400000000285160224318518e427ee64a42000000001355fea725301040a95325bef459f63e6c945cbfecbc0e420000060030000028b7f12043bfe69342ad2f444200000000d56ba06d112735403c66253e0f2cf6be5ca05c3f55d502c200000400800000284d862643c1658f424997404200000000c4f6e261224f11405e6625be1f2cf63e56a05cbf49ad0742");
+    w(&mut m, 0x28000000, "91ec20437e808742b0604442bf4d21436ad790421e864e4235f925430d159042092d4a42bf4d21436ad790421e864e42ee7a2e43d7e17342e8101d420df43243c35d9e42f85a4242d66a25439653b842197869428068134392dcad4276526b4262ef0e43bb6f89421b01464299781c43cff35e4280e61e42000000000000000027442a43b88891427e2b40421f34264315fa8b42d3033d42ce6c2343241a9442fe2948421f34264315fa8b42d3033d42");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "628d1443965e44424b894642");
+    w(&mut m, 0x2a003010, "bd49154338e43242bdb63742");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 0.663463294506073f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_483() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "74ef05000000002879faa842d2dee843900af1c100000000201e9a59040a3640eb4bb5be64aabdbeb6d45b3f7d51644300000600400000287a2e9d422920e643ac6107c200000000586f8b13915f3a403150b53ed3b5bd3e5ed15bbfcf6d63c3000005009000002832ab9a42ead3e743c35105c2000000009065a245e9fa3140a55ab5be81b0bdbe5cd05b3f1aca6343");
+    w(&mut m, 0x28000000, "48bac442b742e24375e1f0c1ceb2ca42f56ced4305f899c1bd11a242a24bf243e15ebbc101fd8242e023ea43927a13c289689842e53ae043aa0324c200000000d5dcc44201cee443636cd6c10ddfa5424e1cdf436c6e18c298699d426f39f243a4d9bac19ed77c42bc87ec432ca60ac28aa682422bf9e243fb2528c20ddfa5424e1cdf43716c18c2000000000000000067439c425343ef4376add4c1c0ea884221aae843a31311c2610a9c429306e243213718c2b334bb426385e4435ac7ebc1c0ea884221aae843a31311c200000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "d5f2da423d87e143ac91d8c1");
+    w(&mut m, 0x2a003010, "b193d642fa83e043a699f9c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.4863107204437256f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_484() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "74ef0400000000281a0cd043978a99c10fe799400000000042d05481e0511c404e5252be28abffbebc7957bf7dda9f420000030030000028f08cd0434bb0c5c14c86a24000000000f00ac2116c3e124000000000000080bf000000004c02d2c1");
+    w(&mut m, 0x28000000, "0d12cd43f65cadc1f96df740a625d0439d8682c1fb7343400bd3d2432cc0b3c149baac40a625d0439d8682c1fb73434030b2d2434c02d2c123419e404f7acf434a87bfc1e0a8a4404f7acf434a87bfc1e0a8a440000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "b8acd243a1c817c2aa074641");
+    w(&mut m, 0x2a003010, "44ebd343610a05c2bfc3393f");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.386984944343567f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_485() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "74ef06000000002804c0ed43694ddd431ce1c04000000000a254bb234d552b40fe5c333eae04e1be8189613fdbd7d3420000030050000028fb53ee4358add9430a8a93400000000038d419c01d9b304038b7333edff4e0bef588613fca20cf42");
+    w(&mut m, 0x28000000, "1791f043ffa5e24386da23415387ea432d6ae243078a46413fb6e7439711dd43a61e0341efeeea43d4f4d7431e1ee83fb4f8f043a630d8439768b4bec8c9f3433b89dd438ffe7640000000000000000050ccef431a05e143f4943541e33be7436247d743d86fa140baf3f3438cbbd44344f723c0000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "2870e343e0c4d743b896e240");
+    w(&mut m, 0x2a003010, "23b6e5431583d54332bc6a40");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 2.3930323123931885f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_486() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ce6a33bcb4a805bd2bd97f3f936f4242");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "3f1570c3e031c343555ef6c1");
+    w(&mut m, 0x2a003010, "ec4e6ec3b6b6c243b28617c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.42648932337760925f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_487() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0659823e51a72b3e31d1733f7e5b05c3");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "249eaa431f9cb443a16782c1");
+    w(&mut m, 0x2a003010, "22bfab431935b643ad2cccc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.5265653133392334f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_488() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "35a392bc739f26bef08b7c3fb7fe96c1");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "8bad18c2b185ac427a332442");
+    w(&mut m, 0x2a003010, "17b226c29ab3a6429d821d42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.246395468711853f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_489() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "35a3040000000028288e59429cc58143a844ccbf00000000e9a2c5113db6314022958e3ed63524beef6b72bf08b9c74100000600300000287c9a4342b0838143a57643c000000000729d0536a3512d40179f8ebeff70233ec872723f24afc6c1000005008000002890e93e42c33b8743654a7ec0000000009c1d5ce90e530240d13b8ebe2bd4233e2e7d723f7ffed1c1");
+    w(&mut m, 0x28000000, "d9b46042d7768a43436280c0c1f073420f5a7f439b29873f45a21d42158b7a4342338fc0c1f073420f5a7f43d719863f9a870d4287a37f43a97ccec0594f344261a0754362f5f4bf3a626a4239047943a7dbbe3f5dad79429c358343ccb5ad3e9fe552422f378843a26386c0bed21c424385864396d8f2c0000000000000000041713a42fd29884350b193c06873364257fd8643d95c90c01d273e42f5268643ab7a6ac08ae746421bcf864341864fc07f9c44426a0d8843ba5675c000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "49899242561b8943678f15c0");
+    w(&mut m, 0x2a003010, "dd8f944219a186433876bac0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.6334277391433716f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_490() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "35a30400000000285fb37d42375eb34308da6ec00000000011d3004e7f36224065b492be941df3be1806553f8e9e3f4300000500300000280e936a4205a4b7436e5a4cc000000000d93af6a0998034401d9692bec43bf3beb102553f6aee41430000040070000028d8e38942ceccb243428f92c00000000045b159bb1a172f40398892be731cf3be050e553ff0564143");
+    w(&mut m, 0x28000000, "ad1d8c421172b54370426c3f8e146d4236afb643c260b0bf642b63425d4ab1432b3106c118298742380db043d8c1c2c054379642fcd1b84342427440854d6c4225f3bd439e098540367531423ce9b7435899f9c0367531423ce9b743b6a7f9c0589c8c427e9caf43e36505c1000000000d789f42e63aaf43991d9ec0782b9842db31b84311108140489f6842b65eb64319de86c070387742c167ad43b42853c1");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "7cbe3d4271cbbb43a6953140");
+    w(&mut m, 0x2a003010, "296d4a42543eb94329aaf1c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.2364134788513184f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "d68e434220ddb9433f5225c0"), (0x2a003010, "7db61a3e840a7d3f967b4c3c")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_491() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "3f0f6e3e9f77303eda0b753fdb861f43");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "332bb0c3359e74c3a5120fc2");
+    w(&mut m, 0x2a003010, "bee4b0c397946fc367931bc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5885848999023438f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "7e6c"), (0x2a003004, "1a6c73c3bf8b14"), (0x2a003010, "3f0f6e3e9f77303eda0b753f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_492() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "3f0f0600000000281c5d96c25307d1c305e79241000000008c9c76040097394088c8803e37e2ec3e5ba059bffaef63430000060050000028bf8994c2e985d5c33728654100000000442d35561dd93540a4f880be29dcecbee29a593fc37064c300000500a0000028b5bdaac288e5d6c340e35e410000000091fbd12c594022405ef680be05dbecbe879b593fa02b68c3");
+    w(&mut m, 0x28000000, "037ab9c2ad7acec335087f41d35f9ac27765cac329e1c74195309dc267f2dbc343e0ae40ca2c7cc231ddd7c392686841085c79c2b916cfc35737c241d35f9ac27765cac329e1c7410000000000000000f576b9c29e9bd6c34f69f540563ea3c2710fdec3a362364041a27cc2bbf9dcc35108184113395fc23270d4c323c8a74128d585c25ffcccc37666ce415ec2aac21512cec33b1f99410000000000000000ff68a1c2b1c8d3c37d9b9541e9b2b3c259b7d3c328858041bbf8aac233c9dac38a9b1a41b19bb9c22d0bd8c30aab274133049cc23e27d8c369e86b4100000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "594368c271f7c9c3e607b341");
+    w(&mut m, 0x2a003010, "82a57bc2efd0cac32ab94241");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.2745892107486725f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_493() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "3f0f0600000000283b8ae2c3f5c9bcc3c50433c200000000993495d423073940d9ff92bdb6ff8a3e0bb3753f73dde1420000060050000028877fdec3f070bec3514d32c200000000582c0765845b3640cf4692bd53d58a3ec3ba753f0c91e44200000600a0000028d3f4dcc36993bfc3fbef31c2000000001e5467080f3c3240ef4692bd3fd58a3ec5ba753f4910e642");
+    w(&mut m, 0x28000000, "a769e2c3da82b2c38f2c4ac2fb58e9c3ae8ab9c3df693ec2f3b9e6c31310c3c3cc4c27c2962bddc3a38dc5c3f8041cc2f3b9e6c31310c3c3fd5827c24bdbd8c36a00b5c373db3ec20000000000000000329ad5c3cc39bdc3d5c02fc21492dcc31b24b8c379643fc25275e4c326a2bbc3ff313cc2ae60e5c3e235c4c3e25b29c25275e4c326a2bbc3ff313cc28d85d6c388cdc5c3b8ea1cc200000000000000004d01e4c3894fbac30a0942c25b0ae5c3320cc3c31fe82ec2e2fdddc31250c8c3dbcf1ec259e8d5c34ad7c4c381d821c24bdfd4c3a11abcc3adf434c2c4ebdbc3c1d6b6c3b11145c20000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "ea8ee9c345bacac30b381bc2");
+    w(&mut m, 0x2a003010, "2edde8c3649ac9c326e73ec2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.272547721862793f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_494() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "db5d4c3e7d4b00bdbeb87a3f8facedbd");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "8f3b62c3b11541c319d43442");
+    w(&mut m, 0x2a003010, "cea661c371b43ec3d9052642");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.2345376014709473f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_495() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d5a611be2690a0bcf2587d3f2f1fe2c1");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "3b69a1c3377af1c36ed7acc1");
+    w(&mut m, 0x2a003010, "f1429fc39a29f2c3af20dfc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.395258903503418f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "682fa0c354ca"), (0x2a003008, "5c7fd8"), (0x2a003010, "d5a611be2690a0bcf2587d3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_496() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d5a60400000000280bc3ee439e5882437ce9e3c1000000006cf47e497c501240de1f32be43fd4a3ec6ef76bfebfd7940");
+    w(&mut m, 0x28000000, "56bdef439c6484431303e0c19462ef43b48b8143f059e8c1ac89ec4376e681435ef8dec19462ef43b48b81438e50e8c1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "d6baee438a058743117ea8c1");
+    w(&mut m, 0x2a003010, "fe46f14399a08443ae8ce5c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.1326324939727783f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_497() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d5a60500000000287c554043697fcac36cc79cc100000000ccb55327260f3940c049a13e1fd4833eb5da69bf4a47ce41000006004000002844cb38437423ccc39523b3c10000000065b765f9ce431b407386a1be7aa783be85d6693f10dbd1c1");
+    w(&mut m, 0x28000000, "bee82d43fabbcfc36c3ee7c1d08e38434161c5c3a72b9bc1308b4f43753ec7c3145448c1dd1953431cc0d2c36d2f8ec1d08e38434161c5c391219bc1000000007dd23c435f4dcac326ba9fc1ad773843f8d8c8c31035a5c173c83743d412cec318a3bec1a36d33436d9eccc39818c4c173c83743d412cec3e9a3bec1e17a3c434deaccc3ae86acc10000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "7a7152439f1dc1c35b7eaac1");
+    w(&mut m, 0x2a003010, "dc7255438a12bfc3eec8cac1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.9060159921646118f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_498() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d5a6060000000028eb8983431942e9c300c0114200000000c81d3bb2227e2e40707fc8becd71d6bea2bc513f2974f4c20000060050000028793d8143cf7fe7c3fff40d420000000071b91ef5879d2640599cc83e6b4fd63e82be51bf1c32f342");
+    w(&mut m, 0x28000000, "eac97e43722ce6c3fc840e426b358043ea11ebc35d37fb412fdb84431ed0ecc33b4008427eb08843daa8e9c315ce234208e0874362c3e4c362b734426b358043ea11ebc35033fb410000000000000000476285437bfde7c34bcc1b42273082432769eac3a6ad0542f93081437374e2c38b612242b3fd7b431fe0e4c3e6480c42e1fc7c4379dae8c3e6d7fb41273082432769eac3a6ad05420000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "245e7343d50cd8c3ff022642");
+    w(&mut m, 0x2a003010, "437771434168d6c3f998fc41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.3987014293670654f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_499() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d5a6060000000028e30fefc339dcebc3912c92c000000000e69a0752de4a2440f15ccebd52d1d4be6567673fc11f70c30000050050000028f3a5eec3883eefc3e0d3e6c000000000a03e20445bf13440cc5ccebd41d1d4be6967673f277670c3");
+    w(&mut m, 0x28000000, "f639efc3cc75f0c32e590dc11e29ebc3734deec33331bec00bffeac3e1b3e9c39395d6bfd0e5eec3a842e7c382b99ebea8f6f2c3016be9c341de4bc0bb20f3c39304eec3b7a7eec000000000000000000be9f6c34728efc3529b0fc190d0efc32668f5c3934152c1acade7c3f596f0c3bcb2dcc0acade7c3f596f0c3bcb2dcc0cd28f3c3517ae6c3038420be00000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "d59fe0c3b4dde0c365a85ebf");
+    w(&mut m, 0x2a003010, "ae01e2c37bc0e0c369d58cc0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 2.1709682941436768f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_500() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d5a60400000000285dada5c39c299fc0209f134100000000bdc50eea4e003540351d99be20b6ac3e0f83643f964cd3c200000300300000280221a7c322c395c010a52141000000008cb310912bee2a40062899be30b5ac3e6d81643f85dad6c2");
+    w(&mut m, 0x28000000, "70539ec37a4ad540030e1c412d7fabc3d4a81b4160db6abe4a07adc36ce784c1142f0b418ddb9fc338699dc16b7595410e01aac3394abe40421d8540f64aaac3d1926fc123f43d410217a1c3fe6da0c06d6c6441000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "a0a3a8c355c23cc043683541");
+    w(&mut m, 0x2a003010, "d6faa6c3b9268c3f82496740");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.2835190296173096f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "54c6a7c3ee791cc0cfaedb40"), (0x2a003010, "351d99be20b6ac3e0f83643f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_501() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d5a606000000002811035e43977885429be933c200000000ff829d5f109f30407a14eabe98ed2a3cc4a9633fd1cd0c430000040050000028cd5f5a438c3b7742f22939c200000000b025909cbe6d2640aa12eabec75c2b3c36aa633f145b0c43");
+    w(&mut m, 0x28000000, "698a5043113e6f42b6494fc202465d431d6d4e4237b834c2abbe6a4338206a42ad5719c2ba7b6b4324529342e39118c221c05e439ebaa342c91533c27847514310e1954258784ec20000000000000000bc44584380768f42eef53dc278d35643c0ec6b42b25340c288936343ae276642740a26c278d35643c0ec6b42b25340c2");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "57e94843823a314290602ec2");
+    w(&mut m, 0x2a003010, "066049432f1c3242f37945c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.5679919719696045f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_502() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d5a6060000000028db3ff5c3cc4c904393f909c20000000081c09c3235f038403a0ea5be8f8439be67da6d3f8a9393c2");
+    w(&mut m, 0x28000000, "a58ef7c328189a43281c01c2641400c489ae9543e3de1fc216eaefc3f3318b43252303c23884f8c354c88643d7e021c216eaefc3f3318b43c21c03c24d6fefc3ddd99443567be5c10000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "beb5eac3085e98430282f2c1");
+    w(&mut m, 0x2a003010, "093aedc3df319743b26912c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.1713136434555054f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_503() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d5a603000000002878da53c2a78122c3e87a29c200000000571e7e85a4c22040339baabea057d13e487e593ffd95a94200000600300000285f5e47c220d31cc3f85a22c20000000000888fab6cde34405868aabe085fd13e7786593f690fa442");
+    w(&mut m, 0x28000000, "742a5ac26a591bc3dbbb39c2897d69c2a47327c34d7228c26ce737c2e7b724c391421ac20000000000000000000000003a9184c20f0315c310284bc26ca881c2362827c389f225c2c58c41c247f82ec3734bfac14b9a05c231a324c39511f3c1e66b0bc20b7e12c38fc31ec2fa2f4dc2faad0ac3269547c20000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "545725c2ba8104c3c9981fc2");
+    w(&mut m, 0x2a003010, "6bd437c2d7f702c303de26c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.7882595658302307f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_504() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "bf474b3e6297bc3d8ccb793f63c590c2");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "3895fa4254292943bc290f42");
+    w(&mut m, 0x2a003010, "d7e8fd423b73234353c8f341");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.6839203834533691f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003001, "b8"), (0x2a003004, "b49f2743fb7003"), (0x2a003010, "bf474b3e6297bc3d8ccb793f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_505() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "bf47040000000028631b60c31d41f9435a88f74100000000700649eb87ed31400329a5beb986ddbea484573f46b2ea42");
+    w(&mut m, 0x28000000, "3b5851c33c61f74361af0a42508f61c3ec94fc4358380742b0f66bc36279f44348e1ab41508f61c3ec94fc4358380742");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "d1a56bc3bb220044cd53f541");
+    w(&mut m, 0x2a003010, "62436fc33da5ff43d5bfc641");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.0331287384033203f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_506() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "25c7b93dd667d8bd62817d3f41ac84c2");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "66b0c7c2ee46aac338503d42");
+    w(&mut m, 0x2a003010, "a509ccc224fea7c301ca2442");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.1737475395202637f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "d77ccbc2bc5fa8c3348121"), (0x2a003010, "25c7b93dd667d8bd62817d3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_507() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "25c705000000002818f4b93fd870ecc3b939afc1000000009a3ab58108612b40b24d863e14a60dbe017c74bff06cadc200000400400000287c061dbef417f0c35607bdc100000000a0fcb1757bcd2540375e863e554e0dbee97c74bf1594b1c20000030070000028858eaa408c89edc391c0acc1000000003c158bb25b612040b44d86be19a60d3e017c743f8179af42");
+    w(&mut m, 0x28000000, "bc3635415ee1e9c350789fc1c360aa40f433efc37c52a0c13de600c186ece7c3c897cec167f1d4c06bfeedc38b6bbdc1c360aa40f433efc37c52a0c100000000124500413055f3c32995a3c1b21e8cc06b14f1c3930ac4c10b4e023ec8e1eac3c976c8c1b21e8cc06b14f1c3d506c4c10948ad3ff01feac3d065bdc1f721b43f1cf7f0c3586dadc188a853419785edc38d6e9bc1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "1dad91c114fdefc307c166c1");
+    w(&mut m, 0x2a003010, "9021b0c1ab62edc3c576d0c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.23215003311634064f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_508() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "483440bea1021abd04447b3f89cf78c1");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "ffc9cbc0bd3527c3b9326e41");
+    w(&mut m, 0x2a003010, "715d24c1360325c349a64641");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.097527265548706f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_509() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "4834030000000028d951904398b09f43c17facc100000000abc3637f6e7cf63f6471a3bc0711eabeff9f633f6df02a43000004003000002824f792436b21a243bbcb76c1000000003d6af93f2da335406fb2a4bc640deabeb4a0633f17db2743");
+    w(&mut m, 0x28000000, "05dd8f4373419f43ff3bb0c184ec9043fc829f4368bfadc1032c9043574da043dd83a7c1000000000000000000000000ce819a43062a9b43bbfab1c15e3e94435d8aa64301552dc108de8843ec46a043ab4d8ec15e3e94435d8aa6431c492dc1");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "551d9b431c7997432a53a1c1");
+    w(&mut m, 0x2a003010, "ae4d9c43bb2b95437f57a7c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.5920133590698242f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_510() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b830543ee18172bd05fc793fefce8dc2");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "84a1d5436646fd4197f88fc1");
+    w(&mut m, 0x2a003010, "bf30d843365ff041a50ccac1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.4247665405273438f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_511() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b83004000000002891c57f43a39d44c35c5cb34100000000cb7ed992b6201b40ae92debebf49aebe0071553fed8acc410000040030000028788e8143f9e541c3cbc0cf41000000003070046f75032e40ef56debe8182aebef974553f5f3dc641");
+    w(&mut m, 0x28000000, "b31e7c43f1fa48c3d5d895416f118243814448c3949cb94137b68143554040c382d2d04143687b43c5f640c38a29ad41fbf98343990e4fc32fe3b8414ab48343a3543dc35496f0419eae754305e03dc352f3a4414ab48343a3543dc35496f041");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "118d5d4377e536c36c12b841");
+    w(&mut m, 0x2a003010, "56236143ca9439c3a6177941");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.2669668197631836f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_512() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b830030000000028fdf2e9c39cb780c39069c7c100000000b318713f78d12440d7574f3f3c26163f00000000487d0444");
+    w(&mut m, 0x28000000, "66f2e6c3f8dc84c39f5cb8c14a73ebc3db497dc376f0cec14a73ebc3db497dc39eefcec1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "ee62e7c38f6d87c32f6ca9c1");
+    w(&mut m, 0x2a003010, "0ecce5c36dc385c307b2d4c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.6937829852104187f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_513() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b830060000000028b40d90c3916ea5c3998dfb4100000000070bb51d5c813840c04a013fd97a4e3d08935c3f4d160743");
+    w(&mut m, 0x28000000, "f76b88c35e0facc31d3eba41304a89c32263a2c33d54b941c71992c3774d9ec3cc110442260b9ac308e4a3c327d22b42c71992c3774d9ec344140442565d90c3eea5b1c367e704420000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "b54c9cc3981bb1c3b0a01642");
+    w(&mut m, 0x2a003010, "fe859dc310c6aec3cb96f641");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.7184507846832275f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_514() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b83003000000002850d8b143944fd543e15b9dc100000000f0a2a97a75dd294042e6673fe5dfd8be00000000987e0dc3");
+    w(&mut m, 0x28000000, "318fb4439f1ddb4340848fc1df7cb0438f68d2434345a4c1df7cb0438f68d2431f4aa4c1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "f745ae434754cf432b0f47c1");
+    w(&mut m, 0x2a003010, "7fa4ad43597ecc438404abc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 2.333836555480957f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_515() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b8300600000000287b69b0c2537cba43b183d24100000000c5c8bdf1d19a1e407f6b1f3e333f02bfa3c1583f1c3535430000060050000028278098c2c801bb438809c74100000000edfa3630a47533405f781f3e800f02bfaedd583f5cd0344300000600a0000028008aa5c2d405b7433b4cd64100000000f2ccf7f024c22c4075d21f3e850202bf50e1583f901e3043");
+    w(&mut m, 0x28000000, "15b9b9c22326b9434b8bcc4112b7afc21086b843fe2bbf418d8ba8c2b860ba4378b9cb410c62abc272dbbc43278be5410f64b5c2857bbd4341eef24112b7afc21086b843fe2bbf410000000000000000a701abc22ac6b5430b73a2412c4090c29850b643abf69341b6c0aec2135cc1430d300a423bff93c281e6c1438fea0242f7be84c2c360bc4399a3c5412c4090c29850b643abf693410000000000000000d3e7a0c25108b143fa719941ad788ec2e307b543b735b241db1a93c26605bb432a14ef412e2caac25603bd43308f0942539bbcc2c403b9437b62fa4126f9b7c24206b343af8cbd410000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "2d2d9dc266a0c243ab130842");
+    w(&mut m, 0x2a003010, "34e6a8c20a88c54399f8ad41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.0827285051345825f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_516() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "e95df8bd37c7e93db76c7c3f67e77442");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "be30dd43c3f919c320de9841");
+    w(&mut m, 0x2a003010, "f277dc4341a61bc353b85341");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.3932693004608154f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_517() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "e95d06000000002867a7a8c26ffa644135894641000000004dfd0dda76b82640dde6eebe92b883be0fa258bf4352c9c10000040050000028f436bcc243536e414e6a504100000000b70cb565658a3540f6daee3ea5ba833e06a5583f4d5fe8410000030080000028ed1cabc2f31a954021e05c4100000000f06e4647e8c4314040d5ee3e5ca7833e87a9583f6639d841");
+    w(&mut m, 0x28000000, "5465a8c29263bf4111a4164125e097c2810b98412461cb40a96eb9c2dbdd194149b193417ae9a8c2725b9640146f7641382298c24c4a1641e6931541962cb9c248d59941127d7741000000000000000073a5a2c2465ed33f0015204105baa1c2a56fdd41b054eb3f75c8d5c25f1de1415a608041e4b3d6c2f01c074078b4c141c5f39ac29a5a09c1dfff5541fc409cc24e3c9241e14bb2400a22cac2d41489404abdb341000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "9b3e9ac2d572be40d0708341");
+    w(&mut m, 0x2a003010, "e641a5c26037a2405eb4e340");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.2465823888778687f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "51e4a2c2c4ffa04056b910"), (0x2a003010, "f6daee3ea5ba833e06a5583f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_518() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "e95d060000000028e93fe2c37300bdc1b1bad7410000000029f97793f45d2d40c66436be83e49e3ee30c6fbfcb5440c200000300500000288897dec3780cf7c17bcace41000000009769268429402a401aee363ec8ca9ebe9b0a6f3f6042374200000300800000287859e1c357fce3c13499cd4100000000e107fefb54b7294096ed363eacc79ebe260b6f3f1db63e42");
+    w(&mut m, 0x28000000, "c1d4e2c3d1150ec24fe7b9411664e6c34716d4c17bb9dc411e07dbc30784b9c110e0c2417496dec358dd62c15d9ee541f044e4c3986f7dc17d87f2411664e6c34716d4c17bb9dc410000000000000000db88dec32b522dc24389ad41de3ad9c32a75c4c15b2ecf41e002e4c3e60bc6c1d0a7ef410000000000000000000000006398e0c3301c22c22c54ab418c84dcc3e46aa9c18842d2417aefe6c3bf51bec1e734eb41000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "04b2e6c3f2618dc0d426e541");
+    w(&mut m, 0x2a003010, "574ae4c310f51bc1f20ea441");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.2825814485549927f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_519() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "38fdfabd255954be5276783f021e7e42");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "743078c26265cb4259d814c2");
+    w(&mut m, 0x2a003010, "86346cc2b79fc842280743c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.8284308910369873f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_520() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "38fd0500000000286b6688428bf6aac342e7bac100000000bfed51cd395017408a4d773ee2acbdbe689b65bf411824c30000060040000028194c8d42152badc32faeb3c1000000003315480565d22f408b4d77bee7acbd3e679b653f748225430000050090000028eac084424b19abc3a6beb7c10000000062a3291380191140760f77be821fbd3ebabc653fee062343");
+    w(&mut m, 0x28000000, "600f8d424a0eadc38d0da8c1cb298242b65badc378cab1c106c08542d103a9c3a4a1cac106c08542d103a9c337a4cac1df468f421a5faac36a66b7c100000000b2aea942a51eaec322d08ec11ec99e42997fa7c3c14ec6c186668242098ca6c3042bebc102d361428537acc3a988d8c1299e774291d6b2c3fa08a1c1ad31984220cab3c3207378c10000000000000000a1668142aeabacc3ebfdb0c16e5c8942ae17acc3253dacc18ad28142b851a9c3299cc6c18ad28142b851a9c3b09fc6c16e5c8942ae17acc35842acc100000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "fdd39b429ab2aec3773b9fc1");
+    w(&mut m, 0x2a003010, "16839342cde4b0c37ca3bcc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.3548920154571533f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_521() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "38fd0400000000289d0281421c0c2143577d894100000000ec2758cc322b1340de8e553eb35fe5be168f5e3fb7042f42000005003000002850a5914257c92743e0a78f41000000002902b7b385b23540d68e553eb05fe5be168f5e3fdb793142");
+    w(&mut m, 0x28000000, "0329724267ee224397dd98410e7c7a420e151d43be847941b9f08842d1291f432e3a744133c784422a0325434f3896417f378f42cae2164392a018417fc5a542f4b22543dd796741a49090427f0035433a2cc741d9ce594282a52f43014ed3417fc5a542f4b22543d77f674100000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "e601b242f67f3e437e5cc441");
+    w(&mut m, 0x2a003010, "7e09bb426f964043843e8541");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.23618337512016296f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_522() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8d0e3d3db190e7bd6e157e3f660266c2");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "6996e8c2656125c359562642");
+    w(&mut m, 0x2a003010, "664df1c265a41fc3ebf50a42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 0.541414737701416f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_523() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8d0e0500000000289d41f5433aefdf42154985c100000000059ac6f226bf27400997dcbe51d9893dd060663f65c95a43");
+    w(&mut m, 0x28000000, "8ca0f043b1cddc4270c9a7c15d39f54309aed142f23e81c1174af943efbadf42fd9d4cc1174af943efbadf426db84cc1f7d9f1438abaf142d1b9a4c100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "6af0fa43c25fee423b4169c1");
+    w(&mut m, 0x2a003010, "9201fc43608ff042469083c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.39748886227607727f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_524() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8d0e050000000028a077c6433c5c1ec33f703fc100000000e1442e65b90afa3f1aba573e6f57b13ed9046a3f38ab8ec1000003004000002804f1c74314491cc3e37a3ac10000000000663f9b99531b400c875d3ec924b33e0956693fac9fa9c10000050070000028f66bc643d7081cc3fc360fc100000000dc1df6cc713a3540fdd25d3e6048b33eb34a693f8e62b9c1");
+    w(&mut m, 0x28000000, "950cc6437d5d1dc3b36342c17422c6437bc81ec35d6c3ac1d4d5c6430c0f1fc364eb3dc1d02ec743aacf1dc3963148c17422c6437bc81ec333443ac10000000012a3c9431e8321c35f4127c1605bc94342bc16c3be5167c19ad4c443dd9b1cc38edd20c100000000000000000000000018f8cb434ada28c33a2dd5c06646d043f27717c3fb3776c10fbfc04394e812c370211cc10fbfc04394e812c370211cc1335fc243d10826c3cf054cc000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "83a0cd4351da03c35d58f6c0");
+    w(&mut m, 0x2a003010, "3cbdcb4314cdfec2de0538c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.8559223413467407f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_525() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8d0e060000000028c89eefc239d3ae43b56847410000000018e6c4772e90324060efe1bea632db3ea4e5493f916454c3");
+    w(&mut m, 0x28000000, "8d52cec2170ab143e2029b418f21ebc2b7fbb2432a4d1341732200c3cbb7ad43862510413999f8c23e82a6436db09741732200c3cbb7ad43862510418f21ebc2b7fbb243667513410000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "ce22e6c295979c4323c0cc41");
+    w(&mut m, 0x2a003010, "7a9ceac2a20a9e432b504e41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.9128661155700684f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_526() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8d0e0500000000280a1274c3b0ff834330fee44100000000b9a4ec07e2e11c4035ebb9be208c013e1c516c3fea7114c3");
+    w(&mut m, 0x28000000, "523c77c3bf0e81437c71e14141746fc3b595814376c6f841610d6ec3b272854331b7f441a6f774c3f74e87437ff8da419ca47ac3539884434c0fcf4100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "9aec65c3ad186f4339310942");
+    w(&mut m, 0x2a003010, "7ce667c3337e6e43ca08c941");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 2.3604660034179688f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_527() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8d0e040000000028414218c3287cbfc2da273f4200000000e960e95dc7220140a330d4be0d07e0bc0ae0683faf62dac20000050030000028b09b1ec33448c7c2a97d3e420000000000077b45df0e2a4056a8d33e351ad13c830269bf5ae9de420000040070000028c4f81ec38c1cd1c2a0f53f420000000012495a84d6eb1f400d72d3be1b65d1bcc40e693f2107e0c2");
+    w(&mut m, 0x28000000, "bf8d19c3c19dc2c2f19c3c4274b116c32413c2c2c5db4142c3f616c3905abcc286b541420dd319c32de5bcc22d713c4260c712c33d97c5c249125442ff251ac39a42ddc2f55a4542e3ac28c37dbebac258e62c4265ae27c3798ed6c2af2b2d42c6c11bc33942b0c203f54442000000005ab924c3ac36c7c21b143642b4eb23c3b79ddcc2975536422f3819c36b02dbc2a3d74942d5051ac3609bc5c22c954942");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "d088fcc2dbfbdbc2a34b5d42");
+    w(&mut m, 0x2a003010, "8067fdc23d3ee6c2d63f3d42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.3607598543167114f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_528() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7299523d6052babd2d997e3fb6f0b6c0");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "97c253c3af419fc340a934c1");
+    w(&mut m, 0x2a003010, "b77951c3d4b09cc39a9289c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.1552438735961914f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_529() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "729903000000002899d7dbc30036b343539b03c2000000006b75f91f96ee30408956c6be4e49d8bd43756a3f90adccc200000600300000284708dcc39728b54307c907c200000000ac1091edc23a2240c136c63e97a8d83d9a7a6abfa5e3c942");
+    w(&mut m, 0x28000000, "db7cd5c3d9bcae436476e4c13d25dbc360f3ba43f837f4c1b4e4e2c3c7f1af43cb7a1ec20000000000000000000000007387d8c3dff8b3437b0efac1a8bedbc3b375b2438a4c09c20e26dbc3b68ab94351bd00c2435ddec38a07b84350050dc290a9dec3087db443865011c2a8bedbc3b375b2433c4f09c20000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "bca5cec38f34c0434a65eac1");
+    w(&mut m, 0x2a003010, "1cfcd0c3ef1ac1439fd017c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.6540734171867371f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_530() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "72990300000000286ffbe4c301b1954303fafcc1000000008cb4799e275d0d40c09ab9bd4edd913ce1e77e3fbf9075c10000040030000028709ce6c3c6909143221b00c2000000009b279ef0ce192a406a63b9bd4600923c7de87e3f1ecc70c10000030060000028a315e9c3b9ce96431bf306c2000000005a10fac2f899364091fe7e3fae58b5bd00000000cc85f543");
+    w(&mut m, 0x28000000, "6ca7e3c358f29643cd66fbc1babbe6c3cc3696431eadffc1278fe4c3e0e993431adafbc10000000000000000000000000f5fe1c312b78d43dd7bf7c1bcc2e2c327ce9643a41bfcc1d1d9ebc37b6a9543527704c22576eac365538c43772902c2cb15eac33d8d8b43fa1006c28f95e8c3786f9c43106907c28f95e8c3786f9c43475f07c2000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "c3bfebc370249d437b01fcc1");
+    w(&mut m, 0x2a003010, "fa89ecc3d88b9a430c1f08c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.3234615325927734f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_531() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "72990500000000281e8ce5c337de1841b3f3594100000000b7722117eae52b40f2bce13d0a93d9bedb0266bfb0ce85420000040040000028ca10e6c374564a416852304100000000e4c5d8e34a601540120bdf3d1aefd9be95f765bf19ca8242");
+    w(&mut m, 0x28000000, "3a3ce0c36c14134174917141bd3ae5c39dd64840aee385410664e7c36e49ac410d24f040dba6e9c37d442c4162b04041bd3ae5c39dd64840a4d3854100000000a005e5c370da0441db4d55419224e7c35ee04a417de52b4163f4e4c3525f87412e3a14419224e7c35ee04a4116dc2b41");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "dd8fdac30cf91242b4fe8641");
+    w(&mut m, 0x2a003010, "e3b9dac3cae119423b96c540");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.294630765914917f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_532() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7299060000000028d093db439bd173c2d61c8d4000000000343eebfaceed324094ed913e2e5ba53ea308673feaebdac20000040050000028b0b6d743b2e751c222794d40000000002c46fdb444e22140be5e92beb31ba5be170267bf269fda4200000600800000285fd5dc43f01640c26df91d3f00000000193022f862f938408ced913e295ba53ea508673fe0dbddc2");
+    w(&mut m, 0x28000000, "54a2d64388214bc21e29794013abd64379d280c250fa0b412a96dc4308558ec24eb0ed408278e243e39580c2274c9f3fc46fe2435ca84ac247a866c013abd64379d280c250fa0b4100000000000000006abfd843f11c71c299feaa4047f2d543faf84ec233308240c636da43df8f38c2344623bf47f2d543faf84ec23e2c824017aad8439cb482c26b3c1741bd52e14344a36bc268b1d63fd0dce243e9c222c2d813bac03dbedb430651e7c18e07b1c0d0dce243e9c222c2d813bac0858bd143d24e56c290c21b410000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "6cafd543a63068c280e68e40");
+    w(&mut m, 0x2a003010, "f379d443854e66c2de954ec0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.543880820274353f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_533() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7299060000000028f9fa1043093dc0c31fc61bc1000000002c4317ab093e2040c62680be37e12c3ed10d74bfd4d4b742");
+    w(&mut m, 0x28000000, "e2920f43d32ac4c32e262cc1dc7809430298c1c307ef03c1177d184312e2bec336a733c110631243414fbcc396610bc1177d184312e2bec336a733c1dc7809430298c1c382df03c10000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "12c729432f09b4c3562e91c0");
+    w(&mut m, 0x2a003010, "ceb62a43fa08b2c3b6ed49c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.3084385395050049f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_534() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "a7c374be8dc0823e0dd46f3f279ed641");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "23058fc2b60786c3ed97bd41");
+    w(&mut m, 0x2a003010, "9a6d8ac2e4af83c36514b841");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.879602313041687f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_535() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "a7c30500000000281b79ddc38d9be3436dddcbc100000000643ed48c817a2640979cf8bea65687bc35c15f3f0f4a39c3000003004000002865dbdfc3174ce4437b54dec100000000f1496be565e8334000000000000080bf000000002c66e743");
+    w(&mut m, 0x28000000, "d23fdec31b88df43d2fad3c1d987dac3f27be2436a08b2c18530dcc3e4eee643c26ebfc18530dcc3e4eee643e079bfc1d734e2c3eb27e2433f67f6c1000000005c9dd7c32c66e743241a94c16afae3c30bbfe243d3b801c26afae3c30bbfe243d3b801c2000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "1236ddc30988df434823a5c1");
+    w(&mut m, 0x2a003010, "7926dbc3a128e043796503c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.6586790084838867f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_536() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "a7c30400000000284b969843966aafc3881abf41000000000a9c80f97020314010d0afbe1bc5e83e4463523f28a87443");
+    w(&mut m, 0x28000000, "7639994399d5a7c38e4680414e0191436ac7aec346cb86411ff3974392ffb6c38bf8fd41472ba043c10db0c3c15ff741");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "e1928d4368a3bcc39a76ca41");
+    w(&mut m, 0x2a003010, "759f8f432fabbbc3cb5fad41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.6394196152687073f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_537() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "a7c3030000000028882e9443c3516bc317d3b2c100000000bde929f2cb722e4078e0b2bc9a11df3c11d87f3fb8df0c42");
+    w(&mut m, 0x28000000, "cbe891433dcc5cc3c6c8b6c1ab078f431f8476c3592fb2c1239b9b43eba46ec32481afc1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "78779d43030d80c3329b80c1");
+    w(&mut m, 0x2a003010, "f4aa9f43ee9580c3a321c4c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.2943297624588013f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_538() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "a7c3040000000028f47f54c3e4112c43bfa535c100000000f1cdf715b5f428403a8888be6c80823e0ef26d3f37f2b3c2");
+    w(&mut m, 0x28000000, "34e948c32cb429431a1aecc03c2252c3a4a83743aa9d5dc1b41660c39c6f2e434f3575c1acdd56c3247b2043f3b60dc1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "060541c322c94743ab14a6c0");
+    w(&mut m, 0x2a003010, "778c44c321ff42437e6b5ac1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.4430524110794067f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_539() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "a7c3060000000028385bd0c30dec0f430b96b04100000000183763cf6a271b40a834bcbe9b31d7be4260543fc0feddc2");
+    w(&mut m, 0x28000000, "d57ed0c3c08515435a45c6412d13d3c376f8134396b1ad41c526cfc33f960c432d95ab411ebbd1c3f5080b43ae099341c526cfc33f960c4350a8ab41a188cec3a4d411432746c5410000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "92f1d6c395cc0e4393ecbe41");
+    w(&mut m, 0x2a003010, "738fd4c302900c435774a141");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.063347101211548f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_540() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "a7c3040000000028768cb5c31ba4ef43f47fdd41000000003a2647c5c25211407dff4bbecc4c503e7e67753f055f44c300000400300000285f0db9c3bcccf343c622dd41000000008e5c02cf5f42134074ff4bbee84c503e7b67753ffb6a47c3");
+    w(&mut m, 0x28000000, "8beeb6c36a30f1430ca5d341c618b7c30642ee435d0cdd41622ab4c3cb17ee43dd5ae7412800b4c32f06f1438cf3dd41c2cab6c3bf5ff44390b8e24162a0b9c3590ff6436992d341fc4fbbc3b939f343f496d7415b7ab8c31f8af1432da9e641");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "e73db5c37eb5fd4311890b42");
+    w(&mut m, 0x2a003010, "782eb5c3db91fe433cffe341");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.5524020195007324f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_541() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "a7c3060000000028fb18c4c37922d5c2bb14b14100000000248ec91915800d401ce0983ef772d53e9ec75b3f1d870e43000006005000002865b2c0c30888d8c2f95fa64100000000cdc3001c49a5244080b1983eb146d53e77da5b3fe32b0e43");
+    w(&mut m, 0x28000000, "a6aac2c3241ad8c2bbe0ae4157bdc2c34ea9d1c20fc6a241ab2bc4c3a3b1cec2fcf8a4414f87c5c3cf2ad2c29546b3419d74c5c3a59bd8c2b467bf414906c4c35093dbc2542ebd4100000000000000002b29c3c374a6cbc2a3189b417998c5c395d0d7c2c439c041b7e4bdc3d284dcc2bb8e9e410454c0c3f3aee8c20baec341b7e4bdc3d284dcc2ba809e414a4fbfc39300cec2ee2f8a410000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "8fd5bcc3542bc8c2c93fc241");
+    w(&mut m, 0x2a003010, "1530bbc324c3c9c218f9a941");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.8228114247322083f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_542() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "4cf2543e26a863bdb3ff793f1a190f43");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "3cddb7c3f800ed43359421c2");
+    w(&mut m, 0x2a003010, "bb65b8c3baf3ee4302e029c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.6163135766983032f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_543() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "4cf2040000000028476443c38ec8b5c3d94b1dc20000000061704a310554254034119d3e5a4cf3beb21d533f02c9a0c2000006003000002849224ac34f3eb4c3bce816c20000000044c845142f8534402d179d3ecc3af3bea421533f973d9cc20000040080000028463742c32594b7c3b18c23c200000000791f189a3b1534400f569d3ec840f3be3614533f7b15a2c2");
+    w(&mut m, 0x28000000, "87a043c3b56bbac3465432c2fa1d3ac3afe6b5c338a52bc2072843c36825b1c3a14608c294aa4cc36eaab5c344ef0ec2697b43c3689dacc3e64bfbc1454052c335aeafc35898ebc1625354c3c59bb7c34c3e17c2a2a147c38878bcc3d98940c2625354c3c59bb7c31e3817c2a9c936c32a7ab1c30a0227c2000000000000000069c953c3beeab6c3664f06c2148a43c3375dc0c380144ac223a530c38c3db8c3a8cc40c278e440c313cbaec36b04fac1");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "796138c3c4d5bfc3cd2614c2");
+    w(&mut m, 0x2a003010, "0f613ec3df88c2c3e0d335c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.20896032452583313f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_544() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "54e186be06dbda3dee6f753fd381db41");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "cc8b654360b0fb43c5b5cdc0");
+    w(&mut m, 0x2a003010, "1ba86543e77cfa439d4b97c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 2.3256802558898926f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_545() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "54e106000000002827e8d9c33dc21443d9a81a42000000002ae142f4b3721540b62ba1be9660d3bee7cb5a3f75a2d9c2");
+    w(&mut m, 0x28000000, "4fcddbc3869a1743a78f1a421616dcc311e61243fca11042ee30dac3c70d10434fb81042ff02d8c3f3e9114337c11a4237bad7c3699e164357b124425f9fd9c3b27619438f9824420000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "c9a0d2c3006e01437ca32c42");
+    w(&mut m, 0x2a003010, "e1c3d1c3903d034383ea0142");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.6003937721252441f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_546() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ae65f13daf2dcebddae77c3fbfac6a41");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "0a0ff0c31dc123c206ee3d42");
+    w(&mut m, 0x2a003010, "22acedc336631ac252e52442");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.5117048025131226f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_547() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7839dabdc6eda23b148a7e3f86f58440");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "1cb823c3dda628c325c57cc1");
+    w(&mut m, 0x2a003010, "a34c21c3da7e2dc3f4bfc4c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.1686642169952393f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "feb622c3e2352ac31d1fa6"), (0x2a003010, "7839dabdc6eda23b148a7e3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_548() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "783904000000002837eadcc3ecb3d5c3d88a97c0000000005db815a045ee1840cc9863bd6675df3e4ae465bf17bc1d4300000300300000287041d9c37438d2c363e2b3c00000000012122b0ad6bb2e4074d0633db13ddfbe9bf1653f7e1a1ac3");
+    w(&mut m, 0x28000000, "3d85dec38c24d8c3e513ddc0dd91ddc39692d4c3b49663c0e6ffd9c3f685d5c3c8809dc0dd91ddc39692d4c3b49663c05bdbdac3e77fcbc3400b8d3f8546dec3baf7d6c369bc19c170a2d2c3bb31d4c394b805c1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "c0b0e4c33af3c9c37c342fc0");
+    w(&mut m, 0x2a003010, "cb4be3c39c6ccbc34c0639c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.7164386510849f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_549() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b3b5ec3df6e855beef98783fb5065b42");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "90d9d1c220cc0343f88e6cc1");
+    w(&mut m, 0x2a003010, "c8c4d4c26549074348c8afc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.029684066772461f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_550() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b3b5030000000028c8301a42008c4f43885713c20000000041086bf31a8e3340a8f641bdaa4b923e0507753fb6c4b1c100000500300000283e90144275944c4333fe13c200000000578b6d97f2792a40bd1d42bd5329923e070c753f4ad1a9c1");
+    w(&mut m, 0x28000000, "fa311042d4186243c7fc29c289dbbd41971b4443419d08c29a725f42966f4843906c07c20000000000000000000000008250f841fe7841438df207c2b14637423b584343f14007c295310e42fc265943744d23c25b6c4242c0fa5143562b18c2a688c54153f34e43b74a19c200000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "92b084421ea042436c3efec1");
+    w(&mut m, 0x2a003010, "3772774240e93d43fc2223c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 2.1266794204711914f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_551() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b3b5050000000028ba8ca743fe18edc3ea8e18c200000000ad76c2fda54d3240804de43efc863bbe204b603feed74ac30000060040000028c7ffa8432432edc315ec1cc200000000a667b7bbcb401a40b129e43ec3a43bbeaf52603f682d4bc3");
+    w(&mut m, 0x28000000, "d873aa43ff89e5c399c017c21242a1434d00e8c35bdeecc12bc2a043a581f1c35d4b04c2e4a4a9433bebf4c386272ec2a6a2af43cb85edc3ed273ac2000000006dd7a643703cebc35ddc10c21d39a643a315eec3351c13c27761a843580bf0c3c72a1fc22128ab43d827efc381f928c271c6ab43a54eecc344c226c2179ea943f058eac35fa91ac20000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "f402a143e967e1c3357e12c2");
+    w(&mut m, 0x2a003010, "85d2a3439319e4c388d431c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.4142290353775024f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_552() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0e4f793e42b534beff26743fe90610c3");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "8bccc943de7969c331c67140");
+    w(&mut m, 0x2a003010, "b03fc9434b3065c35495f63d");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.3306994438171387f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_553() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0e4f04000000002877db90c3b6a481433e4ff941000000002d28a1de7faf2040483e85be94950e3e6d98743f73460dc300000500300000286ba093c3f5007b43989df84100000000efd45d307c5d2540ea1485be7f45103e3a8e743f85c90dc3");
+    w(&mut m, 0x28000000, "76308fc3904385431524f841507a94c3b74f834386a5e541788692c3b90b7c43b37cfa419d3c8dc36af37f43557b0642144b98c377c776433b37e9414f0f93c361d270439b830342139c8ec37eef7843086a0842c31791c327f481430d4af941de1397c3914981436bb7e04100000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "7a508dc3f0267c43e4950d42");
+    w(&mut m, 0x2a003010, "9f1f8fc3cfd77a43f466e041");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.237253189086914f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_554() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0e4f0500000000289491c340521e99c30fb53642000000009a88704d878f3040fc48fcbe1f1aa9bcafb35e3f582a2cc20000050040000028fd8661bf2a1b97c34d702b420000000012d9d80af5862040447cfcbe165cacbc88a45e3fcb4530c200000400800000286af314c0bf5598c33a792f4200000000c199a31fb4b021405e5ffc3eccfab13c9dab5ebfdcb13742");
+    w(&mut m, 0x28000000, "adc3afc0bbbe9bc3d3e51b4286d70741f0cd9dc3ec2f3b426bd38541a8ca97c356fe4e426bd38541a8ca97c3d90d4f42d3aebcc09f7594c35b671c4200000000bf4209402d3194c3b4dd3242f38884c06df695c3ea43244248dd2dc0c47f99c324d02642cd6a8e400cea99c3dff93642f38884c06df695c3de452442000000008f1dabbe669394c36ebe34429c1ca640df5499c36751404291418ac019189cc399342a4203881dc1a05697c37da01e42");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "71619ebe47319bc3ed234e42");
+    w(&mut m, 0x2a003010, "6616c83f81fa9dc398761a42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.257685899734497f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "c0d9303ffc7d"), (0x2a003008, "32a632"), (0x2a003010, "3389a9bc55c17dbfeda3053e")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_555() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0e4f060000000028c1b78743df59494305bdc74100000000b719ceca9d7607404b12e639b1fb7bbaf6ff7f3f9123c7c10000040050000028b4f78643f0fe47434c92cb410000000055cfdaefacb12940236ead38102dc8baecff7f3f0a50c9c10000030080000028bba9854363ef5243f747c04100000000f130235ce70f2540f6466439c6ac96baf5ff7f3f84cebec1");
+    w(&mut m, 0x28000000, "3dad884384dd474363b7c741fb818843e72b4a433bbcc741b56c87432b084b43dfbfc741b18286430c964943e6bbc741b56c87432b084b43dfbfc74139c38743656b4643e4bec7410000000000000000924a894309f9534398b8cb41a8fa8043ada44c437ca4cb41d6a48443d7043c433f6fcb41c1f48c4334594343da7ccb4182e7804376715743d256c0411c17864354704843df2ec04191fe89435eec58433352c041000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "6eb07843ceeb3f43dada0042");
+    w(&mut m, 0x2a003010, "431d78434f284543a875b841");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.1142771244049072f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_556() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0e4f04000000002814aa9943344438c31559b3410000000022e53b2abf4e2e402087c1be2afb2e3d65c16c3fa89bce420000060030000028f19a964391283ac37d51a441000000005903ca1f457737402878c1be96392e3d02c56c3f367bcd42");
+    w(&mut m, 0x28000000, "56a69243bda238c30f9d854122249b43e5cd3dc3330dbf41b6b99d434bd22cc3deacc94122249b43e5cd3dc3330dbf414b08a04392af36c393a8e041cf3c9c4321e725c343adc141777f9143e6d443c3d17b8641fbb38d43750c33c361e94e41777f9143e6d443c368838641a0a99a4375a645c32d1fc3410000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "7b8e9643ac3231c35998ad41");
+    w(&mut m, 0x2a003010, "8ecb9743115030c3129ea641");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.9078899621963501f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_557() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0e4f040000000028cbde95c3e896f7c322f6fec1000000006d589a6c569c2140643e2a3efbd392beba86713f6f6978c2000004003000002890b592c33089f3c34d06f8c100000000e3bcc68df1682b40d89f29beab07933ed88571bfb4137842");
+    w(&mut m, 0x28000000, "094c92c3b978f5c36dbcfec1fafc97c32604f4c3ad9ce7c18d7199c318b5f9c3d62fffc19bc093c3aa29fbc3cb270bc2f25b98c3e847f0c35448d8c1fa4690c34aedf1c3c000f7c15bec91c34202fac389de0cc2fa4690c34aedf1c30b13f7c1");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "b1ad9ac30e21e8c32185f7c1");
+    w(&mut m, 0x2a003010, "091b9ac3ee13e9c3b034f9c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.7759132385253906f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_558() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8d33c6bdb321253e866e7b3feaa9d2c0");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "752ba943f5f9e6436119fcc1");
+    w(&mut m, 0x2a003010, "83d5ab4359e4e943a84d13c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.5086010694503784f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "8241ab43fd30e9433d7e10c2"), (0x2a003010, "8d33c6bdb321253e866e7b3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_559() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "5fbc83bebdcda03d2b90763f73146b42");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "efa7b143d7f0c2c177c02e42");
+    w(&mut m, 0x2a003010, "c47bb143c1e397c128271942");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.8872407674789429f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_560() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "fcfc7cbe37936ebe80c9703fc8c19b41");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "bdf961439c4894c282888841");
+    w(&mut m, 0x2a003010, "38416043ea8e9ec2fe802a41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.9150640368461609f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_561() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d0f3383e77c773be794d743ffafa1a42");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "40ca7342968b9f42fed7acc1");
+    w(&mut m, 0x2a003010, "c1578142cc1c9a42819cf7c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.8420473337173462f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_562() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d0f3060000000028f5fbb5c3cb0f84c3d000d7c10000000009514806d0e534408485883e2727753e95ff6e3f995f3943");
+    w(&mut m, 0x28000000, "9d87b4c3afb58dc36110b6c1cce6acc347a087c363e2f1c1255baec3c5f47bc3696909c24f70b7c3ced374c33df1f7c12011bfc3507f80c33a1fbcc1c79cbdc334258ac3cc2e9bc10000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "d379bac3f38e7cc3fd459ac1");
+    w(&mut m, 0x2a003010, "ef45bdc39bfa80c31098ccc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.8586083650588989f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "40b9bcc3dc7080c3cf0fc7"), (0x2a003010, "8485883e2727753e95ff6e3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_563() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b60ad0bc7526c9bde4ad7e3f7f287e41");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "08756bc3b3fdd243c1a2aa41");
+    w(&mut m, 0x2a003010, "065367c30de8d1434e319841");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.94210946559906f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_564() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b60a0400000000280cf9b6c22271d2c3974609420000000024962563ce7e1340489b46be6e3a28be9d97773f472af0c20000030030000028545bbec25930d0c3afae0c4200000000cd391fdb67d43040f3ea443e554b293e92a177bf0153f2420000060060000028bc5dbac2c024cec38d290b420000000006580da257992840883e44bef59b28be9ab1773f70d3eec2");
+    w(&mut m, 0x28000000, "6c14b2c2246bd0c3c0fe0d420711bfc2fa37d1c3fab20742aeddbbc22177d4c32292044212e1aec24aaad3c381d60a42f16bdcc2ed0fcdc3ea000542467ea4c2313ecbc377ba1d42c427bac2ed42d8c3ae500342000000000000000000000000f168a6c22439cec30afd12427603b4c230d8cac30a3312420285c6c2b219ccc395280942096ccbc229bcd0c381d6004284d1bdc21d1dd4c3219701427603b4c230d8cac30a3312420000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "aa2088c2b615d7c3d21a1b42");
+    w(&mut m, 0x2a003010, "1d0288c2d4fcd5c3cdccef41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.7812579870224f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_565() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b60a030000000028a931a2c3df9fb643161124c200000000d5c14fc0844411407c2298bdc4dfd8be571e673f67a52743000006003000002840bda3c3882bb8438b2d2ac200000000f243ec0e6c8d2d40b5e499bd1286d8beb52e673f5d942943");
+    w(&mut m, 0x28000000, "ee2da1c325f0b44397ba29c2a43da1c3ab58b843f1f91cc26929a4c3cd96b643ba7e25c2000000000000000000000000586eaac3c09cb74378b530c2269aa6c38e18b24394d342c20de99fc356a7b2434b483cc2270c9dc34fbab843f4a623c25ae0a0c3813ebe43d98811c27291a7c3baafbd431b1018c20000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "a5ccaec3cf45b1439a8b22c2");
+    w(&mut m, 0x2a003010, "eb26b1c378b4b3439e5d3ac2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.1283642053604126f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_566() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "79fb3e3e32c7653bae817b3ff6fa42c2");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "7663e843b47742c2520513c2");
+    w(&mut m, 0x2a003010, "730de943bb893ec268322cc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.075644612312317f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "795a"), (0x2a003004, "c818"), (0x2a003008, "57b819"), (0x2a003010, "79fb3e3e32c7653bae817b3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_567() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "79fb04000000002893cfd443becacbc3e24391c100000000970452d65dab2040351bab38d8b7e53e6bc964bfd99b26430000050030000028386ad043168fcfc3f63291c1000000005f01e25f9709364093620cba19c8e53e54c564bf0e4e2a430000040070000028d342d0431095cfc3ed7c89c1000000008cd515340e361e40ab2a523a5df8e5be30b9643f15742bc3");
+    w(&mut m, 0x28000000, "f9f7d143f161c9c33fce7bc1d157d6430f23cbc30dfd8bc1b396d443e782cfc3ed20afc1d157d6430f23cbc3720a8cc11e0ed3439899d8c3bae0d9c12461c9433475d3c35277b0c15921d643ba23c7c3ad361bc15921d643ba23c7c33b281bc12461c9433475d3c35277b0c1000000001897d043a438ccc3cfef5cc166e6cc43cb40cfc368cd86c18eeecf437df1d2c34f87a4c1409fd34356e9cfc315278cc1");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "30d3d4431b1acfc387b33cc1");
+    w(&mut m, 0x2a003010, "102fd2437bc0ccc335afb5c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.9785172343254089f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_568() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "79fb04000000002857b793c3110cc3c2288501c20000000025a7a2be933ef63f1c6ec0be7f7eed3e515f4dbf798cb7c20000030030000028065691c31784aec28b46d1c1000000007515c93e431e2f4000000000000080bf00000000c149c6c20000060060000028894192c325c1c2c23c3500c2000000000e1e65ada30b1e40b9c1c03e81ccecbe177f4d3f7aa3b542");
+    w(&mut m, 0x28000000, "b62a93c3d79cc2c2f31203c258c893c35303c4c2b56202c2f72194c3c78cc1c24a73fcc158c893c35303c4c2536502c2b23996c3c149c6c2c97de3c130e48ec341a1a2c2ea2ac8c130e48ec341a1a2c2ea2ac8c1000000000000000000000000d00093c3e5a4b6c298eddec1f7c093c36405c1c2f935f1c1e4e191c347cfc8c2179a08c2aa428fc3a938c6c2ac690fc2e4e191c347cfc8c2df8e08c2f7c093c36405c1c2f935f1c10000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "86c29dc397a7b0c21f2bfac1");
+    w(&mut m, 0x2a003010, "d0d89dc316e4aec2349203c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.252350926399231f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_569() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "79fb0400000000284dd93dc38cb6c9435a0be141000000007e82722d47f32340bee7873e3930fbbef27854bf1fd587430000030030000028bd013ac3a0f7cc432f79d14100000000eb9b426d04f01f4000000000000080bf000000007be1cb43");
+    w(&mut m, 0x28000000, "67e736c3f53ac7437b2805427ad042c3983dc6430034f54133cb44c32232cc43d9d0b74121e238c37e2fcd4397d7cc419f2733c37be1cb43cc46ed41ce6e3dc3b282cd436092c341ce6e3dc3b282cd436092c341000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "5ab121c3832cd443d21e0f42");
+    w(&mut m, 0x2a003010, "e1aa20c39c65d543805eb641");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 0.49415379762649536f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_570() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "79fb0600000000287c80b342a956a44361d5f6c10000000082117c4a4a863440fba72f3e1831debe186b623f01871a43000006005000002825829e4299cca0434b2503c2000000005503f820a97534406e8f2f3e941bdebe8f71623f8dec1a4300000600a0000028fca3a74224f4a143785dfac100000000b2d96f513c761240e21e2f3ec768debe1064623f980b1a43");
+    w(&mut m, 0x28000000, "3f15bc426e789c4307a01dc2b71bcb42c158a343397608c203cdba42b309aa43f0bdcfc1d6779b4253daa9430ae3b8c103cdba42b309aa43a8cdcfc112c09c420d499c43943212c20000000000000000b1cfbe42fa789e43d2cb18c25609c042908aa643873af3c1e8e88642ca009f43710b01c28c2288425f12a74300b2c3c1e8e88642ca009f43710b01c27a3fa24217b49a43cb861cc200000000000000009db3a542c4f0a343f841e9c1e1c99f42fc86a24365caefc1177eaf424c61a1432b7a02c25b94a94285f79f43f1b505c2177eaf424c61a143d67602c2e1c99f42fc86a24390d6efc10000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "4122c8428be2a3432dbbcec1");
+    w(&mut m, 0x2a003010, "f12dc1422edba24370d2eec1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.0646791458129883f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_571() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "79fb030000000028eb7cfa43c083f1c3975315c0000000003b0b0fe7dd0b27403c16993ed684813e8a8c6b3fe6a0cbc100000400300000284c7af843f6e2f5c3211a6bc000000000150b715c58640a40390d99beb37981be898f6bbfbc82a641");
+    w(&mut m, 0x28000000, "fcb9f843f080ecc3e2667cc06e07f743ae8bf5c36066084055b5ff43a47ef2c322fda5c00000000000000000000000001b4ff74375d3f4c3b7cf5fc0bd22f94396a1f5c316b987c09c54f8433975f7c375b42dc0bd22f94396a1f5c316b987c0");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "314702440626ebc39c69a640");
+    w(&mut m, 0x2a003010, "48340344aa59edc30160a0c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.148491382598877f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_572() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "13abfcbd60b3e13d0b797c3fc5506d42");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "ef2155c30491b6c3f9d32fc2");
+    w(&mut m, 0x2a003010, "d76c51c334fbb5c3c20a4ac2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.8887954950332642f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "2ad254c37ca8"), (0x2a003008, "abd537"), (0x2a003010, "13abfcbd60b3e13d0b797c3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_573() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "13ab03000000002863017343c715b743f8b8f441000000006b077009266a31403dbbc23e2aecd5bd153f6b3f4d92a4c2");
+    w(&mut m, 0x28000000, "77de63430a30b4431ec9104292977f43c1fab143e2c2c1411f8e75438816bf43c9d5fa41000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "b6ee824395f0ba438e1bfd41");
+    w(&mut m, 0x2a003010, "66be84435850ba43b8860442");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.4798946380615234f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_574() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "13ab030000000028c55b9943feac9f43279d784100000000bf053ad46d5f394000000000000080bf00000000167c9543000006003000002864a69843bdaa9d439b72974100000000d448705d74883540683c2ebe71f2e73e4907603fb2f4d6c20000060080000028a78698431cd29d43fd999a410000000055a07301496b1e402a992cbe0048e83e6905603fcc5fd9c2");
+    w(&mut m, 0x28000000, "79c69d43167c9543b663de416c26974372c5a443038816416c26974372c5a44303881641000000000000000000000000a8a49f438804a443764e71418ba596430ee6a643329b094147a78f43438ca043714c47411fa89143f25097438b4cb6413ba79a436d6f94432f12ea4180a5a14338c99a43d835cb4100000000000000000ad3954391609e43199d8d41f352974335319c431d5ca44153f7994300669c43aacaaa41ca1b9b4328ca9e437a9d9a4153f7994300669c434edcaa4181f79643b8c4a0438bbc7a410000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "26269b43f4c595431840cf41");
+    w(&mut m, 0x2a003010, "d07a9d43e5139743f63f9f41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.3890032470226288f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_575() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "13ab0500000000287afb82c35d31f4c04e9681c10000000016f9e3a707192c40c9e5d2be4e66833e9bd45f3f7c90b7c20000040040000028a64d85c3ca0f11c18db07ac1000000003754fa2ae766274005ebd23e521683be17df5fbf219cbb42");
+    w(&mut m, 0x28000000, "0ba987c3cb7e79c1ef2b92c13ca480c3cdea97c1df942ac11bb779c31c09d6c0c14e2bc1af8981c3daeb89408cb792c1da3688c325c398bf3f1ab8c100000000904188c3fa31efbeedbea7c12ffe82c383c806c165e15ac1a7f886c3499a97c1ca8a65c12ffe82c383c806c12bd85ac1");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "b10873c3bbe13440eac218c1");
+    w(&mut m, 0x2a003010, "a83c78c3854219c0ad5ea8c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 2.015366792678833f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_576() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8020963c22638bbe3749763fcbfed3c2");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "33a0bfc393d1ccc3c0f78d40");
+    w(&mut m, 0x2a003010, "163bbec3b64bccc3cb7a3240");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.543513834476471f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_577() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8020050000000028269ae1c34a976bc33ee521c200000000ba5b454609dd274019b50d3d7ef0933d752d7f3fb8f19142");
+    w(&mut m, 0x28000000, "e28fe4c31be875c357151ec2849cddc3a56874c3907220c2022ddcc398b966c30ed024c23e3de2c30cc45fc37b2525c2166ce7c30c2669c3c9fc20c200000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "c234eac3d99f7ec3996d08c2");
+    w(&mut m, 0x2a003010, "8e78e9c309e77ac3eeb536c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.0814931392669678f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_578() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "9bf805bc08ce853e3018773fc93ced41");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "7567bcc23cf088c3f6d84542");
+    w(&mut m, 0x2a003010, "9f4dc4c265f687c308884042");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.9383883476257324f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_579() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c4a42c3e6bad1d3ec23c793fd91ad7c1");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "eec1e6c39436ca43a88b4742");
+    w(&mut m, 0x2a003010, "f62be4c375c2c84311612142");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.3268215656280518f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "d276e5c33352c94322a32d"), (0x2a003010, "c4a42c3e6bad1d3ec23c793f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_580() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "fa3c10be83ad8e3dc2d17c3f952e3dc1");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "ec5a15c3524719c3ee4b0341");
+    w(&mut m, 0x2a003010, "465114c3609c18c36707b240");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.455127716064453f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_581() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "fa3c040000000028de4f8543a26571c3d26a6cbf000000003f0eb9850b0c16406ba9aa3e125ac4be9b7d5c3fdda634c30000030030000028a16a8243599673c319360dbf0000000049f29e3ae80d034059e7533f2aa40f3f000000009a749ec2");
+    w(&mut m, 0x28000000, "63b1834369e074c3db339cbf410d874398a274c3409b6dc059ee8643dcea6dc3f1c520bf7b928343ac286ec3b0f7ee3f30d7814353e371c3c1f2273f5ab48243dc6f74c313b893bf5ab48243dc6f74c3731294bf000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "d3c5834371327dc384d73440");
+    w(&mut m, 0x2a003010, "bc0b82435e5281c33a2b81be");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.5063294172286987f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_582() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "fa3c03000000002850e3a84379d97ac34ca36f4100000000f686765a733e17402ca2a23db0d2943e0b1a743f087bfe410000040030000028e33ca84336357bc30bab6f4100000000df3204346117234022f8a03d858f953e9801743f249f024200000400600000287e76a643b1a078c355d45741000000002d5b4db3ce342f401939a13dce8b953e7f01743f0e370642");
+    w(&mut m, 0x28000000, "0e4ea643aadc7cc32b2b8041050dab4336517ec381c97a41db4ea9438d5e75c30dca5341000000000000000000000000a84ea443a21580c389318941eab7aa43d58881c342d887411d2bac43263f76c32ffd4c41dcc1a543c05873c3659b4f4118faa64306c469c31b9a0d4129089f437d9977c3966d6641e5f2a543aebe83c347079141d4e4ad43e4a779c3143b4941");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "b586ae43f8a881c3d85a9941");
+    w(&mut m, 0x2a003010, "753ab04378a784c354197a41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.5994709730148315f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_583() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "fa3c0400000000289af0e3c322e299438fa58ac100000000386a34fa66b521405d6185be5134afbe841d673ff1f80c400000030030000028ec34e0c3fade9a4345a983c1000000004ae12a0438a717407b4886be6158afbe36f5663f196f544000000600600000282f1be4c339709d4399e485c1000000004e62f72ec4bf1a40747785befb2fafbe261b673f68377b40");
+    w(&mut m, 0x28000000, "b6cce0c330649c43b3e259c1a872e6c305069d43b82f83c17d14e7c3136097430c5ca8c18b6ee1c33ebe96431d1992c1564fdec3bfc09c4314d15ec1f0c8e2c39f929b4323648bc17d86dfc390499843232f90c10000000000000000000000004213e2c3122a9b433b4f8ac10f1fe1c36a0f9e4388ae68c1fb26e3c39355a043e9dd5fc11b23e6c362b69f439c7e81c14e17e7c30ad19c43947697c1620fe5c3e28a9a43f4d09bc10000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "0128dbc3b2e49c43144f79c1");
+    w(&mut m, 0x2a003010, "b50bdbc346bd9e433eada5c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.7822169065475464f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_584() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "fa3c0500000000285d44c9431bda6443deec5ec100000000eb48be50e67b0540cdff3a3d0f8f163d558f7f3ff91e4ec10000030040000028af74cc43e09a6a43107973c1000000005b01073de9e52440a592dabdb3897ebf00000000fd738a43");
+    w(&mut m, 0x28000000, "8654ca430a3863435d7c5fc1455fca43985e6643426761c10ce3c843466c6743b3d95fc150edc74363ec6443320f5dc1a9d1c8433d536243cdd35cc100000000e343c74322b86b43fbda6cc1140dcf433e0c6a434ad876c1140dcf433e0c6a43eeb776c1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "49b8bb43c85454438fd032c1");
+    w(&mut m, 0x2a003010, "9483bb4364374f432e7781c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.3736902475357056f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_585() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "fa3c030000000028a77fec434d8358c2e57f1a4200000000b1f3b64a183535402a54bdbd89c2d9bee87a663fff1b61c1");
+    w(&mut m, 0x28000000, "6c90e643e7701cc2c000324282f6e84305d58fc241f7eb4107f8f543f66e4dc24f832742000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "5e05ed437818fcc1c9be2b42");
+    w(&mut m, 0x2a003010, "04efea433fba07c22da40942");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.6338589191436768f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_586() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "59dbd33d11b1843ec3d4753f7cb8d942");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "a4faf9c277bd6fc3cb4bf5c1");
+    w(&mut m, 0x2a003010, "52af01c3ebc46ec3a9c61cc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.181594133377075f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "21dafcc21c0e70c323d40bc2"), (0x2a003010, "59dbd33d11b1843ec3d4753f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_587() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "59db0400000000284d66e242f7477dc34e32dec100000000a97bf249e5922540e937133ec40397be96d3713fe67c81c200000300300000283d58e142133680c3fd72d4c100000000815f431c7d5f0e40797a123e0e7a96be3bf0713fc1c384c2");
+    w(&mut m, 0x28000000, "2465f542149579c3a683e0c18600db428bc873c327f6c1c17567cf426d7d80c356dddbc113cce942b26383c31872fac1d026de42ded181c30b85dac17383e842281980c3333ad8c1765edd42676e7dc3b899cac1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "843aa74272217fc36298c6c1");
+    w(&mut m, 0x2a003010, "2b2fa442f53b80c3b4d5e9c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.8935848474502563f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_588() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "59db050000000028f9d781c3a392694273e2dbc000000000d9f3fbe9f89d34404b28e83e47cecd3e07a64bbf39a0b1420000060040000028f81580c37b0888422c128dc000000000d7eac43d0a752c40ebcde7be3f24cebe07aa4b3f502daac20000040090000028831676c35ce88c429a53f13e00000000d5e5b4088ce53040a917e8bec7decdbe9aa64b3ff332a7c2");
+    w(&mut m, 0x28000000, "e71f73c324407a424ba79540bbd97fc34b15434266bc18c1035b87c3ec7f9642705f94c02e7388c39c72624244e174c1bbd97fc34b15434266bc18c100000000f6d477c3ae619442dba25d40c9837fc38516a142d7961340006b81c3cc887342128a18c16a4285c33d798642df342bc1006b81c3cc8873422b8918c1127e79c39fb8804253f31cc000000000000000005c327bc366c26542c94610c14fdc6fc3b7068e4203b28940116f7dc3d0b2a4426d1813404fdc6fc3b7068e423fa48940");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "406379c3303f4f42ddf989bf");
+    w(&mut m, 0x2a003010, "f6ed7ac3abcc3a428199a7c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.996445894241333f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_589() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "59db06000000002820bb3f42a7a95243545cd74100000000d983b95fcaac3340236bc33e4efdd7be9a8952bf996cb9420000030050000028bced494260df4c43458deb4100000000855560668d8b194000000000000080bf00000000cb304d43");
+    w(&mut m, 0x28000000, "0988064265bb5343c3dd9d4102fb304296845c439f36a141e9664342db59414396e51042e1d96d420d234a439f9b1242eea364426ab857438adce44102fb304296845c439f36a14100000000000000009d0a3342cb304d43ca00d5414b5f5542aab64c4384d3f6414b5f5542aab64c4384d3f641000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "d3445542fbb33a43b51bf441");
+    w(&mut m, 0x2a003010, "8d7c5142e9cf39435434b641");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.4376635551452637f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_590() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "59db050000000028333b2f43a5b36e436abed241000000002d6bbbffb2c828408eb538bc92dd89be1c8776bfeb3cb7420000040040000028f2692d43d4577543db51cf41000000007abb26605e933340fab438bc97dd89be1c8776bfd9f2b942000005007000002861a12b431bae6f4356e6cf41000000000b8d8cabecd320406bb4383ca2dd893e1b87763f0900b7c2");
+    w(&mut m, 0x28000000, "9f0b3943a1ba7043e44acd41fc0d324355a367437848e241913f2743357a6b43f3b4da41913f2743357a6b43f3b4da41438f3243da2f7a43cfbab8410000000026af1f438cf267430d92ee41a904204350898143b6dcb141bd243b438e5e8143a911b0413acf3a43099d674300c7ec4135962443bfa36b43cf9ad941e64b2d438ebb67435787e14127b433430acf6e439419d14131f42e43cb167743a1fcbe416f9c2543632175435847c44100000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "090f424328317043b726e941");
+    w(&mut m, 0x2a003010, "b2de4543e6ad6d43f669a541");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.7586828470230103f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_591() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "59db040000000028ccb3bbc3da374543069df2c10000000043b4c378086921403c83eabe684d84bd3df7623fe65104c3000006003000002878b3bcc3cc1545433461f0c1000000003ca61310ae4d16406943eabe647a83bda109633fde6005c30000040080000028025ebbc3ccf24c43b7a4f4c1000000002eeba708c30efc3f125beabe148986bd5bfc623f0ff202c3");
+    w(&mut m, 0x28000000, "7894bbc3987e3d43a01af6c12cd7b7c3837645437f8cd2c121d3bbc31af14c436c1fefc16d90bfc32ff94443c65609c29200bbc35bff41434424e4c15f26bbc306664643d7cfe2c12121bdc3e35748439d06f2c117f6bec315e34543cd4c01c22121bdc3e3574843d50df2c188d5bcc38d8a3f430fa5f4c1000000000000000019c0bac320e14b430c34f0c12dd5bac39f2e4e43c084efc1ecfbbbc377044e434420f9c1d9e6bbc3f9b64b43cdb9f9c1");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "563cc2c378f85443432ec5c1");
+    w(&mut m, 0x2a003010, "8be9c4c36046584323b2fcc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.8004732131958008f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_592() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "59db05000000002845d2cac1630649c37e94014200000000d0922b8855f908409d7f9dbebd1e3cbeee006f3f58f395c2");
+    w(&mut m, 0x28000000, "3fa2bec1f98846c3138e0542e1ffd9c180ce46c335d50042bd63e0c1d5244ac3864efa411ef9c8c14fef4bc3f333ff41621cb4c155b449c3f0c1044200000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "cee15340574b48c3bb940242");
+    w(&mut m, 0x2a003010, "ff72bb40f2c84ac3aaa20642");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.35978057980537415f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_593() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "59db0600000000284b1454c256f210438024064200000000facd6aec470c33400a52ab3e9b15d73e5ff2573ffedf8ec2");
+    w(&mut m, 0x28000000, "cd5e83c28bde06438d4f2e4246804ac280f000434a3a2242f7d617c24c040b43741df441fc6a21c222061b43f1f0bb414fa85dc22cf420438e1bd441cf2888c261e016432a3c12420000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "4f909bc24b7c2e436be41842");
+    w(&mut m, 0x2a003010, "f01ea7c22bf12c4397bfe941");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.003090262413025f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_594() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "59db03000000002813828443511d3543f1b478c10000000068621fa37eb22440601f113d32416ebe19cf783f8c6e3f42");
+    w(&mut m, 0x28000000, "7c8a8943521f3643b4b77ac1268e8143eb533d4381cd55c1956d8243b9e42b43d0cc8cc1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "d9e09043b66d514311430ec1");
+    w(&mut m, 0x2a003010, "9afe924331155443528399c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5366338491439819f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_595() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "59db0300000000282b31ebc25dbff743d5db644100000000388c14d524391840c58d65be077ce33e440c5e3fbc7581c3");
+    w(&mut m, 0x28000000, "5f2be9c2b45ffa439dfd3d411f4df5c24ddff643be4d5e41041be3c216fff54312248941000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "9cddbec22db5e843c35e9f41");
+    w(&mut m, 0x2a003010, "6408cac2a0d4e5436f6d1a41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.1303353309631348f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_596() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "59db050000000028bd1e98c3d51359438678a5c100000000421ce04e4c9513406c3a923de3c6e83e5b47633fb66c6ac20000050040000028756a9bc35d835643634995c1000000009c6097abac563140018b91bd18a2e8be885263bff6396b42");
+    w(&mut m, 0x28000000, "52ea98c35a02554382c893c1666e96c3c24e5643964c9cc1f44796c3146f5b43537eb1c11eac98c3bb4d5d43e307b6c1e74c9ac33c55594350bfa3c10000000096f893c32d9c5b4308afb3c1b9e497c335114b4336e355c121a9a2c31b695f434d6eb0c121a9a2c31b695f434d6eb0c1b9e497c335114b4368e355c100000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "c29ba2c324155d43c9df9cc1");
+    w(&mut m, 0x2a003010, "b5e3a1c319755743f9b4b0c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.8550630807876587f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_597() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "59db0300000000288b06cdc32d3142c377bb4441000000007f756796f66e204099696bbea624793f00000000b071bd42");
+    w(&mut m, 0x28000000, "a0ded0c31a0244c36f912041801acbc3b74841c3b6d85641801acbc3b74841c341c85641000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "82b7cec3a74c2ac37d9e9041");
+    w(&mut m, 0x2a003010, "7473cdc31a5a2cc3e7d53541");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.3706074953079224f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_598() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "59db0300000000284510c1c337e70b437f4c5c4000000000b3555db4e6e118407e341cbe7da7f6be12e95c3f43d6b04000000500300000287b57bfc332260843dda19d4000000000d0a142199fc32a40d8d91a3e9de0f63e5fe85cbf35bf61c00000030070000028d874c2c3c4300c43e032e93f00000000f3e2e12a53c210406046713f6824abbe0000000094b3ce43");
+    w(&mut m, 0x28000000, "d235bfc324f50f430a8ccb40efbec3c309160d43c8de4940113cc0c37aaa064384ba4f3f000000000000000000000000c543c3c33f020e43f96eda403ce5bdc333560d436f510541e118c1c3ac4bfa4256fceabf4b8ebcc382ea02435f673e403ce5bdc333560d436f5105410000000012dac1c38c990f4344e47b403ac2c2c3617c0a4359f5443f3ac2c2c3617c0a43d8aa423f000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "a48ec9c3c93f13436143dd40");
+    w(&mut m, 0x2a003010, "afb1cbc36bf10e433fdb0cc0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.26412686705589294f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_599() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "212e473e36e16a3efb25743fa6fc81c2");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "39492143a9488fc1fd321642");
+    w(&mut m, 0x2a003010, "fa24224394ca8dc14c3fe541");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.5979820489883423f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_600() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "212e0500000000284392e9431b094743b076b74100000000a4b59243d0f8214032d397bd4ceec73efbe86a3fbc4480c2");
+    w(&mut m, 0x28000000, "9794ec43d44c414304e1ce41a486ec4396f84a4390e2ad41b71ce543c5f74543a655b541b71ce543c5f74543a655b541a486ec4396f84a4390e2ad4100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "2ee6e843875f37435c39f741");
+    w(&mut m, 0x2a003010, "a8d0e94317e932438f69ce41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.7355554103851318f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_601() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7308343d3a57673ea020793f2fbbb642");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "f51eca432137afc3c693ddc1");
+    w(&mut m, 0x2a003010, "36c8c943a484b0c31524f7c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.8837748765945435f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "7de8c943fa0eb0c32e0bf3"), (0x2a003010, "7308343d3a57673ea020793f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_602() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7308040000000028744752423bff2dc3415f094200000000d65f0b82ae823540d3d9a6bc08f8023f60e65b3f555a72420000040030000028b266524233f832c311e20b4200000000aca6913f069b2040b1a6a2bc6eec023f11ee5b3f031d7a42");
+    w(&mut m, 0x28000000, "5ca07d42bbd83dc33b273042b9d68842012923c3f21ae2418dee2642bc251ec3ae28c54176e1124275d538c3f7b321425a383e4283af38c38c081942f2436942c80338c34d6e184209956642e3402dc3047dfd4172893b429dec2dc3d1a5fe41");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "ffcb7b42aec613c396f00842");
+    w(&mut m, 0x2a003010, "9ed67b4271a812c32288f741");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.7848725318908691f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_603() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7308050000000028c3ddc0bf63f33e43d6c7b4c10000000094725910651e2040bb8384bed9edfbbed6c9543fdfb2e042");
+    w(&mut m, 0x28000000, "99077f401cd542435bb594c1e61860c0825f454343539bc1fdb203c1c9093f43791bc5c193bf6ac01b9538433050d8c16b7278406bed3a43e872bac100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "a8f24cc1606f48438431adc1");
+    w(&mut m, 0x2a003010, "e55819c1fb3746438b80e1c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.1402020454406738f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_604() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f57d873d1fa7fe3db2727d3fcb536942");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "d29cb7438b6ef3c3258a9ec1");
+    w(&mut m, 0x2a003010, "a10cb64346e2f1c37d64e1c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.787331461906433f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "fa6b"), (0x2a003004, "9c69"), (0x2a003008, "aa53b2"), (0x2a003010, "f57d873d1fa7fe3db2727d3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_605() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f57d0600000000280fe7c143b3466a434f10c64100000000715f64a0a350394001efd1beecadc5bef389533fc6016543");
+    w(&mut m, 0x28000000, "2156c743474c794398aa14422b92be435923764301eed741778ebb43396065434d578141b94ec14308c65743ff7f7841778ebb43396065434d5781416416cd4316b26b43071812420000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "8ef4c7439f8969434185e141");
+    w(&mut m, 0x2a003010, "aa4fc94390856f43f8a3d941");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.0231502056121826f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_606() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f57d060000000028558f49c3d40ff0c2f76a0d4200000000f27379712c223a40d3aba63ea6c5f1bc2ef071bf68f5be420000040050000028c2f354c3e05de0c26e940a4200000000af2d56603894f13f1fa6a4be55b80a3d2f3f723f48eec2c2");
+    w(&mut m, 0x28000000, "26c640c34b0ecbc26f311742c4873ac39561f0c27b202242461961c341afe0c29503d841e4da5ac3460103c3a8ebed41239247c3dbed06c35d0e1242c4873ac39561f0c2e72922420000000000000000a8e054c3fb4adec243880a4234fd55c3ad37e0c2bb280942da0655c3c570e2c258a00a424eea53c31284e0c264000c42");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "7f3837c36d2b0bc392130f42");
+    w(&mut m, 0x2a003010, "34f13cc36ee60ac33d240342");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.46750232577323914f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_607() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "553a80be014d8c3ed6b46d3f4ed6d5c2");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "6479a0c35aa80843bdd347c1");
+    w(&mut m, 0x2a003010, "46b19ec359a50743191ea1c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 2.327728033065796f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_608() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "553a060000000028e708df4230652e43eb5c42c200000000d27a84d887852240f45682bee97bc83e0d5d623fc76a44400000050050000028a53edd427cbc2e43fee33fc2000000002fe1be0a5d422d40dea882be59bec83e8542623f4cc20740");
+    w(&mut m, 0x28000000, "3d07e742e38a3543ab6e4ac2f1a6d642216e3543a5a953c29ba8ce426e482e43e49a4bc2910ad7427e3f27437e493ac2dd6ae742405c27438a1331c23369ef42f3812e43461d39c2000000000000000061adc44286ad2a4321e246c2615fdd42b4cc214351de28c224e4f542a7cc2a43e2ad2ac26559ec42643d394386ce49c2efeecd42272a39431b375bc200000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "ccbbe04203cc4543456640c2");
+    w(&mut m, 0x2a003010, "de34e7422dba484380d443c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 2.4351401329040527f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_609() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "553a030000000028d5afbdc3042c9fc2fd17f5c100000000fd5cbf1ef1bf2e4000000000000080bf00000000ee5985c200000600300000282b7cbec3e052a0c20d7ee4c10000000008fd24a911003640c2d776bd26f2f53eccff5fbfe82e17c1");
+    w(&mut m, 0x28000000, "e939bbc3ee5985c2b722bfc1caeabec30f15acc2510908c2caeabec30f15acc2510908c20000000000000000000000000d30c2c3671e80c210be99c1c342bac34a8c8cc293c5bdc1da91c7c3bf09b7c2b53406c28fa4bfc3a277c3c2ba2918c204fdb8c3e838aec28c7d04c2c342bac34a8c8cc2b2b8bdc10000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "7c0bbdc3318b96c2746cbdc1");
+    w(&mut m, 0x2a003010, "bfc0bfc3940f91c277a9d7c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.3194739818573f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_610() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "74eb113db89fef3dfa137e3f2a3891c2");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "c9f1a3432fdebd43019dd341");
+    w(&mut m, 0x2a003010, "aa00a543a127bb4371875741");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.5950983762741089f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "ef8ea443b420bc43c1e987"), (0x2a003010, "74eb113db89fef3dfa137e3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_611() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "671f5c3e0afbcd3d99af783f71e1bd42");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "341dcfc3ebab57c3120ea641");
+    w(&mut m, 0x2a003010, "6c9bcfc35d965cc3ba698741");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.692774772644043f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "1298"), (0x2a003004, "26d05ac3f26086"), (0x2a003010, "671f5c3e0afbcd3d99af783f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_612() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "671f030000000028e4ea8ec39c91f3c3c8f0a4400000000020fc26e325f12a40dcf49dbe83e6963e7087673ff8e94a420000050030000028877d89c33a14f1c3d0a0d940000000001e8bb2289ad2334046e79dbe80e4963e158a673fd18f4c42000003007000002890908ec3013af1c3b935a44000000000f894deb2eec0144041e79dbe7ce4963e168a673fc06e4642");
+    w(&mut m, 0x28000000, "bb3993c38913f8c3b8e6a44025dc88c3bc0bf5c302ff2341cdaa90c39095edc3a4cd763d0000000000000000000000003b7f8ac3c1acf8c3fe0b3141330185c3544bf2c31b722a41326089c35b19ebc3d9e63e40ce9191c36108edc36026acbf330185c3544bf2c3075f2a4100000000e76a90c398c8efc3c75c3b4050e38ec3808df3c368aacd4079638cc3ec57f0c35e48c140000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "ae5692c3791500c49158a740");
+    w(&mut m, 0x2a003010, "fdcf93c348eefec331166540");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.6178756356239319f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_613() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "671f03000000002874aab8c339f499c3fb642fc200000000f69e672c8d8f32405bcf903ea38a5f3e6c1a6f3f5ba15443");
+    w(&mut m, 0x28000000, "716cc0c35ddd9dc3da4915c27266b1c391b79ec3f91638c2792cb8c3bc4791c31dce40c2000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "33a6b2c3a00697c38be524c2");
+    w(&mut m, 0x2a003010, "8a8bb2c3d7b795c304d141c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.3394742012023926f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_614() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "671f030000000028a013f443dde5c34338fabac000000000b44c9588f2313540ea13f5be83407abe6ae2573f8e2ba743");
+    w(&mut m, 0x28000000, "37c6ec43acb2be43a22c89c12d3bfc43802cc0437bbaa03f7d39f3436ad2cc43f4aad1bf000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "3d5cfc4342fdd0437c999ec0");
+    w(&mut m, 0x2a003010, "1aadfb43a698ce43a717a4c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.4256203174591064f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_615() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "671f040000000028a1002b430c4b54c2b8313ec2000000000b49ac06fdc21f403b7f9e3e93bc453e405a6e3f1917ca3f0000050030000028e66f3243630c6fc22df53dc200000000d6681b4f8a5b3440381b9e3ea9ab453ebc6b6e3fe0a6293f");
+    w(&mut m, 0x28000000, "e6f53043103e66c2936042c2627d2f43f7753cc2321649c25c0b2543075842c28ef939c2e08326431f206cc2915633c289f4424353cc49c2a3955bc249af2e43e3b224c2c86348c291991f431a5966c2a1c626c2258c2a43ad029ac2b83625c2f4654043233091c21cd345c200000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "1a161443137502c233e035c2");
+    w(&mut m, 0x2a003010, "b39413430cbdfec1823648c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.781785011291504f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_616() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "671f05000000002823895dc3e2f4a3c34523bf410000000059a964ea6ec52d406d7556bc80c7413e225a7bbff938a542");
+    w(&mut m, 0x28000000, "6dbe66c355a2a9c3c29aae41342e6bc31155a1c3c4adc8416c694fc3cf11a2c38e71c341afc25cc33ba89cc3da8ed541f59455c3fb16aac36867ab4100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "618c5cc3c851a1c3ed30f341");
+    w(&mut m, 0x2a003010, "874d5dc3b9bca3c3e8f0cb41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.6942089796066284f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_617() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "671f03000000002810a6a5c3f7e22943993bd24000000000c5d88f7aa261284017147cbdd912873dcff47e3fdb8b18c200000300300000281999a7c306182043ccb8e94000000000f4d7e1f59bb6334084a562bd989b7fbf000000000b4d0d43");
+    w(&mut m, 0x28000000, "1a66aac3ab723143496caf403b8ca6c3e1e01d43d41fe840ddff9fc35a552e43af26df4000000000000000000000000004c79dc35f011f43016b09412482acc35aa320436336d5402482acc35aa32043011ed540000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "f5d697c3fbe3384328f93341");
+    w(&mut m, 0x2a003010, "07f894c33e5138432e58b940");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.2662455141544342f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_618() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "671f0400000000288fc514c3eed54bc337a1f7c100000000b0e1b64b9fe22040304eb63e29e33f3dd5eb6e3fc5d1b6420000040030000028ccee18c380bc4bc3649eedc100000000a3abd6b357d134404a2fb63e1f503f3d30f26e3fc151b74200000400600000288bfe14c3580253c35636f5c10000000090295ded80d234408f12b63e81c43f3d4cf76e3f99f1b642");
+    w(&mut m, 0x28000000, "a2f20cc30e114dc34a8107c26e8a13c3000344c30b86fec17c981cc3cd9a4ac33d3de0c1b00016c3daa853c300bff0c103b82ac335f942c382e6bac117b221c3b7855dc37fcacbc1942507c3cb7f54c3a12f10c2802b10c348f339c3a7b407c2568012c32ca73fc35f4602c2b75928c3228450c3cd31bbc1c17c17c3845d66c32bd2e5c15fa301c38e8055c350a417c2");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "c9bd0ec3989c4ac3835cbac1");
+    w(&mut m, 0x2a003010, "398314c3d9774dc330fcf8c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5387027263641357f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "424a14c3cf494dc3e682f8"), (0x2a003010, "304eb63e29e33f3dd5eb6e3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_619() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ea9926bea328783e06da743f9abb08c2");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "043e81c3f2c948c3f5d23542");
+    w(&mut m, 0x2a003010, "a76b82c38ad145c35c9d2d42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.507678747177124f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_620() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ea99050000000028d1318ec35a43c94245eefc4000000000533bf1c243c21e40690af73b91f2efbe6e23623f0e492942000005004000002832318dc388d0d042fb9ff5400000000046b217a9d5273040eeccf83ba3e3efbe5c27623f5d2031420000060080000028a9a191c3b018c0424785c2400000000025a41c8f593331404c08f73b97f2efbe6d23623f0b5c2742");
+    w(&mut m, 0x28000000, "0a278cc3bd68be429aba9f409dfb8ac37badcd423e59104172408ec36cd8d642d12638410f7191c32c3ecd42e8251041ec2490c3f223be42d1a09f4000000000a2b88cc3d6c4b54242b4fd3ee81689c366c6cf42228bea4001e994c36c20d9428c33204189268ec397a0e54275665341e81689c366c6cf427f85ea4000000000a0b197c399d0c84285e60741e6f294c3ee9fb24274e12340a3c58ec3e709b142f234024019578bc38ca4c5428820ee40d3158ec338d5db426cfe5541e6f294c3ee9fb242095424400000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "4c688fc3922ae14298fcfc40");
+    w(&mut m, 0x2a003010, "76328fc3a753e942c6640b41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.9168342351913452f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_621() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ea990500000000284a25e24015a6cc43929143c10000000000e0f8482f4526405382813de5e47a3d87017f3fa16e55c10000040040000028d6dcb8409d0cd043d0be4ec100000000ba2f63a3701222400ecd803d42e07a3dfa027f3fceab4fc1");
+    w(&mut m, 0x28000000, "2a15c8405e2ed243c3ab4dc10e4d6dc097f8cd43fb443bc19c739c3f01efc7439e6534c1b3ac63418f69c843ba7342c160b58a41e3bece43c20d52c100000000866664bf4c12d3436deb4dc14ff188bef6b6cc43170b42c13e234741ed06cd4329804fc160243d414362d34393845bc1");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "19878541ddceca43d204cfc0");
+    w(&mut m, 0x2a003010, "16bd95417a23cd43d6463fc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.3538917303085327f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_622() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ea990500000000285a5f67432ee35ac3e5758641000000002cba6a30f2f721407083b13e792fea3efda2513ff455c440");
+    w(&mut m, 0x28000000, "9d7660435b6c5dc37232a9412ea66743f53d62c3f163a641dc736e43a2e55cc30ded6e41b8786b435cc654c3167a3a4163d362439f1955c30907784100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "a1544e435a2176c3f99cb041");
+    w(&mut m, 0x2a003010, "23e84c433e9b78c3e77d8641");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.019533395767212f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_623() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ea99040000000028c1003443f2edc8c396f7bfc1000000001ff97667109a17403a2b55be2f89d13e636b63bfe89d344300000500300000282bf93743fd0fc7c3f45ebdc100000000b19566123e90294054e254be031dd23e8d4d63bfb89c344300000600700000283c1039433deec6c33441cbc10000000079ffa54f79b732406229553ead57d2bed23b633f606c33c3");
+    w(&mut m, 0x28000000, "05e72f435194cac3c36dc4c102b4304314e1c6c30ca8aac17d1a38439247c7c30b7bbbc1814d3743cffacac37c4dd5c1c92e4143c1afc9c38003e2c1115535434664cbc3036dd8c176023643cf6bc1c34ff68fc176023643cf6bc1c375f78fc1115535434664cbc37d7cd8c1000000000b06484374cfc8c30f3ef5c1d91348437b66c1c34178bec1bd5a2e437fc3c8c3cbbcc4c18c682e43865ac1c3660b8ec1bd5a2e437fc3c8c3cbbcc4c17d293b43f67dccc3eb4bf8c10000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "d60b2c43adfacec3a85e89c1");
+    w(&mut m, 0x2a003010, "5d292c437a2cccc3e9bed4c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.712241768836975f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_624() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "06e5453e66361ebdb0fa7a3ffff9c342");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "b835bbc39a86bc43a34488c0");
+    w(&mut m, 0x2a003010, "24b0bbc3d937bc430f9564c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.6922026872634888f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "439f"), (0x2a003004, "0066"), (0x2a003008, "252532c1"), (0x2a003010, "06e5453e66361ebdb0fa7a3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_625() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "06e5060000000028c9f597c3158797c2001a2bc200000000c59b0eede7d6f23fb9d5a63b9aebe6bd385d7ebf36fd45c20000040050000028bcf396c3264f95c22c3030c200000000ce37cce336ab134061da9dbb817de83d96577e3f03204b42");
+    w(&mut m, 0x28000000, "a58b98c3c19a97c2991b2bc2611d98c3708896c256552bc2dbaa97c3417d97c214192bc299a697c3628499c2ea9f2ac2dbaa97c3417d97c214192bc2611d98c3708896c2fe582bc2000000000000000006a694c3409698c282582fc2f52196c353188cc20a4232c2704199c30c0892c2c30531c282c597c3fa859ec260202ec2");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "58d5a5c3a570d2c2fe8e1dc2");
+    w(&mut m, 0x2a003010, "cd23a8c3eed7dac2a17a35c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.9254128336906433f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_626() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "06e5060000000028210889430312af430829054200000000746a305c240b2f4057b222be9652593ef1d6763f6f727bc20000050050000028f5ef8643220db04339bd034200000000727946d5162d16403f7023be2d675a3ed6bf763fb2127fc2");
+    w(&mut m, 0x28000000, "60e68143bec5ac43d395ff41b5748743babea7431df80f4276968e43000baa4309531542e2299043485eb1436e880a428d9b8a434c65b64374b6f441cc7983430719b443f0f8e9410000000000000000981089433ba3ae43230f0942d1838843d38eb14339290342c74b84436640af43a8a70142c74b84436640af43a8a70142d1838843d38eb143702a034200000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "70618543a566b343a1d60942");
+    w(&mut m, 0x2a003010, "90658243c642b543b2bb0842");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.3187285661697388f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_627() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "06e50300000000285d0d0b43dfa9bac000fc474200000000a3d327790f991a40d197f2beb902bebe8a714c3fdc57be410000030030000028ba6b094339ab1dc14d5d494200000000f484357d14051d403adbf2be3dabbdbed6714c3f11a2aa41");
+    w(&mut m, 0x28000000, "2251064330e904c102263842e88f0f43fd270bc11a5d4d420e470b4356b4fdbee47052420000000000000000000000001a680343cd1c2ac118a23942f7190d4322c86ac1912a49421ec10b43733988c0414b5942000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "70110b4350cd82c1f1835242");
+    w(&mut m, 0x2a003010, "14af0a43770480c173653842");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 1.3242900371551514f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_628() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "6b0786bdc4d2c13c1f617f3f1c228c41");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "64cedf43df4436c305e08941");
+    w(&mut m, 0x2a003010, "440ae1433b5231c342266541");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.5728477239608765f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_629() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c23521be939b81be595c743f15dfbbc2");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "b8634bc1939680c3877b2742");
+    w(&mut m, 0x2a003010, "6e152ac1da5581c3c7070b42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.0931165218353271f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_630() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c2350500000000280eb985430a26a8431db9d2c1000000003b771a0573432540198a8bbd89e85f3e0432793f416aedc1");
+    w(&mut m, 0x28000000, "b8868a431433a643344dc6c1950f8943531dac43ae33ddc186fb82437b8cac43d991e5c1f6b08043ede6a64314f6d3c1825a854360faa243c194c0c100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "242a814336f7b643c493a6c1");
+    w(&mut m, 0x2a003010, "fd547d4360ddb94320d7f3c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.5096931457519531f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_631() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c235040000000028026a60bf5241dbc3fe3c0dc200000000e7adad586b05234018ab13bdcd93ff3edea15d3fd86d79430000040030000028c0746ebf0a5bd9c3b1aa0ac20000000046b8b816fa602640eaaf12bdb8e2ff3ec08b5d3f373a7743000004006000002829e07d3fed1fdbc37dfbf4c100000000b4a881cc761e3040325515bd24caff3e13915d3f327c7543");
+    w(&mut m, 0x28000000, "a77509c1f87ed9c327a116c2dca38cc0cb1cdfc31d0cf8c1ced0da40ad03ddc397d403c2b6122940da65d7c32e781ec23da0b4c03301d5c3cc8d1fc22d221ac150b6dbc3c13901c21c067240e1b4ddc3f594ebc12aa7f840c3ffd6c3be1814c256c35ec12dc5d9c3e04203c2f9053940e560dec3bd4bd6c164b84141bef8d5c3996a10c2f9053940e560dec34547d6c1");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "439a99410ab6e4c3f21e09c2");
+    w(&mut m, 0x2a003010, "1740c7411417e7c34b0c06c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.9233543872833252f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_632() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c235040000000028f8efa7c38cce19417f92bbc1000000006b6150d36f502e407978893e8cd5b7be39d4643f952ee54200000400300000281a3daac3f841084152cdbcc1000000007278940be0473440ec83893e9abeb7be1bd7643f8632e742");
+    w(&mut m, 0x28000000, "cc8baac36b5e53c0e089d8c1c77aa1c34aa88c40ea5febc12554a5c35a3ab4411d9b9ec12a65aec3f4486d4113c58bc18785a1c30912eb3f2d27fcc11ce6a6c3289acf41ddda94c1acf4b2c3b02173411dde7ac11794adc35eb00ec131c4e4c1");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "8f54b3c35430b241a0f783c1");
+    w(&mut m, 0x2a003010, "ddc0b2c3734aa041c304dfc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 0.8519558310508728f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_633() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c235050000000028ea6cc8423e129e431c4fc841000000001ceb0ca5a792254057969abd567fc6bd9a0f7e3fc9bc5541000003004000002848fac642ba0fa24324f9bc4100000000c23bc2d2aecc32403c309bbd8964c5bd94117e3fab5d75410000060070000028957ac04253aa9d435c85c5410000000040f23a32901e064072019bbdde00c6bd20107e3fab465441");
+    w(&mut m, 0x28000000, "8757b642507d9e43f771c341a6f7c54210639b43d759c3414099d642b6249e43c9b7cc417a40d14213f3a243cbaed241a6f7c54210639b432759c341000000005873a2425ef8a34395c8b4410da1d242de329943a0c2b24175dadf42f203a9433960cf410000000000000000000000001ad8bf4262079f43f873c7412870bb42ad359e4304d5c441a412bc429dd89c4380e6c241111dc142434d9c436296c3410385c542f81e9d43e335c64187e2c442087c9e436724c8410000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "b58e004395af94438e29fd41");
+    w(&mut m, 0x2a003010, "7ad7fb4259c99143d883ba41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.7706862688064575f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_634() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c23503000000002899bd2442c0510d431310c84100000000a0c9aa9e0b6b32407cece5bdae0142be0ab7793f1c22e040000006003000002819b53e42d56d15433556c74100000000023b75e81e0b25408417e6bdc26640be49ca793f25c5114100000500800000281e153242de950a439628c241000000005cc23306cb5c094063ece53da101423e0ab779bfbe93f2c0");
+    w(&mut m, 0x28000000, "35f8c741bf5205437abbac4163d160421f4c0343c051c6414f6b294263561f43fe22e541000000000000000000000000c5d16142b1d91a437edad741be7b3d42debd1f435b05d741125f1a4202521a436595c6416c981b42f9011043a4d8b64173ee3f42cc1d0b43ea9ab741200b6342a8891043791cc8410000000000000000f69d2942e3880c43213dc3419ffc364202b70c43a498c64130693142377b0743442ebd4130693142377b0743442ebd419ffc364202b70c43a498c64100000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "e7095f42b5e0064392fbdc41");
+    w(&mut m, 0x2a003010, "775d6f42bf610a437829d041");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.1534626483917236f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_635() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c235050000000028e36084433fcf90c32ba9ba41000000001154c584dc4f3040cfecf7bda3c8c13e98eb6a3f7882f04200000300400000282d668443f28891c3492bbe4100000000bda13afa92c725408d53f8bd5994c13eaef46a3fecadf042000004007000002871f08843d2dd8ec313d4b54100000000581bbc7f831932401559f7bdbfccc13e2eed6a3fdcbef042");
+    w(&mut m, 0x28000000, "540a83437c6f89c3242e874153e77943b0cd8fc32a5aa4416c208143d48f97c3d15ce0419fcb894321fd95c3e94de84166fa8a431b428dc3cf1ab141000000008f3b8643d5d48cc3f30aa34160d17e43814c92c3e1a7b841478e8743807995c308cfde41000000000000000000000000262483430b0895c3d151d241a91a8f431daa94c3ce16e941bbbc8e439ab388c3f45d994138c68243881189c3b9898241");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "9e489043236585c3c824ce41");
+    w(&mut m, 0x2a003010, "f0079043439087c380d1ba41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.6375523805618286f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_636() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c23506000000002815a888c36044204360cf35420000000071eb780a33b71340ac243c3eb3e1d8bedc13633f38949b420000050050000028722786c3e4d01f43a1722b4200000000f0aea6eb9c813340a9b53b3e5fc8d8bea51f633fb6a59d4200000500900000282af988c380371c43c136344200000000eb0ee8ee11bc164057db3b3e2b43d8be6f3d633fdf7f9842");
+    w(&mut m, 0x28000000, "e4a788c3cbb624430e4c3e42f0948ac3eb7d2243693e3d4222958ac3810b1e4323c0344247a888c3f5d11b439d4e2d423cbb86c3d50a1e436c632e420abb86c3407d22439bdf364200000000000000002b3e82c3f30c2c43df553c42156e8ac3dae22e43f9474f42a68488c35845144365501942a68488c35845144365501942af0f81c3f9991b4384fe1a42000000006f648ac3471a20437ef33d425d418ac39cd21a43c4ac3342c5b387c3a073194312d82c42e54286c361e21d43acec32425d418ac39cd21a43c4ac334200000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "ad5f8fc31df634430f413642");
+    w(&mut m, 0x2a003010, "00b78cc3226b3943eea91e42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 0.51057368516922f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_637() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "52c30f3e69b6013ead617b3f519f1fc2");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "00625e4378a1c743f8ae39c2");
+    w(&mut m, 0x2a003010, "3e48604320cdc843c97451c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.0323355197906494f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_638() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "52c304000000002876bebbc38e008bc34a26f8c000000000ab552a8bb0332240aceeafbeb0e8403ca764703f06f0ecc2");
+    w(&mut m, 0x28000000, "a46ebfc38fb888c3ff2e28c17506bec3bbb08ec3385015c1480eb8c38d488dc3b4f49fc07776b9c3605087c302a6c5c0");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "917bbcc3a80682c3376b14c0");
+    w(&mut m, 0x2a003010, "27d4b9c3548981c31f2549c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.4636013507843018f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_639() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "52c3030000000028238add43b061d4c305cf3b4200000000a91ad1acd4c93340566ee0be8b9ea5be54ad563f72928b4100000500300000284bf5e143882dd3c348c73d4200000000a28b6d1da4331d408b5ae03e32eca53e83a356bf0e00abc1");
+    w(&mut m, 0x28000000, "99f5d8438a7ddbc3d9b7124271fce54335cbd4c39adb5d425dacd94350dcccc39dd942420000000000000000000000005d16df431488d2c3a7c53342bd1de2436a66d1c336ef4342cc57e2436da0d6c3a7b83442d420e44354eed3c3a1894442bd1de2436a66d1c343ed434200000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "d84dde435921dac3ed5f3f42");
+    w(&mut m, 0x2a003010, "da70df4365a0d7c32f933242");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.7864142656326294f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "91b2"), (0x2a003004, "8860d8c395a637"), (0x2a003010, "d880333f3adf35bfcf64763d")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_640() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "52c3060000000028d1db0bc3e42dec43817ad741000000002cf53fef6a951d4048c8b83e74488c3d031a6e3ff7e5ddc00000030050000028e96a07c3a736ef437db2d14100000000ad1f959273550440f9e1563ecc4c7abf000000007e18f84300000600800000284c5f10c39901f243c55bde410000000064f782d8ad353940542bb93e7b4a8c3dc2066e3f651ad9c0");
+    w(&mut m, 0x28000000, "853c0ec30f7fe943490be241040409c3cf8fea430995d04159ed11c38204ee43672ce841d8b40cc34115ef436cb1d6412d4008c3e85aed4319d8ca41040409c3cf8fea43ca88d0410000000000000000b7ba09c324f7ee43c628d941034306c36756ef4399f2cd41034306c36756ef4317fccd41000000000000000000000000da79fdc22686f643ca26a2412ef710c32345f9434da2d741ecd51ec316c0f243603d0542697a1ac30b7ce943b8f20342ecd51ec316c0f243603d0542d4c2f4c21b42ed439a829f410000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "aa83fec2ba63e44366ebef41");
+    w(&mut m, 0x2a003010, "f211fcc2d6e0e343e9c7c341");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.3631039559841156f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_641() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "52c3040000000028a9ee1743bef66842a4c7194200000000f5f4841698a117401649693d87d9d4be765f683f0bb49ac10000060030000028a5d81743f7f46b42ed301b4200000000a236d8ee56172e40f248693d8ad9d4be765f683f38bc9ac10000040080000028aed4124300ea5c4226ad1b4200000000f2904910aeb81f4020dc693d7c2ed5be694b683f969ea5c1");
+    w(&mut m, 0x28000000, "c2bb1443f7b57a42edb52242db7e1343232b5c428108154290211b43863757425ad91042775e1c435ac27542c6861e42918c0f43d6638c420ccd314242fe09434aa0654271c41b42564a124395cd384204280542b924204341223f423194044208b32543a3497242a39e1a42f4661d432c8e8f4239393142000000000000000026c21943515653423a89154299391543e29f784267c9274235e70b43af7d6642e6cf2142c26f10431e34414214920f42");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "8b00ff426e499e42a7c23242");
+    w(&mut m, 0x2a003010, "8250f74222379c426dfa1e42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.156732439994812f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_642() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "02898b3e482b11bd7f24763f872eb842");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "b41edcc32c5f9e43e5ee3542");
+    w(&mut m, 0x2a003010, "9163dac3499e9e4398582e42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.23331549763679504f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_643() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe4fbea763a2bcb59c7a3f162a8842");
+    w(&mut m, 0x2a001000, "05000000000000000020002a");
+    w(&mut m, 0x2a003000, "de5ea9431bda1fc3459b06c1");
+    w(&mut m, 0x2a003010, "3044a943fcfe1fc30c773bc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.7658884525299072f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_644() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0300000000289d1ed5c3bd9a454335badc4100000000fc0ba2667c6f3340d70d71bff061acbe000000007469a7c3");
+    w(&mut m, 0x28000000, "f2fcd1c39d16344360e2044274afd6c3cd5c4e43df3cc64174afd6c3cd5c4e43012dc641000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "5cced0c389ec4943b05cea41");
+    w(&mut m, 0x2a003010, "515fd3c35b4d4b4399d89b41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.4831721782684326f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_645() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000286d7394c275698d42ae292ec2000000001aa16efd087933407f11903e6f815b3edb726f3f3dd0394200000300300000280b4194c265bc9f424b8837c2000000005055801773a23140e4ca47bf270f20bf00000000bd4dfdc0");
+    w(&mut m, 0x28000000, "e2a4adc215c2a74210132bc20dccaec200706842e1c112c2f08376c2ab216642083d31c29b3574c2ea9aa642c29449c247687cc230368442203038c27f479fc27f7fad42ce3137c27f479fc27f7fad42f03637c2000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000020000000020002a");
+    w(&mut m, 0x2a003000, "08cec4c263efb042f52018c2");
+    w(&mut m, 0x2a003010, "c7ebbcc2697eae42d3d736c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 0.2831745147705078f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_646() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028fa14e8430577944284ee274200000000e9b4162267ba354035a858bee095f93e99dc583f6da7d341");
+    w(&mut m, 0x28000000, "71dce3430f34b5429da3f341b8e5df43dd94834258022b42854dec43f57367424f0b56423d44f0432d59a5429dda2442");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "ec84e343eb26b74263444142");
+    w(&mut m, 0x2a003010, "ba5fe1437d05ac4267901942");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.4867007732391357f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_647() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028c2fca2c3ee2a02c25c07d7c00000000069cb9c3d3e2627402025d03ebb66a1be0a875b3f610600430000040030000028aa0ca4c3115115c2be60f6c000000000999341d596892c40aaf9cf3e1c4da1be09965b3fe61d004300000500600000284fc8a2c3b4ed21c252ce27c10000000026d3c80f082e36407de4cfbe3e5ea13ee9975bbf906d00c3");
+    w(&mut m, 0x28000000, "784aa5c36cc5bbc113f799bfc985a7c3a09814c25bad83c00cafa0c3267326c2c6d643c1bb739ec3787adfc1612215c1b37ca8c34f07e7c1f81dc8be21daa4c30d472ac239cb0dc1b5019ec382320dc254ce4ac121daa4c30d472ac2ffe60dc1a18d9dc318a6dfc13e572dc1e5989ec3f00d37c2541b83c1d7c6abc33f9606c283790a3f4a63a7c3591f45c26dd815c1e5989ec3f00d37c26e2483c100000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "c73b9cc3814180c18146adc0");
+    w(&mut m, 0x2a003010, "189b9dc381ed5dc10a8326c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.8535780310630798f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_648() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0600000000284c07b7c35870bbc3984961c1000000001adb80fb876230407fc3ec3e285fd53d5d69613ff0ba5c43000004005000002814dfb7c326f3bbc324a087c100000000f36af679eb40144070c3ec3e9a5fd53d5f69613f582560430000060080000028dd1bb7c3ffb7bbc3d0ce89c100000000f9c532229a2c2f408dc3ec3eae5fd53d5869613f29a25f43");
+    w(&mut m, 0x28000000, "3d55b2c304c9b6c3f8e8a0c10fafb8c300e1b6c3f0bb56c134c7bbc3ff6cbcc3baba0dc18585b8c302e1c1c385cf2fc1b32bb2c306c9c1c3c3728dc10fafb8c300e1b6c3f0bb56c1000000000000000009c1b7c383b4b9c37bdc8cc1b71dbac31bd5bbc3d1f869c11ffdb7c3c931bec3cb6382c171a0b5c33111bcc3de439ac1b826b5c32476c2c3e87e8dc1684ab0c31065bdc35deebfc18d3fb2c3eaa6b6c33a3fbcc10311b9c3d9f9b4c3e51a86c154edbdc3ed0abac35b6227c12ef8bbc313c9c0c3a1c02ec10000000000000000");
+    w(&mut m, 0x2a001000, "06000000030000000020002a");
+    w(&mut m, 0x2a003000, "7b40bec3cf15cbc320a363c1");
+    w(&mut m, 0x2a003010, "537ebdc3a65eccc3f3f767c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.6853756308555603f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_649() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0500000000281dc0db42cab2d0c19f7e0ac2000000002307655c029e374088d216bd9757ef3e4c1c623fdc4a3b42");
+    w(&mut m, 0x28000000, "5700c542d1c420c2a912ddc1fce1ea42b73b08c22bbaf0c1e1ebea42ec6262c1428222c25a10c542e04fffc095ba32c2fce1ea42b73b08c2b5abf0c100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "8ebbf842be0727c27475f4c1");
+    w(&mut m, 0x2a003010, "58bcef42780a2fc2dc1d13c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 3, 0x2a003000, 0x2a003010, 2.200333833694458f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_650() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028f33d2441ed74b943ff3b19c1000000006b9ac046b2513340ed7c00bdf855783e583a783f0eb0a0c2");
+    w(&mut m, 0x28000000, "05e9e74108a4ba43c90419c1eede92bfebf8c043e54a5bc1b30e3d40d6c1b043a1c8aec0000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "efacb641c033bd4366d4dac0");
+    w(&mut m, 0x2a003010, "dfe3b041f0a5bc4355b051c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.7088639736175537f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "f290b241630fbc43615621c1"), (0x2a003010, "6014a13d8b217f3fe033c7bc")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_651() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe06000000002811c3f4c14104e7c20d2faec10000000067d7c1acadd13140f80ba2be9000cb3dae82713fec75b241");
+    w(&mut m, 0x28000000, "b4b409c2ec2e01c39bfaacc1cd4ea6c1c69901c3770688c167d006c2881fd3c2d6e4bec13386a0c13df5d3c292e299c167d006c2881fd3c278e0bec1348923c2d553eac25d71c8c10000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "afdf07c2169c02c3113b78c1");
+    w(&mut m, 0x2a003010, "8b7e02c2ac8502c3f845aac1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.8551616668701172f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "b80902c2ffc500c39bb69b"), (0x2a003010, "aec182be768b74bfabd018be")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_652() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028dab012c3e0928043e671f04000000000ecb6ca767a2d3140b9db7bbeab2a0bbe4caf753f9b7c05c1");
+    w(&mut m, 0x28000000, "793703c300708343d3a644411b6b18c3904f884326cc03413a2a22c37e6b7b434c2c2f4098f60cc35fac7143804bd940");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "b93801c3e3218443ac9f8d41");
+    w(&mut m, 0x2a003010, "243a02c36e938343aef22241");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.450732946395874f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "793703c300708343d4a644"), (0x2a003010, "f1fd643feb0bda3e444a0b3e")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_653() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe03000000002880de5d43477e9ac3354a2f42000000005241d51886e31d401c3b1f3e7239b83e80836b3f24721142");
+    w(&mut m, 0x28000000, "8a55644322d79bc33f222f424af85c43330597c304082542ae4d5843819e9cc35ab43942000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "13625843d3cb9bc3830d4242");
+    w(&mut m, 0x2a003010, "e4fb57433dfa9bc385bc3142");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.3980902433395386f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "d46e57436c4b"), (0x2a003008, "d31e3c"), (0x2a003010, "253d163f90414dbf0710e73d")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_654() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0300000000289dd75cc353ef9bc3dc170842000000001bd584997b0a31408a880ebee53f2cbd7b477d3f6a089bc2");
+    w(&mut m, 0x28000000, "b74651c3a011a2c326840c423a0058c310dc93c347900d42e93f6dc347e09dc34e66fc41000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "c0005bc33272a0c303241142");
+    w(&mut m, 0x2a003010, "55995ac35917a1c319cf0542");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.44315651059150696f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_655() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0500000000280dd37a438e51f7c32bf951c0000000001410d3be543a19400cc1c4bc370c073e7eb07d3f63049542");
+    w(&mut m, 0x28000000, "038880435684f7c3efdb44c020217d43d869f4c3b9d37fc0c30276432453f5c352587bc0608b7543d1fdf8c3669b3dc0f45f7c43a858fac3773a1cc000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "85fe7443306ef4c3a966623f");
+    w(&mut m, 0x2a003010, "f7aa75436fd8f4c380cfc1c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.7774755954742432f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "c30276432453f5c33d587bc0"), (0x2a003010, "b8dcb9be78b73f3f72ee0d3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_656() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe06000000002863edd743280359423b77ff4100000000d8094716c4a50e40c49e60be56483abd5d7e793fd9258442");
+    w(&mut m, 0x28000000, "8f98d843ac7b6442877a0142b71ad74328d36642e7cdfd41c416d843b9d04f42d633ff41ed98d64336285242b00cfa41c416d843b9d04f42e91fff419516d94375fa584202d401420000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "fda4d943f566564202701542");
+    w(&mut m, 0x2a003010, "1416d943ca9959427521ed41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.8291469812393188f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "9516"), (0x2a003004, "75fa584203d401"), (0x2a003010, "330bb53ec9cc2dbe8b7c6b3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_657() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0500000000286e229ac3ebc6eb4349e5994100000000dadc1dfb35570e407f411f3e57661fbebbb979bfbe1c0c43");
+    w(&mut m, 0x28000000, "7aa499c3b18fed4320989641174998c348dceb43f6659e41d1949bc36b9fea43b8269941d97b99c3590bea43310aa041edad9bc3dccbec436d4b934100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "35889cc31d7eed43dc78bb41");
+    w(&mut m, 0x2a003010, "c6e19bc36816ed4362069141");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.0869334936141968f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_658() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe04000000002821b91b436d96c643ab1a2842000000008f6257860c9c03400486093e1b54a9bdd8cb7cbf94b05542");
+    w(&mut m, 0x28000000, "850a1c438fccc743b2742742f5a01c431f48c643b8ca284214981943e7fcc54379562742f5a01c431f48c643c9d42842");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "39921d431851c64348843a42");
+    w(&mut m, 0x2a003010, "d66c1e43af58c643db522142");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.360317349433899f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_659() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028ea4a7cc27eeff3c37b2b1141000000005b78c15103251a403cdeb43efd50453e015c6a3f7cf8d742");
+    w(&mut m, 0x28000000, "c8b17bc296bef0c31b73f540d24f83c2378bf4c33c2f2541993a68c2f3e8f5c381f1fe40d24f83c2378bf4c3614c2541");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "072276c2179cf5c36b395941");
+    w(&mut m, 0x2a003010, "816f70c2fd77f6c3ba02e640");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.1061594486236572f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_660() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000283b2ba943ce6571c35b1ccc4100000000426f38185dfe2b402126a8bec2f4f8bbedca713f055daa42");
+    w(&mut m, 0x28000000, "bf5ba44334f87ac386bfb0416ef4ad43c6047bc34022e641b8faad4368d367c36c81e7410862a443d6c667c33d0eb241");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "8563ae43292068c38ab4fb41");
+    w(&mut m, 0x2a003010, "f135ae43df7068c310fad941");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.208787441253662f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "a8d5ad432b8967c363bfee"), (0x2a003010, "d83e4f3f333d15bf55898d3d")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_661() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0500000000288d3673c28e05a843aa43bbc00000000071a7eddaa17728405ba87bbea5deab3e3acb683fddd9f4c2");
+    w(&mut m, 0x28000000, "b0c24ec225b4a943593094c0fe5f78c26ae5aa43c92a05c1542787c24251a6434394cdc0673f72c28f4ba243448ac7bffe5f78c26ae5aa43c92a05c100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "838f89c2d05ea643886274c0");
+    w(&mut m, 0x2a003010, "986188c2b1a5a643a9ed04c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.8961151242256165f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_662() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0300000000285750cfc1737c89c22fd515c2000000001993511b549ff93f435f7d3e2b62673d229e773fb01b3a42");
+    w(&mut m, 0x28000000, "afabdbc158be89c2e13814c2643ec8c162088cc2897016c2ef06cac19dae86c223d616c2000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "4703c5c1797290c26c070bc2");
+    w(&mut m, 0x2a003010, "d8c6c2c1463c8ec27a8f1ac2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.2482410669326782f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_663() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000286437e8c379d5dac364b1a34100000000fc27c90031930f40f70530be965eb3bc89207c3f8a23dbc2");
+    w(&mut m, 0x28000000, "e518e7c3923ad9c35262a7414bd2e9c3fab6d9c3819a9f41e355e9c36170dcc3d9fd9f417c9ce6c3f8f3dbc3e4caa741");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "92a9e6c3404cd9c37022cb41");
+    w(&mut m, 0x2a003010, "14f3e6c39a75d8c3e04a9541");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.9515683054924011f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_664() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0500000000281a0aed433e44f84305bdc7c100000000d7359f08e8b333407e91313e5fc9e53dec7a7a3f37f7e2c2");
+    w(&mut m, 0x28000000, "728fed43bbf400440efadac1f006e44317befb43db9fb4c1daf2e643fbc4f0439cc6a8c19849f2433928f04371a9c7c1ad5ff64375c0fa4324a7e6c100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "a48ff243359cef4321b8abc1");
+    w(&mut m, 0x2a003010, "1146f243a8d2ef43cfa2d8c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.3441106379032135f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_665() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028d1356941869236c3c92dd041000000002f516a6da5ab254037a45ebdd3bce9bd41f27d3f536c37c2");
+    w(&mut m, 0x28000000, "1925874173122cc3ecd6da41ac971e41d4be37c3ee08cd41dcaeac41fdb93ec3fcb9cb41ac971e41d4be37c34c1dcd41");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "05fb31412ec834c3a2fef041");
+    w(&mut m, 0x2a003010, "c5704d41e39133c3edccc341");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.778948962688446f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "cd324041195633c3939fd6"), (0x2a003010, "afcbc43d167b7bbfa95a243e")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_666() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe04000000002880c6abc30c5239c3ffe4a54100000000c20d15eb470a2640d3f91bbee259ba3d2ff07b3f6c7e5fc2");
+    w(&mut m, 0x28000000, "c602aac3040f2fc390a9a24104e8b0c399ca35c3f9909641398aadc3149543c3851aa941fca4a6c37fd93cc3f13eb541");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "7a66a6c30e213dc3ab2cdf41");
+    w(&mut m, 0x2a003010, "c90ea6c361863dc3be32b141");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.6460752487182617f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "fca4"), (0x2a003004, "7fd93cc3f23eb5"), (0x2a003010, "a6b6163f6355adbe11e93b3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_667() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0500000000284e026ac3a3c44e4115f124c2000000001a0abc6332353140769c81be255b7a3e509f6f3fa06bbec1");
+    w(&mut m, 0x28000000, "9f227ac3aa40454112c235c23b6d6ec3e94026c04a7f19c2f29c5cc3ab397b40b60a0dc2ed4f5dc32b10b7417ea421c2d38e6fc3fe9be041d6c43ac200000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "f2956fc3c94ae94144cf2bc2");
+    w(&mut m, 0x2a003010, "1b2a6fc3d534f04168de3fc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.9368013739585876f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_668() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0500000000282ec102433ed5eac31ec473c100000000dbe5d8d55707304034c299beb59096bb3e2e743fd6904e42");
+    w(&mut m, 0x28000000, "ff0f0943c6ccf1c31e1355c1aaf411437ffce9c3f81127c171d70543c157e3c3511263c139ecea42ea0ce7c31f239bc16ce7ee4245fcefc377ab96c100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "4b43ed424e60e6c3155482c1");
+    w(&mut m, 0x2a003010, "7697ef42c603e6c3363facc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.9944102764129639f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "ea8a"), (0x2a003004, "dac4e5c3743891"), (0x2a003010, "f43c903e518575bf3502ecbc")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_669() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028aa41054204b566c3269ba04000000000635b553504c9334044ae963ee55a403dfd5d743f76b070c0");
+    w(&mut m, 0x28000000, "5f6f7841dd246dc38f1c2d410f011f42797e78c38b347a407c674c422b4560c38e1648bf8904d7418feb54c3071cc440");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "18e82e42ac6c72c3bc020241");
+    w(&mut m, 0x2a003010, "45c12f42243572c33d0b943e");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.9054017066955566f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "2f18"), (0x2a003004, "ca6f70c3e6ca8540"), (0x2a003010, "9de3253ebc8e7cbf0867b13c")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_670() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028635891c3cb7cbd43b85e0e42000000007f45821fce701e40d56b95bd7f8551be09e3793ff5bcac41");
+    w(&mut m, 0x28000000, "c4b192c3d09fba43ddc108425e138fc30278ba430fa90a4250a590c37d1dc043af30134250a590c37d1dc043b83013422eaa93c32b1dbe43460d0e4200000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "bc6493c3d786ba4306b11942");
+    w(&mut m, 0x2a003010, "d77493c37a23ba4392ba0642");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.1135249137878418f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_671() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe060000000028be75104234badfc0a0a636420000000037cf37f2b70e2140f1ae623d01b5b2be2d7b6f3fb09b3cc2");
+    w(&mut m, 0x28000000, "62b5ea412ade2fc0f5923e42006ae841e6cf2bc17db732420d500f4276b56fc1a7c72a42cb902b42a9c233c121b82e427db62c4237a94fc02d973a42709b11421bb47f3f608642420000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "183730426a8a81c0fe3f4942");
+    w(&mut m, 0x2a003010, "832f32422952b1c0cf713742");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.7635382413864136f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "c1af2c4231aa97c0d83738"), (0x2a003010, "829d303f724a3bbe5d4e333f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_672() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000284319cd43771fcb43806968c100000000cf6d195f35972e40dc3264be587fa83e62e96abf32705ec2");
+    w(&mut m, 0x28000000, "74f9d343f5a5c943096097c13922cb43e5aac843f24c75c12927ca432082d143ec3708c13922cb43e5aac843116175c1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "945acb43bdfcc84301a932c1");
+    w(&mut m, 0x2a003010, "15f2ca43fe11c843d44b7bc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.9227674007415771f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_673() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028f884974153bc77c3e639bcc100000000d0d5adec05e233403e45d03d6126a43d49d87d3fb40a2542");
+    w(&mut m, 0x28000000, "81a479412d4464c3f813c6c1ff8707bfab127bc31f18aac1b037b2413d9a85c3d55fb2c118a31942fd6574c3ae5bcec1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "7d163fc0d17a7bc325178ec1");
+    w(&mut m, 0x2a003010, "ac88f0bf16ae7bc3276abcc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.4426966905593872f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_674() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028098504430fea0fc38f5cb64100000000380e723855183540bdae173edca3a9be738b6e3f711bb1c2");
+    w(&mut m, 0x28000000, "4480034352d123c396147e410d44164343d806c39a97b9419995e742971405c3c873ea41000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "84cd13431ab506c3c685ce41");
+    w(&mut m, 0x2a003010, "2fb315433fbc06c3434db441");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.5196102857589722f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "aded"), (0x2a003004, "158a05c3e5c0be"), (0x2a003010, "95341f3f7a6d47bf469ca33d")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_675() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe060000000028d5dd0a432096d84398685d4100000000a3b7d5c5721d2a4050049f3edbd6733dc7dc72bffd245fc2");
+    w(&mut m, 0x28000000, "a81002435287db43f540354110140c43626cdc4346806b41262a054358dbd243871334418f2d0f4368c0d343cf2e6a4184a21243ed88d843d9f7824110140c43626cdc4346806b410000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "b7730c439801dd4305248941");
+    w(&mut m, 0x2a003010, "54d30c438d28dd438a7e5641");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.5433458089828491f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_676() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028435accc32b96d143708ff1c100000000d08419c14310ff3fccd454be7a10113efbc4773f6935e6c2");
+    w(&mut m, 0x28000000, "cf00ccc374dfd043e4afeec1a167cbc3c48ed143243ceec100c2ccc3d422d243023df4c100c2ccc3d422d243e23df4c1e1d6ccc3f53ad1434566f2c100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "f03fcdc39b33d34321f6cbc1");
+    w(&mut m, 0x2a003010, "b69dcdc3380dd343c01ffcc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.5915508270263672f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_677() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028d5b8d4c3577b06434b7981c100000000a525b6c27b552140375d38be429441be601f773fcb350ec2");
+    w(&mut m, 0x28000000, "b3c8d8c33e7b084373768ac1908ed3c393e4fc42e9958ac13dd3d1c37c840c4309bf5ec1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "01d9d0c356810e43677f0fc1");
+    w(&mut m, 0x2a003010, "b599d1c366140e439df977c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.3809837102890015f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_678() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe04000000002851e467c3e777904303a278c000000000ae151913d0c930404c569d3e5a068c3eec55693fc9dd86c0");
+    w(&mut m, 0x28000000, "eaf775c38aba9343f0da8cbf97696ec31a6e8943e5102240b8d059c344358d43c2bbd5c00b5f61c3b3819743fdac24c1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "bdd060c3995e98432e1baac0");
+    w(&mut m, 0x2a003010, "2cab61c39bfc9743f9f526c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.6118535995483398f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "247f"), (0x2a003004, "506f9743c0e511c1"), (0x2a003010, "f55318bf51a74d3fe453c7bc")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_679() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028cc23ccc3bfc9c243aeaa284200000000ba170fa7e1f3374000000000000080bf00000000af1ecd43");
+    w(&mut m, 0x28000000, "3b5fc8c3af1ecd430e9b4e421406cec3479fbd437eb215421406cec3479fbd437eb21542000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "2a95c9c3d8eec843c7b94c42");
+    w(&mut m, 0x2a003010, "9ba8c9c39ad8c843a8433c42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.4952757656574249f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_680() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028d6257c43e5c2f6c3f6a18ac100000000a60b0ec3acb02640d3c18ebe53dc8cbe1a8b6b3fc21946c2");
+    w(&mut m, 0x28000000, "8db0754374a4f2c37e9c86c1475172433c8ff8c35618abc1cc877c43d7fdfbc35ec1a2c1781b83431132f8c3a02372c14efe8043df6af2c39c434fc100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "5118744310b3f4c3a5615ec1");
+    w(&mut m, 0x2a003010, "b25474430dc1f4c39c269dc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.9765199422836304f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "6cbf"), (0x2a003004, "7d73"), (0x2a003008, "508c91"), (0x2a003010, "d3c18ebe53dc8cbe1a8b6b3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_681() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0500000000282ba2db43df70a6425481b9c10000000060ed41c500df1640ee93ae3e1ce3fc3ddc926e3fad720ac3");
+    w(&mut m, 0x28000000, "4ea3da4390609e42295fafc1d901dd43d663a242595ebfc108c9dc43b5a4ac42eb80c3c108c9dc43b5a4ac423095c3c1a0f3d8438b26a64209b3a9c100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "d707db43fa0c9d4208d09dc1");
+    w(&mut m, 0x2a003010, "715eda43c6b39e427d5fc0c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.6192071437835693f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "4ea3da4390609e422b5faf"), (0x2a003010, "016bd13ed7ee08bff0433d3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_682() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028f834e54363d32942e437f7410000000001dcd27c1455304043121abf15724cbf000000003be69a43");
+    w(&mut m, 0x28000000, "ddb5de43fffd50428dc2eb418674e843153e1642a2effc418674e843153e16427bf5fc41000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "f3a3e5438e27224253570442");
+    w(&mut m, 0x2a003010, "fc5ee5430c812542d020f741");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.4037060737609863f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "35d4e4434cf3"), (0x2a003008, "672e00"), (0x2a003010, "f6b37d3fad85eb3d55808b3d")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_683() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe06000000002861692ec13492bec32b229e4100000000a2ddc413ec602f407d65acbea5df473d49ba703f00296ac0");
+    w(&mut m, 0x28000000, "00954bc102fec5c3b2119f41454d853f3412c3c35f13c4411b55374067a6bbc3f722c341c43d11c16726b7c38f379d4136beb6c13512bac3214e70410554c5c1027ec1c3b64c72410000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "fb7f43c1f1c7c5c35ea8b141");
+    w(&mut m, 0x2a003010, "4d224ac1a769c6c306b49e41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.32432082295417786f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_684() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000280a0f91421f14e0c1cfbf65c100000000b3d6c935c8e12e40a67494bd29a6aabed6a5703f5cae1641");
+    w(&mut m, 0x28000000, "d4ae81421c6b73c16c9926c1cbee6e4279ca0ec2ce8d90c13e6fa042573923c2296892c1aea6aa424b93a2c1e3792ac1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "94dc9f42d72629c2840b7ac1");
+    w(&mut m, 0x2a003010, "6b2ca342caca24c2b6bfa2c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.8048807382583618f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_685() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028e6f976c3180288c25b24bcbf00000000ad0f6d528a463240f06082be77cf33beff71733feedf92c2");
+    w(&mut m, 0x28000000, "9c206bc39c7fa1c265da25bf7f3167c3ddb172c22b9a8340151279c3ffe94ac273b6943fd70684c3b05081c28b70adc0a16f7fc3406ca6c262c9d1c000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "cd1a67c3259873c2d265b640");
+    w(&mut m, 0x2a003010, "5eaa68c32a1371c239656840");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.32204777002334595f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "2e2468c3fa8f71c2b64d7a"), (0x2a003010, "f06082be77cf33beff71733f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_686() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe060000000028f2530ec39940c74179f44542000000007d90f5961e2d3140b2833cbef1403cbd6a597b3fb14b93c2");
+    w(&mut m, 0x28000000, "2b8f17c345211c4207ae4142512d1fc3b1ccbf41a025394228f5fac281b4ce4113c55242ba1805c34f7d2c4159354a4218f215c37f951d41ad723d42ccb506c339db1f42187a4e420000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "6f480cc3d2a2e8410add5242");
+    w(&mut m, 0x2a003010, "f2ad0bc36f3ee841bea04542");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.8684582710266113f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "bf5f0ac389a3e74117894d"), (0x2a003010, "97ca72bfe4e2783d11549f3e")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_687() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe06000000002865f5ba4271d443c3e1fd574100000000a064387ab1363140a34ad23def45ba3d82947dbfe2bcac41");
+    w(&mut m, 0x28000000, "0298c7425f8a50c3c8ea4f414de9ad4210f34bc3245d4141a505a94279883ec312055141b2d0bd4232b535c351e16e41a505a94279883ec3120551411063dc4218b747c3e7bf6d410000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "489ac94284df51c3d3279041");
+    w(&mut m, 0x2a003010, "537ec8427a4a52c39eb42541");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.258952021598816f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_688() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028056fb5c33b0d88437dd834bf00000000fa5e5aea7721214062bd5fbe7c00c33d5a9f783fd403d1c2");
+    w(&mut m, 0x28000000, "4626b9c3f32c86439bac00c075f3b1c38fc585434462a73f5333b5c32e358c43c94db5bf000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "9c34b9c376be8543dcb9a53f");
+    w(&mut m, 0x2a003010, "4fafb9c3c42b8643974706c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.0322657823562622f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "4626"), (0x2a003004, "f32c864396ac00c0"), (0x2a003010, "8c1f64bfe45f0ebe272bdd3e")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_689() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028ed697943e01164c35b0dcfc100000000ef8c12e916083140fa404fbebc908c3e06a670bf8987b142");
+    w(&mut m, 0x28000000, "bf0d6d434fb769c350f6c6c1d4067543b4175dc38933b7c19b3b824369ac6fc32235fdc17fbf814345c660c3afbed8c1d4067543b4175dc32125b7c100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "4bc481436f1764c3b44ac0c1");
+    w(&mut m, 0x2a003010, "0ae58143f75f62c33019eac1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.4848190248012543f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_690() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0600000000289f8ae0c2f85ec2415b6daac1000000001ddeca9e08ee314099db633ee22c4a3dfd42793f4f213242");
+    w(&mut m, 0x28000000, "b20ef2c2e2b21d42879ba0c151c001c31135c24153848ac18dfcf1c28b5c1241bc6494c18b06cfc259b012410749b4c19c94bdc2df88c241e94ccac1af18cfc2d6c71d429c75c0c10000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "e49af2c2cfef1e426abf7dc1");
+    w(&mut m, 0x2a003010, "2f41f1c233a4214215bab6c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.6222118139266968f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "b20e"), (0x2a003004, "e2b21d42889ba0"), (0x2a003010, "52ea01bca229b43e739e6f3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_691() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0300000000284ba56743e468d4c123fd4dc10000000019d302f340d925409d1ca9be0d92773e4892693fcc5abd42");
+    w(&mut m, 0x28000000, "d94f6343d4840ec2b69940c1beac7143f51ecec1263b17c14af361430f1292c1461189c1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "5e0563436ec8f9c150571ac1");
+    w(&mut m, 0x2a003010, "692062433b47fec1c9ec73c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.8554635047912598f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "6d5d"), (0x2a003004, "1cb9fec1e75b50"), (0x2a003010, "9d1ca9be0d92773e4892693f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_692() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0300000000289342bac347aae0c2c0d0ff4100000000e1258107f3341c4003ea0fbd7054e9bceebc7f3fe7ed40c2");
+    w(&mut m, 0x28000000, "bb77b7c3e713d8c2de2e0142f583bdc32e49dbc2d298fe4108ccb9c3c1a1eec2ae7bfe41000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "e98fb9c33088efc21df10842");
+    w(&mut m, 0x2a003010, "ab6eb9c3ca7eefc22e48fa41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.8581580519676208f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "08cc"), (0x2a003004, "c1a1eec2ad7bfe41"), (0x2a003010, "19bb423fa46602bf2f06ce3e")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_693() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028025b9d432cd6a8c3a8e31bc1000000005f40e96596ea16404d32033d4f657e3eabd6773f1b7ba642");
+    w(&mut m, 0x28000000, "dfff9a43bf3da7c3bf7a26c144309d431c19aac3585611c1a10ba043b7e8a7c36d5626c144309d431c19aac31a6711c1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "06619e434edfa8c3ac14c9c0");
+    w(&mut m, 0x2a003010, "eb869e437ecaa8c3a9ff1cc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.8504976034164429f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "7f34"), (0x2a003004, "427f"), (0x2a003008, "ed0e10c1"), (0x2a003010, "e2c82d3f29eb3bbf604c94bc")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_694() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe05000000002860881fc2f57ea2427dfed14100000000978abb93637a14409a6a8b3d6a9497beebe6733f9993e13f");
+    w(&mut m, 0x28000000, "62212ac2e5e2a842b16edb411a7f2ac25c639f42cbadcf41028b18c269479c42ac3fc941028b18c269479c42ac3fc9415ef317c2b7a5ab42995cdc4100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "962a14c271ee994242b8ef41");
+    w(&mut m, 0x2a003010, "5d5516c241429a4286dabc41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.9971418380737305f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_695() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0300000000284110c2429f0f0b4373b321c1000000004e2cd840c46b234000000000000080bf000000006c650243");
+    w(&mut m, 0x28000000, "a666bb426c650243e0484fc10f65c542b7640f43bde80ac10f65c542b7640f43bde80ac1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "9403c442fd0811432ce184c0");
+    w(&mut m, 0x2a003010, "18e9c64276eb1043fd2f1cc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.1770256757736206f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_696() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0300000000284d2cd642447acb439496e1c10000000016235698ecb423401e65b03e42e69cbea029633fd1ace142");
+    w(&mut m, 0x28000000, "8cf7d7420f16c743a4a3fcc10d7de442cc0fce43b78ae9c15210c642f148cd436195bec1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "d286d3425e2bc8433767c5c1");
+    w(&mut m, 0x2a003010, "7220d3428fa9c743e799f6c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.6290180683135986f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "1a7ed2424708c743184de6"), (0x2a003010, "67296f3eb789783f738a5cbd")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_697() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe05000000002845ebf943de5a45434a8ece41000000000e0c52f7931739405a3d963e0670b2be60e3633f7fbfc9c2");
+    w(&mut m, 0x28000000, "5381f043e8224643cc5201423c5ff843b2633743e3f7aa4164e80044c7cb414355c1994164e80044c7cb414355c199413616f54331a85943a6d3134200000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "293f014435ff40431d5ebd41");
+    w(&mut m, 0x2a003010, "24250144113a4243f27c9841");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.9352141618728638f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_698() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe03000000002800d68243bb9e1143b5dbf5c1000000004a8fe0da4ffa2240567fa23d198780be01f8763f94c33542");
+    w(&mut m, 0x28000000, "af578143ff451a4320e1e1c1d6ab7f43e9b40a43962600c26554874349e10f43d564ffc1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "13c68843688f0e4317ace1c1");
+    w(&mut m, 0x2a003010, "072f8843ad52104308d304c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.7611204385757446f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_699() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe05000000002845d0eb42243d0dc33b550b410000000072b508caffd9164028d0db3d7685a2be5c3371bf491f45c2");
+    w(&mut m, 0x28000000, "4db6e442f64810c3bd511541a194e7424d590bc39ca6fa409b56f542230610c36c1023412cdbf14201300bc353a70541a194e7424d590bc3bc9afa4000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "1f2de542847b0ac3ab873f41");
+    w(&mut m, 0x2a003010, "ce8fe542a3870ac3c5b5e340");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.0512510538101196f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_700() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028f2d7f343fce8efc33ecc2742000000006d0e2dbdbca709409a5ea5bedcaa463c654272bfab074b43");
+    w(&mut m, 0x28000000, "142af5435fb1f0c3651924422a44f3432a48f0c3f25229425fadf3434062eec37e6528422a44f3432a48f0c3225f2942");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "3781f2431a38f0c30b153c42");
+    w(&mut m, 0x2a003010, "470af343e3d5efc37d632542");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.0802395343780518f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_701() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe04000000002836d61d43544ee0c3f57ea83f000000002a31b967fb0b2140cb55b7beb991efbd55246d3f1e763440");
+    w(&mut m, 0x28000000, "aa041643047fdfc3e903c0bfaac01e431a08e2c3de2e9e3fd7d223431aaaddc33e918940aac01e431a08e2c3e88b9d3f");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "06411f434579e2c36f437940");
+    w(&mut m, 0x2a003010, "07921f434d60e2c30009dfbf");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.5964384078979492f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "aac01e431a08"), (0x2a003008, "c92e9e3f"), (0x2a003010, "2386ba3e18d905bff549453f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_702() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028073ee4c37b346343c3ad0cc200000000ea0fa8e7322d0d409a11ce3df93eb6beb4d76d3fda7a1f43");
+    w(&mut m, 0x28000000, "2b92e2c3e70464430ee10cc2346ee5c356b165433ed607c2b4b9e4c333e75f43fe5111c2000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "fa37e2c30d6f64436da703c2");
+    w(&mut m, 0x2a003010, "476de2c35c496343c2870fc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.0932248830795288f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "2b92"), (0x2a003004, "e704"), (0x2a003008, "0fe10c"), (0x2a003010, "0d72f13e5f11c7bd405f603f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_703() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe060000000028e92720c3515a1cc154ece8c10000000094b4f936576a3340f7be68beb2b99b3de089783f898cecc0");
+    w(&mut m, 0x28000000, "938227c336e9d9c1b6c0ebc1ceb414c3a7fec6c13204cac1255a0dc3650aedc0d12fc7c140cd18c3943bf640f417e6c1059b2bc35691aa403cea03c2aff532c3702f42c16c5405c20000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "0a750cc31a50e5c0cf379ec1");
+    w(&mut m, 0x2a003010, "9a960cc3440203c1a80fd9c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.490193486213684f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "255a0dc3660aedc0d02fc7"), (0x2a003010, "27bf0d3fde1e50be8aba4e3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_704() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000289ebaf2c35c24af41b8774740000000003a76e247f9452e40dd26e63c41bfaf3e9c56703f84ab4c40");
+    w(&mut m, 0x28000000, "9641eec396340442428d9dbff1daf5c300eab94142ef3340fff2f0c38ba80041c0310141f1daf5c300eab94142ef3340");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "e689f6c3b67abe4171b9d040");
+    w(&mut m, 0x2a003010, "9b5cf6c3aa69b741c895fe3f");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.7563039064407349f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_705() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe05000000002845bee8c368136c42fa8b1cc2000000003628432db42a044016880c3ea827fb3bf7917dbf7b51c541");
+    w(&mut m, 0x28000000, "d8abe9c329bb71421c881dc22a54e8c3e152734203081cc294b1e8c30f006242df911cc294b1e8c30f006242df911cc22a54e8c3e152734203081cc200000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "a281e8c326d4614291790fc2");
+    w(&mut m, 0x2a003010, "c0d3e8c3ab586142ff2024c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.7007001638412476f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_706() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe04000000002864bb81c32396ecc26c0c8d4100000000b3453e6997a4044017f483bed4f1e93d0f9e75bf6fc411c2");
+    w(&mut m, 0x28000000, "b4f981c3c68ff1c261b78b414a2e82c3b433ebc2bca08f41459780c35e61eac2982f89414a2e82c3b433ebc2fba98f41");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "fec982c3192fe9c2eae89741");
+    w(&mut m, 0x2a003010, "6abc82c351c5e9c278d48d41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.3681994378566742f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_707() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe05000000002865c717c38008bc434eb300c20000000068e85f0ec7be2f40bb6cbbbe74eb873dd69f6dbfa2c4dcc2");
+    w(&mut m, 0x28000000, "d9bc1dc3df8ab64344e0f4c1fedb1ec32762bd43e382e9c18a3e09c373d3ba43e25018c2983112c3df07c0439e3c07c2fedb1ec32762bd43e382e9c100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "f9771ec3b3beb643d614e4c1");
+    w(&mut m, 0x2a003010, "223f1dc34edcb6432dc6f8c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.3191162347793579f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_708() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028fad4b6c35ee4874383c13e4200000000b352f05b78242040bb068a3eb495b2be5ac8653fa5911643");
+    w(&mut m, 0x28000000, "e712bac332a389433cf94b42ce93b8c371a68443a2df38420d97b3c389258643e38a31422616b5c34a228b434ca24442");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "eb30b9c3a2dd844327ca3d42");
+    w(&mut m, 0x2a003010, "ed16b9c3aaf98343c3063842");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.6541603207588196f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_709() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028427804c368391dc3d2d89b41000000000be5591fa211064094038bbee618823e35a46d3f099d61c1");
+    w(&mut m, 0x28000000, "fe4902c358941ec3d6eaa341521d03c3230b1bc31f3e9a4187a606c378de1bc3cfc6934132d305c3ac671fc386739d41");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "1c8201c3406618c3bf94c141");
+    w(&mut m, 0x2a003010, "fe9501c39ac019c37a398e41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.603362798690796f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_710() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028e301f6c34debc7c3dc0917c200000000df2c51f684ae2640708e78be6700bc3dc73a773f1a0739c2");
+    w(&mut m, 0x28000000, "d0fef0c366aec5c399a90ec29273fac395b2c4c3966c22c24593f6c3ee60cdc3630714c2000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "b15ef7c3c0cacbc32e6d0dc2");
+    w(&mut m, 0x2a003010, "2417f7c3315fccc3ba641fc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.6204646229743958f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "8c06"), (0x2a003004, "55cf"), (0x2a003008, "c8bf13"), (0x2a003010, "79f848bf6ac31dbfbe6280bd")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_711() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028367babc35e1ae943b67be6c10000000029631ca74f672840da3d8b3ed8802cbe118c723f68194743");
+    w(&mut m, 0x28000000, "3f7aafc3f64ded432e22c8c14bb6b0c3c999e643f988d5c1c8b7aac3e05ae343444cfac159c7a5c3850de843b2d701c267b8a8c3b433ee43bcc3e4c100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "6221a5c31062e7433a6adfc1");
+    w(&mut m, 0x2a003010, "18daa4c3f476e743f6ec04c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.965577244758606f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_712() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028869c9043350c1bc29eda124200000000c3b0394d5cc12c4097dddd3cbec7edbd962c7e3f882043c2");
+    w(&mut m, 0x28000000, "7a048b43e72aefc14e351842b2aa8a4358a63ac23571104206889243f00a52c290fd0b421dbe9743346f1dc27b0c11424c1993432d0ecbc18794184200000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "77009343b64a54c201651042");
+    w(&mut m, 0x2a003010, "f35d92432d9951c224ee0a42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.33074823021888733f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "5c729243e26352c22eda0c"), (0x2a003010, "35397a3f51be33be23aaf03d")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_713() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028216884c3daa6ad435ebb9ec100000000bf8b365ccd6e1140dbee3dbc2fcb37be40d37b3fb6919d42");
+    w(&mut m, 0x28000000, "d57c86c32c05ad43b1f8a0c1155284c3bacfac431e2ca1c1d37383c3d0ceae43272e9bc1d37383c3d0ceae430b2b9bc1155284c3bacfac43d52aa1c100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "78bb83c322c0ab43dfb586c1");
+    w(&mut m, 0x2a003010, "67aa83c3b356ac43d0b7adc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.7738866806030273f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_714() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000285ba2b143674b74c3e55c4040000000007edf7fcf743e34403665a0be9679513dd4c2723fc7e0f142");
+    w(&mut m, 0x28000000, "998bb943fe7e7fc34e630d41263cb743ea7864c3b14abb401cb9a943d11769c36cd334c09008ac43f20e82c39a46223e");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "f19ab74344a27fc384151341");
+    w(&mut m, 0x2a003010, "d534b743fd8280c3ac94d340");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.2314674854278564f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "29be"), (0x2a003004, "b8e3"), (0x2a003008, "6058f540"), (0x2a003010, "3665a0be9679513dd4c2723f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_715() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028054a2441c59da243892bdd400000000095f49c805e913440ab5ddcbc34a4a23e8ea4723ff32cdbc2");
+    w(&mut m, 0x28000000, "3232ef41f69ca343199ed940111aa3bf589eaa43c42d9c3fbc730b40019e9943896c4b41000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "a372d641cbfea143236c3d41");
+    w(&mut m, 0x2a003010, "b781d1413ec1a1430b27d240");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.0188604593276978f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "4502d3419452"), (0x2a003008, "344203"), (0x2a003010, "83b0123ce6bf7f3fc75d313d")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_716() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe060000000028753f52c24c9b3343102406420000000059ad68de5a5c35406eab523e71398e3e1538703ffc178dc2");
+    w(&mut m, 0x28000000, "84a68ac27b5f344370f01342f0eb68c2d9ac28438f0f1842b0352ac2486f2c4311dc054288e017c258e43b439b0fdf419f4144c2fa96474346c8d641f0eb68c2d9ac2843621018420000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "2cf867c2228c27433fd72a42");
+    w(&mut m, 0x2a003010, "ce8868c202bc2743d7d30d42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.7400798201560974f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_717() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000287f47cf43683ea7c3c2ba87c100000000f9b7d42a530e15408054b3be3421803e1b11673fa1387443");
+    w(&mut m, 0x28000000, "6aebcf430aa1a9c3615872c122aad1437d9aa6c3378577c194a3ce43c5dba4c3554996c1dde4cc4352e2a7c3eab293c1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "de75ce43ba88a4c3df2b55c1");
+    w(&mut m, 0x2a003010, "1484ce4384cba4c3fd7da0c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.5997713804244995f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "d2ddcd431330"), (0x2a003008, "767889"), (0x2a003010, "b05f483f7f301fbfbed1d6bc")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_718() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe060000000028454479c303c90ec3e008cb41000000005d98325e724529408d72753eeed8ac3da498773fe8053d42");
+    w(&mut m, 0x28000000, "997d82c3a5170bc3d8a7df41392981c37a1517c337c1e241839b76c3d8c61ac35d1bce41568d6dc3617a12c3f067b641173670c38c7c06c37754b34105ed7bc32ecb02c36bf4c7410000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "01816dc3d67812c38348de41");
+    w(&mut m, 0x2a003010, "15b06dc326f512c31269b141");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.0420857667922974f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "7dc06cc31f41"), (0x2a003008, "919dbe"), (0x2a003010, "70da57bf4d9f07bf7e9cbb3d")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_719() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028a3c7d0428370d642d999803f000000009f4ec147c4ec30404dc902bcbb809b3e0ce6733fd4c002c2");
+    w(&mut m, 0x28000000, "0d3db7421231ea42e60a10c0d171cc42a671b642c4c3c2400aa8ee42cfaee242755752bf000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "9912d74246d7bf429923cb40");
+    w(&mut m, 0x2a003010, "9741d642c9d4bf4273f38040");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.56050044298172f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_720() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028c2788fc36a18b1c22bc5b44100000000de9e6f0a36f93140869795be0ae1883ec0116b3f5fd3a1c2");
+    w(&mut m, 0x28000000, "e1f287c3ada0b3c25504de41a87c8ec33c359fc25bf3a441c75c95c349c5b1c2c4909741d21293c3a8a9d1c2fe5bc841a87c8ec33c359fc267f5a44100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "d3e587c3d007b4c240a4f041");
+    w(&mut m, 0x2a003010, "996687c35a04b2c2fd2ec741");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.6821897625923157f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "e1f2"), (0x2a003004, "ada0b3c25104de"), (0x2a003010, "bd1b2b3f3cd36b3ee80e353f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_721() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028f4ab6ec315bb27435fd83e4200000000d6d2d8c3940307409a9496be99ad74bf00000000d13cb442");
+    w(&mut m, 0x28000000, "1cec6bc381e226433fbb3e42e00b70c360272843c3e83e42e00b70c3602728431be53e42000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "39396ec36c4b2643ee224942");
+    w(&mut m, 0x2a003010, "db576ec3011f264367af3c42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.3847227096557617f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_722() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028a05a67c3a5e7c34356b444c200000000c402daf86cc12140374123bd502aac3e7be0703f7663bdc2");
+    w(&mut m, 0x28000000, "d00563c38d79c743ac334ec255ce6cc35411c74310b24ec2080e6fc3274ac243946a41c250a966c369bebf432ea738c2a2395fc3c9f2c243308e40c200000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "651070c31580c1435f2731c2");
+    w(&mut m, 0x2a003010, "e66371c3e993c143ad7f41c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.6814345121383667f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_723() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028ca4199c3514da9431ebf1bc2000000001f77c17ad8f20f4028093fbe1510033c4f7f7b3fc51badc1");
+    w(&mut m, 0x28000000, "a95f9ac366ada74365571dc2dea197c3722fa843b63519c2ea2398c33dedaa43fe281ac2b5e19ac3316baa435e461ec2");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "123097c3c036a843524308c2");
+    w(&mut m, 0x2a003010, "506097c31318a843c53819c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.38819390535354614f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_724() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028e47716c2c38fd8c35003fe41000000000cfd214bb91f314055cfb5beb761f6bd8b536d3f8dccbdc2");
+    w(&mut m, 0x28000000, "91beb0c17dded6c3768c1842fc3d41c28aafd2c3f271e94167ca29c24121e0c3127fdf41000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "fb0a2ac2dc9ae0c387380142");
+    w(&mut m, 0x2a003010, "f42e2ec250dee0c32388c741");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.09367036819458f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_725() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0300000000284b5eafc3a5c1b5c3f85341c200000000428fc6d4cb5f2740ee5761be33a8fc3d23b8773f98e36641");
+    w(&mut m, 0x28000000, "7ab4a9c3fc40b6c3618436c2ecc4b1c3679ab0c3bcf34ac27aa1b2c38e69bac3cb8342c2000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "6a28b1c3e482b9c327b737c2");
+    w(&mut m, 0x2a003010, "b830b1c3d797b9c38eea43c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.5046257972717285f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "f2ffb0c37b9f"), (0x2a003008, "435a40"), (0x2a003010, "ee5761be33a8fc3d23b8773f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_726() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe060000000028dbf1fc3e99f531c36a0224c20000000022f6f080e08d2b40aaee383c4f98aa3d0d187f3f14b55e42");
+    w(&mut m, 0x28000000, "c16b80c04bfb24c3882628c264fa4fc1b45f2fc3ba4424c2f5dc07c1025a3cc31b2220c2fc09a040e8ef3ec34be11fc281c95f41808b34c31bba23c212ac1741319127c3b7e527c20000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "2d1e6c41ebea33c36e2e13c2");
+    w(&mut m, 0x2a003010, "14a58041aee334c304c32dc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.6875759363174438f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "80c95f41808b34c31bba23"), (0x2a003010, "8d66563fd87dbc3d76e3093f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_727() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe060000000028f520acc3621c1f434ec824420000000060daf7f9632411400248a4bcdb08493e2ff77a3f640c9dc2");
+    w(&mut m, 0x28000000, "52f7abc33e4d234390712142b3dcadc3ef7c2143109622425706aec3134c1d43a8ea2542994aacc386eb1a43541d28423865aac3d4bb1c4368fb2642943baac3b0ec2043d0a623420000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "bd08adc3d437224391412a42");
+    w(&mut m, 0x2a003010, "bbafacc32770224391f31e42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.6135842800140381f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "7adaacc34435"), (0x2a003008, "a92c22"), (0x2a003010, "0248a4bcdb08493e2ff77a3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_728() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0600000000284b60b643a19cbcc2b95b4bc00000000078f009f58f612e40e076533e1bb464be77de733fccb6bac2");
+    w(&mut m, 0x28000000, "2f3cba430925d5c2f058f7c0fc9dbd43ac82bbc2f21bc6c017c2b94346faa2c24a2ad2bf6684b2433c14a4c276efaf3f9922af4399b6bdc2efaf26be7efeb243ff3ed6c216da96c00000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "c5e5ba433649d6c24b4d83c0");
+    w(&mut m, 0x2a003010, "f062ba43e995d5c281c00bc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.1206649541854858f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "270c"), (0x2a003004, "c03dd5c25601dd"), (0x2a003010, "370a763f5d218dbe355e92bc")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_729() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe03000000002843349ec3996ca8c301ec8a41000000001fd050b8520128408faf403ea5d1b5be916a6a3f1ef797c2");
+    w(&mut m, 0x28000000, "9d999ac31443a4c3f2e598415a9ca3c35262a7c30927a341d2669cc365a0adc30e6e4941000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "45d59cc37615aec3b7996741");
+    w(&mut m, 0x2a003010, "27709cc336d6adc355131b41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.3113466501235962f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_730() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0600000000288dc38343a37de5420d9e1e420000000018931baccd492740f664893d98ee5abd760e7f3f732f4cc2");
+    w(&mut m, 0x28000000, "e5278143e23bfa423e3722420af07b43efd3e642b3d92142ad938043b015d24247381e42345f864363bfd04297051b42148f89435527e44236691b426df3864395e5f8424afc1e420000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "5249804339e6d1425e623142");
+    w(&mut m, 0x2a003010, "04088043a018d34258fa1c42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.5379756689071655f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "b9da7e43db6b"), (0x2a003008, "320a23"), (0x2a003010, "b02b663f529ed23e713a193e")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_731() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe060000000028ab3c7a426befebc3e1b723c200000000d1618fba12233840da21493d5f00adbe749d70bf90fb48c3");
+    w(&mut m, 0x28000000, "d28da04230aae8c3c36a29c286bc90429bd4f0c3da9513c2faf54f42cbd0e1c3cb0643c26353304235fbe9c312342dc2ec1459421d7df1c3f97d15c286bc90429bd4f0c3da9513c20000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "dd4c4f4227eae1c3f98736c2");
+    w(&mut m, 0x2a003010, "eaf34c42fbb9e1c369b642c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5242989659309387f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_732() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028b3a5f1425b818a42d5eeabc10000000056ba10b712102d40e0e9683ea704b53e7147683f39dd01c2");
+    w(&mut m, 0x28000000, "2748ef42b31ba5426c06d3c189cadb428a4f7642442f7cc133ef044333817e4274aeb2c1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "aaadda42df737342a9b959c1");
+    w(&mut m, 0x2a003010, "4d39db421a207242c9d792c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.4986716508865356f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "89cadb428a4f7642452f7c"), (0x2a003010, "c6e4aabeadb905bf09e1483f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_733() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe03000000002895f73242550794428f616fc0000000008a4d701a92affb3fd41bb13efbbf7b3ec6cd673fa74af2c1");
+    w(&mut m, 0x28000000, "5d542d42e1659542c4d158c0066a334221e790429af456c05a283842fec89542272f8fc0000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "cc2e2d423b4e95421e349bbf");
+    w(&mut m, 0x2a003010, "09de2d42ebae9642d31b8cc0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.3191835880279541f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_734() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000284c1079c3dc04a8c2ba2acec1000000003d5938d8c2fe2b403c38523c4eedb3be38a66f3f12f50cc0");
+    w(&mut m, 0x28000000, "8f1977c3330d8ec2e962a7c162a67ec333a4abc27dfdd2c1e2da6fc3d8bdbac26249ebc162a67ec333a4abc22201d3c1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "3c0c78c3a6c28bc2391a96c1");
+    w(&mut m, 0x2a003010, "710c78c302648cc20645afc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5355886816978455f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_735() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe03000000002888bea0c2f7639a4347e085c1000000002d41214fb0572b40ff5ea03ea748a53e08a4643f7e3d6ec2");
+    w(&mut m, 0x28000000, "83a88dc2e3369e43c5c3b6c19f88b7c25c9c9c436f7e65c1760a9dc2a6589443af3b50c1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "37669bc26b439443302b24c1");
+    w(&mut m, 0x2a003010, "05cc9dc27574944390e757c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.8919569253921509f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "760a9dc2a658"), (0x2a003008, "b03b50"), (0x2a003010, "4c22113e5ca6803daae77c3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_736() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0600000000285db30dc3d0053ec32f66a8c10000000017140fc67cc538400b6f9d3eabf5523d803d733f86b89242");
+    w(&mut m, 0x28000000, "e7c917c390ac4ec3021387c143b605c3d9dd49c366f5b7c146d600c3d6ce37c31d69ccc1ed090ec38a8e2ac333e5afc146d600c3d6ce37c33e71ccc18efd24c3446c41c3453a55c10000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "c24704c3b5c84ac33c1097c1");
+    w(&mut m, 0x2a003010, "cf9005c3bca24bc36c42c5c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.1901990175247192f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_737() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0600000000281b61f2c35ff86b436564fa410000000028dac3f696f51040917025bea8ddb93e4cec6abf904107c3");
+    w(&mut m, 0x28000000, "27ebf3c31c396d43295b0142846ff2c313686e43db230142c6e4f2c3021668434e91ef412369f1c3fa4469432c0fef41822ef1c3036e6c432274f841846ff2c313686e43db2301420000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "fff4f3c3f9116d43522a0e42");
+    w(&mut m, 0x2a003010, "717af3c3af396e434f82ed41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5360593795776367f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_738() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe04000000002834d4f24355cbb3c3ac4f01c200000000bb5f6072855a1b409479a73e4beb4bbe227c6c3f489a48c3");
+    w(&mut m, 0x28000000, "5b99ef4342f1b3c332d7f0c122faf2432e06b7c3d94d07c20e0ff64368a5b3c348350ac247aef2437b90b0c3e99ff6c1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "55ecee43d5c8b3c3b2dad4c1");
+    w(&mut m, 0x2a003010, "d5a1ef43d983b3c3bc16f9c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.0294855833053589f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "b9f3"), (0x2a003004, "2b50"), (0x2a003008, "2c2aeb"), (0x2a003010, "19c84e3f5b5f16bf17d34dbd")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_739() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028eee2bfc2bd3ad542c89f2a42000000009d28e32431572240addaa3bd6d618abc87247f3f168a41c2");
+    w(&mut m, 0x28000000, "ec8eb1c24399e042be4b2d427341cbc2bf8ee3423a452942ef36cec237dcc9429dec27426784b4c2bce6c6428e012c42");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "1a30b4c204edd04244c73242");
+    w(&mut m, 0x2a003010, "6130b1c28148d442f9532742");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.48917633295059204f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "ad71b2c21b7dd14293e72d"), (0x2a003010, "9e9e23bfec63343fbbc89d3e")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_740() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028944ea5436039f04355a40ac100000000bdccfdc603a8304000000000000080bf00000000112df843");
+    w(&mut m, 0x28000000, "7c2aa443112df8438aeb50c1a1e0a543883fec437501cfc0a1e0a543883fec437501cfc0000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "7452a543d475eb437bf1d2bf");
+    w(&mut m, 0x2a003010, "657da5437f52eb43c2dae5c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.4121047258377075f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_741() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0600000000285bd0d443cd302fc23cec2f3f000000008b56fd041da22740d1f5a5be2df133bea4f66d3f729f0143");
+    w(&mut m, 0x28000000, "bec7d3430ee803c2e4240140869ccf43bfb520c26e0d10c024a5d0437efe4bc23dd664c0fad8d5438c795ac2675426bf3204da43dbab3dc234b9674094fbd8431c6312c283be9e400000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "ea1fd64318db5fc21e855f40");
+    w(&mut m, 0x2a003010, "18bdd543a99e59c283975ec0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.538212537765503f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "2235d5430d925cc284d8333f"), (0x2a003010, "b5df7d3f4eb103be84aabd3a")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_742() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028fdc78cc383929843942b9a410000000010ab07f8e60734400b3d74be436a3e3ef002743ffd430ec3");
+    w(&mut m, 0x28000000, "a2b28bc38b148f43561ebc41793389c373e79a432235a141610695c39b669d435a265441793389c373e79a43ae47a141");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "afe888c3de769943ac5db041");
+    w(&mut m, 0x2a003010, "db8a89c31644994347de9541");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.7327283024787903f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "33e7"), (0x2a003004, "d11f"), (0x2a003008, "0896a5"), (0x2a003010, "4d5632bf2109373f4d8f723d")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_743() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000282045cf4372a52d423e9e8f410000000009f39d86ad4a31407c19773e56bf42bdf022783f8fbee6c2");
+    w(&mut m, 0x28000000, "56d3c94315ad61423a70aa412cc4c84323170242ba47a541eab6d443a03bf34121b6694115c6d543c2335942eacb7341");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "8950d643715e4242fd818b41");
+    w(&mut m, 0x2a003010, "065dd643dd9b3e427baf4841");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.4854618310928345f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_744() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000282871e5c321a120438247ebc100000000a4fac9768e061d4030bbabbe3a5928be33786dbfe2c91ac3");
+    w(&mut m, 0x28000000, "3e73e2c379cd1c439b29f7c146cee6c354001f43c814e1c1d8b4e5c364b62743dccaf3c146cee6c354001f43c814e1c1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "b26fe7c3ca9a1e43921bc4c1");
+    w(&mut m, 0x2a003010, "6baee7c38f791e436233ecc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.9832406044006348f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_745() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028c82d94c30e64bcc316a1d3c10000000092ff91585d77334087048cbe5b53883e7d9e6c3fe3ea2e42");
+    w(&mut m, 0x28000000, "23f69bc3bba4c1c3dc46e0c1728590c30f74bec3bcd2b8c11db693c35e03b3c379a7fcc1728590c30f74bec348c3b8c1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "9a9c9bc3a040c2c36ea6bbc1");
+    w(&mut m, 0x2a003010, "0f449cc30a54c1c3dbadedc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.4306877851486206f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "647e"), (0x2a003004, "d93ac1c34346d4"), (0x2a003010, "555220bf921c47bfbb1e5bbd")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_746() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0300000000283b7d82c2bb48c9c34bd816c200000000dd7fdd5ed47ff93fd94e4c3d31cc23bdef797f3fbb51c641");
+    w(&mut m, 0x28000000, "cac57ec2e775c9c32e3617c2e86d83c22886c8c3dc8116c2e6a684c21edec9c3d6d016c2000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "66f684c20dbbc9c344a502c2");
+    w(&mut m, 0x2a003010, "52c886c238c0c9c3aa031ac2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.1617165803909302f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "55e885c2b72c"), (0x2a003008, "e03913"), (0x2a003010, "3c0327be35837bbfbee3b8bd")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_747() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0300000000280d806843c0264943de35853f00000000e6ea5bd31d232b40a89abb3d0a1b8d3e50f7743ff7759bc2");
+    w(&mut m, 0x28000000, "deb55b4357da4b432956be3f378e6c436eb93c435d698740143c71437de05243012d26c0000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "08755a434a004d436c78a040");
+    w(&mut m, 0x2a003010, "73f25943f6274c435114f9be");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.1191595792770386f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_748() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028c16082c3679298c3d030e2c100000000f58844469f3f354000000000000080bf0000000025ef9cc3");
+    w(&mut m, 0x28000000, "2a408bc325ef9cc3253410c218e27bc3076496c31315c3c118e27bc3076496c31315c3c1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "452d8bc3cfb19cc34b3afdc1");
+    w(&mut m, 0x2a003010, "16b88bc370b09cc335d411c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5776059627532959f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_749() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe06000000002833cf78c3c05979c329ee22c000000000726d2ed4e6393240eb0c913eea1298bec670693ffd4da0bf");
+    w(&mut m, 0x28000000, "9aa076c3dd0785c339ab0ac1103f69c3fbd07fc388ca17c1a96d6bc3011b6fc3636b57c0ccfd7ac3c6a368c392d06440ab2f84c386e272c3e6a68c405e1883c340cc81c3dfe1dcbf0000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "325883c3c70b82c34b223fbd");
+    w(&mut m, 0x2a003010, "f20483c3f5a281c3058968c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.4495546817779541f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "5e18"), (0x2a003004, "40cc81c3d4e1dcbf"), (0x2a003010, "82d20fbfca53d4bee93f373f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_750() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000286b45a341b83a91c3f8aafc410000000086c66cf000ea2a40749cc23d446886be25d275bf01743fc2");
+    w(&mut m, 0x28000000, "264b0641cfd88ec39db7e84167bec541804d8fc38ca2f7414c73be410e7797c3e84e0d4267bec541804d8fc3eab3f741");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "36b9c641eca78fc3f84b0d42");
+    w(&mut m, 0x2a003010, "75accd41c2368fc3ff05f341");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.6638638973236084f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_751() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028183edbc32b1ab5c36c4c3242000000002ec63fc086c015404ad8233e0295b83ee73e6b3fd8c61f43");
+    w(&mut m, 0x28000000, "8a90dcc392e7b2c3503f2d42b070ddc39d6cb6c381833942a5ebd9c3c34cb7c3e15b37427f0bd9c3b8c7b3c3fe122b42");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "9405d8c32d4cb3c35dfb3a42");
+    w(&mut m, 0x2a003010, "fb2fd8c3d153b3c3eed42842");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.6957018375396729f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_752() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028f9d08ac3ad2eb143f8c19941000000005f98ef754c9f2b40e1fb9bbe329513bed305713fdc6b4ec2");
+    w(&mut m, 0x28000000, "bb5091c3d82bb24338107541586c88c33c0fab43b3269741d8b586c3f250b6431897bb41000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "522886c35a8ab743d7f3d241");
+    w(&mut m, 0x2a003010, "9b8086c3ccfdb643926fb241");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.9326956272125244f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "d8b5"), (0x2a003004, "f250b6431897bb"), (0x2a003010, "7a67b33e93f9693ff194513e")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_753() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000282917f2434755dc431f0d76c1000000002e7eeb9e7e9d30406d50d1bd11e5433eefe7793fab6d9ec1");
+    w(&mut m, 0x28000000, "ad2beb433ba7e043c32994c135c5ed43cb69d5436b2159c1a502f9435303d843b8c643c11d69f643c340e3436a7c89c1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "cf89ed43ffeed44380d82cc1");
+    w(&mut m, 0x2a003010, "d3aaed437c4dd543d5d669c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.6619555950164795f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "35c5"), (0x2a003004, "cb69d543682159"), (0x2a003010, "434767be335dd9be1775603f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_754() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0300000000284151d9c3b845aac39fdb1fc100000000e3772712ad3c2e40b0f2cd3d4800833ed322763f0f720c43");
+    w(&mut m, 0x28000000, "8259d5c35d5db0c39483f2c07006d6c33ccaa3c31c1462c1d293e0c390a9aac3f83c04c1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "c4a1d9c385edaec3fcacc4c0");
+    w(&mut m, 0x2a003010, "648dd9c35250aec3785003c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.804114043712616f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "0b44"), (0x2a003004, "1654"), (0x2a003008, "ac8dea"), (0x2a003010, "73bb4bbf31f91abf63a061bc")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_755() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0500000000281e1838435129b043d51bf841000000006616975c1ac43140ee94923d44489fbe159b723f12158642");
+    w(&mut m, 0x28000000, "755547431dc0b343e1de00420afa35436f84b84306a21242c28b274390bcb143552f0542fcfb2f436ac7a8435e4fd6415ca143430b06aa4350dbd04100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "50cb4743cc18b143d8790c42");
+    w(&mut m, 0x2a003010, "c0cd4743f6d2b043b200f041");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.8229656219482422f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "42e34643121fb0434891fb41"), (0x2a003010, "b038003fa4df5c3f7fe18c3d")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_756() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0500000000281d98ce42328e50c3221cfe400000000066b1ad44dad6334075dc733e36643ebe4509743fb0e58dc2");
+    w(&mut m, 0x28000000, "b8b4af423b3d54c34455314158fbcf4277965cc35f8cad40e7d5e942ccd14fc33fe69540e7d5e942ccd14fc33fe69540b19cb542ad4f42c39f445d4100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "c932c342205745c32f995b41");
+    w(&mut m, 0x2a003010, "989ec1428ce544c303472641");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.9980990886688232f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "7fa9c142e95044c3728448"), (0x2a003010, "ebf0fb3e56c85ebf1e41be3c")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_757() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe060000000028bcefeac3e7f355c20558a7c100000000fdec6d1d00f931404804acbe2666863ee190673ff9ccf9c2");
+    w(&mut m, 0x28000000, "cf6ff2c322ed3bc2ac07e3c16338eec3896d69c25290afc1b32fe7c348f762c2708389c16f5ee4c3a0002fc2eee096c1b32fe7c348f762c2708389c16338eec3896d69c25290afc10000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "b2d2e6c3395963c278fe7fc1");
+    w(&mut m, 0x2a003010, "b0a4e6c3490165c2dee3a0c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.6203755140304565f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_758() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028c10483c31006974370969040000000009e555308120b29401e94733e36817ebd8b24783ffb6f9942");
+    w(&mut m, 0x28000000, "9cc87cc396269b438bb43140409885c38a0c98431e41bd40357e82c399d890437cfa5d40409885c38a0c98431e41bd40");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "157383c33ca49143204efe40");
+    w(&mut m, 0x2a003010, "1fb582c30b64914332dcfd3f");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.179163932800293f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "28ab82c32711"), (0x2a003008, "7b0699"), (0x2a003010, "fe3329bf490f403fd8e28c3c")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_759() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe060000000028b167e343107cdbc34d14163f0000000002d34e64ccf22540a59b893eef6a1f3ea956733f58d259c2");
+    w(&mut m, 0x28000000, "a6e6e54307d3d6c3ce7f16c0f99de04331fed6c39d14313f6a31e643eff9dfc31a59f63ebce8e0431925e0c320a861406a31e643eff9dfc362e6f53ef99de04331fed6c32da4303f0000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "1c3de34339d8d6c395035d40");
+    w(&mut m, 0x2a003010, "a93de343ca30d6c38f0166c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.7835720777511597f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_760() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028177c7bc3e3e4eac3dbd939c100000000e05d8dca24333540e81b983c96979a3e6d0174bf7b710743");
+    w(&mut m, 0x28000000, "33cf6dc33036e3c3997acfc0e91278c3672aefc39a1d64c1acfd87c38c08eac3cb8a37c1e91278c3672aefc3bc0164c1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "38ea6bc34aaee2c3667aefbf");
+    w(&mut m, 0x2a003010, "88c26bc35ce3e2c3ff43f5c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.6305797100067139f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_761() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe06000000002825afc543e1e9b4c305ffea3f00000000fef484d66e920a40d40390bea578403ee2e7703f887d3143");
+    w(&mut m, 0x28000000, "8730c7439a5cb5c3fd8c3a4031d3c6437dd5b3c3a88a0540d051c543c462b3c35bfa803fc52dc4432777b4c320c8413f1a8bc44343feb5c3bae8ca3f7c0cc643fd70b6c3d7812a400000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "f192c743f559b5c33989d140");
+    w(&mut m, 0x2a003010, "95c1c743589ab5c3fb90ef3e");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.1368571519851685f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "8730"), (0x2a003004, "9a5c"), (0x2a003008, "fa8c3a"), (0x2a003010, "f362563f342f51be6bc4013f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_762() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028e6ef9ec395355842236a0bc200000000e2b9b3a0eaf83840363bcc3c67c86d3eadeb783f2b1cea41");
+    w(&mut m, 0x28000000, "147096c3167b2742058601c2b8979ac3562c7d42c52215c25910a6c3a70a7842b18e11c2a5ffa8c3812d1f42e270f7c1b8979ac3562c7d42c52215c200000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "08dba3c38b3c4542974aeac1");
+    w(&mut m, 0x2a003010, "0e9ea4c36ad7424290760dc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.9525655508041382f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "9e2c"), (0x2a003004, "4b6943420e1cfb"), (0x2a003010, "fb397dbf4125f43dc173afbd")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_763() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028b0fe13437ea9024332d13dc20000000050f958a67aab30401c7a79bd65e236bea8667b3f06e79d42");
+    w(&mut m, 0x28000000, "14e30743f0bf0d43bdc038c23ee80843c41bed42a65f49c24b1a20431726ef4283e042c222151f4319c50e43e04332c2");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "7a460843a89aea4249923ac2");
+    w(&mut m, 0x2a003010, "32890843c416ea42e76149c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.9201313257217407f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "3ee8"), (0x2a003004, "c41bed42a65f49"), (0x2a003010, "5d3673bed01d3ebfb44b203f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_764() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0500000000283203b0c39049ecc3f6b7e94100000000e8156a5276c01c4028ba19be69dc923da26e7c3f95113fc2");
+    w(&mut m, 0x28000000, "f9bcb1c32731e9c30deae141577db3c3d9f8ecc3d60be2418f6fb0c34fceefc354c8ec4106ccacc3f8c6edc3ba48f341159aadc38bb0e9c3e390ec4100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "399cb1c32006e9c389d40042");
+    w(&mut m, 0x2a003010, "78d6b1c37876e8c31c5edc41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.1428173780441284f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_765() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028852bd243de501043d80d91c100000000bfd3c85f84a0f73fa1013ebeb51bb23e7b436b3fdcd43142");
+    w(&mut m, 0x28000000, "b782d243e77e1143d08b93c1d7b6d1430e541143af9c95c1378cd14305c30f43f56791c1bf3dd24305f60e430cb48cc117d6d2435a081043b7008ec100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "8c2dd14327060d43649266c1");
+    w(&mut m, 0x2a003010, "a028d14356930d433758a5c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.823678731918335f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_766() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028ed671b4330922b432bed10c200000000e7b0873213420140fdd6833e0fee1abeec50743fef27a441");
+    w(&mut m, 0x28000000, "28a7194399a62c438c590ec2f0581b4356832943162b12c2b1371d43a28c2c43df4212c2000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "5f921943046e2a43a40808c2");
+    w(&mut m, 0x2a003010, "5f771a43912f294307421bc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.0489723682403564f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "b047"), (0x2a003004, "621a294309ea0f"), (0x2a003010, "72f1273f5d3d3d3f70eb1bbe")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_767() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028d3dc9b435336de432b17d141000000000a45caaa24572c40ae202b3efb7e22bd0b327c3f57d870c2");
+    w(&mut m, 0x28000000, "9d5a9543e5a3db435c19e1412558a1438fdcd943a268bf41b6e39c438522e54381c3d241000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "b9dc9c435bd6e4434abae941");
+    w(&mut m, 0x2a003010, "ab669c43bcd2e4434eb8bc41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5272663235664368f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "9d86"), (0x2a003004, "439d"), (0x2a003009, "37d7"), (0x2a003010, "3b7a103fdff8523fb1ea453d")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_768() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028e97fb743e6653dc15ae823c100000000240752e2c1e7234038dc443e5544f1bbba377b3f205c72c2");
+    w(&mut m, 0x28000000, "a350b443f8b6cec04c460fc1d710b5431a157ec1ba1c15c104c7b943a0e78ac1cfd332c104c7b943a0e78ac1cfd332c10790b8439eb907c01c7f29c100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "eaabb94320a590c1895303c1");
+    w(&mut m, 0x2a003010, "2f50ba430b2b91c1694252c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.7398554086685181f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_769() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0300000000286f72654388d3c9c3b7ac82c1000000007e29b3d4810d2b40fbb233bf7754363f00000000b046e043");
+    w(&mut m, 0x28000000, "3a175c43da6fcec3a3769cc109206a435e85c7c348826bc109206a435e85c7c3b79c6bc1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "4bc56a432666c7c3721141c1");
+    w(&mut m, 0x2a003010, "d03f6a43877bc7c3acc277c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.3969000577926636f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_770() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028b46fadc35b34d2c091143942000000003e7756147ed1364000000000000080bf00000000e44ce4c1");
+    w(&mut m, 0x28000000, "6b69b0c3e44ce4c1c8943f42d8f2abc3424b8d4076d43542d8f2abc3424b8d4076d43542000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "7e6aabc3c987b140d4cb4942");
+    w(&mut m, 0x2a003010, "8ac9abc338edb6405d002a42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.4092626571655273f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_771() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe060000000028043157c36b6babc395d5464200000000a54b30bbc1772f40604c163e3c861a3c49377d3f009e65c1");
+    w(&mut m, 0x28000000, "c5a657c35e36b3c322b547428aec49c3e383afc309473f42c97649c3f0b8a7c3f7683e4242bb56c379a0a3c32df545427d7564c3f552a7c3a7694e423eeb64c3e81dafc3893d4f420000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "96f657c3fe76b3c3f1e55b42");
+    w(&mut m, 0x2a003010, "1f0b58c3189cb3c3f7d63f42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.6599047183990479f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "881a"), (0x2a003004, "52d9b2c329d64c"), (0x2a003010, "dfd70abf1ea454bfdb23013e")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_772() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028823f9fc39a1ac6c32c26d9bf0000000010e6d8ada17a314015c0943e6e8f5cbeceab6e3fcd620c41");
+    w(&mut m, 0x28000000, "28cc9ac34402cdc3fe24f5c0d75798c340a7c1c369627cc0dbb2a3c3f032bfc3e89188402c27a6c3f48dcac3f3f00c3f");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "9b8fa3c3a726bfc3e765e140");
+    w(&mut m, 0x2a003010, "51bba3c32f3abfc316cff13f");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.1426464319229126f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "dbb2"), (0x2a003004, "f032"), (0x2a003008, "e99188"), (0x2a003010, "060d153efb57293d640d7d")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_773() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000286a04e44361c19fc383b2af41000000007a3851232b491d4063ea833e652fb43eeb5d66bf045e6b41");
+    w(&mut m, 0x28000000, "3c40e643e340a2c3734caa413f92e2433526a0c3d79ba641edace44337789cc3eb45c7413f92e2433526a0c3d79ba641");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "e1bfe343a0a7a1c34bf0c441");
+    w(&mut m, 0x2a003010, "bea6e343cba9a1c3c22f9841");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.4889931678771973f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_774() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe06000000002818f5afc195ffadc38dad6fc100000000b2e1c2555f2d30401e3d933db361febd93597d3f3b97d6c1");
+    w(&mut m, 0x28000000, "7139c9c01f90afc3e01084c154e736c1c7faa7c359b263c1651ad9c13c6aa6c316284bc1e9cd16c20a6facc3b42757c1423b02c26304b4c395b17bc1c9cf86c1ed94b5c3ec1d8ac10000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "c6f307c21debb4c3bb7f27c1");
+    w(&mut m, 0x2a003010, "094708c22425b5c399367cc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.8348464965820312f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_775() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe060000000028543febc37722d84341ec8c41000000001daeb16b6ed935400a9a413e1b849f3e0e656ebf2f8deac1");
+    w(&mut m, 0x28000000, "deafe3c3f661d44397639141ab6bebc392f1d143fd6b564157e9e7c313c7e143925ecb4124a5efc3b056df43c02ba5414e66f1c3ef6bd743b2496a41ab6bebc392f1d143898156410000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "3234e8c3579ee24342b9de41");
+    w(&mut m, 0x2a003010, "43e8e7c3c858e243d345ba41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.7880860567092896f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_776() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0600000000285fe7a0433ceab1c34fcd6340000000008f9b0a2b393b344052147e3e9c37a2bdff29773f41ecdec2");
+    w(&mut m, 0x28000000, "04ec9843c83bacc36a6009411afe97439bfcb5c35ad4ee4076f99f430fabbbc37f6e1b40bbe2a843af98b7c311dfbcbfa5d0a943dcd7adc3d59ab0be49d5a1436829a8c3eb5c96400000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "014b98439280b0c3d8733641");
+    w(&mut m, 0x2a003010, "153f98430f2bb0c33ccfbe40");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.1358033418655396f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "99e5974300f0afc3cca111"), (0x2a003010, "2cc5293fea883fbf9fd0aa3c")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_777() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0600000000288d01b5414fffd64306c31541000000000ffce647b5232340711380bef616d83d8b6276bf5c9af5c1");
+    w(&mut m, 0x28000000, "71a5e8413913d943c7390241d10adb418d7cd543886af940703285413b8cda437f163b41a02f6f418ef5d643f98335410184a241b86dd4435c531641d10adb418d7cd543886af9400000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "408c6e41957dd64334397e41");
+    w(&mut m, 0x2a003010, "06a767412d50d74381821d41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.8482601046562195f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_778() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028070bbcc3ace5d542752666c100000000367b68497f4c314078a1d9bcf2f8943e63d4743f28d5dac1");
+    w(&mut m, 0x28000000, "ba0fc4c3b6b4de42415881c1ca3ebec3e3d2b54242041ac15506b4c3a316cd42258e49c145d7b9c376f8f542762b99c1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "e8d8b9c37d99f7423aec8ec1");
+    w(&mut m, 0x2a003010, "514fbac3d0c0f6426bc39fc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.36887308955192566f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_779() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0300000000288d13b0c29d0cd74318fe744100000000100dd7b9d58011407522f83e51ed5fbf00000000ac70d143");
+    w(&mut m, 0x28000000, "a5a4b7c24d00d643f3616a41024bacc2c592d743084a7a41024bacc2c592d7434c4e7a41000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "8674b9c2eb59d643dd9f8e41");
+    w(&mut m, 0x2a003010, "f47cb8c2bff2d54368156341");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.5817992687225342f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_780() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028f384e1c3f599d1c2dd2470c0000000001c4543a2b9382a40a8fba4bd38b7afbecd906fbf61a097c2");
+    w(&mut m, 0x28000000, "5786e6c31af5cbc2b6397bc0acd1e2c39554b9c23854ffc08281ddc33f74d9c2083640c08281ddc33f74d9c2083640c0b73de3c39bcfdfc25da859bf00000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "7012ddc3ce70dbc2dc30df3a");
+    w(&mut m, 0x2a003010, "42f4dcc35c3cdbc2a9159cc0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.9122313261032104f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_781() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000281954b4c3f02751c2272048c200000000b1970719c510324007bb923dbf5bafbd48667e3f80298e42");
+    w(&mut m, 0x28000000, "324ebdc3c5b757c2818343c27d34b2c3e2916cc278b64bc23999afc339c413c2889045c27d34b2c3e2916cc21cb64bc2");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "8549b2c3bcec6cc2e77a3fc2");
+    w(&mut m, 0x2a003010, "0b48b2c3fa6771c2365054c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.5221270322799683f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "ae89b1c31c706dc2a41c45"), (0x2a003010, "7c787bbf508c10be7c0cfcbd")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_782() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0300000000289f6ceac3b91a1fc2954d75c100000000670bf5ed63e83140b68c5bbd46eb69be60da783f57829ac1");
+    w(&mut m, 0x28000000, "cd26e4c3317bdcc1b14d3cc1afd9f2c3da130cc2254972c16045e8c3b9fe62c2f6a898c1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "5793e8c35b7065c2d46085c1");
+    w(&mut m, 0x2a003010, "93a7e8c3f25a67c262eeafc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.44510722160339355f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_783() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe06000000002823a5724374b4eb438d7fdec1000000004438e716a55d1140d598b5bd0076943ea8f2733fce57b1c2");
+    w(&mut m, 0x28000000, "d0a67143c204ea43340ad7c10c967443eadaea439fedd8c1bd9a7443498bec432d23e1c131b071438065ed435075e7c1f5c06e43588fec43e591e5c10c967443eadaea431cdbd8c10000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "6d547443e67cea43d252ccc1");
+    w(&mut m, 0x2a003010, "89ef754364ffea43b18aefc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.6877167224884033f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "b768"), (0x2a003005, "4e"), (0x2a003008, "1db5d4"), (0x2a003010, "f2f6ea3ee016633f221b4dbd")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_784() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe06000000002874799941c7d1e0408bbc3f4200000000d1c3f693e8d033400781b1be2ad51e3e2ed16cbfbc9e4742");
+    w(&mut m, 0x28000000, "f53d6d4179a5b14198745042c3a6df416d9469411aac3742826ed33fecb008bfa0f45442607d6c41954102c16f293c429d76df416e1d13bf68802d42c3a6df416d9469411aac37420000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "ee9c1d41d4456f40379e5942");
+    w(&mut m, 0x2a003010, "31ac27415644944095834642");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.7664008140563965f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_785() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0500000000288b0ab9c382d7cd4318beda4100000000f563333685cb3140d35b55be6b71423d1c167a3f6bb8f6c2");
+    w(&mut m, 0x28000000, "5b25b3c3613dd443b2dae941e44dbdc3f46cd5432f44c6413792c1c38321cc4396eebe41c70cbac35c33c543a514de417722b1c35136ca435b94f84100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "1f6bb0c32cd7c943f3310942");
+    w(&mut m, 0x2a003010, "6174b0c3c48dca434773e941");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5426540970802307f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_786() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0600000000289d7288c35999c24327b066c10000000032302dfeaeda2f405a71a03e8c0bafbefbcd62bf96cd4d43");
+    w(&mut m, 0x28000000, "2bf386c39d7ebb438a02fcc0f6d98dc3e7bfbd4368f767c1450b83c3cb72c743e66865c111f289c315b4c94385afa7c1450b83c3cb72c743e66865c1f6d98dc3e7bfbd4368f767c10000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "639a84c330ffc5439b0a38c1");
+    w(&mut m, 0x2a003010, "189b84c35984c643a76e8ac1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.2257931232452393f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_787() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe030000000028136e46401d1ca2c3355569c1000000001a4e492586091f40a3282d3f728d3cbfb0e8ccb765e570c3");
+    w(&mut m, 0x28000000, "2e450c4106829fc3247b79c1fdd5883e2969a3c32b3d61c1fdd5883e2969a3c34f4761c1000000000000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "fa3d333e7dc3a3c35f6a28c1");
+    w(&mut m, 0x2a003010, "08b7e0be82e2a3c3b0b286c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.8304334878921509f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "18d6883e2969"), (0x2a003008, "303d61"), (0x2a003010, "87031cbeb5ffd9be1254643f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_788() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028a45dd8435907b7c32f8d3d4100000000f80dc7aaed3e244082bca6bed515353e07c66d3f2ca74243");
+    w(&mut m, 0x28000000, "e73bd9439fc8bbc34b416441e91edd431529b6c3739a6d41607fd7431346b2c3cfd416415e9cd3439de5b7c331840d41");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "4c68d7435ba6b1c3e9384841");
+    w(&mut m, 0x2a003010, "76a0d74367e4b1c37db00041");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.310753583908081f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "607f"), (0x2a003004, "1346b2c3d4d416"), (0x2a003010, "219efa3c1627443f2650243f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_789() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe04000000002863626c43470e2443962d1a4100000000b53ef76718992e40f2e8a43eb8a3513e759f6cbf56a1c9c2");
+    w(&mut m, 0x28000000, "d2e26143e6891a4366c8774003de6243d98d2e4329590a41f6e17643a7922d434b777641c5e67543b58e1943cbf32941");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "6ff276439e59184377115541");
+    w(&mut m, 0x2a003010, "2c6a76434ed717435e2d0c41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.4252355098724365f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_790() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028d00fda438d1a4fc2f6b02042000000009e5a5ecef324214026ce053e4b01b83efc8a6c3f480197c2");
+    w(&mut m, 0x28000000, "bb34d743e81d39c2a9611b42c190d643a3095ec264772a42b9c1da43fc516ec2c30e2c42d4fcdd43707653c217e91d420bcbdb43c59432c2eaa3134200000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "606cdc439ff634c225fd2442");
+    w(&mut m, 0x2a003010, "2338dc430c2933c262ea0c42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.3907906711101532f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_791() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000280d93af431483f3c2ef3703c20000000093bc92d35b51f13f5920d2bd6d6a83be8c06763fae321142");
+    w(&mut m, 0x28000000, "3aebaf43adf1f1c2201202c2b32eaf436222f2c229cd02c2e13aaf437b14f5c2905504c267f7af43c6e3f4c2e4aa03c2");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "c244af4318fbefc277deeec1");
+    w(&mut m, 0x2a003010, "413caf436912f1c208b807c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.9547508955001831f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "dbccae438bf7"), (0x2a003008, "6c1500c2"), (0x2a003010, "005a713f30fba4be4e67afbd")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_792() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe050000000028e687f5c38bb2e5436afaaf410000000003a3320cc9fe3240806a5c3e3dfa99be6ad96d3f3a6b5f43");
+    w(&mut m, 0x28000000, "d29df0c31507ed4350bdc341d2fbfac3eda2ec438024e841b3d0fdc3e0a7e243e7f2be41b332f5c3ece0dc4343128141700aedc3ee49e34319fd834100000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "ac26f0c3b0d2ec43f37cd741");
+    w(&mut m, 0x2a003010, "2336f0c3f565ed437b7cb641");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.0369518995285034f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "d29d"), (0x2a003004, "1507ed4354bdc3"), (0x2a003010, "19e1573f2d8afc3d88ec053f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_793() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028f4c5f9c34b3580c2ae1c2bc20000000090e434a81afd1840c62d1abec9dbacbeb9dd6d3f8c6d64c2");
+    w(&mut m, 0x28000000, "5268fcc3d2b076c273002bc22cfdfac3c3be8ac29c5a34c29623f7c32d1285c2583d2bc2bb8ef8c3a7576bc251da21c2");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "9138f7c3691c89c20d341ac2");
+    w(&mut m, 0x2a003010, "0bbcf6c3335087c2692a32c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.9020873308181763f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "9623"), (0x2a003004, "2d1285c2583d2b"), (0x2a003010, "eb903f3e4e3c4fbfa2760e3f")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_794() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028c5d2ae411814a9438a5637c20000000059b569a5ec140140ece7bdbc563faebe3da570bf45049142");
+    w(&mut m, 0x28000000, "aba6b3411f1da843f29634c23c639f41d9c6a843914236c2defea941100baa43160f3ac24d42be415661a943907138c2");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "ab54a34102eba943c6f434c2");
+    w(&mut m, 0x2a003010, "6e9ea541eeeaa94311d83bc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.7695140242576599f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_795() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000287f410fc3b0d3cd438b891fc100000000ce3186a75d1d33407f0890be098e433e70bf703f0313dbc2");
+    w(&mut m, 0x28000000, "b04a00c3c1d8c843c7365ec09e4b05c3184fd543167c20c14e381ec3a1ced243b2c283c15f3719c34958c64300971ec1");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "b4f019c3b076c743e9f906c1");
+    w(&mut m, 0x2a003010, "d75b19c39fd6c643175b46c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.6926460862159729f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "8f82"), (0x2a003004, "50f0c643b4f31a"), (0x2a003010, "69ecb3be09816f3f71bb0fbd")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_796() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0400000000284215a6c3ae78b543735a1a4200000000a28499a8540433404bf98ebe83f8a73e2306673f55a676c3");
+    w(&mut m, 0x28000000, "6c779ec32381b943f57a2142b81daac38416bd43b070f44118b3adc33770b143c63a1342cc0ca2c3d7daad43ba7b3a42");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "186da3c32bc0ae43a40d4342");
+    w(&mut m, 0x2a003010, "4804a4c362d0ad4317a23142");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5192070007324219f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_797() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe060000000028592fc3436947974263430c4200000000bd8ae7ac5d7238400106163ecffb04bebd0b7b3ffa81a3c2");
+    w(&mut m, 0x28000000, "4aefc3439591bf425d071642a6b4bc4379aca54272cf174293b2be43395e7f42235e0b4223ebc743b92d67424f58fa4193b2be43395e7f423e650b42da27cd435679b342facd07420000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "7978c14349648b42f3be1042");
+    w(&mut m, 0x2a003010, "d510c14365248842f6a70742");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.30088165402412415f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "f814"), (0x2a003004, "c85b89424d3a0b"), (0x2a003010, "356f7b3fc6f2283ecaa7b83d")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_798() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe040000000028a1679143c4b8acc3ea1d41c2000000001dedbe4779fa33403dfc043e371e293e3d497a3fabf78442");
+    w(&mut m, 0x28000000, "1f928a43a5b3b3c37e6930c248909543320faec308b843c2d4eb8f430911a3c31c944cc248909543320faec30ac243c2");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "0b7f9643a877aec3acbc33c2");
+    w(&mut m, 0x2a003010, "fb099643a68aaec3f89b4bc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.7853193283081055f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "48909543320f"), (0x2a003008, "09b843"), (0x2a003010, "f18d433f73b000bf9e34cf3e")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_799() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0dfe0600000000289fafa643f83c1bc3052addc1000000009ae367c2b3ae2740d262b8bd8fddafbe25516f3f58412240");
+    w(&mut m, 0x28000000, "dd23a9436e3e25c3fac9f6c1e33eac438dfd1bc3aecdd6c1a5caa94317fc11c3752cbdc1613ba443813b11c38987c3c15b20a143627c1ac3d583e3c19994a343d97d24c3aa2cfdc10000000000000000");
+    w(&mut m, 0x2a001000, "06000000010000000020002a");
+    w(&mut m, 0x2a003000, "f732aa43c10410c384d1a3c1");
+    w(&mut m, 0x2a003010, "3ceba9432e700fc3a3e8c9c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.7997705936431885f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_800() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "a1280bc3d88498c35cd427c26a890ac351c296c3b83f35c20da806c302958ec39c5420c218fc07c3deb78bc397de31c2");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "e1ff08c32d9d96c394b12bc2");
+    w(&mut m, 0x2a003010, "9d300dc367d695c3a9e038c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.323659747838974f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_801() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ef09a043d47c04c3ce3b42c266729a4392da00c3cbd43ac2");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "f745994399ccfac2ac8b3bc2");
+    w(&mut m, 0x2a003010, "7c679943430dfcc2346246c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.307915687561035f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_802() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f9081642f0a126c3baf3b740e1aa3d42cd9d30c3f2b7d04046f24f42decf3ac379c68140a5ea73421e6d41c37830dc40");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "3ff11142a37f25c31d982940");
+    w(&mut m, 0x2a003010, "558e13427a0b25c34a459a40");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.5663407444953918f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_803() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "727da8c305f88f420af905c25927adc377b57f42911af3c1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "087badc3bad67b42d39f03c2");
+    w(&mut m, 0x2a003010, "52a1adc396c87b42bd7e03c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.8626160621643066f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "d24f"), (0x2a003004, "cb9d7e42890304"), (0x2a003010, "f858273f8bba41bf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_804() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "3063dfc3c6a8d843384e28422065d5c398dbd843862c22420fa9cac3c9cdd943f88e3042");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "a339cfc3a5efd94370ee1d42");
+    w(&mut m, 0x2a003010, "134bcfc3e0cbd9437dfb1f42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.180415630340576f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "21d8cec3646f"), (0x2a003008, "195815"), (0x2a003010, "ebcbb3bdf6027f3f00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_805() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "687e89c30bc094c3144cec4107fa8bc303ef92c39d10cd4125d492c3b8fb94c38812d741239293c3155f91c30b8ddf41");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "201c8dc3df7e92c33481f541");
+    w(&mut m, 0x2a003010, "acd08ac353ac93c34c44ff41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.7652727365493774f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_806() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "3de014c3a71099c3f29b8cc13faa0cc3abd496c3bbdc80c1b36d0fc36e308ec3ee9da1c1");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "d4090ec3633694c3dcb8b8c1");
+    w(&mut m, 0x2a003010, "edd10ec3bbe393c3a3f7a3c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.1182575225830078f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_807() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "6866c8432e2d9e4366579d416953d143f491a1437eb78941e0fbd94321aaa5434f7e8b41fd6bdd43896fa5438ca46b41");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "24bdd1437749a243e6178841");
+    w(&mut m, 0x2a003010, "f49bd2432353a043586f7a41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5011010766029358f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "80ef"), (0x2a003004, "c4dba14346f986"), (0x2a003010, "a5e2dabe396d673f00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_808() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d86282c3fa6e87c1bdcd7bc11a187ac3deaf06c1541732c128dc6ec351a13941003d42c1");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "2e746ec3f3365d413dd52dc1");
+    w(&mut m, 0x2a003010, "5bb06ac36cb92a4183b31ec1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.139568567276001f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_809() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "9afb0b4248fabac3021ae7c132e02142cca3b6c36688fcc145bd56422fc2b0c38e3ddbc1");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "15c84042c55db4c32d0fffc1");
+    w(&mut m, 0x2a003010, "7b883f42d53ab4c3baeed5c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.935935378074646f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_810() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "fa77d8c3c061d54370de78413af1dcc3d859d343038c81416278e0c387d8d44343dfa241");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "4322dec33037d343cf945641");
+    w(&mut m, 0x2a003010, "1f16dbc36e6cd343b611a841");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.256929874420166f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "23e2"), (0x2a003004, "662cd443771f27"), (0x2a003010, "83c0c7be9fb66bbf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_811() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "1b447143842985c2bf2e344148617743333eb5c2d9435041d02c844347a4bfc229d34c41");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "787c75436c45b6c21d0f8f41");
+    w(&mut m, 0x2a003010, "387c74437f3fbdc2a0253c41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.0959300994873047f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_812() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b655f3c307eba0c3254a2e413e3febc3b20098c3576123416be9e4c35e339dc3ff602941");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "c7abf3c3ca33a1c35ae0e640");
+    w(&mut m, 0x2a003010, "541cf3c38586a0c391274e41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.249783515930176f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_813() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "3f8277c30b69cc437c902142933e80c308f9c9434cb42442c6ac81c3bc58c843c7383142199a89c30e97c9439bd02042");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "560676c3d1c9cc4317042342");
+    w(&mut m, 0x2a003010, "5df973c33c4ccd4323311b42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.1483700275421143f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_814() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c061c84368e06843d89247c2f488c5434d1d5843faed46c272d4c543ace15343c10b47c2");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "6833c34362c55843a8ed56c2");
+    w(&mut m, 0x2a003010, "7f29c74334b35743559255c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.144218921661377f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_815() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "81965542de1afe42d41f2c42a54042422c59eb42229b2842");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "a2593a42eb45ed4267973442");
+    w(&mut m, 0x2a003010, "25be3f426075ec42b3f52242");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.1152031421661377f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_816() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "e985bd43f7e51ac3fa3ece41a30cb7434acc2bc369a2db41");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "ad27be43fa9c1dc3f40b0342");
+    w(&mut m, 0x2a003010, "03d3bc43db511ec30bfed341");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.202521562576294f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "6eecbc43a0761cc3baa4f841"), (0x2a003010, "25374b3fbcb01bbf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_817() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "e154c0c388541a43d6cb04428087bac3c31d1143d0aaf3413e72b7c37f2701437086f941");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "aa9cbfc378fd14433fed0842");
+    w(&mut m, 0x2a003010, "0795bfc346e01543f0830642");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.6383306384086609f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_818() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b11dc5c34e61dd400b531f41767dcbc35c6567c0cb415141");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "2c94ccc384acebc015001241");
+    w(&mut m, 0x2a003010, "b31cccc3b9a56bc0da3c2841");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.098680019378662f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_819() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "326adfc1ab8bb0c2f97f10c2cc9701c27042b4c2746511c2");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "8f59ddc16120b1c2bcac16c2");
+    w(&mut m, 0x2a003010, "302cddc18d7badc23d650ac2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.9115270376205444f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "e660e3c105f5b0c27c0022"), (0x2a003010, "6f5fc43e126c6cbf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_820() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "1a6ab6c37a8f9e42a182ffc038cabbc361698d4278ec24c10741c3c30524a0423b22efc0");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "1caabdc3f6288342734c2ac1");
+    w(&mut m, 0x2a003010, "2390bcc345f38e423dce8ac0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.4952657222747803f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "c650bcc300bb8e4248ecd6c0"), (0x2a003010, "fe0908bfd3dc58bf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_821() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "6d6ed0c381911e4390062d42b518d5c3145625433bfb3442485fddc3d55e2843bf622542d1bbdcc3b33741434ecd3142");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "f2a3ddc3fa313f4399c93242");
+    w(&mut m, 0x2a003010, "7a3fddc3688f40435b773942");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.3994994163513184f32);
+    assert_eq!(got as u32, 3u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "a3d2dcc39bbf3d43a94f2c"), (0x2a003010, "9ca97fbfa63e523d00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_822() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "bb68b34361b6cbc2f664db41f82cad439b6ad5c2cce4e441e396a743c5cad8c2d2760242d5589d432a5cedc218caea41");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "f8b8aa435129dbc29234ec41");
+    w(&mut m, 0x2a003010, "3e18ae43ccb2d1c23d11db41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.3532135784626007f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "bb4eac43e5f0d5c21404e4"), (0x2a003010, "86f5183ebd207dbf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_823() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8b99e6c308029d435749ed408e26ecc3d7599c43f3f81f4104c8f5c3a7ed944370fb3c41");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "8b39ebc350cf9b435cb85741");
+    w(&mut m, 0x2a003010, "9253eec37d139d4302553741");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.4826159477233887f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "963beac3f3939c43429a63"), (0x2a003010, "beb8f03db7397ebf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_824() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7d6bc3c3717ee2c3625b9241742bbcc3de3fdcc307557741");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "8b83c3c311f0e1c3efa95b41");
+    w(&mut m, 0x2a003010, "a36ac4c3b319e4c3dfbc7c41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.4158345460891724f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "b0dbc2c39702e2c32b9154"), (0x2a003010, "b31027bfe1f8413f00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_825() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "2d8487437c11a2c31b6a2ec13be28a43b112acc3f87748c11c438843d007b2c3768f49c1");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "a8238b43a958aec34ae81ac1");
+    w(&mut m, 0x2a003010, "f4228b436f60aec34f8bf4c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.0326234102249146f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_826() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "64b738c2be06bc433fec40c22f09f7c10bd0b243152937c2474bd9c17458ab43592d3cc28cb8cfc1da78a84330782ec2");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "012ef4c1be90b343c62b33c2");
+    w(&mut m, 0x2a003010, "30f1dfc17ed0b34352d426c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.612348198890686f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_827() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "2c8a74436daea8c3645da3c12b877043b542abc36703b1c1b67a5a437d79a6c3d8dabbc1");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "69406a4324dda9c3589bbdc1");
+    w(&mut m, 0x2a003010, "504b67432a90a9c30f36d1c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.8757798075675964f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_828() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c775a9c3d8e9c4438214a241e90ba2c3659aca43f31fa441610ba2c390d3ce438cacb041");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "6d53a1c335e3cc438b0fb341");
+    w(&mut m, 0x2a003010, "863fa1c3cc34ca43cad2a641");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.4861799478530884f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_829() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "65ebf143ca51b2c35334c740422eea436b35afc342f9ed40673fe04387d9afc3de8df240");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "935ceb43d7f1aec348c81141");
+    w(&mut m, 0x2a003010, "768be7431bb7aec320d80941");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.8615443706512451f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_830() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "81254643a6fc7bc3ce0370c1e2fb4843494365c349f887c190344243a58754c3a42984c1");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "e3704543ea597fc318627ec1");
+    w(&mut m, 0x2a003010, "ef0847437b2f79c3ad2c9cc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.8726729154586792f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_831() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c147b0c38ef46ec3a4f282413051aac3d3f679c36b528541");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "180cabc31fe876c3a3d48a41");
+    w(&mut m, 0x2a003010, "b23cabc3431d76c352108041");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.41828587651252747f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_832() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "1e1f6b4380b4c9c2a06d72c15a266643e8dbe9c2843c49c1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "afc06b43fd92c2c263d11ac1");
+    w(&mut m, 0x2a003010, "8d0e69433e29bfc22fae7ac1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.3217661380767822f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_833() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "81c4a4431a6c174304e868c0b401a1438e091443a4f735c0fc649f4323d91e436ddbf6bf89b195437fbd21437bc2a7c0");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "f6b09e438fb619431e85ebc0");
+    w(&mut m, 0x2a003010, "8064a14380cf18436ad5dc3e");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.3490796089172363f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "a812a043884c1a43a8e2d3"), (0x2a003010, "3c5275bfd05592be00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_834() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b4b7ed433d803043889199c1eb2fe74325b53a4330bb8fc1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "cf1bed43f7082d435a8387c1");
+    w(&mut m, 0x2a003010, "017dee4318123443d44775c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.165975570678711f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "a506ee43dc043043142d85"), (0x2a003010, "f7a11dbf68b649bf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_835() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "dd798fc31b2466c3d79c4c417fbf97c395b364c3f1614d41e2f19dc3b0fc5fc332185d41c5c0a6c351fa6bc3f8316141");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "57eba6c358c16ac38b0b1c41");
+    w(&mut m, 0x2a003010, "f5b8a7c328ca67c320896141");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.9586869478225708f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_836() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "fcf565c1f060cbc342681242e51680c078bed3c34d920a42f4c89d41c582d2c364fc1342");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "13be79c07cc1d3c3c92df741");
+    w(&mut m, 0x2a003010, "f4ff21c0f4a7d3c351141042");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.297667145729065f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_837() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d91a69c2cbd069c3f82481c116c050c2acd664c39e6b49c16be44bc285cf54c3f2465bc1");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "6bd86ac223c16ac35f7f3ac1");
+    w(&mut m, 0x2a003010, "49d364c2553468c378d983c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.363195538520813f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_838() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f068f7c37d411ec364b29340e845edc36a7726c3db75fa40");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "71c0ebc35ced25c3e1493041");
+    w(&mut m, 0x2a003010, "23b2ecc3795f2ac39fc06b40");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.130928874015808f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_839() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f6ecf2c3ab5cb043f045aec01b5bebc3545eb0432dd488c0");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "e2c9e9c3181eb243b04d8bc0");
+    w(&mut m, 0x2a003010, "65c5e9c33f30b243338aecc0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5537539720535278f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_840() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d387e9c1e138ebc2daee20429376a0c1b591f9c254221242c2e896c16ed805c3648f0e42");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "6fd1a8c18b4afdc2ecba1d42");
+    w(&mut m, 0x2a003010, "dc5f8ac1aa5af6c2c3d41942");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.1274073123931885f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_841() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f836d4c37677d2c38b332ec22d98cbc390bad7c3ce7627c29d5cc8c3c73cd9c38cb623c2dd45c8c3a8f7dac37e2521c2");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "eb58c7c3e92cd8c3184c35c2");
+    w(&mut m, 0x2a003010, "abb7c9c3797bdac3fe8f27c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.1078622341156006f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "370dc8c3d561d9c37fcc33"), (0x2a003010, "b086d83e19fb673f00000080")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_842() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ba4ea24330938d4363054ec29b10a843613a8c4305ff4ac2");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "1f9ba643c8428b4371ae57c2");
+    w(&mut m, 0x2a003010, "27bfa643f1528b4327ed45c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.648783802986145f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_843() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "85469d43305b94c343e3b9c1a227a743a6758ec35188c5c13eaf9f4399d985c344c8a9c1a6daa443b54882c35999d9c1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "8c339f43564884c320e3d1c1");
+    w(&mut m, 0x2a003010, "f5449f43091685c3346f9ac1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.7880974411964417f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_844() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "9dcb46c3b6c90743f50c32c228b258c3c618ef426ed63dc2c8a661c39e47d4425caf3cc2ebaa6cc3710be542550e3fc2");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "f08170c3cb5de742638c24c2");
+    w(&mut m, 0x2a003010, "fe5869c3a9cbe442858c48c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.3742083311080933f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_845() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "2622b2c3fdae96c30342acc014dbb3c37e3694c334f7edc0");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "f4c2b0c3513797c347780bc1");
+    w(&mut m, 0x2a003010, "7265b0c3ab5797c3eb65dac0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.5934669971466064f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_846() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "cca8d4c381b963c292f31fc1e3a6cac3a50886c24dc34fc15882c0c3398a6dc259fb50c166efbac3dbf66dc22b044ac1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "4d9ac7c3e6d287c24d0bfbc0");
+    w(&mut m, 0x2a003010, "2228cbc35b2187c241595dc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.7358962297439575f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_847() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "34948f43485c24c300cf4742a9d79a4336ad29c3a45f474222969e4382e42fc352194442");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "7edd9f4361ef2fc34d3d2f42");
+    w(&mut m, 0x2a003010, "b9f89e4399582fc3e35b3842");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.9553670883178711f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "ddb89e432d1e30c374ca37"), (0x2a003010, "7583233fb8f9443f00000080")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_848() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b24b85c13c23b4c307cdbb3fd8149ec1c072b3c39ca02c401f1a7cc13b3bafc3fedb7a40d1f799c11418aac3a8c48540");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "151f95c1d762a8c321d55bbe");
+    w(&mut m, 0x2a003010, "023e93c13430a8c31d45bbbf");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.7777955532073975f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_849() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f3cc15c2ec0489432560d2c18a3f0cc20be78143d64fbec1ae6431c2ee648043a2dfb8c12a592bc2f05d6b43718addc1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "390c0cc2dbad8a43c1bdc3c1");
+    w(&mut m, 0x2a003010, "ac0f19c271758943fd45e2c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.3475942611694336f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_850() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c44d92c32b4939430b8a0742fed08dc3d18c364306741142");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "4fd68cc377e03443273f1b42");
+    w(&mut m, 0x2a003010, "97a28cc3d5683443bf630142");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.37699818611145f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_851() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "74248bc3f5f022c39ad23442a1da92c3142232c322672742");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "f9748bc362a628c3169e2f42");
+    w(&mut m, 0x2a003010, "045f8bc3ebb528c3e1311742");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.617327332496643f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_852() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "487bed431e28b943ce4cbb409b48e7433b72c043cbdeeb4007bde0435c4dc743e93ac840");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "0ae3e043b50ac74375908f40");
+    w(&mut m, 0x2a003010, "3d70e04323edc543cb232e41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.6491799354553223f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_853() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "607b87c3ea84f543014f034282ee92c31e7bf143268208421b6c95c34dd4f1439949ef41a7bea1c33f9ff14343580742");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "6aa693c3b671f1438586fb41");
+    w(&mut m, 0x2a003010, "ef6f93c36b75f143317e0942");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.110931873321533f32);
+    assert_eq!(got as u32, 3u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "d72ca0c301a6"), (0x2a003008, "a5e80cc3"), (0x2a003010, "edc1893cbcf67fbf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_854() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "43a38443894bdbc32b5aa5c092bf8f43d728ddc393360bc1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "a55390436ffbdcc3b56a1bc0");
+    w(&mut m, 0x2a003010, "5fbf91430fe7dbc3dd7f09c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.018693447113037f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_855() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b2eebb43e5fa00429206c9c1504ebd43b236d2418506abc11d0ab843612bd940aec3c7c1");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "25d4bc4366a50542d558e3c1");
+    w(&mut m, 0x2a003010, "ae5bbc430a2205422c89d2c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.521418571472168f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "65d4bb430ac40242f557d8"), (0x2a003010, "d08c683fde11d63e00000080")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_856() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "2a8807c28921c1438a95a0c12a7e47c20415c64353f892c1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "ff7147c27671c443bc5584c1");
+    w(&mut m, 0x2a003010, "0c4653c2d6b7c74309f589c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.5754817724227905f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_857() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "053dc4439cae1bc21e081f427931c04305b92cc2d4931f42");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "a9e2c4436cfe1ec244cf2b42");
+    w(&mut m, 0x2a003010, "bc05c64383362ac250271d42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.2857422828674316f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_858() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "9c48cfc2e480b5c337952e4108b6bdc25836b0c33047d540");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "d04ec4c296bbb0c395941b41");
+    w(&mut m, 0x2a003010, "5660bac26daab2c37fef4441");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.5393818616867065f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "aa69c1c2ae53b1c3b4c51d"), (0x2a003010, "f1f544bf0288233f00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_859() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "fe2d214076cfac42c56b03427f2bb2c13607b1427d7cf541da0ee2c1cba3d3427960e141d6c2efc100b2e242eb95df41");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "3582f8c10467ed4262a30c42");
+    w(&mut m, 0x2a003010, "4f4cf0c1442ae342a303ed41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.019189476966858f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_860() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "5d46e4436587b343de443242119bdd43b7f0bb43d8ec2642");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "c639dd43fc05bd43bb082f42");
+    w(&mut m, 0x2a003010, "079edc437ff6ba432ca83942");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.7475826740264893f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_861() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0ffbcec3b2d3a9c361d54042dc3acac3ba14a8c3a6043f42");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "50e7cec3688baac37c7e3a42");
+    w(&mut m, 0x2a003010, "0af6cfc339dba7c335864442");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.4674606323242188f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_862() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "2abbacc182905543305bf0bf85d81fc2383b5a43abe9453e02713ec261454f4352b0b63c");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "1c3d40c2df8f4f432856f33f");
+    w(&mut m, 0x2a003010, "e0e540c22a814f43a7053440");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.5232187509536743f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_863() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "548be0c36b1f33c307bfb4c0a0afddc3258f26c32266ddbf96b8d9c3c8ef1bc375097fc05f88d2c3ddb209c3611592c0");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "8a4ed1c3f6c107c3d4cdf9c0");
+    w(&mut m, 0x2a003010, "fde1d0c33d1c07c38d4b03bf");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.252223253250122f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_864() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "4f6dc443e9f3dbc3fa0ef2c02ee9ca433ee1d6c31da739c18190d2437278d7c3cecae3c0c0badc433f52d5c3ae8924c1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "4570de431325d4c3c61ef2c0");
+    w(&mut m, 0x2a003010, "7b12de437890d4c35ea501c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.2774513959884644f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_865() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "dc44a0c2155a9043d3150542ebbf86c21f928b4348710242");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "8e52a1c2f3c08f4300660742");
+    w(&mut m, 0x2a003010, "5d509ac200608f4384410542");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.3727165460586548f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_866() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "5cfbe243c27ada4305673b420a8bdc438980e44357113f42ecf4d943d1bae943f6743142");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "b596e343093bd9432e624e42");
+    w(&mut m, 0x2a003010, "92a6e343c459d94337663442");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.8890473246574402f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_867() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7cabc1c340c39bc386d5b2c0776ebec3dd1a90c39640efc03385b9c3e1ca8fc3613fe9c0ee4bb4c3a6878ac30c8d19c1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "080fbfc37c1290c3cd0f26c1");
+    w(&mut m, 0x2a003010, "7c42c0c328f08fc3575ae2c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.2611937522888184f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_868() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "af130743ad7ed1c31fa32f428c1d03434f1fd0c3a0912342");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "c52c06432371d0c3bc342342");
+    w(&mut m, 0x2a003010, "617bfe42eba9cfc3e1983242");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.2923619747161865f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_869() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ac19b042a18d51c3efcc3142ea249f4207e958c38f822842f149954237b45cc300cf2842");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "02589c42253359c38c453442");
+    w(&mut m, 0x2a003010, "a58e9e4287405cc3b8dc3f42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.6437925696372986f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_870() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "cd6080c3513dcdc37aef694056dc86c34de2cec334974340");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "3a687cc3a8a2cec3007d2140");
+    w(&mut m, 0x2a003010, "20847cc3d044cec329b22d40");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.1567559242248535f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_871() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c8c465420910e0418aa0b8c1a6f22d4247d90a4295e2bec13d022c42ca3b5042365dc1c1");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "3eb81e422da305424e70b5c1");
+    w(&mut m, 0x2a003010, "235f2a429e4f13429c1fbac1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.4629494845867157f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_872() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ff4bb2c327e7a43f82f555410747afc3201eab40d49c44414aa9adc37d6f59413e97364173a4a7c3f5c0e0418f2a6641");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "5907b1c39929f44083345941");
+    w(&mut m, 0x2a003010, "2313adc35a5384407fdb2f41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.0109138488769531f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "6036afc389eaad40f92849"), (0x2a003010, "ddcf0ebfa976543f00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_873() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "1f4f8243974d9a435072b94042e68343fe14994369132b40db7c864350ae9943e88e5140");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "b03c8243cdd099431d02a940");
+    w(&mut m, 0x2a003010, "ae518543d04b984306b4eb3f");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.9335906505584717f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_874() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c6892940d55d9bc274ef1fc2cd7808c1a864b4c270bc16c2");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "924ab44079c2a2c292762bc2");
+    w(&mut m, 0x2a003010, "a65eb0402e61a2c2e75e05c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.3721256256103516f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_875() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7b009cc350bb2243e55e2e42461d9ac3b4392d43a9673342");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "552e9ac3823320435ac12942");
+    w(&mut m, 0x2a003010, "aadc9bc3b2272243b0862942");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.3140783309936523f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_876() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b0d59dc36a81d1c305f1f541ac77a0c3b942cac3930b0342c575a4c3e281c6c34b380042");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "522ea1c3f7dacac3e729eb41");
+    w(&mut m, 0x2a003010, "f12fa2c32da2cbc3a7a70542");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.5058753490447998f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_877() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "467ca4436166efc3d79c1e425500a9435acef5c37f2a20425441af4347cdf5c3d9071142b49ab843093cfbc31d411842");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "e2a4a9434229f5c309aa1c42");
+    w(&mut m, 0x2a003010, "d669a843e1cff6c3a82e1142");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.5020315647125244f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "41f0a8438bb7"), (0x2a003008, "e1ce1b"), (0x2a003010, "f13c513f4b7f133f00000080")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_878() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f351d04328830b43edf8ec41b3bfcb43aab11a439780e8419d76c343a33619430af4e741");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "193ccf43968018432631dd41");
+    w(&mut m, 0x2a003010, "a872cd4374a61c43223ccf41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.9251571893692017f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_879() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "a7d5bdc27758dec3d71270c1761ed6c2f3bde0c3e84389c1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "961fb7c2a3dbdfc32161a4c1");
+    w(&mut m, 0x2a003010, "85d3c1c2a0eedcc378f17dc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.5809860825538635f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_880() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "fb6388c3968de0c22a7bf5c1b2138dc3224dcec219cc00c2");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "c6218dc3811ccec2135fe6c1");
+    w(&mut m, 0x2a003010, "3cb48cc39842d0c27ac700c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.2607550621032715f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_881() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "3cd52f42d23fa343e2d38141fac00242a10aa74300c4a041fb4b4541f76dab43a2d78741ba28c0c05eeda843a5257441");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "faea41422660a143af256b41");
+    w(&mut m, 0x2a003010, "869c34428ad1a243a69da741");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.4042898714542389f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_882() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "685cd6c3625257c2345ec7c1a929d3c3ae0f85c29ce1d9c17142d3c33ecd92c268f6d9c1c03fd5c388aea5c2df4be4c1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "ed24d3c392e585c2db93c3c1");
+    w(&mut m, 0x2a003010, "1a95d3c3ab4e85c281f0c5c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.5149041414260864f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "c72c"), (0x2a003004, "e8c986c265a9bf"), (0x2a003010, "fee57f3f58c2e6bc00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_883() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "a1f0bec32fa4c8c39d1933c200bfbfc34320cac3422f3ac2f1d1c1c34e6dcac3e4ce3bc2e0e2c5c3edf2c8c3682a2ec2");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "d42bc0c36526cac3c6eb2bc2");
+    w(&mut m, 0x2a003010, "3570bfc36d1acac311ae2fc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.3628365993499756f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_884() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "4a7be4c1e50b3dc3f8cb0241dcdf12c2c9433ac301954c41bef060c2f4e547c3542b2c41482c8fc25e3244c3ea6f3e41");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "dadc16c2d84c3cc3d7f07e41");
+    w(&mut m, 0x2a003010, "fd811cc2525938c355842741");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.1580538749694824f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "d83d17c27de439c30fec61"), (0x2a003010, "f83aa5be904d72bf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_885() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "41bcafc3684fe9c3dbaebfc1a35fabc3d144f0c349fec6c1148cadc36021f2c375aad2c1");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "f94aacc3ab90f0c310ccf5c1");
+    w(&mut m, 0x2a003010, "1677acc3d8d2f0c3fad8e5c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.136081576347351f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_886() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "e4376c41fb585b436c8e04c246e28d4107b06543d72b0cc2");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "10d64241b7cc5943049ce3c1");
+    w(&mut m, 0x2a003010, "e3825441fc925a43461b13c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.5245941877365112f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_887() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b038de4326bc27437a98fdc1e6e9db43651a21438b220fc26dd1db439e891443a87cf9c1915fdf439f9d05436d6ef6c1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "8f6bdc43682123436aff06c2");
+    w(&mut m, 0x2a003010, "bdbadc433dcc234336e403c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.4198583364486694f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_888() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0eb63a43207c91427b2e74c0cbe53b435ca3b1424adbe7bf");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "8cde3a4354bc9842e60695c0");
+    w(&mut m, 0x2a003010, "063f3b438e29a042e282cdc0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.9889202117919922f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_889() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "da568c43df9b27c3b17d0ac1c3c48343edc21ac359b4ebc0ea7a8243c37f10c3e72e31c182307a43dafa01c341c6f2c0");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "0c318c436fbe23c357f5e7c0");
+    w(&mut m, 0x2a003010, "f81c8d433c9a29c3c254b4c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.9936564564704895f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_890() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "85de96c3930155c29fe812c2969d99c3efb88ec214b00fc24aff99c3992da4c2b95a01c2");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "5d0d9ac303659bc27370fec1");
+    w(&mut m, 0x2a003010, "679b9ac31c4d98c29d5501c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.5139614939689636f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_891() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "9420b443a6d9ec433d801142d50ab3431b3fe343f81112423ccab4431f5be243eb530a42");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "fcb1b5438d53ec43c99f1842");
+    w(&mut m, 0x2a003010, "d351b4438675ed43e74e0342");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.3473920822143555f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "f51eb4434ccb"), (0x2a003008, "1a4d12"), (0x2a003010, "c2617e3f64e7e5bd00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_892() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "bf7978c36426bfc3b5a3e841a0b760c392fcbdc3a479e441895060c3765dc4c3e9e7ce41");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "31c779c37717bfc32881e841");
+    w(&mut m, 0x2a003010, "30b975c3786dbfc38a5fd141");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.3210766613483429f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_893() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "135fbf42bd008543e3eb08416f559c42a7c28843183c86406ebe9342e0cf8943055486409ffb5742bce98e43f59ed940");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "3153664246bd8f439e985140");
+    w(&mut m, 0x2a003010, "6237554253608e4388ca2240");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.1640747785568237f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_894() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c991dac38bfea8c348c14ec22b28dec360eda9c36af03ec2b5e7e1c33f0aa5c343c73cc2");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "bdead9c3b6c0a9c3188337c2");
+    w(&mut m, 0x2a003010, "a527dbc39f18a9c3218034c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.5695481896400452f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "63cadac3430d"), (0x2a003008, "a58f35"), (0x2a003010, "f2dc803e55c277bf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_895() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b46e0cc21d408ac39163b0c0667504c2d40e96c3a76ee7c0");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "bb450cc24d288bc3a6f6a0c0");
+    w(&mut m, 0x2a003010, "965914c2d0008dc3496c36c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.9108819961547852f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_896() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "30b1b8438c99a9433a7284c1e53fb243f290a243e1959dc1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "2c25b943ae22a843c71099c1");
+    w(&mut m, 0x2a003010, "82b4b843e6b4aa4348f5aac1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.3759435415267944f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "9480b8437b64a94354949e"), (0x2a003010, "f4c63c3feee92cbf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_897() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0f1c724221028dc3f97ec8410f77884280308bc37b98db41c00592422aac90c34aa5e041");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "3bd1714275f68ac3a1dce641");
+    w(&mut m, 0x2a003010, "88196f42795e8fc39586c541");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.033851146697998f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "a4b0744225db8cc3c07edf"), (0x2a003010, "6196dabe3f7f673f00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_898() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "88ce5343ccf9d643ac66eb418e3965436515d5438848f441c3726d4383d8dd435265f641");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "9ca1684378ded343861feb41");
+    w(&mut m, 0x2a003010, "b99a65439dead343a92af241");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.398003339767456f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_899() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "778b6143a9f392439e80fbc00c9f6b438c2a9643cf57abc0");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "5712624325d2904360ca08c1");
+    w(&mut m, 0x2a003010, "55456243959a9043abd903c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.374803751707077f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_900() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c4cc7e438b78dbc3377f14c1f6d972430aa4dbc39f8113c1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "17a97f43c07fdbc38a0911c1");
+    w(&mut m, 0x2a003010, "948a8043bf26dbc389178fc0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.8930384516716003f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "d7de7d43ee7b"), (0x2a003008, "8c3a6c"), (0x2a003010, "bfe2e83c83e57fbf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_901() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "3a0ec4c23e13b443b096ef4076c3a9c27851bc434ca6a440df40a6c249abc0430c2315412a0b8bc29a16c243d029da40");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "a9b28bc230cfc2439d873041");
+    w(&mut m, 0x2a003010, "377e85c2b5cac043ffd6fb40");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.2442848682403564f32);
+    assert_eq!(got as u32, 3u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "5fd1"), (0x2a003004, "430c"), (0x2a003008, "40fc38"), (0x2a003010, "b42251bea39a7a3f00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_902() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "19e8894302b95dc35d4ec541f1a98c439e234dc3f883ad411e5f8843b65f3fc3df22bd41");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "a0a78b43e0914dc361b4d341");
+    w(&mut m, 0x2a003010, "f8198b4348e04dc393a3ca41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.9718014001846313f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_903() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d48b88c3ef788a4228048dc16fda83c33f057842560ea6c13a6e82c3e3665642828f94c1073e84c307cc3642c5e2adc1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "36a983c36bb27242fffe84c1");
+    w(&mut m, 0x2a003010, "a39d83c3f8b46742ff479dc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.227195978164673f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_904() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "2cea8fc321eee043af07edc1339092c37bf2d643e773d9c1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "d3038ec36e60e243a6daedc1");
+    w(&mut m, 0x2a003010, "75948fc33905e243360904c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.49483340978622437f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_905() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "dd9f9fc3410a86c388a20ec28f41a3c3ede176c3238917c2cbc8a2c3563870c3599f04c2e4caa4c3d21c62c3cd091ac2");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "bb96a1c3b5446fc3a20310c2");
+    w(&mut m, 0x2a003010, "866da0c3a21c6fc3b36c11c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.4446929693222046f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_906() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "3ad44ac31bb688c3d2f8ae4157105ec3ecdf87c352d9b741");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "db3f4fc30a2088c3ef02c541");
+    w(&mut m, 0x2a003010, "ed7a4cc3d77987c35d389b41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.4276659488677979f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_907() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "1cd5e3c22a4548c2497188c02833e4c2afb55cc2c44ee63e3ba7e1c219576dc26c528c3e");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "d5b5dfc2353b60c227dc513f");
+    w(&mut m, 0x2a003010, "1b46e5c25d125bc26cdd0040");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.8408060669898987f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "c236e4c20c7e5dc2e976b6"), (0x2a003010, "b4d57f3fe82413bd00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_908() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "411b77c3c693a34321095ec12a6272c3cd98a94373497cc14cb76bc35a7cb243269083c1d5676cc3259dbe43b73f66c1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "7da167c3330bb243c8eb83c1");
+    w(&mut m, 0x2a003010, "92426ac31856b243556f98c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.2937530279159546f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_909() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "a1d1b5c225779dc39fb11c410515afc2a6e5a8c33dec47419758acc25048acc33a2d3941");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "a14daec219c3a8c39c3fa840");
+    w(&mut m, 0x2a003010, "54e8afc2383da9c3e2405741");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.137657880783081f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "e553afc2f57a"), (0x2a003008, "680881bf"), (0x2a003010, "23447d3f6540153e00000080")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_910() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "3932b4c27404a14318f167408bd6b3c2ce629d43e07dc340");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "9244b5c2ac3fa14379d92440");
+    w(&mut m, 0x2a003010, "8e3dabc2f49fa04378839e40");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.3081350326538086f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_911() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "926ad3c19702d043ed2cfc41853fbcc1ced2d243c3f4034290980fc1cb4bdc43c8b8fb41");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "4909d2c16340d34363b11142");
+    w(&mut m, 0x2a003010, "450bb5c16d5ad043c8851042");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.3371052742004395f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "d90fbfc1567bd2431999"), (0x2a003010, "ad9e63bf334fea3e00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_912() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ec2d75c26e900c42f18643413b4895c20ccc1a425ee2374166e8b6c23710c94186e75641bbe3d7c2a4811f42fd5e4941");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "b8cecdc24ffb0e42fc178f41");
+    w(&mut m, 0x2a003010, "0806dbc2f7e72342cb912841");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.6953694820404053f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_913() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "1918ac43ad4683c3468a3b429c67ab4300a785c347f24042");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "8af6aa43b4d986c39c6f3342");
+    w(&mut m, 0x2a003010, "47efaa43b8ed86c372ec2a42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.7864137887954712f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_914() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "d973964135d444c33063a6410d4eb941dca238c3ab1ab841f1058341c9b72cc37012bc41");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "15e4ca414c2436c3b864bd41");
+    w(&mut m, 0x2a003010, "a9acb141ee2436c396728841");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.6543711423873901f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_915() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "06c5d8c3ea3881c3402e8b419bfcd8c368f385c396279241d6eddbc3d55e8cc3ee378b41");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "0320dcc3083d8cc33d4ba141");
+    w(&mut m, 0x2a003010, "a328dac3538f8bc367a38441");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.336949110031128f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_916() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "422b85c303afd1c2a0e840421c5974c36ef7e3c2003c3b4234bc69c32a4bfcc232b04d42");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "b5106bc38243ffc2abef4842");
+    w(&mut m, 0x2a003010, "af9469c3902afbc239cf4242");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.4114142656326294f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_917() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "30c7d0c3a67ad943fecefb409d3ddcc358c1d7434005e340f8afdfc3b6a0da43baa02c412446e6c344a6d54367503f41");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "25eeddc3972bd94374103c41");
+    w(&mut m, 0x2a003010, "1580dfc30440da432ae41a41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.3069686889648438f32);
+    assert_eq!(got as u32, 3u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "c88ddfc38fbada43ae7428"), (0x2a003010, "205c1a3f563a4cbf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_918() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "260ef6425ef2bf402c47ae414e8505438c79a9404f0eba41ea38084321b890c067bed94163570c43d24887c1f4d9d041");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "d910f8422756bf4026dcb241");
+    w(&mut m, 0x2a003010, "c886f1424d7dc340a844b241");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5487126708030701f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_919() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "11d7da43d787cbc372c29841c3cfdb4307fecdc32872b441");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "67b0db433159cec39a35a641");
+    w(&mut m, 0x2a003010, "24fcda43059ecfc3ae189541");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.4792875051498413f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_920() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "1dffa543bd2dd0c35f5c2e42c629a443783bd0c3d4d53142966aa043856cd9c3f6ba3042");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "2a08a44371cccdc3077f3942");
+    w(&mut m, 0x2a003010, "6714a443af76cfc36ee02a42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.9304831624031067f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_921() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "e167e9c36f088e42039ab8412828e7c30e7e93424607e141e908e0c30a90ac42a3edd741");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "5309dfc34859ad42912fb441");
+    w(&mut m, 0x2a003010, "a372dec336c7b2420c2ed741");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.7389744520187378f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_922() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "25be1e43d1c9bdc3016f284240941843a6f6c7c3f53c1d42c0e5134326a2c8c3ae7d2a42");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "596c0f439e85c9c3bc4e3342");
+    w(&mut m, 0x2a003010, "aebb1143120dc9c3f4880c42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.4497923254966736f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_923() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "4ca973436bded2c2ed501dc271b069437cc7d7c221d31bc2");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "e1da6c43047ed4c2e1222cc2");
+    w(&mut m, 0x2a003010, "8a256843fe9ed8c2ac9717c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.3496587574481964f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_924() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "4e58df430c2fccc3cc50c8409e1ee04338c5c3c3739ed4401e02e4437e78c3c3e386b3403040e5433c10c0c3f0401d40");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "3969df433ce8ccc3b517443e");
+    w(&mut m, 0x2a003010, "01a6de4348eacdc384b17c40");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.2318429946899414f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_925() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "2fbee3c39cadce43b01e20c2458cddc3cf91d64341dc1ac2");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "b22de5c390f1cf439eb914c2");
+    w(&mut m, 0x2a003010, "5f5be4c3fc92cd4315470fc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.30931246280670166f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_926() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "82d3ad429a98274279c921c2a9e8af424f654542981426c2");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "5ee2aa42f7135a42dbe413c2");
+    w(&mut m, 0x2a003010, "756bae42b9c94e42db822bc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.092936635017395f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_927() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "2f02a2c396df0743547f0e42f6cda6c34e941943fa971642b03ba5c3cab41b4351950942d284abc399c32c43ed881442");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "3173acc3f4b72d43d96b2442");
+    w(&mut m, 0x2a003010, "bd45abc305262e43382f0642");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.7505132555961609f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_928() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "85607c43bc4687c3ed93a3c016497e4300e188c306d488c043e08143dc198bc368515fc001818943329c89c3f81ccbc0");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "54ae844364c38bc317f4b6c0");
+    w(&mut m, 0x2a003010, "5ee083439cdb89c385f650c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.8900519609451294f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_929() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ca0c95c35ec866c2e8063a42b5d690c3208230c2162b3142c3ea8bc32c9604c2b9f62f42");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "0ccd91c359ca4cc2d19a2342");
+    w(&mut m, 0x2a003010, "be1991c3bcc653c253232b42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.4020752906799316f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_930() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "236b5c436c7ddd422a6afdc131495143c429eb42e0ef03c2dc173f43a5c5f342f60ceec191803543621102436322edc1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "60864f439579ec42fbd5ebc1");
+    w(&mut m, 0x2a003010, "0fd44e432332ed429172f8c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.7466847896575928f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_931() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "22f13d42551c84c05bccf9c1db1b6a429d347741fce6fac1019f8142cf3ba04189ce0cc2");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "cb204a42f4d1ec405f23e8c1");
+    w(&mut m, 0x2a003010, "5cfc5842ebab0641907df3c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.8719128370285034f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "38d456429cebdc40fbdbec"), (0x2a003010, "dafb5ebf5d82fb3e00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_932() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "53b1eb437520c44245b7ea3e5953e7433fb99b4216704cc05274e643a8fa7d4262586bc0ad28e643e5ba674249e6c53f");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "270de74351ed8042726134bf");
+    w(&mut m, 0x2a003010, "0010e743c2f78042a3df0ec0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.2679616212844849f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_933() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c81f0cc297bda1c18667a04112029ac1bbdf35c1ee449741");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "5bd272c17b9716c19bcebf41");
+    w(&mut m, 0x2a003010, "476ca0c1af1c36c1618db641");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.8623359799385071f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_934() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "1626c2c3d0d8f9c244089941d0e3bcc3c9cad5c253bd7741bbf9c6c3e1acc5c26df47841");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "08a1bdc389aed0c253f9ac41");
+    w(&mut m, 0x2a003010, "6425bdc33db0d1c2ad429f41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.33961838483810425f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_935() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "016d5d435101e1c2d460cdc17e1d6f432ffddbc25dacb1c166c27e4360cdd8c22f9acfc1f7038043a5f7bcc29d2fd6c1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "06776c43bfcfe2c2a56dc8c1");
+    w(&mut m, 0x2a003010, "be916c437c8ee2c2ff4bb6c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.3767993152141571f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_936() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ae88bcc3bf1a83c31297e6c16eafb9c3c0487ec359c9d5c1b242b8c30acd7ac31992f3c18f8bb4c356847ac37d69d6c1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "18bdbbc3c56285c378e7eec1");
+    w(&mut m, 0x2a003010, "6e36bcc3fed083c31824f8c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.2328035831451416f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_937() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "178e3ac199909b42aa000ec28dfdcbc0ac86974243cd17c253559f40f2f88542ea1116c22c3069419c945a42acb810c2");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "90cbc440ee0b854243bd1dc2");
+    w(&mut m, 0x2a003010, "87874640096f87424fa808c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.7992594838142395f32);
+    assert_eq!(got as u32, 3u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "83e1b9409fd68342a1be1f"), (0x2a003010, "2b1a4a3ffb211d3f00000080")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_938() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f3f957c38dc552c34f003542c46e5ec3450057c3a079334231b96ac349b069c38af02842");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "4ed154c3318c51c313593a42");
+    w(&mut m, 0x2a003010, "34ce58c32d1d53c3bc2b3242");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.6378653049468994f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_939() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "e33d86439bdbca433fa505c2fa5084431287cb435fb412c2");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "90eb844350bdca4338f405c2");
+    w(&mut m, 0x2a003010, "a1e48443c4c5ca43bbdb02c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.4531304836273193f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "74268643c2e3"), (0x2a003008, "b47b64"), (0x2a003010, "da37a8bedac971bf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_940() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "74e537432cf3d243df87a141764032434f35cd43e5a7b34191702e438c10cd43c9e3b141");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "74c932432d63cd43b549c241");
+    w(&mut m, 0x2a003010, "1aeb314304b7cc431ba4b041");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.38397401571273804f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "0ebb"), (0x2a003004, "02b2"), (0x2a003008, "7325c8"), (0x2a003010, "debe653faedbe1be00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_941() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "98b3a9c3abf2cb42871901c23c2bb0c36533b542d768fdc12121adc386708742651efdc1");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "5b11aac35d1fd54250f111c2");
+    w(&mut m, 0x2a003010, "32b1a9c34ce7c9426b3b12c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.3340600728988647f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_942() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "a6a29443eb207043030ba641952090436d216d43fb13a241f8598543ec736643bd248f41be3c8643c6746243c4e89141");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "784f914329b66f4325c4ac41");
+    w(&mut m, 0x2a003010, "4155904324f66a43fe6aab41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.0272436141967773f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_943() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "71fb6143c3b8c74338bcb0c0f82265432cd6c7432cd35ec028a96343b3cece43ebce45c0");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "8c156443e408c943b023443f");
+    w(&mut m, 0x2a003010, "ed6363436c97c943589404c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.0311238765716553f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_944() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "676d94c35a054443851338c0267d99c316235443822f96c0133299c3cab05e43a853003f");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "6a6895c34e9a45431e32c7c0");
+    w(&mut m, 0x2a003010, "18e293c361ad4243b193bcc0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.9344198703765869f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "f42e"), (0x2a003004, "9f6d46434e63c8"), (0x2a003010, "3dc858bfc82a08bf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_945() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "2f8d584283296dc391f9a6c117dd66421d1b5ec3a412adc1c78e7e42aa085dc3f80cb7c15fb08542a7865bc36c8294c1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "03817a42f6325ec3c87f9dc1");
+    w(&mut m, 0x2a003010, "96a96d42380b5dc313c7a1c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.9290673136711121f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_946() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "e7b75fc31e421ac31f1302417daf59c34e521ac3b7ad2a41cc4e4bc3b7c026c389470341");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "775c5dc3b49d1dc37f9b0441");
+    w(&mut m, 0x2a003010, "94ba59c39a6e1ac318d04141");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.7006174921989441f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_947() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f70771c22420bec15ce339c29cd163c2b8e9eac1335c43c2");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "eb1a55c23f2afbc1769231c2");
+    w(&mut m, 0x2a003010, "a78d62c2483aefc12c484bc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.5321683883666992f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_948() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "5a9d02c3d18de6c3ee4edbc16904f9c200cfeac3cc79e1c1256306c3f1fcf0c3e8d8ddc195b10ac3e232f4c38f3ad5c1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "e3c502c33307e6c31899f6c1");
+    w(&mut m, 0x2a003010, "196c02c36901e6c3aa0fc4c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.9806621074676514f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_949() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "25b5c5435cc7b8c383d509c2cc9ace43dcbfc0c3f7f508c296e8d24346b4c2c36b9006c2");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "bd16d043f25abfc34c2701c2");
+    w(&mut m, 0x2a003010, "326cce43ffaec0c3ddeb0ac2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.3326785564422607f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "6ea0ce43e8c4c0c3a42905"), (0x2a003010, "03d22a3f6eac3e3f00000080")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_950() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "14114543fc81e6c33072314295f94043179eefc35e1b3842944541436941f4c3a25f3242735647431c37fdc3aeab4742");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "f0914243e445f3c30ff54d42");
+    w(&mut m, 0x2a003010, "117244435d03f3c395984942");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.9534885883331299f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_951() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "4024aec324a6aec347f7d5c10586adc3c511b2c374b5b8c1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "c3feacc31c7baec3829db0c1");
+    w(&mut m, 0x2a003010, "18f7afc3987eafc332c0e7c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.8883802890777588f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "0721aec3fbb7"), (0x2a003008, "676ab4"), (0x2a003010, "80eb7b3fbb17363e00000080")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_952() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "8e7aa7c3a1f1ba435dfb2d4210e29ec369bdb843b6862c4266689dc3691ab7430f262942");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "0ac19bc35385b74398953442");
+    w(&mut m, 0x2a003010, "eb729fc32140b9434bc32a42");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.6020622849464417f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "eac99ec39fa2b843b21c2d"), (0x2a003010, "ed273e3f77652b3f00000080")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_953() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "331f6043eee8b8c2e18188c1cea76943d3d8bcc2a7d060c122db6c437e70b3c2e69b8ac1");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "e49c69431412c0c2877f70c1");
+    w(&mut m, 0x2a003010, "7cd8684396b1bbc2f4405bc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.9664275646209717f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_954() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "cede56c3466cf143c106d4412d604dc370c8f343fc6eae41012246c3d6cafe43abccce411b872ec3ea21014409a0cf41");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "691146c302030044eaeba441");
+    w(&mut m, 0x2a003010, "2d1347c39170004439c4d241");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.621195673942566f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_955() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "6978d0c181d9eb43b155af412fc102c1e63fe4438a188b41");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "a0bee93e59cfe343895a8541");
+    w(&mut m, 0x2a003010, "b9b190c0762fe143a59c9c41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 2.2322850227355957f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_956() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "9b63b4436260edc3c0c41e4223dcad43bce8e5c3da5e2d427d53a643f15ce5c3e72120429d7da243dfc6e0c394eb2c42");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "8e94ac43914ae4c3f1a91b42");
+    w(&mut m, 0x2a003010, "0c06af43ae0fe7c3acc03442");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.9312145113945007f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_957() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "6853f44385b5c3c250a83cc23c12ec431883b2c2b34a30c25b72e24375eac5c28c6930c2");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "aca9eb435df2b2c295522dc2");
+    w(&mut m, 0x2a003010, "6e32ed435dd3b4c2f46729c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.3228230476379395f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_958() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "150aedc31c9bc14309df2bc2821ff1c3426fb743796d2dc220a8f6c3726dac43e8a124c2");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "1bbcf0c31636b843dc231ac2");
+    w(&mut m, 0x2a003010, "321ef0c3c574b943f68d3ac2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.369665265083313f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_959() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "70b0d343c6f5ddc3e30a03c23a4ad2437c51e0c3079affc1b28dcf435250ebc3056913c2");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "2da7d24386c4e0c39970f2c1");
+    w(&mut m, 0x2a003010, "a157d243fb60e0c3df56ebc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.005308747291565f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "dd31"), (0x2a003004, "8b7a"), (0x2a003008, "b6d8f1"), (0x2a003010, "60295c3fefa102bf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_960() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "fda8e84309c705c38e0053c16989ed43a536edc2566223c1fa00f343a7e6c0c2620b40c1");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "1c72e743bc5c06c3e90d1ac1");
+    w(&mut m, 0x2a003010, "349be843b1cd07c33c396dc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.6766328811645508f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_961() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "2a3545c3bea6f1c39899cdc1808f46c316adecc35c3cebc1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "34d047c31048ebc3b5b6e6c1");
+    w(&mut m, 0x2a003010, "39c042c3bc20ecc32396d6c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.2497243881225586f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_962() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f504dbc3e6d833c2f94cad41f74ed1c3d7be20c262baa8419f9ccdc3fde5e7c1c2d9ac41");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "d333cec355df1fc2ae88aa41");
+    w(&mut m, 0x2a003010, "4cfecdc3a7fb1fc2fa366b41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.579680860042572f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_963() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "6001aac36d19f8c3615e29428f23abc35e66edc352fe1c42");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "d4b5a9c3910fefc371760f42");
+    w(&mut m, 0x2a003010, "0699aac3b108efc31e7b2842");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.333690881729126f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_964() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "5cc883c2cf49c3424ffc50c2f0eb8bc20ae3c742bcfa41c2b5b0aec2fba7ce42142c3bc26b8fddc27494d8424e1540c2");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "5e4a7dc2d2f4c2421b8957c2");
+    w(&mut m, 0x2a003010, "31987ec26cffc242f6894cc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.6160972118377686f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_965() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "460a1542b25f96c1a724784159131b4296296ec1272e4241");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "66a51342777ba1c113d08041");
+    w(&mut m, 0x2a003010, "55580e4231f177c10a4c7741");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.7276822328567505f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_966() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "643ee4c24cddb5c35726b9415d84f7c2546cc0c3c54ed8419fdd09c386f3c6c306f6ca41");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "feecfdc2a842c3c3a197df41");
+    w(&mut m, 0x2a003010, "9115f8c2b1f9c0c3f8dfef41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.9553828239440918f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "29d2fac20630c1c342ddeb"), (0x2a003010, "aee22d3feee13bbf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_967() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "a9d7b2c30da5544330782cc27d31b9c382b6414389da26c2dfe2c0c35cd63643561318c2");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "1ca8b8c3bc0a3c43158413c2");
+    w(&mut m, 0x2a003010, "1bc1bac3bb5c43433ae631c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.6112109422683716f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "d207bac38387404328ae20"), (0x2a003010, "5bc4133f320c51bf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_968() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "9f46f1c2a265e8422b7253c1679d0ec32040d74260bf21c1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "5fbb11c322e9da42abd977c1");
+    w(&mut m, 0x2a003010, "83da12c3f558dc4260ba8ac1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.4159342348575592f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_969() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f5499bc2685283429e2013c215aba5c23f1f96420fd205c21bc192c263efb5424e630bc2dc7994c20406c142ab5a01c2");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "425794c22002b942bd0e09c2");
+    w(&mut m, 0x2a003010, "979b92c2d9e5b8428aacf1c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.20377779006958f32);
+    assert_eq!(got as u32, 2u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "5aae91c286bdb7423d8803"), (0x2a003010, "050c5cbf5cd3023f00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_970() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7c1733c34fda9841541f1142eb782ec3c936a04164090142ccf41ec372b5d240c445f741c66714c3f54a0e40815d0f42");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "a12226c3d2d4cb40e7910142");
+    w(&mut m, 0x2a003010, "375a23c3c485e4405095ef41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.6571303606033325f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_971() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "9788c5c3eb781ac38b164842ccc1c2c3022322c3a2c83b42");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "8055c4c32d5b25c3efe94942");
+    w(&mut m, 0x2a003010, "7f1ec4c365db24c38a365042");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.2697694301605225f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_972() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7188de4272111942d625eec004ece14243233b421b3310c1a033e84260128842277986c06a75e6428c479c4281a804c1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "875bda421e482f420916f9bf");
+    w(&mut m, 0x2a003010, "b58ae542ce3c3042304b07c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.3209314346313477f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "f4abe042a5912e422d1f00c0"), (0x2a003010, "5c147bbf73cd473e00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_973() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "fcb7e443941036c2af7b5641c166e243e19429c29b6f84412e36da437e6a33c22a3d7b41");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "bbf6e443350f28c279536c41");
+    w(&mut m, 0x2a003010, "4923e343e88828c22d321e41");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.5508095026016235f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_974() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "40cae3c19fb94ec2d1dc31c211b628c1ab807bc286ac2ec24c6331c1f29684c2f46131c2");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "b14415c1da267cc2043a2dc2");
+    w(&mut m, 0x2a003010, "8a9a1cc1aaa570c2374038c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.8274233341217041f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_975() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "f5f3b742c6f5aec3b8fc6f3f098bbb4271f4b2c3bf070a40");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "ff61b9427e71aec3dfbce8bf");
+    w(&mut m, 0x2a003010, "798fb8422e83b0c3eaa1b540");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.9475767612457275f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_976() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "23f45d4364b5c6c3149c0f428ce55a43c60fc1c3d5c9144254df5943a706b7c3b58a0c42");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "53525b4396dab3c3a9851942");
+    w(&mut m, 0x2a003010, "29a75843e0ebb7c3e9831642");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 0.8929605484008789f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_977() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "4572a043568b85c32a4fffc17016a943cdc682c30d6501c2");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "cab4a643ed5384c322b111c2");
+    w(&mut m, 0x2a003010, "214fa743f57b83c3d9a310c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.759053349494934f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_978() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "dcbf4d43dd2ccb438587a5c1853a52439815c443c335a6c113804c4341b9c243fdad97c1e0e64b433f7bbf430c0eb7c1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "8d3c494388b3c4433c20c1c1");
+    w(&mut m, 0x2a003010, "d5134a43e639c44386ffc2c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.6865748167037964f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_979() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "5ba5bec3888ac143ffdaca41b7aac2c30ab5c343ba4ae1419281cbc3117cc94384b1cd41");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "b00bc2c3fbe1c4433da0e441");
+    w(&mut m, 0x2a003010, "2d45c2c31bf7c243f66ee441");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.6064510941505432f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_980() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "4796f9c3d26ca840121b3e42279bf1c37f76b73f8d934f427e06f0c36e391940959b4742");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "3080fcc3cc7118400db13542");
+    w(&mut m, 0x2a003010, "5ad0fbc3e686bb40080d4342");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.1162309646606445f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_981() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "0ecec54211983ac2312833c17b32c24220012bc27e533dc1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "722bc642820131c2853783c1");
+    w(&mut m, 0x2a003010, "68dcc442141b35c20ab413c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.1569011211395264f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_982() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "fa6ec9c372860ac3338aadc0742fcac30982fcc22386f9c00854c7c336d2cdc20e2ec7c091b0bcc3b993bec24b2347c0");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "031cc7c3d638c4c2053fefbf");
+    w(&mut m, 0x2a003010, "7c01c7c33ebacac23107efc0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.572044849395752f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_983() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "510720c29b368d432abe40c108222ec25beb8143ace827c1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "a77927c2fc208243f2750fc1");
+    w(&mut m, 0x2a003010, "0dd139c20b79814333295cc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.0362014770507812f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "dcdf2dc258"), (0x2a003008, "821819"), (0x2a003010, "c9ef7c3f61f01dbe00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_984() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "6f7b91c356a0e0c3ff9ea441662698c3eef6e2c35c7a9e41");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "81e096c3aee7e1c302eeac41");
+    w(&mut m, 0x2a003010, "a37195c3cbe5e1c3a3449341");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.8446904420852661f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_985() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "ff2696c3e906d241d3910fbf44178cc3896614429b383abf13288ac3428f4142c53511bf");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "6d058ac3acb3474206ec3fc0");
+    w(&mut m, 0x2a003010, "6f1c89c3b3983942465a8740");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.32814452052116394f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_986() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "71db884247d781c3dd720fc28a3ab042fa0d89c34fff11c21121b242450d94c3b6400bc2");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "da81af42d2488ec3b73120c2");
+    w(&mut m, 0x2a003010, "8a36af42cf0d8ec3d14118c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 2.3212790489196777f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_987() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "850f44c36070eec3817494c1b5cb46c3aa10e8c3e9fe98c1395659c3b229e8c3360569c1");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "c62558c3bde1e6c3cdda88c1");
+    w(&mut m, 0x2a003010, "1a6b57c3ab7fe6c3a77c90c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.8422747850418091f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_988() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c66df5435d9aad436b0d69bf05b9f543d387a54391e9c0be6c49fe43f8479e43450da3be");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "0d7df5437f0da6435b855f40");
+    w(&mut m, 0x2a003010, "e1abf5438951a6437e6a37c0");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.6005097031593323f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_989() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "e2cdcf428b8cd7c38c46673feafcd342b345dfc347975d40");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "7247d04231dbd4c36815483c");
+    w(&mut m, 0x2a003010, "be4ecd42d3d0d5c3ffdcd03e");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.2961148023605347f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_990() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "3ba3814389348943a1a3e83df04e7f437e098043b918f23f85d772432fbe7543af647c3fd8407743638a71434bd5703f");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "ad598043d5e68343f78118c0");
+    w(&mut m, 0x2a003010, "d0618043c6cd834360a8333f");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 2.2773876190185547f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_991() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "38d550c30a86d2c242c8cec1e3b151c3a52ea6c20857e3c192094bc373199dc23f2ac1c1ea3642c3225a64c2efd1c5c1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "0b514cc3e8a0a6c235b5fcc1");
+    w(&mut m, 0x2a003010, "5af04bc33ad8a2c26d83b3c1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.0844497680664062f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_992() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "b33b5ec3a4fb424263e6514042116fc3920a69425946b840");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "1e415cc357063d427bf75d40");
+    w(&mut m, 0x2a003010, "33595dc3344c3742c8565440");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 1.02163565158844f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_993() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "bd1ec2422b99efc3218b0d42fcccc742e25eedc38c6b1942");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "e1a4c0421ab9eec328ea1342");
+    w(&mut m, 0x2a003010, "0272cf42e0b6ebc3563e1042");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.0329315662384033f32);
+    assert_eq!(got as u32, 1u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "7bffc4424278"), (0x2a003008, "4f44"), (0x2a003010, "87dd57bfaf9d093f00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_994() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "1ab450c3cc2ea8c3c44cd1c19e2560c303afa9c30e06bac158a070c30457aac3dbb2aac152fa7fc39602a5c36414d0c1");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "499c79c3d599a7c30788a7c1");
+    w(&mut m, 0x2a003010, "86387ac3a337a6c313bdcfc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 0.4848717153072357f32);
+    assert_eq!(got as u32, 3u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[(0x2a003000, "d360"), (0x2a003004, "274d"), (0x2a003008, "e772aa"), (0x2a003010, "c50212bf2c4752bf00000000")]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_995() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "3cf1f141dfd636439b332ec281584d42cf982e439cc235c265595042f4661743edab27c2");
+    w(&mut m, 0x2a001000, "07000000030000000020002a");
+    w(&mut m, 0x2a003000, "500d4c42a95d16431d0629c2");
+    w(&mut m, 0x2a003010, "38584a426028164379dd38c2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.0185794830322266f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_996() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "5f298242e67e81c33191b1c1f8c99142d58b83c33146a7c1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "94778542295e80c38c5993c1");
+    w(&mut m, 0x2a003010, "5cf585426b5180c3dbc3adc1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.8013328909873962f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_997() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "3f923e43125ebbc34bfbbd41e112404373e8bec3f10ee741f3f43a43e31ccac38ffdcc41f0f73843d866d5c3145ecd41");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "607c4143b1e5bcc31dd9e541");
+    w(&mut m, 0x2a003010, "a6754143da6bbdc3e82ad541");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 2, 0x2a003000, 0x2a003010, 1.4825688600540161f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_998() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "c58eb2c3f17a99c36a1717c28b0fa9c3a6b89bc3546523c200f1a2c3a3999ec3015e22c23f18a0c37149a5c3bd5824c2");
+    w(&mut m, 0x2a001000, "07000000040000000020002a");
+    w(&mut m, 0x2a003000, "f0daa3c333c69dc3ddd51ac2");
+    w(&mut m, 0x2a003010, "d5e7a2c3cdd59dc3d5771bc2");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 7, 0x2a003000, 0x2a003010, 1.1556235551834106f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
+
+#[test]
+fn case_999() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f0000000000000000000000000000803f0000000000000000000000000000803f000000000000000000000000");
+    w(&mut m, 0x702650, "000000000000000000000000");
+    w(&mut m, 0x702630, "00000000000000000000803f");
+    w(&mut m, 0x2a002000, "7d24b0c2dab19443e35d07c24293a5c27554964331dcefc1");
+    w(&mut m, 0x2a001000, "07000000020000000020002a");
+    w(&mut m, 0x2a003000, "706badc254509343141b05c2");
+    w(&mut m, 0x2a003010, "bd77aec26adb93430dbcfac1");
+    let before0 = m.read(0x2a003000, 28);
+    let got = shape::fn_005f6820(&mut m, 0x2a001000, 6, 0x2a003000, 0x2a003010, 0.9018086791038513f32);
+    assert_eq!(got as u32, 0u32, "returned value differs from the original");
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a003000, &[]);
+    assert!(mem_close(&m.read(0x2a003000, 28), &want0), "memory at 0x2a003000 differs from the original:{}", report(0x2a003000, &m.read(0x2a003000, 28), &want0));
+}
