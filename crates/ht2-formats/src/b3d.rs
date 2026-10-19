@@ -31,6 +31,9 @@ pub struct PolyVert {
 
 #[derive(Debug, Clone)]
 pub struct Poly {
+    /// The format word of the polygon (bit 1 texture coordinates, 0x10/0x20 normals, 0x80 a
+    /// triangle strip rather than a fan).
+    pub format: u32,
     pub material: u32,
     pub verts: Vec<PolyVert>,
 }
@@ -182,7 +185,7 @@ impl R<'_> {
                     }
                     verts.push(PolyVert { index, uv: first });
                 }
-                polys.push(Poly { material, verts });
+                polys.push(Poly { format: raw, material, verts });
             }
         }
         Ok((polys, spr))
@@ -648,8 +651,16 @@ fn collect(n: &Node, xf: &Xf, pool: &[Vertex], ctx: &Ctx, emit: bool, depth: u32
                     }
                 };
                 let mk = |i: usize| Vertex { pos: xf.apply(vs[i].0.pos), uv: vs[i].1.unwrap_or(vs[i].0.uv) };
-                for i in 1..vs.len().saturating_sub(1) {
-                    out[slot].verts.extend([mk(0), mk(i), mk(i + 1)]);
+                if p.format & 0x80 != 0 {
+                    // a triangle strip
+                    for i in 0..vs.len().saturating_sub(2) {
+                        let (a, b) = if i % 2 == 0 { (i, i + 1) } else { (i + 1, i) };
+                        out[slot].verts.extend([mk(a), mk(b), mk(i + 2)]);
+                    }
+                } else {
+                    for i in 1..vs.len().saturating_sub(1) {
+                        out[slot].verts.extend([mk(0), mk(i), mk(i + 1)]);
+                    }
                 }
             }
         }
