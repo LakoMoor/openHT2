@@ -50,16 +50,17 @@ pub struct Node {
     pub flag: u32,
 }
 
-/// A road segment (`RSEG`): a polyline with a width on each side.
+/// A road segment (`RSEG`): a polyline (`ATTR` bit 0 clear) or a cubic curve through four
+/// control points (bit 0 set), with the road width at its start and end.
 #[derive(Debug, Clone)]
 pub struct Segment {
-    /// First field of `ATTR` (observed values such as 2, 22, 98).
+    /// First field of `ATTR`: flags; bit 0 marks a curve (observed values such as 1, 2, 22, 53, 98).
     pub kind: u32,
     /// Second field of `ATTR`, a real number.
     pub value: f64,
     /// Third field of `ATTR`.
     pub flag: u32,
-    /// `WDTH`: left and right half-widths.
+    /// `WDTH`: the road width at the start and at the end (the original reads a list of doubles).
     pub width: [f64; 2],
     /// `VDAT`: the centre line.
     pub points: Vec<[f64; 3]>,
