@@ -54,3 +54,42 @@ pub fn dt(m: &Mem) -> f32 {
         }
     }
 }
+
+/// Static constant vectors the original initialises at start-up (`0x5ab350..0x5ab3fe`).
+pub const VEC_Y: u32 = 0x0070_2620;
+pub const VEC_UP: u32 = 0x0070_2630;
+pub const VEC_X: u32 = 0x0070_2640;
+pub const VEC_ZERO: u32 = 0x0070_2650;
+
+/// Write the constant vectors (Z is up in the game world).
+pub fn install_constants(m: &mut Mem) {
+    for (addr, v) in [(VEC_Y, [0.0, 1.0, 0.0]), (VEC_UP, [0.0, 0.0, 1.0]), (VEC_X, [1.0, 0.0, 0.0]), (VEC_ZERO, [0.0, 0.0, 0.0])] {
+        for (i, c) in v.iter().enumerate() {
+            m.set_f32(addr + 4 * i as u32, *c);
+        }
+    }
+}
+
+/// `0x4e27a5` at full precision: the value the original leaves on the FPU stack (not rounded to `f32`).
+pub fn time_hi(m: &Mem) -> f64 {
+    if m.i16(FIXED_STEP_MS) != 0 {
+        m.f32(FIXED_TIME) as f64
+    } else {
+        m.f64(m.u32(CLOCK_PTR) + CLOCK_TIME)
+    }
+}
+
+/// `0x4e2749` at full precision.
+pub fn dt_hi(m: &Mem) -> f64 {
+    let step = m.i16(FIXED_STEP_MS);
+    if step != 0 {
+        step as i32 as f64 / 1000.0
+    } else {
+        let d = m.f64(m.u32(CLOCK_PTR) + CLOCK_DT);
+        if d <= 0.25 {
+            d
+        } else {
+            0.25
+        }
+    }
+}

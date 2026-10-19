@@ -58,7 +58,7 @@ class Harness:
         e.write(CLOCK_OBJ + 0xb98, struct.pack('<d', time))
         e.write(CLOCK_OBJ + 0xb90, struct.pack('<d', dt))
 
-    def case(self, writes, call, rust, watch, ret=None, time=0.0, dt=0.016, setup_rust=''):
+    def case(self, writes, call, rust, watch, ret=None, time=0.0, dt=0.016, setup_rust='', prepare=None):
         """`writes`: initial memory. `call(emu)` runs the original and returns ST0.
         `rust` is a Rust expression/statement block evaluated with `m` in scope, returning f32 if `ret`."""
         e = self.e
@@ -67,7 +67,8 @@ class Harness:
         for addr, data in writes:
             e.write(addr, data)
             init.append((addr, data))
-        # the harness may need heap allocations made by the setup (calls into the original)
+        if prepare:
+            prepare(e)   # e.g. run original constructors; mirror them in `setup_rust`
         before = [(b, e.read(b, n)) for b, n in watch]
         r = call(e)
         after = [(b, e.read(b, n)) for b, n in watch]
@@ -106,6 +107,16 @@ class Harness:
                '        normal(x) && normal(y) && (x as i64 - y as i64).abs() <= 4 && (x >> 31) == (y >> 31)',
                '    })',
                '}', '',
+               'fn report(base: u32, got: &[u8], want: &[u8]) -> String {',
+               '    let mut out = String::new();',
+               '    for (i, (a, b)) in got.chunks(4).zip(want.chunks(4)).enumerate() {',
+               '        if a != b && out.len() < 600 {',
+               '            let f = |x: &[u8]| if x.len() == 4 { format!("{:#010x}/{}", u32::from_le_bytes(x.try_into().unwrap()), f32::from_le_bytes(x.try_into().unwrap())) } else { format!("{x:?}") };',
+               '            out += &format!("\n  +{:#x}: port {} original {}", base as usize + i * 4, f(a), f(b));',
+               '        }',
+               '    }',
+               '    out',
+               '}', '',
                'fn patch(buf: &mut [u8], base: u32, diffs: &[(u32, &[u8])]) {',
                '    for (a, d) in diffs { let o = (*a - base) as usize; buf[o..o + d.len()].copy_from_slice(d); }',
                '}', '', f'const CLOCK: u32 = {CLOCK_OBJ:#x};', '']
@@ -130,7 +141,7 @@ class Harness:
                 out.append(f'    let mut want{k} = before{k}.clone();')
                 body = ', '.join(f'({a:#x}, &{d!r}[..])' for a, d in mine)
                 out.append(f'    patch(&mut want{k}, {b:#x}, &[{body}]);')
-                out.append(f'    assert!(mem_close(&m.read({b:#x}, {ln}), &want{k}), "memory at {b:#x} differs from the original: {{:?}} vs {{:?}}", m.read({b:#x}, {ln}), want{k});')
+                out.append(f'    assert!(mem_close(&m.read({b:#x}, {ln}), &want{k}), "memory at {b:#x} differs from the original:{{}}", report({b:#x}, &m.read({b:#x}, {ln}), &want{k}));')
             out.append('}')
             out.append('')
         path = os.path.join(TESTS, self.name + '.rs')

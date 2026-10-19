@@ -8,6 +8,7 @@
 pub mod curves;
 pub mod filter;
 pub mod gearbox;
+pub mod gearbox_update;
 pub mod globals;
 pub mod mem;
 pub mod tech_system;
