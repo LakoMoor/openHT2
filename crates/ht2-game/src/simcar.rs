@@ -59,6 +59,8 @@ pub struct SimCar {
     vid: i32,
     /// The player's vehicle driven by the ported computer driver (for demos).
     autopilot: Option<ai::Driver>,
+    /// The road module's random generator (`0x68b9c8`), shared by all drivers.
+    rng: ht2_sim::road::AiRng,
 }
 
 /// What is needed to draw a vehicle.
@@ -127,7 +129,7 @@ impl SimCar {
         m.set_i16(CAR + 0x2704, 1);
         m.set_i16(CAR + 0x2706, 1);
         ht2_sim::gearbox::fn_004ff770(&mut m, CAR, 1);
-        Ok(SimCar { m, time: 0.0, rooms, traffic: Vec::new(), vid, autopilot: None })
+        Ok(SimCar { m, time: 0.0, rooms, traffic: Vec::new(), vid, autopilot: None, rng: Default::default() })
     }
 
     /// One step of `dt` seconds with the pedals in `0..=1` and the steering keys (-1 right, 1 left).
@@ -156,7 +158,7 @@ impl SimCar {
         globals::install_clock(m, CLOCK, self.time, dt as f64);
         if let Some(drv) = &mut self.autopilot {
             let others: Vec<u32> = std::iter::once(CAR).chain(self.traffic.iter().map(|(c, _)| *c)).collect();
-            ai::drive(m, CAR, &ground.roads, drv, 0, dt as f64, &others);
+            ai::drive(m, CAR, &ground.roads, &mut self.rng, drv, 0, dt as f64, &others);
             with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, CAR));
             self.step_traffic(ground, dt);
             return;
@@ -193,7 +195,7 @@ impl SimCar {
         let m = &mut self.m;
         let others: Vec<u32> = std::iter::once(CAR).chain(self.traffic.iter().map(|(c, _)| *c)).collect();
         for (car, drv) in &mut self.traffic {
-            ai::drive(m, *car, &ground.roads, drv, 0, dt as f64, &others);
+            ai::drive(m, *car, &ground.roads, &mut self.rng, drv, 0, dt as f64, &others);
             with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, *car));
         }
     }

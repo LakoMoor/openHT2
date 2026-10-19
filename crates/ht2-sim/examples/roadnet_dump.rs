@@ -11,6 +11,26 @@ fn main() {
     let ways: Vec<_> = files.iter().map(|f| ht2_formats::way::rooms(&ht2_formats::way::parse(&std::fs::read(f).unwrap()).unwrap())).collect();
     let net = RoadNet::build(&ways);
     // with a file of routes found by the original (tools/emu/route_check.py): compare
+    // with the generator table and draws of the original (tools/emu/rng_check.py): compare
+    if let Some(draws) = std::env::args().nth(2).filter(|f| f.contains("draws")) {
+        let text = std::fs::read_to_string(draws).unwrap();
+        let mut rng = ht2_sim::road::AiRng::default();
+        let probe = rng.clone();
+        for line in text.lines() {
+            if let Some(t) = line.strip_prefix("table ") {
+                let want: Vec<&str> = t.split_whitespace().collect();
+                println!("table {}", if format!("{probe:?}").contains(&want[..55].join(", ")) { "same" } else { "DIFFERS" });
+            }
+        }
+        let (mut same, mut differ) = (0, 0);
+        for line in text.lines().filter(|l| l.starts_with("draw ")) {
+            let want: i64 = line[5..].trim().parse().unwrap();
+            let got = net.random_destination(&mut rng, 0, 0).map_or(-1, |n| n as i64);
+            if got == want { same += 1 } else { differ += 1 }
+        }
+        println!("draws: {same} same, {differ} differ");
+        return;
+    }
     if let Some(routes) = std::env::args().nth(2) {
         let (mut same, mut differ) = (0, 0);
         for line in std::fs::read_to_string(routes).unwrap().lines() {

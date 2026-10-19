@@ -6,7 +6,7 @@
 //! lane number, `+0x40b8` the sideways offset from the lane (double).
 
 use crate::mem::Mem;
-use crate::road::{Place, RoadNet, RouteStep};
+use crate::road::{AiRng, Place, RoadNet, RouteStep};
 
 /// Speed of the vehicle the driver looks at (`+0x332c`, from the recorder snapshot).
 pub const SPEED: u32 = 0x332c;
@@ -345,10 +345,10 @@ impl Driver {
     }
 
     /// Make the route reach `dist` metres past the place: at the end of the route, a route
-    /// (`0x484c80`, the cheapest) to another destination (`traceToArbitraryDestination`,
-    /// `0x417820`). Stand-in: the destination is a random node from the driver's own generator
-    /// (the original draws it in `0x456140` with the road module's generator, not ported).
-    pub fn extend(&mut self, net: &RoadNet, dist: f64) {
+    /// (`0x484c80`, the cheapest) to a random destination drawn with the road module's
+    /// generator (`traceToArbitraryDestination`, `0x417820`; `0x456140`). On maps without
+    /// destination nodes the original finds no route; then (stand-in) a road is picked.
+    pub fn extend(&mut self, net: &RoadNet, rng: &mut AiRng, dist: f64) {
         let mut p = self.place;
         let mut left = dist;
         for _ in 0..4 {
@@ -362,8 +362,8 @@ impl Driver {
             }
             let mut planned = false;
             for _ in 0..16 {
-                let dst = self.rand() as usize % net.nodes.len();
-                if dst == node || net.nodes[dst].flags & 8 != 0 {
+                let Some(dst) = net.random_destination(rng, 0, 0) else { break };
+                if dst == node {
                     continue;
                 }
                 if let Some((steps, _)) = net.route_between(node, dst, 0) {
@@ -414,7 +414,7 @@ impl Driver {
 /// the owner (`0x43f620`), `dt` the frame time. Not ported: the checks of `0x4d3880` (what is
 /// right in front when stuck or turning round), the horn of `0x4d6340`, the vehicle the camera
 /// follows and owners flagged 4 (full brake).
-pub fn drive(m: &mut Mem, this: u32, net: &RoadNet, drv: &mut Driver, owner: u32, dt: f64, others: &[u32]) {
+pub fn drive(m: &mut Mem, this: u32, net: &RoadNet, rng: &mut AiRng, drv: &mut Driver, owner: u32, dt: f64, others: &[u32]) {
     // The owner clears the stop distance before each run (`0x4cfb51`); stop objects (not
     // ported) set it.
     m.set_f64(this + OBSTACLE, -1.0);
@@ -430,9 +430,9 @@ pub fn drive(m: &mut Mem, this: u32, net: &RoadNet, drv: &mut Driver, owner: u32
     let fwd = f3(m, this + 0x1c);
     let pos = f3(m, this + 0x34);
     let front = [pos[0] + fwd[0] * half, pos[1] + fwd[1] * half, pos[2] + fwd[2] * half];
-    drv.extend(net, 400.0);
+    drv.extend(net, rng, 400.0);
     drv.track(net, front);
-    drv.extend(net, 400.0);
+    drv.extend(net, rng, 400.0);
     let p = drv.place;
     let route = drv.route.clone();
     let (side, width, other_half, seg_flags) = net.lateral(&p, back, front);

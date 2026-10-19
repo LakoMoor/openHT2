@@ -881,3 +881,78 @@ impl RoadNet {
         None
     }
 }
+
+/// The random generator of the road module (`0x68b9c8`): a subtractive generator of 55 words
+/// (the STL's `subtractive_rng`), seeded with 161803398 when the module starts (`0x403940`).
+#[derive(Debug, Clone)]
+pub struct AiRng {
+    table: [u32; 55],
+    i: usize,
+    j: usize,
+}
+
+impl Default for AiRng {
+    fn default() -> Self {
+        Self::new(161_803_398)
+    }
+}
+
+impl AiRng {
+    /// `0x403940`.
+    pub fn new(seed: u32) -> Self {
+        let mut table = [0u32; 55];
+        table[54] = seed;
+        let (mut k, mut s) = (1u32, seed);
+        let mut e = 0usize;
+        while e < 0x46e {
+            s = s.wrapping_sub(k);
+            let idx = e % 55;
+            e += 21;
+            table[idx] = k;
+            k = s;
+            s = table[idx];
+        }
+        for _ in 0..4 {
+            for c in 0..55 {
+                table[c] = table[c].wrapping_sub(table[(c + 31) % 55]);
+            }
+        }
+        AiRng { table, i: 0, j: 31 }
+    }
+
+    /// The next number.
+    pub fn next(&mut self) -> u32 {
+        self.i = (self.i + 1) % 55;
+        self.j = (self.j + 1) % 55;
+        self.table[self.i] = self.table[self.i].wrapping_sub(self.table[self.j]);
+        self.table[self.i]
+    }
+}
+
+impl RoadNet {
+    /// `0x456140` / `0x45cdc0`: a random destination node: among the nodes that are not hidden
+    /// (flag 8), those marked as destinations (`FLAG` bit 1, flag 0x40) for players of type other
+    /// than 2; for type 2 those with flag 2 (when `which` bit 0) or flag 1. `None` when there are
+    /// none (then nothing is drawn).
+    pub fn random_destination(&self, rng: &mut AiRng, which: u32, player_type: u32) -> Option<usize> {
+        let picks: Vec<usize> = (0..self.nodes.len())
+            .filter(|&k| {
+                let f = self.nodes[k].flags;
+                if f & 8 != 0 {
+                    return false;
+                }
+                if player_type != 2 {
+                    f & 0x40 != 0
+                } else if which & 1 != 0 {
+                    f & 2 != 0
+                } else {
+                    f & 1 != 0
+                }
+            })
+            .collect();
+        if picks.is_empty() {
+            return None;
+        }
+        Some(picks[rng.next() as usize % picks.len()])
+    }
+}
