@@ -12,7 +12,7 @@ import struct
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from emu import Emu, OBJ_BASE, HEAP_BASE  # noqa: E402
+from emu import Emu, OBJ_BASE, HEAP_BASE, STACK_TOP  # noqa: E402
 
 TESTS = os.path.join(os.path.dirname(__file__), '..', '..', 'crates', 'ht2-sim', 'tests')
 CLOCK_OBJ = OBJ_BASE + 0x100000
@@ -52,6 +52,8 @@ class Harness:
         e = self.e
         e.write(OBJ_BASE, bytes(ZERO_LEN))
         e.write(HEAP_BASE, bytes(0x100000))
+        # uninitialised locals of the original read as zero, like the scratch memory of the port
+        e.write(STACK_TOP - 0x10000, bytes(0x10000))
         e.heap_next = HEAP_BASE
         e.write(0x6974c4, struct.pack('<I', CLOCK_OBJ))
         e.write(0x6974c2, b'\0\0')

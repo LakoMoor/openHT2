@@ -184,3 +184,50 @@ for k in range(300):
     flag = r.choice([0, 1])
     e2.case(CONST2 + w, lambda e, flag=flag: e.call(0x506210, [flag], 'i', this=CAR), f'contact::fn_00506210(&mut m, {T}, {flag})', [(CAR, 0x6000)])
 e2.save()
+
+# --- suspension contact of all wheels -------------------------------------------
+e3 = Harness('golden_suspension', ['use ht2_sim::contact;'])
+world_stub.install(e3.e)
+e3.e.mu.mem_map(0x7f0000, 0x1000)
+e3.e.hook_ret(0x6037e0, lambda e: 0)
+e3.e.call(0x501fb0, this=0x6976f8)
+e3.e.call(0x5021c0, this=0x697688)
+e3.e.call(0x503dd0)
+r = e3.rnd
+MAT = CAR + 0x5b00
+SUSP_CONST = SURFC + [(0x6749f0, bytes(e3.e.read(0x6749f0, 4))), (0x6ce33c, bytes(e3.e.read(0x6ce33c, 8)))]
+for k in range(250):
+    w, _f = state(0x505530, r, fill=[(0xf8, 0xf8 + 0xf8 * 7)])
+    t = r.uniform(-0.2, 0.2)
+    zc = r.uniform(0.3, 1.2)
+    M = [_m.cos(t), _m.sin(t), 0, -_m.sin(t), _m.cos(t), 0, 0, 0, 1, r.uniform(-3, 3), r.uniform(-3, 3), zc]
+    w += [(MAT + 4 * i, pack('f', v)) for i, v in enumerate(M)]
+    w += [(CAR + 0x10 + 4 * i, pack('f', v)) for i, v in enumerate(M)]
+    n = r.choice([4, 4, 4, 6])
+    for i in range(6):
+        wb = CAR + 0xf8 * (i + 1)
+        mx, my = (i % 2) * 2.0 - 1.0, 1.8 - 1.8 * (i // 2) + r.uniform(-0.01, 0.01)
+        w += [(CAR + 0x1cbc + 12 * i + 4 * c, pack('f', v)) for c, v in enumerate((mx, my, r.uniform(-0.2, 0.0)))]
+        w += [(wb + 0x18, pack('h', r.choice([0, 1, 1]))), (wb + 0x1a, pack('h', 0)), (wb + 0x84, pack('u', r.choice([0, SURF])))]
+        w += [(wb + 0xc + 4 * c, pack('f', v)) for c, v in enumerate((0.0, 0.0, 1.0))]
+        w += [(CAR + o + 4 * i, pack('f', v)) for o, v in ((0x1b74, r.uniform(0.3, 0.6)), (0x1f9c, r.uniform(0.1, 0.4)), (0x1964, r.uniform(0, 10)),
+                                                             (0x1984, r.uniform(0, 20)), (0xe3c, r.uniform(-0.02, 0.02)), (0xe5c, r.uniform(-1, 1)),
+                                                             (0x1a7c, r.uniform(-1, 1)), (0x1a5c, r.uniform(-1, 1)))]
+        w += [(CAR + 0x1bf4 + 4 * i, pack('i', r.choice([1, 1, 0]))), (CAR + 0x19a4 + 2 * i, pack('h', r.choice([0, 1]))), (CAR + 0x1030 + 0xf8 * i, pack('h', 0))]
+        w += [(CAR + 0x3cdc + 20 * i, pack('i', 0)), (CAR + 0x3ce0 + 20 * i, pack('i', 1))]
+    w += world_stub.make_obj(OBJ, VTBL, r.uniform(-0.3, 0.3), SURF, OBJ, 0)
+    w += [(SURF, pack('i', 1)), (SURF + 4, pack('i', r.choice([1, 1, 2, 3, 6]))), (SURF + 8, pack('i', 0)), (SURF + 12, pack('u', SURF + 0x20))]
+    w += [(CAR + 0x3f24 + 4 * kk, pack('f', 1.0)) for kk in range(6)] + [(CAR + 0x3f24 + 0x24, pack('f', 1.0)), (CAR + 0x3f24 + 0x28, pack('i', 0)), (CAR + 0x3f24 + 0x2c, pack('i', 1))]
+    w += [(CAR + o, pack(kd, v)) for o, kd, v in ((0x3c54, 'i', 0), (0x2708, 'h', 0), (0x1a10, 'u', OBJ), (0x8f4, 'f', 0.0), (0x8f8, 'f', 0.0), (0x8fc, 'f', 3.0),
+                                                   (0xdc0, 'f', r.uniform(0, 20)), (0xdc8, 'f', r.uniform(-10, 10)), (0x275c, 'i', 0), (0x8cc, 'i', 3), (0xdd4, 'i', n),
+                                                   (0x2640, 'f', r.uniform(2000, 12000)), (0x29d0, 'i', 0), (0x2740, 'h', 0), (0x276c, 'i', 0), (0x3f4c, 'i', 0),
+                                                   (0x8bc, 'i', r.choice([0, 1])), (0x8c4, 'i', r.choice([0, 1])), (0x8b8, 'i', 0), (0x19b9, 'b', 0), (0xe38, 'f', 1.0))]
+    w += [(CAR + 0x1f64 + 4 * i, pack('f', r.uniform(0.5, 3))) for i in range(4)]
+    w += [(0x697868 + 3 * 0x970 + 0xb8, pack('f', 2.0)), (0x697868 + 3 * 0x970 + 0xbc, pack('f', 2.0)), (0x69784c, pack('i', 0)), (0x6ef1fc, pack('u', KICK))]
+    ign = []
+    for i in range(6):
+        wb = CAR + 0xf8 * (i + 1)
+        ign += [(base + o, nn) for base in (wb + 0x20, CAR + 0x3510 + 0xd0 * i) for o, nn in ((0x70, 4), (0x7c, 0x44))]
+    e3.case(SUSP_CONST + w, lambda e: e.call(0x505530, [MAT], 'i', this=CAR), f'contact::fn_00505530(&mut m, &mut contact::StubWorld, {T}, {MAT:#x})',
+            [(CAR, 0x6000)], ret=True, ret_int=True, dt=r.uniform(0.005, 0.05), ignore=ign)
+e3.save()

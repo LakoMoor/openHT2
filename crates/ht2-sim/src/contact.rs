@@ -927,3 +927,253 @@ pub fn fn_00506210(m: &mut Mem, this: u32, flag: u32) {
     }
     crate::matrix::vec_unit(m, this + 0xd0, sum);
 }
+
+/// `0x4e6490`: where the line through `p4` along `p5` meets the plane through `p2` with normal `p3`.
+pub fn line_plane_dir(m: &mut Mem, dst: u32, p2: u32, p3: u32, p4: u32, p5: u32) {
+    let s = SCRATCH + 0x800;
+    crate::matrix::vec_sub(m, s, p2, p4);
+    let num = crate::matrix::vec_dot(m, p3, s) as f64;
+    let den = crate::matrix::vec_dot(m, p3, p5);
+    let t = (num / den) as f32;
+    crate::matrix::vec_scale(m, s + 0x10, p5, t);
+    crate::matrix::vec_add(m, dst, p4, s + 0x10);
+}
+
+/// `0x505530`: suspension contact of all wheels for the body transform `mat`. The two wheels at
+/// the leading end (by the sign of the speed) query the world ([`fn_00503e30`]); the others
+/// borrow the contact plane of the nearest of them and query only when it does not fit. Sets the
+/// spring compressions `+0xe18`, wheel loads `+0xd20`, airborne flags `+0x19a4..` and their
+/// combinations `+0x19b4..+0x19ba`, the average ground normal `+0xc4` and contact `+0x2214`, and
+/// the ground plane `+0xd0` ([`fn_00506210`]). Returns the number of wheels on the ground.
+pub fn fn_00505530(m: &mut Mem, world: &mut dyn World, this: u32, mat: u32) -> u32 {
+    use crate::matrix as mx;
+    let inv = SCRATCH + 0x900;
+    crate::math::mat_inverse(m, inv, mat);
+    copy_words(m, this + 0xc4, 0x702650, 3);
+    copy_words(m, this + 0x2214, 0x702650, 3);
+    m.set_u32(this + 0x26b0, 0);
+    let count = m.i32(this + 0xdd4).max(0) as u32;
+    let pos = SCRATCH + 0xa00; // world positions of the wheel mounts, 12 bytes each
+    let mt: [f64; 12] = core::array::from_fn(|k| f(m, mat + 4 * k as u32));
+    for i in 0..count {
+        let (f4, v3o) = (4 * i, 12 * i);
+        copy_words(m, this + 0xf08 + v3o, 0x702650, 3);
+        m.set_u32(this + 0xee8 + f4, 0);
+        m.set_f32(this + 0x2690 + f4, 0.01);
+        m.set_f32(this + 0x2670 + f4, 0.5);
+        let c = v3(m, this + 0x1cbc + v3o);
+        set3(
+            m,
+            pos + v3o,
+            [
+                r(c[0] * mt[0] + c[1] * mt[3] + c[2] * mt[6] + mt[9]),
+                r(mt[1] * c[0] + c[2] * mt[7] + c[1] * mt[4] + mt[10]),
+                r(mt[8] * c[2] + mt[5] * c[1] + c[0] * mt[2] + mt[11]),
+            ],
+        );
+    }
+    // the two wheels with the smallest and the two with the largest mount y
+    let (mut lo1, mut lo2, mut hi1) = (100.0f32, 100.0f32, -100.0f32);
+    let mut hi2 = -100.0f32;
+    let (mut lo1_i, mut lo2_i, mut hi1_i, mut hi2_i) = (0u32, 0u32, 0u32, 0u32);
+    for i in 0..count {
+        let y = m.f32(this + 0x1cc0 + 12 * i);
+        if y <= lo2 {
+            if y <= lo1 {
+                lo2 = lo1;
+                lo2_i = lo1_i;
+                lo1 = y;
+                lo1_i = i;
+            } else {
+                lo2 = y;
+                lo2_i = i;
+            }
+        }
+        if hi2 <= y {
+            if y < hi1 {
+                hi2 = y;
+                hi2_i = i;
+            } else {
+                hi2 = hi1;
+                hi2_i = hi1_i;
+                hi1 = y;
+                hi1_i = i;
+            }
+        }
+    }
+    let mut queried = [false; 8];
+    let mut res = [0u32; 8];
+    if m.f32(this + 0xdc8) < 0.0 {
+        queried[lo1_i as usize] = true;
+        queried[lo2_i as usize] = true;
+    } else {
+        queried[hi1_i as usize] = true;
+        queried[hi2_i as usize] = true;
+    }
+    for i in 0..count {
+        if queried[i as usize] {
+            res[i as usize] = fn_00503e30(m, world, this, 0, pos + 12 * i, 0, i);
+        }
+    }
+    let up = SCRATCH + 0xb00;
+    let k = [f(m, 0x702630), f(m, 0x702634), f(m, 0x702638)];
+    set3(
+        m,
+        up,
+        [
+            r(k[2] * mt[6] + k[0] * mt[0] + k[1] * mt[3]),
+            r(k[0] * mt[1] + k[2] * mt[7] + k[1] * mt[4]),
+            r(k[2] * mt[8] + k[1] * mt[5] + k[0] * mt[2]),
+        ],
+    );
+    let wheel = |i: u32| this + 0xf8 * (i + 1);
+    for i in 0..count {
+        if queried[i as usize] {
+            continue;
+        }
+        let (mut best, mut idx) = (1000.0f32, -1i32);
+        let mi = v3(m, this + 0x1cbc + 12 * i);
+        for k in 0..count {
+            if queried[k as usize] && m.i16(wheel(k) + 0x18) != 0 {
+                let mk = v3(m, this + 0x1cbc + 12 * k);
+                let d = [r(mk[0] - mi[0]) as f64, r(mk[1] - mi[1]) as f64, mk[2] - mi[2]];
+                let d2 = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+                if d2 < best as f64 {
+                    best = d2 as f32;
+                    idx = k as i32;
+                }
+            }
+        }
+        if idx >= 0 {
+            let k = idx as u32;
+            copy_words(m, this + 0x3510 + 0xd0 * i, this + 0x3510 + 0xd0 * k, 0x34);
+            copy_words(m, wheel(i), wheel(k), 0x3e);
+            let hit = SCRATCH + 0xb10;
+            line_plane_dir(m, hit, wheel(k), wheel(k) + 0xc, pos + 12 * i, up);
+            copy_words(m, wheel(i), hit, 3);
+            res[i as usize] = res[k as usize];
+        }
+    }
+    let it: [f64; 12] = core::array::from_fn(|k| f(m, inv + 4 * k as u32));
+    let mut on_ground = 0u32;
+    for i in 0..count {
+        let (f4, v3o, iu) = (4 * i, 12 * i, i as usize);
+        let w = wheel(i);
+        let lone = !(!queried[iu] && res[iu] != 0);
+        let contact = this + 0x64 + v3o;
+        let local = this + 0x1844 + v3o;
+        let comp_at = |m: &mut Mem| {
+            copy_words(m, contact, w, 3);
+            let p = v3(m, contact);
+            set3(
+                m,
+                local,
+                [
+                    r(it[0] * p[0] + it[3] * p[1] + it[6] * p[2] + it[9]),
+                    r(it[4] * p[1] + it[1] * p[0] + it[7] * p[2] + it[10]),
+                    r(it[5] * p[1] + it[2] * p[0] + it[8] * p[2] + it[11]),
+                ],
+            );
+            let c = r(f(m, this + 0x1cc4 + v3o) - f(m, this + 0x1b74 + f4) - f(m, local + 8));
+            m.set_f32(this + 0xe18 + f4, c);
+            m.set_f32(this + 0xdd8 + f4, c);
+            c
+        };
+        let mut requery = false;
+        if (queried[iu] && res[iu] == 1) || (!lone && res[iu] == 1) {
+            let c = comp_at(m) as f64;
+            if (c < 0.0 || c > f(m, this + 0x1f9c + f4)) && !lone {
+                requery = true;
+            }
+        } else if !lone {
+            requery = true;
+        }
+        if requery {
+            res[iu] = fn_00503e30(m, world, this, 0, pos + v3o, 0, i);
+            if res[iu] != 0 {
+                comp_at(m);
+            }
+        }
+        if res[iu] != 0 {
+            mx::vec_add_in_place(m, this + 0xc4, SCRATCH + 0xb20, w + 0xc);
+            m.set_f32(this + 0x26b0, r(f(m, this + 0x2670 + f4) + f(m, this + 0x26b0)));
+            mx::vec_add_in_place(m, this + 0x2214, SCRATCH + 0xb20, contact);
+            on_ground += 1;
+            let travel = this + 0xdd8 + f4;
+            if f(m, travel) > f(m, this + 0x1f9c + f4) {
+                copy_words(m, travel, this + 0x1f9c + f4, 1);
+                m.set_i16(this + 0x19a4 + 2 * i, 1);
+            } else {
+                if m.f32(travel) < 0.0 {
+                    m.set_f32(travel, 0.0);
+                }
+                let load = f(m, w + 0x14).abs() * (f(m, this + 0x2640) / m.i32(this + 0xdd4) as f64) * 9.8;
+                m.set_f32(this + 0xd20 + f4, r(load));
+                m.set_i16(this + 0x19a4 + 2 * i, 0);
+            }
+        } else {
+            // in the air: hang the wheel 1000 m down
+            let s = [k[0] * 1000f32 as f64, k[1] * 1000f32 as f64, k[2] * 1000f32 as f64];
+            let d = [
+                r(s[0] * mt[0] + s[1] * mt[3] + s[2] * mt[6]) as f64,
+                r(s[0] * mt[1] + s[2] * mt[7] + s[1] * mt[4]) as f64,
+                s[2] * mt[8] + s[1] * mt[5] + s[0] * mt[2],
+            ];
+            let p = v3(m, pos + v3o);
+            set3(m, contact, [r(p[0] - d[0]), r(p[1] - d[1]), r(p[2] - d[2])]);
+            let mo = v3(m, this + 0x1cbc + v3o);
+            set3(m, local, [r(mo[0] - s[0]), r(mo[1] - r(s[1]) as f64), r(mo[2] - r(s[2]) as f64)]);
+            m.set_f32(this + 0xe18 + f4, 1000.0);
+            copy_words(m, this + 0xdd8 + f4, this + 0x1f9c + f4, 1);
+            m.set_u32(this + 0xd20 + f4, 0);
+            m.set_i16(this + 0x19a4 + 2 * i, 1);
+        }
+    }
+    let e = |m: &Mem, k: u32| m.f32(this + 0xe18 + 4 * k);
+    let a = if e(m, 2) < e(m, 3) { e(m, 3) } else { e(m, 2) };
+    let b = if e(m, 0) < e(m, 1) { e(m, 1) } else { e(m, 0) };
+    m.set_f32(this + 0xe38, if b < a { a } else { b });
+    if on_ground != 0 {
+        crate::math::vec_normalize(m, this + 0xc4);
+        let s = 1.0 / on_ground as f64;
+        m.set_f32(this + 0x26b0, r(s * f(m, this + 0x26b0)));
+        mx::vec_scale_in_place(m, this + 0x2214, SCRATCH + 0xb20, s as f32);
+    } else {
+        copy_words(m, this + 0xc4, 0x702630, 3);
+        copy_words(m, this + 0x2214, 0x702650, 3);
+    }
+    let p1 = fn_00506750(m, this, 1);
+    m.set_u32(this + 0x8c0, p1);
+    let p3 = fn_00506750(m, this, 3);
+    m.set_u32(this + 0x8c8, p3);
+    let all = m.u32(this + 0x8bc) != 0 && m.u32(this + 0x8c0) != 0 && m.u32(this + 0x8c4) != 0 && p3 != 0;
+    m.set_u32(this + 0x8b8, all as u32);
+    let s = |m: &Mem, k: u32| m.i16(this + 0x19a4 + 2 * k) != 0;
+    let n = m.i32(this + 0xdd4);
+    let trike = n == 3 && m.i32(0x6ce33c) <= m.i32(this + 0x8cc) && m.i32(this + 0x8cc) < m.i32(0x6ce340);
+    let (b7, b5, b6, b8) = if trike {
+        (s(m, 0) && s(m, 1), m.rd8(this + 0x19a8) != 0, s(m, 0) && s(m, 2), s(m, 1) && s(m, 2))
+    } else {
+        (s(m, 2) && s(m, 3), s(m, 0) && s(m, 1), s(m, 0) && s(m, 2), s(m, 1) && s(m, 3))
+    };
+    m.wr8(this + 0x19b7, b7 as u8);
+    if trike {
+        let v = m.rd8(this + 0x19a8);
+        m.wr8(this + 0x19b5, v);
+    } else {
+        m.wr8(this + 0x19b5, b5 as u8);
+    }
+    m.wr8(this + 0x19b6, b6 as u8);
+    m.wr8(this + 0x19b8, b8 as u8);
+    let (mut all_air, mut any_air) = (true, false);
+    for k in 0..n.max(0) as u32 {
+        all_air = all_air && s(m, k);
+        any_air = any_air || s(m, k);
+    }
+    m.wr8(this + 0x19b4, all_air as u8);
+    m.wr8(this + 0x19ba, any_air as u8);
+    let any = [0x19b5, 0x19b6, 0x19b7, 0x19b8].iter().any(|o| m.rd8(this + o) != 0);
+    m.wr8(this + 0x19b9, any as u8);
+    fn_00506210(m, this, 0);
+    on_ground
+}
