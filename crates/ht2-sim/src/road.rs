@@ -25,7 +25,57 @@ pub enum Shape {
     Polyline(Vec<[f64; 3]>),
     /// One cubic piece: the coefficients of the position and of its derivative, highest power
     /// first (the original evaluates them with Horner's rule, `0x454b00` / `0x454bd0`).
-    Curve { pos: [[f64; 3]; 4], tangent: [[f64; 3]; 3] },
+    Curve { pos: [[f64; 3]; 4], tangent: [[f64; 3]; 3], arc: Vec<f64> },
+}
+
+/// Value of the scalar polynomial `c` (highest power first) at `t` (`0x48e960`).
+fn eval(c: &[f64], t: f64) -> f64 {
+    c.iter().skip(1).fold(c[0], |r, k| r * t + k)
+}
+
+/// Product of two scalar polynomials.
+fn mul(a: &[f64], b: &[f64]) -> Vec<f64> {
+    let mut r = vec![0.0; a.len() + b.len() - 1];
+    for (i, x) in a.iter().enumerate() {
+        for (j, y) in b.iter().enumerate() {
+            r[i + j] += x * y;
+        }
+    }
+    r
+}
+
+/// The arc length along a curve as a polynomial in `t` (`0x48dbb0`): the speed `|P'(t)|` is
+/// interpolated at the nine Chebyshev nodes of `0..1` (`0x48fe80`, degree 8) and integrated
+/// (`0x48ea30`, zero at `t = 0`).
+fn arc_length_poly(tangent: &[[f64; 3]; 3]) -> Vec<f64> {
+    // |P'|^2 = sum over the coordinates of the squared derivative polynomials (0x48e600)
+    let mut sq = vec![0.0; 5];
+    for i in 0..3 {
+        let d: Vec<f64> = tangent.iter().map(|c| c[i]).collect();
+        for (k, v) in mul(&d, &d).iter().enumerate() {
+            sq[k] += v;
+        }
+    }
+    let n = 8usize;
+    let nodes: Vec<f64> = (0..=n).map(|j| (((2 * j) as f64 + 1.0) * std::f64::consts::PI / ((n as f64 + 1.0) * 2.0)).cos() * 0.5 + 0.5).collect();
+    let mut poly = vec![0.0; n + 1];
+    for (j, xj) in nodes.iter().enumerate() {
+        let mut w = eval(&sq, *xj).sqrt();
+        let mut term = vec![1.0];
+        for (k, xk) in nodes.iter().enumerate() {
+            if k != j {
+                w /= xj - xk;
+                term = mul(&term, &[1.0, -xk]);
+            }
+        }
+        for (k, v) in term.iter().enumerate() {
+            poly[k] += v * w;
+        }
+    }
+    let m = poly.len();
+    let mut s: Vec<f64> = poly.iter().enumerate().map(|(i, c)| c / (m - i) as f64).collect();
+    s.push(0.0);
+    s
 }
 
 fn sub(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
@@ -67,7 +117,8 @@ impl Segment {
             let d = c(&|i| -3.0 * p0[i] + 3.0 * p1[i]);
             let pos = [a, b, d, p0];
             let tangent = [c(&|i| 3.0 * a[i]), c(&|i| 2.0 * b[i]), d];
-            Shape::Curve { pos, tangent }
+            let arc = arc_length_poly(&tangent);
+            Shape::Curve { pos, tangent, arc }
         };
         Some(Segment { shape, width, flags, value, attr2 })
     }
@@ -89,6 +140,115 @@ impl Segment {
                 [a[0] * s + b[0] * t, a[1] * s + b[1] * t, a[2] * s + b[2] * t]
             }
             Shape::Curve { pos, .. } => horner(pos, t),
+        }
+    }
+
+    /// Move `dist` metres (negative: backwards) from `t` on piece `k` (`vtable + 0x10`:
+    /// `0x48d100` for polylines, `0x454f10` / `0x48df80` for curves; `step` is the parameter step
+    /// the curve search starts from, kept between calls). Returns `true` when the end (or the
+    /// start) of the segment was reached; `dist` keeps what is left to go.
+    pub fn advance(&self, t: &mut f64, dist: &mut f64, k: &mut usize, step: &mut f64) -> bool {
+        match &self.shape {
+            Shape::Polyline(p) => {
+                let len = |a: [f64; 3], b: [f64; 3]| {
+                    let d = sub(a, b);
+                    (d[2] * d[2] + d[1] * d[1] + d[0] * d[0]).sqrt()
+                };
+                if *dist > 0.0 {
+                    while *k < p.len() - 1 {
+                        let rem = len(p[*k + 1], self.point(*t, *k));
+                        if *dist <= rem {
+                            *t += *dist / len(p[*k + 1], p[*k]);
+                            *dist = 0.0;
+                            if 1.0 < *t {
+                                *t = 1.0;
+                            }
+                            return false;
+                        }
+                        *dist -= rem;
+                        if p.len() - 2 <= *k {
+                            *t = 1.0;
+                            return true;
+                        }
+                        *k += 1;
+                        *t = 0.0;
+                    }
+                    true
+                } else if *dist < 0.0 {
+                    loop {
+                        let rem = len(p[*k], self.point(*t, *k));
+                        if -*dist <= rem {
+                            *t += *dist / len(p[*k + 1], p[*k]);
+                            *dist = 0.0;
+                            if *t < 0.0 {
+                                *t = 0.0;
+                            }
+                            return false;
+                        }
+                        *dist += rem;
+                        if *k == 0 {
+                            *t = 0.0;
+                            return true;
+                        }
+                        *k -= 1;
+                        *t = 1.0;
+                    }
+                } else {
+                    false
+                }
+            }
+            Shape::Curve { arc, .. } => {
+                let len = |a: f64, b: f64| eval(arc, b) - eval(arc, a);
+                if *dist > 0.0 {
+                    let l = len(*t, 1.0);
+                    if l <= *dist {
+                        *t = 1.0;
+                        *dist -= l;
+                        if *dist < 0.0 {
+                            *dist = 0.0;
+                        }
+                        return true;
+                    }
+                } else if *dist < 0.0 {
+                    let l = len(*t, 0.0);
+                    if *dist <= l {
+                        *t = 0.0;
+                        *dist -= l;
+                        if 0.0 < *dist {
+                            *dist = 0.0;
+                        }
+                        return true;
+                    }
+                }
+                let t0 = *t;
+                for _ in 0..6 {
+                    let l = len(t0, t0 + *step);
+                    *step = *dist / l * *step;
+                }
+                *t = (*step + t0).clamp(0.0, 1.0);
+                *dist = 0.0;
+                false
+            }
+        }
+    }
+
+    /// The arc-length polynomial of a curve (highest power first), as the original keeps it at
+    /// `piece + 0x570`.
+    pub fn arc_poly(&self) -> Option<&[f64]> {
+        match &self.shape {
+            Shape::Curve { arc, .. } => Some(arc),
+            Shape::Polyline(_) => None,
+        }
+    }
+
+    /// Length of the whole segment.
+    pub fn length(&self) -> f64 {
+        match &self.shape {
+            Shape::Polyline(p) => p.windows(2).map(|w| {
+                let d = sub(w[1], w[0]);
+                (d[2] * d[2] + d[1] * d[1] + d[0] * d[0]).sqrt()
+            }).sum(),
+            Shape::Curve { arc, .. } => eval(arc, 1.0) - eval(arc, 0.0),
         }
     }
 
@@ -120,6 +280,10 @@ mod tests {
         assert!((q[0] - 1.5).abs() < 1e-12);
         let d = s.tangent(0.25, 0);
         assert!((d[0] - 3.0).abs() < 1e-12);
+        assert!((s.length() - 3.0).abs() < 1e-9);
+        let (mut t, mut dist, mut k, mut step) = (0.0, 1.2, 0, 0.1);
+        assert!(!s.advance(&mut t, &mut dist, &mut k, &mut step));
+        assert!((t - 0.4).abs() < 1e-9);
     }
 
     #[test]
