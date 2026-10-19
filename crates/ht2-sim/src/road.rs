@@ -475,3 +475,50 @@ impl RoadNet {
         }
     }
 }
+
+impl Segment {
+    /// Distance along the segment from `(t1, k1)` to `(t2, k2)` (`vtable + 0x20`: `0x48d710` for
+    /// polylines, `0x455280` for curves). A place given as the piece one past the last is taken
+    /// as the end of the last piece, as the original does.
+    pub fn distance(&self, mut t1: f64, mut k1: usize, mut t2: f64, mut k2: usize) -> f64 {
+        match &self.shape {
+            Shape::Polyline(p) => {
+                let n = p.len();
+                if k1 + 1 == n {
+                    t1 += 1.0;
+                    k1 -= 1;
+                }
+                if k2 + 1 == n {
+                    t2 += 1.0;
+                    k2 -= 1;
+                }
+                let piece = |k: usize| dist(p[k + 1], p[k]);
+                if k1 == k2 {
+                    return (t2 - t1) * piece(k1);
+                }
+                let mut s = (1.0 - t1) * piece(k1);
+                for k in k1 + 1..k2 {
+                    s += piece(k);
+                }
+                piece(k2) * t2 + s
+            }
+            Shape::Curve { arc, .. } => {
+                // one piece: the arc length between the two parameters, unsigned (0x48e430)
+                if k1 == 1 {
+                    t1 += 1.0;
+                }
+                if k2 == 1 {
+                    t2 += 1.0;
+                }
+                (eval(arc, t2) - eval(arc, t1)).abs()
+            }
+        }
+    }
+
+    /// The road width at `(t, k)` (`0x438d70`, `getRoadParameters`): the widths at the two ends,
+    /// interpolated by the distance along the segment.
+    pub fn width_at(&self, t: f64, k: usize) -> f64 {
+        let s = self.distance(0.0, 0, t, k);
+        (self.width[1] - self.width[0]) * s / self.length() + self.width[0]
+    }
+}
