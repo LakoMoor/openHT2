@@ -314,3 +314,22 @@ pub fn point_to_plane(m: &mut Mem, dst: u32, p2: u32, p3: u32, p4: u32) {
     vec_scale(m, S + 16, p3, d as f32);
     vec_sub(m, dst, p4, S + 16);
 }
+
+/// `0x4e63be`: where the line from `p4` towards `p5` meets the plane through `p2` with normal
+/// `p3`; when `p4` and `p5` (nearly) coincide, `p4` projected onto the plane.
+pub fn line_plane(m: &mut Mem, dst: u32, p2: u32, p3: u32, p4: u32, p5: u32) {
+    const S: u32 = 0x2ffd_2000;
+    vec_sub(m, S, p5, p4);
+    let len = crate::math::vec_len(m, S) as f32;
+    if len < 0.001f64 as f32 {
+        point_to_plane(m, dst, p2, p3, p4);
+        return;
+    }
+    vec_div_in_place(m, S, S + 0x10, len);
+    vec_sub(m, S + 0x20, p2, p4);
+    let num = vec_dot(m, p3, S + 0x20);
+    let den = vec_dot(m, p3, S);
+    let t = (num / den) as f32;
+    vec_scale(m, S + 0x30, S, t);
+    vec_add(m, dst, p4, S + 0x30);
+}

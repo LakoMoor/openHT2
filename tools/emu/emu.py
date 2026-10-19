@@ -90,6 +90,20 @@ class Emu:
             uc.reg_write(UC_X86_REG_EIP, ret)
         self.mu.hook_add(UC_HOOK_CODE, cb, begin=addr, end=addr)
 
+    def hook_thiscall(self, addr, fn, nargs):
+        """Replace a __thiscall function (callee pops `nargs` stack words) with `fn(emu) -> eax`."""
+        def cb(uc, address, size, user):
+            sp = uc.reg_read(UC_X86_REG_ESP)
+            ret = struct.unpack('<I', uc.mem_read(sp, 4))[0]
+            uc.reg_write(UC_X86_REG_EAX, fn(self) & 0xffffffff)
+            uc.reg_write(UC_X86_REG_ESP, sp + 4 + 4 * nargs)
+            uc.reg_write(UC_X86_REG_EIP, ret)
+        self.mu.hook_add(UC_HOOK_CODE, cb, begin=addr, end=addr)
+
+    @property
+    def ecx(self):
+        return self.mu.reg_read(UC_X86_REG_ECX)
+
     def arg(self, n):
         """n-th (0-based) stack argument inside a hook."""
         sp = self.mu.reg_read(UC_X86_REG_ESP)
