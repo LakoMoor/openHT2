@@ -45,6 +45,11 @@ pub enum Data {
     Sprites(Vec<(u32, Vec<Vertex>)>),
     /// Type 24: local transform (three axis vectors and an origin).
     Space { axes: [Vec3; 3], pos: Vec3 },
+    /// Type 23: a collision mesh. `surface` and `params` are the surface record the original hands
+    /// to the vehicle on contact (type, kind, then the parameter words); `polys` are its polygons.
+    Collision { surface: [u32; 2], params: Vec<u32>, polys: Vec<Vec<Vec3>> },
+    /// Type 12: a collision plane `(n, d)` with its bounding sphere and surface record.
+    CollisionPlane { sphere: [f32; 4], plane: [f32; 4], surface: [u32; 2], params: Vec<u32> },
     /// Every other type; its data was consumed but is not retained.
     Other,
 }
@@ -229,8 +234,12 @@ impl R<'_> {
                 data = Data::Polys(self.polygons(false)?.0);
             }
             12 => {
-                self.skip(8 + 2)?;
-                self.counted_words()?;
+                let sphere = [self.f32()?, self.f32()?, self.f32()?, self.f32()?];
+                let plane = [self.f32()?, self.f32()?, self.f32()?, self.f32()?];
+                let surface = [self.u32()?, self.u32()?];
+                let k = self.u32()? as usize;
+                let params = (0..k).map(|_| self.u32()).collect::<Result<Vec<_>>>()?;
+                data = Data::CollisionPlane { sphere, plane, surface, params };
             }
             13 | 15 => {
                 self.skip(4 + 2)?;
@@ -260,13 +269,16 @@ impl R<'_> {
                 children = self.children(depth)?;
             }
             23 => {
-                self.skip(2)?;
-                self.counted_words()?;
+                let surface = [self.u32()?, self.u32()?];
+                let k = self.u32()? as usize;
+                let params = (0..k).map(|_| self.u32()).collect::<Result<Vec<_>>>()?;
                 let n = self.u32()? as usize;
+                let mut polys = Vec::with_capacity(n);
                 for _ in 0..n {
                     let v = self.u32()? as usize;
-                    self.skip(3 * v)?;
+                    polys.push((0..v).map(|_| self.vec3()).collect::<Result<Vec<_>>>()?);
                 }
+                data = Data::Collision { surface, params, polys };
             }
             24 => {
                 let axes = [self.vec3()?, self.vec3()?, self.vec3()?];
@@ -379,6 +391,68 @@ pub struct Batch {
 }
 
 impl B3d {
+    /// Every collision block placed like the geometry: prototype groups only where a link
+    /// instantiates them.
+    pub fn collision_items(&self) -> Vec<CollisionItem> {
+        let ctx = self.context(None, &[]);
+        let mut out = Vec::new();
+        for n in &self.nodes {
+            collect_collision(n, &Xf::IDENTITY, &ctx, 0, false, &mut out);
+        }
+        out
+    }
+
+    /// The rooms of the scene with the collision of their road and objects.
+    pub fn rooms(&self) -> Vec<Room> {
+        fn find_rooms<'a>(ns: &'a [Node], out: &mut Vec<&'a Node>) {
+            for n in ns {
+                if n.kind == 19 && n.name.len() > 4 && n.name.is_char_boundary(4) {
+                    out.push(n);
+                }
+                find_rooms(&n.children, out);
+            }
+        }
+        let ctx = self.context(None, &[]);
+        let mut rooms = Vec::new();
+        find_rooms(&self.nodes, &mut rooms);
+        rooms
+            .into_iter()
+            .map(|n| {
+                let suffix = &n.name[4..];
+                let items = |prefix: &str| {
+                    let mut out = Vec::new();
+                    if let Some(r) = find_in_room(n, &format!("{prefix}{suffix}")) {
+                        let target = r.names.first().filter(|t| !t.is_empty()).and_then(|t| ctx.defs.get(t.as_str()).copied());
+                        if let Some(def) = target {
+                            collect_collision(def, &Xf::IDENTITY, &ctx, 0, true, &mut out);
+                        } else {
+                            collect_collision(r, &Xf::IDENTITY, &ctx, 0, true, &mut out);
+                        }
+                    }
+                    out
+                };
+                let mut neighbours = Vec::new();
+                portals(n, &mut neighbours);
+                Room { name: n.name.clone(), road: items("road"), obj: items("obj"), neighbours }
+            })
+            .collect()
+    }
+
+    /// Every collision mesh (type 23) with its surface record, in file order.
+    pub fn collision_meshes(&self) -> Vec<(&[u32; 2], &[u32], &[Vec<Vec3>])> {
+        fn walk<'a>(ns: &'a [Node], out: &mut Vec<(&'a [u32; 2], &'a [u32], &'a [Vec<Vec3>])>) {
+            for n in ns {
+                if let Data::Collision { surface, params, polys } = &n.data {
+                    out.push((surface, params, polys));
+                }
+                walk(&n.children, out);
+            }
+        }
+        let mut out = Vec::new();
+        walk(&self.nodes, &mut out);
+        out
+    }
+
     /// Origin of the `Space` block called `name`, if there is one.
     pub fn space_origin(&self, name: &str) -> Option<Vec3> {
         fn find(ns: &[Node], name: &str) -> Option<Vec3> {
@@ -546,6 +620,83 @@ fn collect(n: &Node, xf: &Xf, pool: &[Vertex], ctx: &Ctx, emit: bool, depth: u32
     }
     for c in &n.children {
         collect(c, xf, pool, ctx, emit, depth, false, out);
+    }
+}
+
+/// The shape of a collision item placed in the scene.
+#[derive(Debug, Clone)]
+pub enum CollisionShape {
+    /// Type 23: polygons (vertex loops).
+    Polys(Vec<Vec<Vec3>>),
+    /// Type 12: the plane `n.x + d = 0`.
+    Plane([f32; 4]),
+}
+
+/// A collision block placed in the scene, with its surface record (type, kind, parameter words).
+#[derive(Debug, Clone)]
+pub struct CollisionItem {
+    pub surface: [u32; 2],
+    pub params: Vec<u32>,
+    pub shape: CollisionShape,
+}
+
+/// A room (type 19 block): the collision of its road (`road<suffix>`) and of its objects
+/// (`obj<suffix>`), where `<suffix>` is the room name after its first four letters, and the
+/// rooms its portals (type 30) lead to.
+#[derive(Debug, Clone, Default)]
+pub struct Room {
+    pub name: String,
+    pub road: Vec<CollisionItem>,
+    pub obj: Vec<CollisionItem>,
+    pub neighbours: Vec<String>,
+}
+
+fn collect_collision(n: &Node, xf: &Xf, ctx: &Ctx, depth: u32, via_link: bool, out: &mut Vec<CollisionItem>) {
+    if depth > 24 {
+        return;
+    }
+    if let (18, [space, group]) = (n.kind, n.names.as_slice()) {
+        if let Some(def) = ctx.defs.get(group.as_str()) {
+            let at = ctx.spaces.get(space.as_str()).map_or(*xf, |local| xf.then(local));
+            collect_collision(def, &at, ctx, depth + 1, true, out);
+        }
+        return;
+    }
+    if !via_link && ctx.targets.contains(n.name.as_str()) {
+        return;
+    }
+    match &n.data {
+        Data::Collision { surface, params, polys } => out.push(CollisionItem {
+            surface: *surface,
+            params: params.clone(),
+            shape: CollisionShape::Polys(polys.iter().map(|p| p.iter().map(|v| xf.apply(*v)).collect()).collect()),
+        }),
+        Data::CollisionPlane { plane, surface, params, .. } => {
+            let [a, b, c] = xf.axes;
+            let nl = [plane[0], plane[1], plane[2]];
+            let nw: Vec3 = std::array::from_fn(|i| nl[0] * a[i] + nl[1] * b[i] + nl[2] * c[i]);
+            let d = plane[3] - (nw[0] * xf.pos[0] + nw[1] * xf.pos[1] + nw[2] * xf.pos[2]);
+            out.push(CollisionItem { surface: *surface, params: params.clone(), shape: CollisionShape::Plane([nw[0], nw[1], nw[2], d]) });
+        }
+        _ => {}
+    }
+    for c in &n.children {
+        collect_collision(c, xf, ctx, depth, false, out);
+    }
+}
+
+/// First block named `name` below `n`, not looking into other rooms.
+fn find_in_room<'a>(n: &'a Node, name: &str) -> Option<&'a Node> {
+    n.children.iter().find_map(|c| if c.name.eq_ignore_ascii_case(name) { Some(c) } else if c.kind == 19 { None } else { find_in_room(c, name) })
+}
+
+fn portals(n: &Node, out: &mut Vec<String>) {
+    for c in &n.children {
+        match (c.kind, c.names.as_slice()) {
+            (30, [to]) => out.push(to.clone()),
+            (19, _) => {}
+            _ => portals(c, out),
+        }
     }
 }
 

@@ -1,7 +1,8 @@
 //! The player's vehicle run entirely by the code ported from the original: the constructor
 //! `_Car_V::_Car_V` (`0x4ebd00`) and the step `_Car_V::run1` (`0x4fdc80`), on a flat memory image
-//! with the original's field offsets. The world they collide with is the drivable ground mesh
-//! (see [`MeshWorld`]); the original's scene collision is not ported yet.
+//! with the original's field offsets. The world they collide with is the scene's collision
+//! meshes with their surface records (see [`MeshWorld`]); the original's walk of the scene graph
+//! is not ported yet.
 
 use crate::ground::Ground;
 use glam::{Mat4, Vec3};
@@ -14,27 +15,34 @@ const CAR: u32 = 0x1000_0000;
 const CLOCK: u32 = 0x1800_0000;
 /// Stands for the room the vehicle is in (the mesh world has only one).
 const ROOM: u32 = 0x1900_0000;
-/// The surface record returned for every hit: type 1, kind 1 (dry asphalt), no parameters.
+/// The surface record returned when the scene has no collision meshes and the drawn ground is
+/// used instead: type 1, kind 1 (dry asphalt), no parameters.
 const SURFACE: u32 = 0x1900_0100;
+/// Scratch memory for the collision queries.
+const SCRATCH: u32 = 0x1910_0000;
 
-/// The scene-collision query (`vtable + 0x34` of the scene nodes) answered from the ground mesh:
-/// the segment of the query record is intersected with the drivable triangles.
+/// The scene-collision query (`vtable + 0x34` of the scene nodes) answered from the collision
+/// meshes (or, without them, the drawn ground): the nearest crossing of the query segment.
 pub struct MeshWorld<'a> {
     pub ground: &'a Ground,
 }
 
 impl World for MeshWorld<'_> {
-    fn collide(&mut self, m: &mut Mem, _obj: u32, _mode: u32, rec: u32) -> u32 {
+    fn collide(&mut self, m: &mut Mem, _obj: u32, mode: u32, rec: u32) -> u32 {
         let v = |a: u32| Vec3::new(m.f32(a), m.f32(a + 4), m.f32(a + 8));
+        if self.ground.collision.item_count() > 0 {
+            return self.ground.collision.query(m, mode, rec, SCRATCH);
+        }
         let (a, b) = (v(rec + 0x4c), v(rec + 0x58));
         let Some((p, n)) = self.ground.segment_hit(a, b) else { return 0 };
+        let surface = SURFACE;
         for (i, c) in p.to_array().iter().enumerate() {
             m.set_f32(rec + 0x34 + 4 * i as u32, *c);
         }
         for (i, c) in n.to_array().iter().enumerate() {
             m.set_f32(rec + 0x40 + 4 * i as u32, *c);
         }
-        m.set_u32(rec + 0x64, SURFACE);
+        m.set_u32(rec + 0x64, surface);
         1
     }
 }
@@ -78,6 +86,7 @@ impl SimCar {
         for (o, v) in [(0u32, 1u32), (4, 1), (8, 0), (12, 0)] {
             m.set_u32(SURFACE + o, v);
         }
+        ground.collision.install(&mut m);
         let vid = record as i32;
         loader::init_vehicle_nodes(&mut m, vid, wheels, add);
         let (c, s) = (heading.cos(), heading.sin());

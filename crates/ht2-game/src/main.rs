@@ -1,3 +1,4 @@
+mod collision;
 mod ground;
 mod powertrain;
 mod simcar;
@@ -59,7 +60,8 @@ fn read_scenario(dir: &Path) -> Scenario {
 }
 
 /// `map` is either a model path without extension (one scene) or a folder holding many.
-fn load_scenes(dir: &Path, map: &str) -> Result<(Vec<Scene>, PathBuf), String> {
+/// Also returns the rooms of all of them (a scene without rooms counts as one room).
+fn load_scenes(dir: &Path, map: &str) -> Result<(Vec<Scene>, PathBuf, Vec<b3d::Room>), String> {
     let path = dir.join(map);
     if path.is_dir() {
         let mut files: Vec<_> = fs::read_dir(&path)
@@ -70,18 +72,38 @@ fn load_scenes(dir: &Path, map: &str) -> Result<(Vec<Scene>, PathBuf), String> {
             .collect();
         files.sort();
         let mut scenes = Vec::new();
+        let mut coll = Vec::new();
         for f in files {
-            match scene::load(&f, None) {
-                Ok(s) => scenes.push(s),
+            match scene::load_assets(&f) {
+                Ok((model, mut s)) => {
+                    coll.extend(rooms_of(&model));
+                    let batches = model.triangles();
+                    if batches.is_empty() {
+                        eprintln!("skipping {}: model has no triangles", f.display());
+                        continue;
+                    }
+                    s.set_batches(batches);
+                    scenes.push(s);
+                }
                 Err(e) => eprintln!("skipping {}: {e}", f.display()),
             }
         }
         println!("loaded {} scenes from {}", scenes.len(), path.display());
-        Ok((scenes, path))
+        Ok((scenes, path, coll))
     } else {
-        let scene = scene::load(&path.with_extension("b3d"), None)?;
+        let (model, mut scene) = scene::load_assets(&path.with_extension("b3d"))?;
+        scene.set_batches(model.triangles());
         let folder = path.parent().map(Path::to_path_buf).unwrap_or_else(|| dir.to_path_buf());
-        Ok((vec![scene], folder))
+        Ok((vec![scene], folder, rooms_of(&model)))
+    }
+}
+
+fn rooms_of(model: &b3d::B3d) -> Vec<b3d::Room> {
+    let rooms = model.rooms();
+    if rooms.is_empty() {
+        vec![b3d::Room { road: model.collision_items(), ..Default::default() }]
+    } else {
+        rooms
     }
 }
 
@@ -181,11 +203,13 @@ fn truck_params(t: &tech::Tech, wheels: &[Vec3], wheel_nodes: simcar::WheelNodes
 }
 
 fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, String> {
-    let (world_scenes, folder) = load_scenes(dir, map)?;
+    let (world_scenes, folder, coll) = load_scenes(dir, map)?;
     let scenario = read_scenario(&folder);
     let truck = truck.map(str::to_owned).or(scenario.truck).unwrap_or_else(|| "Kamaz".into());
     let truck_model = load_truck(dir, &truck)?;
-    let ground = Ground::new(&world_scenes);
+    let mut ground = Ground::new(&world_scenes);
+    ground.collision = collision::Collision::new(&coll);
+    println!("collision: {} rooms, {} blocks", coll.len(), ground.collision.item_count());
     // The scenario start is only usable if there is ground under it (the menu scenes have none).
     let start = scenario.start.and_then(|p| ground.height_at(p.x, p.y, p.z + 200.0, 0.0).map(|z| Vec3::new(p.x, p.y, z)));
     let (pos, heading) = match start {

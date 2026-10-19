@@ -7,6 +7,8 @@ use ht2_render::Scene;
 const NOT_GROUND: [&str; 9] = ["water", "shadow", "glass", "sky", "fog", "sun", "light", "glow", "tree"];
 
 pub struct Ground {
+    /// The world's collision meshes, used by the ported vehicle (empty when the scene has none).
+    pub collision: crate::collision::Collision,
     cell: f32,
     min: (f32, f32),
     dims: (usize, usize),
@@ -70,7 +72,7 @@ impl Ground {
                 }
             }
         }
-        Ground { cell, min: lo, dims, cells, tris }
+        Ground { collision: crate::collision::Collision::new(&[]), cell, min: lo, dims, cells, tris }
     }
 
     pub fn triangle_count(&self) -> usize {
