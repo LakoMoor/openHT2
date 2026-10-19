@@ -294,3 +294,184 @@ mod tests {
         assert_eq!(s.point(1.0, 0), [1.0, 0.0, 0.0]);
     }
 }
+
+impl Segment {
+    /// `vtable + 0x1c` (`0x4555e0`, `0x4551d0`): run the segment the other way (the side flags 4
+    /// and 8 swap).
+    pub fn reverse(&mut self) {
+        let f = self.flags;
+        self.flags = (f & !0xc) | if f & 4 != 0 { 8 } else { 0 } | if f & 8 != 0 { 4 } else { 0 };
+        match &mut self.shape {
+            Shape::Polyline(p) => p.reverse(),
+            Shape::Curve { pos, .. } => {
+                let c = control_points(pos);
+                let rebuilt = Segment::new(1, self.value, self.attr2, self.width, &[c[3], c[2], c[1], c[0]]).expect("four points");
+                self.shape = rebuilt.shape;
+            }
+        }
+    }
+}
+
+/// The control points back from the power coefficients of a curve.
+fn control_points(pos: &[[f64; 3]; 4]) -> [[f64; 3]; 4] {
+    let [a, b, d, p0] = *pos;
+    let p1: [f64; 3] = core::array::from_fn(|i| p0[i] + d[i] / 3.0);
+    let p2: [f64; 3] = core::array::from_fn(|i| b[i] / 3.0 + 2.0 * p1[i] - p0[i]);
+    let p3: [f64; 3] = core::array::from_fn(|i| a[i] + p0[i] - 3.0 * p1[i] + 3.0 * p2[i]);
+    [p0, p1, p2, p3]
+}
+
+/// A node of the road graph: a named place of a `.way` file or an automatic one (`anode`)
+/// where roads meet.
+#[derive(Debug, Clone)]
+pub struct Node {
+    pub name: String,
+    pub pos: [f64; 3],
+    /// `+0xc`: 8 for nodes roads do not snap to (`FLAG` bit 0), 0x40 for `FLAG` bit 1.
+    pub flags: u32,
+    /// Roads leaving (`+0x18`) and entering (`+0x24`) the node.
+    pub out: Vec<usize>,
+    pub inc: Vec<usize>,
+}
+
+/// A road: segments chained from one node to another (`0x405c00`).
+#[derive(Debug, Clone)]
+pub struct Road {
+    pub start: usize,
+    pub end: usize,
+    pub segments: Vec<usize>,
+    /// `+0x18`: total length; `+0x28`: the length of this and all earlier roads.
+    pub length: f64,
+    pub cumulative: f64,
+}
+
+/// The road network of the AI world.
+#[derive(Debug, Clone, Default)]
+pub struct RoadNet {
+    pub nodes: Vec<Node>,
+    pub segments: Vec<Segment>,
+    pub roads: Vec<Road>,
+}
+
+struct Endpoint {
+    pos: [f64; 3],
+    visited: bool,
+    node: Option<usize>,
+    /// (segment, start endpoint, end endpoint)
+    ends: Vec<(usize, usize, usize)>,
+}
+
+fn dist(a: [f64; 3], b: [f64; 3]) -> f64 {
+    let d = sub(a, b);
+    (d[0] * d[0] + d[2] * d[2] + d[1] * d[1]).sqrt()
+}
+
+impl RoadNet {
+    /// Build the network from the rooms of the `.way` files, in the order the original reads
+    /// them (`0x406600`: files sorted by name).
+    pub fn build(ways: &[Vec<ht2_formats::way::Room>]) -> Self {
+        let mut net = RoadNet::default();
+        let mut eps: Vec<Endpoint> = Vec::new();
+        let mut seg_done: Vec<bool> = Vec::new();
+        // 0x405730 / 0x45b220: the first endpoint within 0.1 of `p`, or a new one at the end
+        let find = |eps: &mut Vec<Endpoint>, p: [f64; 3]| -> usize {
+            match eps.iter().position(|e| dist(p, e.pos) < 0.1) {
+                Some(i) => i,
+                None => {
+                    eps.push(Endpoint { pos: p, visited: false, node: None, ends: Vec::new() });
+                    eps.len() - 1
+                }
+            }
+        };
+        for rooms in ways {
+            for room in rooms {
+                for s in &room.segments {
+                    let Some(seg) = Segment::new(s.kind, s.value, s.flag, s.width, &s.points) else { continue };
+                    let a = seg.point(0.0, 0);
+                    let b = seg.point(1.0, seg.pieces() - 1);
+                    let id = net.segments.len();
+                    net.segments.push(seg);
+                    seg_done.push(false);
+                    let ea = find(&mut eps, a);
+                    let eb = find(&mut eps, b);
+                    eps[ea].ends.push((id, ea, eb));
+                    eps[eb].ends.push((id, ea, eb));
+                }
+                for n in &room.nodes {
+                    if net.nodes.iter().any(|x| x.name == n.name) {
+                        continue;
+                    }
+                    let flags = if n.flag & 1 != 0 { 8 } else { 0 } | if n.flag & 2 != 0 { 0x40 } else { 0 };
+                    net.nodes.push(Node { name: n.name.clone(), pos: n.pos, flags, out: Vec::new(), inc: Vec::new() });
+                }
+            }
+        }
+        // 0x405f90: a node at every endpoint: a named one within 0.1, else an automatic one where
+        // other than two segment ends meet
+        for e in eps.iter_mut() {
+            let named = net.nodes.iter().position(|n| dist(e.pos, n.pos) < 0.1 && n.flags & 8 == 0);
+            e.node = match named {
+                Some(i) => Some(i),
+                None if e.ends.len() != 2 => {
+                    net.nodes.push(Node { name: "anode".into(), pos: e.pos, flags: 0, out: Vec::new(), inc: Vec::new() });
+                    Some(net.nodes.len() - 1)
+                }
+                None => None,
+            };
+        }
+        while let Some(i) = eps.iter().position(|e| !e.visited && e.node.is_some()) {
+            net.walk(&mut eps, &mut seg_done, i);
+        }
+        // 0x406160: road lengths
+        let mut total = 0.0;
+        for r in net.roads.iter_mut() {
+            r.length = r.segments.iter().map(|s| net.segments[*s].length()).sum();
+            total += r.length;
+            r.cumulative = total;
+        }
+        net
+    }
+
+    /// `0x405c00`: the roads leaving the endpoint `ep`, depth first (a road is numbered after
+    /// the roads beyond its end).
+    fn walk(&mut self, eps: &mut Vec<Endpoint>, done: &mut Vec<bool>, ep: usize) {
+        if eps[ep].visited {
+            return;
+        }
+        eps[ep].visited = true;
+        let start = eps[ep].node.expect("endpoint with a node");
+        let mut k = 0;
+        while k < eps[ep].ends.len() {
+            let first = eps[ep].ends[k];
+            k += 1;
+            if done[first.0] {
+                continue;
+            }
+            let mut road = Road { start, end: 0, segments: Vec::new(), length: 0.0, cumulative: 0.0 };
+            let mut cur = ep;
+            let mut entry = first;
+            let next = loop {
+                done[entry.0] = true;
+                let next = if entry.1 == cur {
+                    entry.2
+                } else {
+                    self.segments[entry.0].reverse();
+                    entry.1
+                };
+                road.segments.push(entry.0);
+                if eps[next].node.is_some() {
+                    break next;
+                }
+                let ends = &eps[next].ends;
+                entry = if ends[0].0 == entry.0 { ends[1] } else { ends[0] };
+                cur = next;
+            };
+            road.end = eps[next].node.expect("endpoint with a node");
+            self.walk(eps, done, next);
+            let id = self.roads.len();
+            self.nodes[road.start].out.push(id);
+            self.nodes[road.end].inc.push(id);
+            self.roads.push(road);
+        }
+    }
+}
