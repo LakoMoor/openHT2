@@ -117,8 +117,14 @@ class Harness:
                '    }',
                '    out',
                '}', '',
-               'fn patch(buf: &mut [u8], base: u32, diffs: &[(u32, &[u8])]) {',
-               '    for (a, d) in diffs { let o = (*a - base) as usize; buf[o..o + d.len()].copy_from_slice(d); }',
+               'fn hex(s: &str) -> Vec<u8> {',
+               '    (0..s.len() / 2).map(|i| u8::from_str_radix(&s[2 * i..2 * i + 2], 16).unwrap()).collect()',
+               '}', '',
+               'fn w(m: &mut mem::Mem, addr: u32, h: &str) {',
+               '    m.write(addr, &hex(h));',
+               '}', '',
+               'fn patch(buf: &mut [u8], base: u32, diffs: &[(u32, &str)]) {',
+               '    for (a, d) in diffs { let d = hex(d); let o = (*a - base) as usize; buf[o..o + d.len()].copy_from_slice(&d); }',
                '}', '', f'const CLOCK: u32 = {CLOCK_OBJ:#x};', '']
         for n, c in enumerate(self.cases):
             out.append('#[test]')
@@ -126,7 +132,7 @@ class Harness:
             out.append('    let mut m = mem::Mem::new();')
             out.append(f'    globals::install_clock(&mut m, CLOCK, {c["time"]!r}, {c["dt"]!r});')
             for addr, data in c['writes']:
-                out.append(f'    m.write({addr:#x}, &{list(data)!r});')
+                out.append(f'    w(&mut m, {addr:#x}, "{bytes(data).hex()}");')
             if c['setup']:
                 out.append('    ' + c['setup'])
             for k, (b, ln) in enumerate(c['watch']):
@@ -139,7 +145,7 @@ class Harness:
             for k, (b, ln) in enumerate(c['watch']):
                 mine = [(a, list(d)) for a, d in c['diffs'] if b <= a < b + ln]
                 out.append(f'    let mut want{k} = before{k}.clone();')
-                body = ', '.join(f'({a:#x}, &{d!r}[..])' for a, d in mine)
+                body = ', '.join(f'({a:#x}, "{bytes(d).hex()}")' for a, d in mine)
                 out.append(f'    patch(&mut want{k}, {b:#x}, &[{body}]);')
                 out.append(f'    assert!(mem_close(&m.read({b:#x}, {ln}), &want{k}), "memory at {b:#x} differs from the original:{{}}", report({b:#x}, &m.read({b:#x}, {ln}), &want{k}));')
             out.append('}')

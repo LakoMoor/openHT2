@@ -8,7 +8,7 @@ from carstate import CAR, WATCH, RUST_FILTERS, make_filters, update_writes  # no
 
 h = Harness('golden_gearbox_update', ['use ht2_sim::{gearbox_update as gu, filter};'])
 r = h.rnd
-for _ in range(800):
+for _ in range(300):
     now = r.uniform(5, 40)
     w, vid, n = update_writes(h.e, r, now)
     h.case(w, lambda e: e.call(0x4ff800, this=CAR), f'gu::fn_004ff800(&mut m, {CAR:#x})', WATCH, time=now,

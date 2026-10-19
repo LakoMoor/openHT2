@@ -21,8 +21,28 @@ fn mem_close(got: &[u8], want: &[u8]) -> bool {
     })
 }
 
-fn patch(buf: &mut [u8], base: u32, diffs: &[(u32, &[u8])]) {
-    for (a, d) in diffs { let o = (*a - base) as usize; buf[o..o + d.len()].copy_from_slice(d); }
+fn report(base: u32, got: &[u8], want: &[u8]) -> String {
+    let mut out = String::new();
+    for (i, (a, b)) in got.chunks(4).zip(want.chunks(4)).enumerate() {
+        if a != b && out.len() < 600 {
+            let f = |x: &[u8]| if x.len() == 4 { format!("{:#010x}/{}", u32::from_le_bytes(x.try_into().unwrap()), f32::from_le_bytes(x.try_into().unwrap())) } else { format!("{x:?}") };
+            out += &format!("
+  +{:#x}: port {} original {}", base as usize + i * 4, f(a), f(b));
+        }
+    }
+    out
+}
+
+fn hex(s: &str) -> Vec<u8> {
+    (0..s.len() / 2).map(|i| u8::from_str_radix(&s[2 * i..2 * i + 2], 16).unwrap()).collect()
+}
+
+fn w(m: &mut mem::Mem, addr: u32, h: &str) {
+    m.write(addr, &hex(h));
+}
+
+fn patch(buf: &mut [u8], base: u32, diffs: &[(u32, &str)]) {
+    for (a, d) in diffs { let d = hex(d); let o = (*a - base) as usize; buf[o..o + d.len()].copy_from_slice(&d); }
 }
 
 const CLOCK: u32 = 0x2a100000;
@@ -31,7130 +51,7130 @@ const CLOCK: u32 = 0x2a100000;
 fn case_0() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[80, 179, 151, 65]);
-    m.write(0x2a00020c, &[62, 69, 117, 65]);
-    m.write(0x2a000218, &[103, 137, 9, 64]);
-    m.write(0x2a000204, &[170, 203, 99, 65]);
-    m.write(0x2a000210, &[43, 21, 5, 66]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[32, 176, 158, 65]);
-    m.write(0x2a000214, &[32, 176, 158, 65]);
-    m.write(0x2a000220, &[75, 144, 75, 64]);
-    m.write(0x2a000224, &[73, 100, 81, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "50b39741");
+    w(&mut m, 0x2a00020c, "3e457541");
+    w(&mut m, 0x2a000218, "67890940");
+    w(&mut m, 0x2a000204, "aacb6341");
+    w(&mut m, 0x2a000210, "2b150542");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "20b09e41");
+    w(&mut m, 0x2a000214, "20b09e41");
+    w(&mut m, 0x2a000220, "4b904b40");
+    w(&mut m, 0x2a000224, "4964513f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021e, &[128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f0000803f"), (0x2a00021e, "803f0000803f0000803f00"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_1() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[29, 247, 149, 191]);
-    m.write(0x2a00020c, &[168, 6, 165, 192]);
-    m.write(0x2a000218, &[119, 65, 85, 64]);
-    m.write(0x2a000204, &[37, 145, 12, 65]);
-    m.write(0x2a000210, &[145, 33, 90, 64]);
-    m.write(0x2a00021c, &[159, 24, 104, 64]);
-    m.write(0x2a000208, &[209, 238, 100, 65]);
-    m.write(0x2a000214, &[54, 25, 169, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[33, 204, 48, 189]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "1df795bf");
+    w(&mut m, 0x2a00020c, "a806a5c0");
+    w(&mut m, 0x2a000218, "77415540");
+    w(&mut m, 0x2a000204, "25910c41");
+    w(&mut m, 0x2a000210, "91215a40");
+    w(&mut m, 0x2a00021c, "9f186840");
+    w(&mut m, 0x2a000208, "d1ee6441");
+    w(&mut m, 0x2a000214, "3619a941");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "21cc30bd");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a000222, &[128, 63, 0, 0, 128, 63, 0][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f0000803f0000803f"), (0x2a000222, "803f0000803f00"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_2() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[208, 66, 120, 192]);
-    m.write(0x2a00020c, &[195, 153, 226, 192]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[79, 14, 146, 65]);
-    m.write(0x2a000210, &[81, 211, 218, 192]);
-    m.write(0x2a00021c, &[43, 91, 139, 64]);
-    m.write(0x2a000208, &[228, 125, 147, 65]);
-    m.write(0x2a000214, &[51, 223, 202, 192]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[70, 128, 155, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "d04278c0");
+    w(&mut m, 0x2a00020c, "c399e2c0");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "4f0e9241");
+    w(&mut m, 0x2a000210, "51d3dac0");
+    w(&mut m, 0x2a00021c, "2b5b8b40");
+    w(&mut m, 0x2a000208, "e47d9341");
+    w(&mut m, 0x2a000214, "33dfcac0");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "46809b3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021a, &[128, 63, 0, 0, 128, 63][..]), (0x2a000222, &[128, 63, 0, 0, 128, 63, 0][..]), (0x2a00022c, &[0][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f"), (0x2a00021a, "803f0000803f"), (0x2a000222, "803f0000803f00"), (0x2a00022c, "00"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_3() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[235, 148, 157, 65]);
-    m.write(0x2a00020c, &[49, 198, 15, 66]);
-    m.write(0x2a000218, &[73, 181, 171, 63]);
-    m.write(0x2a000204, &[94, 66, 16, 65]);
-    m.write(0x2a000210, &[94, 66, 16, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[205, 2, 91, 190]);
-    m.write(0x2a000214, &[55, 171, 131, 65]);
-    m.write(0x2a000220, &[73, 16, 150, 64]);
-    m.write(0x2a000224, &[169, 49, 21, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "eb949d41");
+    w(&mut m, 0x2a00020c, "31c60f42");
+    w(&mut m, 0x2a000218, "49b5ab3f");
+    w(&mut m, 0x2a000204, "5e421041");
+    w(&mut m, 0x2a000210, "5e421041");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "cd025bbe");
+    w(&mut m, 0x2a000214, "37ab8341");
+    w(&mut m, 0x2a000220, "49109640");
+    w(&mut m, 0x2a000224, "a931153f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128][..]), (0x2a00021e, &[128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0][..]), (0x2a00022c, &[0][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f000080"), (0x2a00021e, "803f0000803f0000803f00"), (0x2a00022c, "00"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_4() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[163, 234, 104, 192]);
-    m.write(0x2a00020c, &[163, 234, 104, 192]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[62, 179, 127, 65]);
-    m.write(0x2a000210, &[186, 72, 169, 191]);
-    m.write(0x2a00021c, &[69, 242, 130, 64]);
-    m.write(0x2a000208, &[118, 39, 204, 64]);
-    m.write(0x2a000214, &[118, 39, 204, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[66, 42, 191, 189]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "a3ea68c0");
+    w(&mut m, 0x2a00020c, "a3ea68c0");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "3eb37f41");
+    w(&mut m, 0x2a000210, "ba48a9bf");
+    w(&mut m, 0x2a00021c, "45f28240");
+    w(&mut m, 0x2a000208, "7627cc40");
+    w(&mut m, 0x2a000214, "7627cc40");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "422abfbd");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021a, &[128, 63, 0, 0, 128, 63][..]), (0x2a000222, &[128, 63, 0, 0, 128, 63, 0][..]), (0x2a00022c, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f"), (0x2a00021a, "803f0000803f"), (0x2a000222, "803f0000803f00"), (0x2a00022c, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_5() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[238, 51, 157, 64]);
-    m.write(0x2a00020c, &[238, 51, 157, 64]);
-    m.write(0x2a000218, &[81, 154, 88, 64]);
-    m.write(0x2a000204, &[57, 244, 78, 65]);
-    m.write(0x2a000210, &[58, 116, 198, 192]);
-    m.write(0x2a00021c, &[186, 254, 225, 63]);
-    m.write(0x2a000208, &[5, 190, 135, 192]);
-    m.write(0x2a000214, &[123, 164, 157, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[223, 104, 138, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "ee339d40");
+    w(&mut m, 0x2a00020c, "ee339d40");
+    w(&mut m, 0x2a000218, "519a5840");
+    w(&mut m, 0x2a000204, "39f44e41");
+    w(&mut m, 0x2a000210, "3a74c6c0");
+    w(&mut m, 0x2a00021c, "bafee13f");
+    w(&mut m, 0x2a000208, "05be87c0");
+    w(&mut m, 0x2a000214, "7ba49dc1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "df688a3e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128][..]), (0x2a000222, &[128, 63, 0, 0, 128, 63, 0][..]), (0x2a00022c, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f0000803f000080"), (0x2a000222, "803f0000803f00"), (0x2a00022c, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_6() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[217, 208, 81, 63]);
-    m.write(0x2a00020c, &[109, 176, 185, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[71, 64, 48, 65]);
-    m.write(0x2a000210, &[198, 92, 241, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[149, 55, 6, 65]);
-    m.write(0x2a000214, &[173, 71, 235, 64]);
-    m.write(0x2a000220, &[104, 211, 119, 64]);
-    m.write(0x2a000224, &[193, 26, 150, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "d9d0513f");
+    w(&mut m, 0x2a00020c, "6db0b941");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "47403041");
+    w(&mut m, 0x2a000210, "c65cf141");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "95370641");
+    w(&mut m, 0x2a000214, "ad47eb40");
+    w(&mut m, 0x2a000220, "68d37740");
+    w(&mut m, 0x2a000224, "c11a963f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021a, &[128, 63][..]), (0x2a00021e, &[128, 63, 0, 0, 128, 63, 0, 0, 128][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f"), (0x2a00021a, "803f"), (0x2a00021e, "803f0000803f000080"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_7() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[23, 188, 30, 65]);
-    m.write(0x2a00020c, &[104, 94, 155, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[119, 69, 28, 65]);
-    m.write(0x2a000210, &[159, 185, 198, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[25, 32, 121, 191]);
-    m.write(0x2a000214, &[247, 30, 173, 65]);
-    m.write(0x2a000220, &[217, 174, 18, 64]);
-    m.write(0x2a000224, &[218, 72, 130, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "17bc1e41");
+    w(&mut m, 0x2a00020c, "685e9b41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "77451c41");
+    w(&mut m, 0x2a000210, "9fb9c641");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "192079bf");
+    w(&mut m, 0x2a000214, "f71ead41");
+    w(&mut m, 0x2a000220, "d9ae1240");
+    w(&mut m, 0x2a000224, "da48823e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021a, &[128, 63][..]), (0x2a00021e, &[128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f"), (0x2a00021a, "803f"), (0x2a00021e, "803f0000803f0000803f00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_8() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[29, 189, 9, 192]);
-    m.write(0x2a00020c, &[226, 206, 191, 65]);
-    m.write(0x2a000218, &[185, 173, 5, 63]);
-    m.write(0x2a000204, &[83, 149, 22, 192]);
-    m.write(0x2a000210, &[192, 58, 166, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[170, 99, 135, 65]);
-    m.write(0x2a000214, &[28, 9, 112, 65]);
-    m.write(0x2a000220, &[201, 122, 24, 64]);
-    m.write(0x2a000224, &[153, 154, 144, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "1dbd09c0");
+    w(&mut m, 0x2a00020c, "e2cebf41");
+    w(&mut m, 0x2a000218, "b9ad053f");
+    w(&mut m, 0x2a000204, "539516c0");
+    w(&mut m, 0x2a000210, "c03aa6c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "aa638741");
+    w(&mut m, 0x2a000214, "1c097041");
+    w(&mut m, 0x2a000220, "c97a1840");
+    w(&mut m, 0x2a000224, "999a903e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128][..]), (0x2a00021e, &[128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0][..]), (0x2a00022c, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f000080"), (0x2a00021e, "803f0000803f0000803f00"), (0x2a00022c, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_9() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[164, 36, 157, 61]);
-    m.write(0x2a00020c, &[43, 108, 231, 192]);
-    m.write(0x2a000218, &[226, 62, 50, 64]);
-    m.write(0x2a000204, &[5, 236, 137, 65]);
-    m.write(0x2a000210, &[138, 144, 207, 63]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[219, 15, 56, 191]);
-    m.write(0x2a000214, &[187, 83, 64, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[186, 202, 4, 61]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "a4249d3d");
+    w(&mut m, 0x2a00020c, "2b6ce7c0");
+    w(&mut m, 0x2a000218, "e23e3240");
+    w(&mut m, 0x2a000204, "05ec8941");
+    w(&mut m, 0x2a000210, "8a90cf3f");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "db0f38bf");
+    w(&mut m, 0x2a000214, "bb534041");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "baca043d");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021e, &[128, 63][..]), (0x2a000222, &[128, 63, 0, 0, 128, 63][..]), (0x2a00022c, &[0][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f0000803f"), (0x2a00021e, "803f"), (0x2a000222, "803f0000803f"), (0x2a00022c, "00"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_10() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[173, 154, 158, 63]);
-    m.write(0x2a00020c, &[173, 154, 158, 63]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[109, 193, 150, 64]);
-    m.write(0x2a000210, &[172, 20, 64, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[157, 64, 137, 63]);
-    m.write(0x2a000214, &[251, 116, 220, 63]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[235, 32, 227, 60]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "ad9a9e3f");
+    w(&mut m, 0x2a00020c, "ad9a9e3f");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "6dc19640");
+    w(&mut m, 0x2a000210, "ac1440c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "9d40893f");
+    w(&mut m, 0x2a000214, "fb74dc3f");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "eb20e33c");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128][..]), (0x2a00021a, &[128, 63][..]), (0x2a00021e, &[128, 63][..]), (0x2a000222, &[128, 63, 0, 0, 128, 63][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f000080"), (0x2a00021a, "803f"), (0x2a00021e, "803f"), (0x2a000222, "803f0000803f"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_11() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[83, 175, 9, 190]);
-    m.write(0x2a00020c, &[105, 214, 189, 193]);
-    m.write(0x2a000218, &[31, 244, 70, 64]);
-    m.write(0x2a000204, &[217, 107, 7, 65]);
-    m.write(0x2a000210, &[187, 171, 81, 192]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[229, 165, 15, 65]);
-    m.write(0x2a000214, &[21, 17, 225, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[64, 125, 171, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "53af09be");
+    w(&mut m, 0x2a00020c, "69d6bdc1");
+    w(&mut m, 0x2a000218, "1ff44640");
+    w(&mut m, 0x2a000204, "d96b0741");
+    w(&mut m, 0x2a000210, "bbab51c0");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "e5a50f41");
+    w(&mut m, 0x2a000214, "1511e141");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "407dab3e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021e, &[128, 63][..]), (0x2a000222, &[128, 63, 0, 0, 128, 63][..]), (0x2a00022c, &[0][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f0000803f"), (0x2a00021e, "803f"), (0x2a000222, "803f0000803f"), (0x2a00022c, "00"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_12() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[125, 58, 29, 64]);
-    m.write(0x2a00020c, &[115, 191, 187, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[105, 38, 101, 192]);
-    m.write(0x2a000210, &[103, 177, 234, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[12, 7, 95, 65]);
-    m.write(0x2a000214, &[255, 159, 179, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[128, 139, 215, 61]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "7d3a1d40");
+    w(&mut m, 0x2a00020c, "73bfbbc1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "692665c0");
+    w(&mut m, 0x2a000210, "67b1ea40");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "0c075f41");
+    w(&mut m, 0x2a000214, "ff9fb341");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "808bd73d");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021a, &[128, 63][..]), (0x2a00021e, &[128, 63][..]), (0x2a000222, &[128, 63, 0, 0, 128, 63, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f"), (0x2a00021a, "803f"), (0x2a00021e, "803f"), (0x2a000222, "803f0000803f00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_13() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[191, 183, 163, 64]);
-    m.write(0x2a00020c, &[125, 171, 187, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[28, 128, 171, 62]);
-    m.write(0x2a000210, &[59, 72, 93, 65]);
-    m.write(0x2a00021c, &[4, 235, 168, 62]);
-    m.write(0x2a000208, &[94, 196, 157, 192]);
-    m.write(0x2a000214, &[175, 233, 198, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[72, 103, 96, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "bfb7a340");
+    w(&mut m, 0x2a00020c, "7dabbbc1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "1c80ab3e");
+    w(&mut m, 0x2a000210, "3b485d41");
+    w(&mut m, 0x2a00021c, "04eba83e");
+    w(&mut m, 0x2a000208, "5ec49dc0");
+    w(&mut m, 0x2a000214, "afe9c6c1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "4867603e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021a, &[128, 63, 0, 0, 128, 63][..]), (0x2a000222, &[128, 63, 0, 0, 128, 63, 0][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f"), (0x2a00021a, "803f0000803f"), (0x2a000222, "803f0000803f00"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_14() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[254, 54, 136, 65]);
-    m.write(0x2a00020c, &[231, 187, 157, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[37, 59, 118, 192]);
-    m.write(0x2a000210, &[57, 126, 141, 191]);
-    m.write(0x2a00021c, &[57, 183, 120, 63]);
-    m.write(0x2a000208, &[75, 50, 1, 65]);
-    m.write(0x2a000214, &[12, 155, 40, 63]);
-    m.write(0x2a000220, &[215, 111, 45, 64]);
-    m.write(0x2a000224, &[232, 30, 120, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "fe368841");
+    w(&mut m, 0x2a00020c, "e7bb9d41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "253b76c0");
+    w(&mut m, 0x2a000210, "397e8dbf");
+    w(&mut m, 0x2a00021c, "39b7783f");
+    w(&mut m, 0x2a000208, "4b320141");
+    w(&mut m, 0x2a000214, "0c9b283f");
+    w(&mut m, 0x2a000220, "d76f2d40");
+    w(&mut m, 0x2a000224, "e81e783f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128][..]), (0x2a00021a, &[128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f000080"), (0x2a00021a, "803f0000803f0000803f000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_15() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[162, 71, 22, 64]);
-    m.write(0x2a00020c, &[114, 252, 125, 192]);
-    m.write(0x2a000218, &[94, 204, 213, 63]);
-    m.write(0x2a000204, &[190, 150, 73, 65]);
-    m.write(0x2a000210, &[48, 222, 214, 65]);
-    m.write(0x2a00021c, &[137, 219, 245, 62]);
-    m.write(0x2a000208, &[21, 130, 25, 64]);
-    m.write(0x2a000214, &[242, 41, 94, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[60, 244, 231, 60]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "a2471640");
+    w(&mut m, 0x2a00020c, "72fc7dc0");
+    w(&mut m, 0x2a000218, "5eccd53f");
+    w(&mut m, 0x2a000204, "be964941");
+    w(&mut m, 0x2a000210, "30ded641");
+    w(&mut m, 0x2a00021c, "89dbf53e");
+    w(&mut m, 0x2a000208, "15821940");
+    w(&mut m, 0x2a000214, "f2295ec1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "3cf4e73c");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a000222, &[128, 63, 0, 0, 128, 63][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f0000803f0000803f"), (0x2a000222, "803f0000803f"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_16() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[219, 142, 115, 64]);
-    m.write(0x2a00020c, &[111, 93, 209, 193]);
-    m.write(0x2a000218, &[170, 135, 21, 64]);
-    m.write(0x2a000204, &[235, 77, 127, 65]);
-    m.write(0x2a000210, &[119, 95, 47, 65]);
-    m.write(0x2a00021c, &[233, 40, 71, 63]);
-    m.write(0x2a000208, &[141, 218, 140, 65]);
-    m.write(0x2a000214, &[225, 110, 157, 190]);
-    m.write(0x2a000220, &[185, 107, 196, 63]);
-    m.write(0x2a000224, &[0, 69, 45, 189]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "db8e7340");
+    w(&mut m, 0x2a00020c, "6f5dd1c1");
+    w(&mut m, 0x2a000218, "aa871540");
+    w(&mut m, 0x2a000204, "eb4d7f41");
+    w(&mut m, 0x2a000210, "775f2f41");
+    w(&mut m, 0x2a00021c, "e928473f");
+    w(&mut m, 0x2a000208, "8dda8c41");
+    w(&mut m, 0x2a000214, "e16e9dbe");
+    w(&mut m, 0x2a000220, "b96bc43f");
+    w(&mut m, 0x2a000224, "00452dbd");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128][..]), (0x2a000225, &[0, 128, 63, 0][..]), (0x2a00022c, &[0][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f0000803f0000803f000080"), (0x2a000225, "00803f00"), (0x2a00022c, "00"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_17() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[72, 239, 131, 65]);
-    m.write(0x2a00020c, &[30, 122, 26, 66]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[35, 57, 204, 188]);
-    m.write(0x2a000210, &[125, 198, 168, 65]);
-    m.write(0x2a00021c, &[59, 240, 119, 64]);
-    m.write(0x2a000208, &[174, 59, 106, 65]);
-    m.write(0x2a000214, &[254, 235, 215, 64]);
-    m.write(0x2a000220, &[35, 167, 129, 64]);
-    m.write(0x2a000224, &[57, 205, 101, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "48ef8341");
+    w(&mut m, 0x2a00020c, "1e7a1a42");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "2339ccbc");
+    w(&mut m, 0x2a000210, "7dc6a841");
+    w(&mut m, 0x2a00021c, "3bf07740");
+    w(&mut m, 0x2a000208, "ae3b6a41");
+    w(&mut m, 0x2a000214, "feebd740");
+    w(&mut m, 0x2a000220, "23a78140");
+    w(&mut m, 0x2a000224, "39cd653f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021a, &[128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0][..]), (0x2a00022c, &[0][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f"), (0x2a00021a, "803f0000803f0000803f0000803f00"), (0x2a00022c, "00"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_18() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[169, 184, 143, 65]);
-    m.write(0x2a00020c, &[247, 1, 11, 66]);
-    m.write(0x2a000218, &[34, 216, 101, 64]);
-    m.write(0x2a000204, &[175, 118, 59, 192]);
-    m.write(0x2a000210, &[138, 36, 81, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[193, 44, 56, 65]);
-    m.write(0x2a000214, &[200, 199, 2, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[38, 89, 124, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "a9b88f41");
+    w(&mut m, 0x2a00020c, "f7010b42");
+    w(&mut m, 0x2a000218, "22d86540");
+    w(&mut m, 0x2a000204, "af763bc0");
+    w(&mut m, 0x2a000210, "8a2451c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "c12c3841");
+    w(&mut m, 0x2a000214, "c8c70242");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "26597c3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021e, &[128, 63][..]), (0x2a000222, &[128, 63, 0, 0, 128, 63, 0][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f0000803f"), (0x2a00021e, "803f"), (0x2a000222, "803f0000803f00"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_19() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[140, 172, 144, 64]);
-    m.write(0x2a00020c, &[156, 11, 149, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[231, 74, 130, 64]);
-    m.write(0x2a000210, &[123, 95, 130, 193]);
-    m.write(0x2a00021c, &[137, 69, 129, 64]);
-    m.write(0x2a000208, &[109, 12, 6, 63]);
-    m.write(0x2a000214, &[63, 252, 113, 193]);
-    m.write(0x2a000220, &[149, 70, 61, 64]);
-    m.write(0x2a000224, &[156, 89, 99, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "8cac9040");
+    w(&mut m, 0x2a00020c, "9c0b95c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "e74a8240");
+    w(&mut m, 0x2a000210, "7b5f82c1");
+    w(&mut m, 0x2a00021c, "89458140");
+    w(&mut m, 0x2a000208, "6d0c063f");
+    w(&mut m, 0x2a000214, "3ffc71c1");
+    w(&mut m, 0x2a000220, "95463d40");
+    w(&mut m, 0x2a000224, "9c59633e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021a, &[128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00022c, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f"), (0x2a00021a, "803f0000803f0000803f0000803f"), (0x2a00022c, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_20() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[176, 113, 158, 64]);
-    m.write(0x2a00020c, &[142, 15, 214, 65]);
-    m.write(0x2a000218, &[209, 37, 91, 64]);
-    m.write(0x2a000204, &[136, 55, 156, 65]);
-    m.write(0x2a000210, &[154, 130, 168, 65]);
-    m.write(0x2a00021c, &[68, 197, 186, 63]);
-    m.write(0x2a000208, &[184, 67, 33, 64]);
-    m.write(0x2a000214, &[19, 141, 218, 64]);
-    m.write(0x2a000220, &[210, 56, 138, 64]);
-    m.write(0x2a000224, &[250, 215, 83, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b0719e40");
+    w(&mut m, 0x2a00020c, "8e0fd641");
+    w(&mut m, 0x2a000218, "d1255b40");
+    w(&mut m, 0x2a000204, "88379c41");
+    w(&mut m, 0x2a000210, "9a82a841");
+    w(&mut m, 0x2a00021c, "44c5ba3f");
+    w(&mut m, 0x2a000208, "b8432140");
+    w(&mut m, 0x2a000214, "138dda40");
+    w(&mut m, 0x2a000220, "d2388a40");
+    w(&mut m, 0x2a000224, "fad7533e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0][..]), (0x2a00022c, &[0][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f0000803f0000803f0000803f0000803f00"), (0x2a00022c, "00"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_21() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[138, 131, 158, 65]);
-    m.write(0x2a00020c, &[170, 69, 203, 64]);
-    m.write(0x2a000218, &[149, 162, 230, 63]);
-    m.write(0x2a000204, &[187, 254, 111, 65]);
-    m.write(0x2a000210, &[250, 12, 29, 193]);
-    m.write(0x2a00021c, &[36, 166, 31, 64]);
-    m.write(0x2a000208, &[201, 206, 180, 64]);
-    m.write(0x2a000214, &[201, 206, 180, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[172, 205, 57, 61]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "8a839e41");
+    w(&mut m, 0x2a00020c, "aa45cb40");
+    w(&mut m, 0x2a000218, "95a2e63f");
+    w(&mut m, 0x2a000204, "bbfe6f41");
+    w(&mut m, 0x2a000210, "fa0c1dc1");
+    w(&mut m, 0x2a00021c, "24a61f40");
+    w(&mut m, 0x2a000208, "c9ceb440");
+    w(&mut m, 0x2a000214, "c9ceb440");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "accd393d");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a000222, &[128, 63, 0, 0, 128, 63, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f0000803f0000803f"), (0x2a000222, "803f0000803f00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_22() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[100, 145, 38, 65]);
-    m.write(0x2a00020c, &[37, 5, 244, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[78, 221, 9, 65]);
-    m.write(0x2a000210, &[67, 87, 51, 193]);
-    m.write(0x2a00021c, &[51, 42, 69, 64]);
-    m.write(0x2a000208, &[194, 120, 117, 64]);
-    m.write(0x2a000214, &[116, 110, 54, 64]);
-    m.write(0x2a000220, &[254, 151, 139, 63]);
-    m.write(0x2a000224, &[249, 191, 172, 189]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "64912641");
+    w(&mut m, 0x2a00020c, "2505f441");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "4edd0941");
+    w(&mut m, 0x2a000210, "435733c1");
+    w(&mut m, 0x2a00021c, "332a4540");
+    w(&mut m, 0x2a000208, "c2787540");
+    w(&mut m, 0x2a000214, "746e3640");
+    w(&mut m, 0x2a000220, "fe978b3f");
+    w(&mut m, 0x2a000224, "f9bfacbd");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021a, &[128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0][..]), (0x2a00022c, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f"), (0x2a00021a, "803f0000803f0000803f0000803f00"), (0x2a00022c, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_23() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[56, 187, 96, 64]);
-    m.write(0x2a00020c, &[69, 157, 4, 66]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[58, 75, 148, 65]);
-    m.write(0x2a000210, &[80, 221, 211, 65]);
-    m.write(0x2a00021c, &[109, 134, 132, 63]);
-    m.write(0x2a000208, &[8, 82, 88, 64]);
-    m.write(0x2a000214, &[160, 137, 153, 192]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[7, 54, 234, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "38bb6040");
+    w(&mut m, 0x2a00020c, "459d0442");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "3a4b9441");
+    w(&mut m, 0x2a000210, "50ddd341");
+    w(&mut m, 0x2a00021c, "6d86843f");
+    w(&mut m, 0x2a000208, "08525840");
+    w(&mut m, 0x2a000214, "a08999c0");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "0736ea3e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021a, &[128, 63, 0, 0, 128][..]), (0x2a000222, &[128, 63, 0, 0, 128, 63][..]), (0x2a00022c, &[0][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f"), (0x2a00021a, "803f000080"), (0x2a000222, "803f0000803f"), (0x2a00022c, "00"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_24() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[104, 157, 141, 64]);
-    m.write(0x2a00020c, &[46, 226, 199, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[57, 186, 131, 64]);
-    m.write(0x2a000210, &[93, 11, 181, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[39, 122, 155, 192]);
-    m.write(0x2a000214, &[101, 49, 132, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[22, 92, 177, 189]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "689d8d40");
+    w(&mut m, 0x2a00020c, "2ee2c741");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "39ba8340");
+    w(&mut m, 0x2a000210, "5d0bb541");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "277a9bc0");
+    w(&mut m, 0x2a000214, "65318441");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "165cb1bd");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::reset(&mut m, 0x2a000200);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63][..]), (0x2a00021a, &[128, 63][..]), (0x2a00021e, &[128, 63][..]), (0x2a000222, &[128, 63, 0, 0, 128, 63, 0][..]), (0x2a00022c, &[0][..]), (0x2a000230, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "0000000000000000000000000000803f0000803f0000803f"), (0x2a00021a, "803f"), (0x2a00021e, "803f"), (0x2a000222, "803f0000803f00"), (0x2a00022c, "00"), (0x2a000230, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_25() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[18, 192, 208, 63]);
-    m.write(0x2a00020c, &[54, 106, 23, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[203, 44, 243, 64]);
-    m.write(0x2a000210, &[89, 158, 3, 66]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[102, 251, 135, 65]);
-    m.write(0x2a000214, &[212, 95, 30, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[100, 133, 139, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "12c0d03f");
+    w(&mut m, 0x2a00020c, "366a1741");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "cb2cf340");
+    w(&mut m, 0x2a000210, "599e0342");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "66fb8741");
+    w(&mut m, 0x2a000214, "d45f1ec1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "64858b3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 1, -1.4705288410186768f32, 0.9924349784851074f32, 7.36802864074707f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000204, &[74, 58, 188, 191][..]), (0x2a000210, &[56, 16, 126, 63][..]), (0x2a00021c, &[149, 250, 10, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000204, "4a3abcbf"), (0x2a000210, "38107e3f"), (0x2a00021c, "95fa0a3e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_26() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[69, 239, 130, 65]);
-    m.write(0x2a00020c, &[255, 72, 9, 66]);
-    m.write(0x2a000218, &[255, 129, 156, 64]);
-    m.write(0x2a000204, &[177, 214, 139, 65]);
-    m.write(0x2a000210, &[163, 156, 160, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[46, 2, 15, 65]);
-    m.write(0x2a000214, &[40, 173, 81, 193]);
-    m.write(0x2a000220, &[192, 172, 136, 64]);
-    m.write(0x2a000224, &[169, 175, 37, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "45ef8241");
+    w(&mut m, 0x2a00020c, "ff480942");
+    w(&mut m, 0x2a000218, "ff819c40");
+    w(&mut m, 0x2a000204, "b1d68b41");
+    w(&mut m, 0x2a000210, "a39ca040");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "2e020f41");
+    w(&mut m, 0x2a000214, "28ad51c1");
+    w(&mut m, 0x2a000220, "c0ac8840");
+    w(&mut m, 0x2a000224, "a9af253f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 0, 2.633070230484009f32, 3.641751766204834f32, 6.375559329986572f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[57, 132, 40, 64][..]), (0x2a00020c, &[118, 18, 105, 64][..]), (0x2a000218, &[5, 157, 32, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "39842840"), (0x2a00020c, "76126940"), (0x2a000218, "059d203e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_27() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[226, 98, 209, 191]);
-    m.write(0x2a00020c, &[211, 78, 222, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[255, 66, 58, 192]);
-    m.write(0x2a000210, &[3, 62, 226, 193]);
-    m.write(0x2a00021c, &[115, 208, 0, 64]);
-    m.write(0x2a000208, &[44, 205, 249, 190]);
-    m.write(0x2a000214, &[59, 24, 32, 65]);
-    m.write(0x2a000220, &[199, 69, 96, 64]);
-    m.write(0x2a000224, &[101, 74, 155, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "e262d1bf");
+    w(&mut m, 0x2a00020c, "d34edec1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "ff423ac0");
+    w(&mut m, 0x2a000210, "033ee2c1");
+    w(&mut m, 0x2a00021c, "73d00040");
+    w(&mut m, 0x2a000208, "2ccdf9be");
+    w(&mut m, 0x2a000214, "3b182041");
+    w(&mut m, 0x2a000220, "c7456040");
+    w(&mut m, 0x2a000224, "654a9b3f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 0, -2.5025720596313477f32, -0.7041053771972656f32, 0.0f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[36, 42, 32, 192][..]), (0x2a00020c, &[64, 64, 52, 191][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "242a20c0"), (0x2a00020c, "404034bf")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_28() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[181, 168, 133, 65]);
-    m.write(0x2a00020c, &[155, 1, 41, 66]);
-    m.write(0x2a000218, &[153, 64, 120, 64]);
-    m.write(0x2a000204, &[24, 187, 133, 65]);
-    m.write(0x2a000210, &[89, 34, 24, 192]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[185, 116, 83, 64]);
-    m.write(0x2a000214, &[25, 214, 61, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[244, 61, 181, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b5a88541");
+    w(&mut m, 0x2a00020c, "9b012942");
+    w(&mut m, 0x2a000218, "99407840");
+    w(&mut m, 0x2a000204, "18bb8541");
+    w(&mut m, 0x2a000210, "592218c0");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "b9745340");
+    w(&mut m, 0x2a000214, "19d63dc1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "f43db53e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 3, -0.8158922791481018f32, 8.889602661132812f32, 5.9498982429504395f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_29() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[206, 108, 39, 64]);
-    m.write(0x2a00020c, &[181, 185, 133, 64]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[108, 56, 132, 65]);
-    m.write(0x2a000210, &[35, 46, 7, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[147, 105, 135, 65]);
-    m.write(0x2a000214, &[118, 40, 194, 64]);
-    m.write(0x2a000220, &[188, 22, 153, 64]);
-    m.write(0x2a000224, &[147, 72, 52, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "ce6c2740");
+    w(&mut m, 0x2a00020c, "b5b98540");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "6c388441");
+    w(&mut m, 0x2a000210, "232e0741");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "93698741");
+    w(&mut m, 0x2a000214, "7628c240");
+    w(&mut m, 0x2a000220, "bc169940");
+    w(&mut m, 0x2a000224, "9348343e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 3, 6.9887309074401855f32, 2.2465198040008545f32, 2.6329338550567627f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_30() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[71, 70, 135, 63]);
-    m.write(0x2a00020c, &[56, 4, 114, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[74, 111, 153, 63]);
-    m.write(0x2a000210, &[65, 215, 78, 65]);
-    m.write(0x2a00021c, &[248, 224, 130, 64]);
-    m.write(0x2a000208, &[8, 86, 23, 63]);
-    m.write(0x2a000214, &[75, 45, 80, 65]);
-    m.write(0x2a000220, &[193, 7, 137, 64]);
-    m.write(0x2a000224, &[214, 177, 56, 189]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "4746873f");
+    w(&mut m, 0x2a00020c, "380472c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "4a6f993f");
+    w(&mut m, 0x2a000210, "41d74e41");
+    w(&mut m, 0x2a00021c, "f8e08240");
+    w(&mut m, 0x2a000208, "0856173f");
+    w(&mut m, 0x2a000214, "4b2d5041");
+    w(&mut m, 0x2a000220, "c1078940");
+    w(&mut m, 0x2a000224, "d6b138bd");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, -1, 9.527557373046875f32, 8.384671211242676f32, 0.0f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_31() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[157, 209, 95, 64]);
-    m.write(0x2a00020c, &[152, 29, 130, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[82, 241, 155, 65]);
-    m.write(0x2a000210, &[251, 101, 14, 64]);
-    m.write(0x2a00021c, &[104, 63, 221, 63]);
-    m.write(0x2a000208, &[73, 80, 9, 65]);
-    m.write(0x2a000214, &[162, 7, 245, 65]);
-    m.write(0x2a000220, &[45, 217, 234, 62]);
-    m.write(0x2a000224, &[168, 34, 153, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "9dd15f40");
+    w(&mut m, 0x2a00020c, "981d82c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "52f19b41");
+    w(&mut m, 0x2a000210, "fb650e40");
+    w(&mut m, 0x2a00021c, "683fdd3f");
+    w(&mut m, 0x2a000208, "49500941");
+    w(&mut m, 0x2a000214, "a207f541");
+    w(&mut m, 0x2a000220, "2dd9ea3e");
+    w(&mut m, 0x2a000224, "a822993f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 0, -2.9532864093780518f32, 5.933389663696289f32, 0.0f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[165, 2, 61, 192][..]), (0x2a00020c, &[84, 222, 189, 64][..]), (0x2a00022c, &[1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "a5023dc0"), (0x2a00020c, "54debd40"), (0x2a00022c, "01")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_32() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[68, 108, 17, 65]);
-    m.write(0x2a00020c, &[217, 158, 35, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[44, 244, 32, 64]);
-    m.write(0x2a000210, &[179, 251, 141, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[154, 87, 86, 65]);
-    m.write(0x2a000214, &[70, 124, 3, 65]);
-    m.write(0x2a000220, &[61, 241, 28, 64]);
-    m.write(0x2a000224, &[74, 73, 142, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "446c1141");
+    w(&mut m, 0x2a00020c, "d99e23c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "2cf42040");
+    w(&mut m, 0x2a000210, "b3fb8dc1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "9a575641");
+    w(&mut m, 0x2a000214, "467c0341");
+    w(&mut m, 0x2a000220, "3df11c40");
+    w(&mut m, 0x2a000224, "4a498e3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 0, 7.495170593261719f32, -0.34030812978744507f32, 0.0f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[112, 216, 239, 64][..]), (0x2a00020c, &[222, 60, 174, 190][..]), (0x2a00022c, &[1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "70d8ef40"), (0x2a00020c, "de3caebe"), (0x2a00022c, "01")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_33() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[91, 171, 45, 65]);
-    m.write(0x2a00020c, &[91, 171, 45, 65]);
-    m.write(0x2a000218, &[102, 126, 87, 64]);
-    m.write(0x2a000204, &[240, 69, 128, 64]);
-    m.write(0x2a000210, &[240, 69, 128, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[13, 9, 32, 65]);
-    m.write(0x2a000214, &[106, 148, 163, 65]);
-    m.write(0x2a000220, &[134, 174, 135, 63]);
-    m.write(0x2a000224, &[222, 198, 156, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "5bab2d41");
+    w(&mut m, 0x2a00020c, "5bab2d41");
+    w(&mut m, 0x2a000218, "667e5740");
+    w(&mut m, 0x2a000204, "f0458040");
+    w(&mut m, 0x2a000210, "f0458040");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "0d092041");
+    w(&mut m, 0x2a000214, "6a94a341");
+    w(&mut m, 0x2a000220, "86ae873f");
+    w(&mut m, 0x2a000224, "dec69c3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 3, 1.500280499458313f32, 4.691162586212158f32, 3.4552042484283447f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_34() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[60, 53, 146, 192]);
-    m.write(0x2a00020c, &[9, 18, 136, 65]);
-    m.write(0x2a000218, &[172, 236, 150, 63]);
-    m.write(0x2a000204, &[129, 49, 109, 65]);
-    m.write(0x2a000210, &[56, 27, 198, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[148, 250, 126, 65]);
-    m.write(0x2a000214, &[12, 64, 153, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[58, 179, 88, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "3c3592c0");
+    w(&mut m, 0x2a00020c, "09128841");
+    w(&mut m, 0x2a000218, "acec963f");
+    w(&mut m, 0x2a000204, "81316d41");
+    w(&mut m, 0x2a000210, "381bc641");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "94fa7e41");
+    w(&mut m, 0x2a000214, "0c409941");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "3ab3583f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 1, 1.0184998512268066f32, 3.614912509918213f32, 4.92692756652832f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000204, &[52, 94, 130, 63][..]), (0x2a000210, &[186, 90, 103, 64][..]), (0x2a00021c, &[98, 214, 79, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000204, "345e823f"), (0x2a000210, "ba5a6740"), (0x2a00021c, "62d64f3e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_35() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[145, 139, 22, 192]);
-    m.write(0x2a00020c, &[87, 207, 161, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[86, 62, 215, 64]);
-    m.write(0x2a000210, &[81, 18, 53, 192]);
-    m.write(0x2a00021c, &[148, 18, 22, 64]);
-    m.write(0x2a000208, &[224, 115, 202, 64]);
-    m.write(0x2a000214, &[100, 86, 64, 64]);
-    m.write(0x2a000220, &[195, 47, 139, 64]);
-    m.write(0x2a000224, &[4, 247, 198, 61]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "918b16c0");
+    w(&mut m, 0x2a00020c, "57cfa141");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "563ed740");
+    w(&mut m, 0x2a000210, "511235c0");
+    w(&mut m, 0x2a00021c, "94121640");
+    w(&mut m, 0x2a000208, "e073ca40");
+    w(&mut m, 0x2a000214, "64564040");
+    w(&mut m, 0x2a000220, "c32f8b40");
+    w(&mut m, 0x2a000224, "04f7c63d");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 1, -1.805124282836914f32, 4.114188194274902f32, 8.230216979980469f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000204, &[80, 14, 231, 191][..]), (0x2a000210, &[110, 167, 131, 64][..]), (0x2a00021c, &[209, 214, 248, 61][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000204, "500ee7bf"), (0x2a000210, "6ea78340"), (0x2a00021c, "d1d6f83d")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_36() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[244, 118, 84, 64]);
-    m.write(0x2a00020c, &[1, 196, 166, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[118, 174, 96, 65]);
-    m.write(0x2a000210, &[86, 62, 175, 192]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[245, 219, 160, 64]);
-    m.write(0x2a000214, &[119, 23, 192, 193]);
-    m.write(0x2a000220, &[1, 234, 156, 63]);
-    m.write(0x2a000224, &[140, 230, 139, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "f4765440");
+    w(&mut m, 0x2a00020c, "01c4a641");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "76ae6041");
+    w(&mut m, 0x2a000210, "563eafc0");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "f5dba040");
+    w(&mut m, 0x2a000214, "7717c0c1");
+    w(&mut m, 0x2a000220, "01ea9c3f");
+    w(&mut m, 0x2a000224, "8ce68b3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 3, 4.624795436859131f32, 7.442638874053955f32, 7.105637073516846f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_37() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[198, 184, 144, 65]);
-    m.write(0x2a00020c, &[199, 79, 186, 65]);
-    m.write(0x2a000218, &[16, 248, 69, 64]);
-    m.write(0x2a000204, &[39, 141, 81, 192]);
-    m.write(0x2a000210, &[146, 97, 102, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[47, 44, 88, 65]);
-    m.write(0x2a000214, &[249, 153, 216, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[92, 161, 127, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "c6b89041");
+    w(&mut m, 0x2a00020c, "c74fba41");
+    w(&mut m, 0x2a000218, "10f84540");
+    w(&mut m, 0x2a000204, "278d51c0");
+    w(&mut m, 0x2a000210, "926166c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "2f2c5841");
+    w(&mut m, 0x2a000214, "f999d841");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "5ca17f3f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, -1, 9.038865089416504f32, 8.16075325012207f32, 0.2814010679721832f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_38() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[241, 175, 110, 65]);
-    m.write(0x2a00020c, &[53, 222, 21, 66]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[163, 34, 147, 65]);
-    m.write(0x2a000210, &[163, 34, 147, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[229, 111, 52, 65]);
-    m.write(0x2a000214, &[229, 111, 52, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[124, 36, 21, 190]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "f1af6e41");
+    w(&mut m, 0x2a00020c, "35de1542");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "a3229341");
+    w(&mut m, 0x2a000210, "a3229341");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "e56f3441");
+    w(&mut m, 0x2a000214, "e56f3441");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "7c2415be");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 1, 3.5592782497406006f32, 6.681845664978027f32, 5.954803466796875f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000204, &[55, 203, 99, 64][..]), (0x2a000210, &[174, 209, 213, 64][..]), (0x2a00021c, &[71, 246, 43, 62][..]), (0x2a00022c, &[2][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000204, "37cb6340"), (0x2a000210, "aed1d540"), (0x2a00021c, "47f62b3e"), (0x2a00022c, "02")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_39() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[33, 69, 112, 65]);
-    m.write(0x2a00020c, &[195, 13, 72, 192]);
-    m.write(0x2a000218, &[250, 205, 194, 62]);
-    m.write(0x2a000204, &[52, 111, 95, 65]);
-    m.write(0x2a000210, &[10, 251, 105, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[191, 80, 154, 65]);
-    m.write(0x2a000214, &[115, 247, 5, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[239, 41, 113, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "21457041");
+    w(&mut m, 0x2a00020c, "c30d48c0");
+    w(&mut m, 0x2a000218, "facdc23e");
+    w(&mut m, 0x2a000204, "346f5f41");
+    w(&mut m, 0x2a000210, "0afb69c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "bf509a41");
+    w(&mut m, 0x2a000214, "73f70542");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "ef29713f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 3, 8.333196640014648f32, 8.628161430358887f32, 0.0f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_40() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[7, 144, 99, 65]);
-    m.write(0x2a00020c, &[95, 41, 200, 62]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[57, 56, 63, 65]);
-    m.write(0x2a000210, &[188, 101, 67, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[3, 236, 133, 65]);
-    m.write(0x2a000214, &[3, 236, 133, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[68, 196, 242, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "07906341");
+    w(&mut m, 0x2a00020c, "5f29c83e");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "39383f41");
+    w(&mut m, 0x2a000210, "bc6543c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "03ec8541");
+    w(&mut m, 0x2a000214, "03ec8541");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "44c4f23e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 3, -2.5081369876861572f32, 1.0588204860687256f32, 2.779209613800049f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_41() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[147, 50, 227, 64]);
-    m.write(0x2a00020c, &[59, 246, 2, 66]);
-    m.write(0x2a000218, &[59, 230, 225, 63]);
-    m.write(0x2a000204, &[255, 24, 111, 64]);
-    m.write(0x2a000210, &[94, 15, 188, 193]);
-    m.write(0x2a00021c, &[205, 222, 153, 64]);
-    m.write(0x2a000208, &[163, 185, 128, 65]);
-    m.write(0x2a000214, &[9, 48, 227, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[28, 202, 54, 190]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "9332e340");
+    w(&mut m, 0x2a00020c, "3bf60242");
+    w(&mut m, 0x2a000218, "3be6e13f");
+    w(&mut m, 0x2a000204, "ff186f40");
+    w(&mut m, 0x2a000210, "5e0fbcc1");
+    w(&mut m, 0x2a00021c, "cdde9940");
+    w(&mut m, 0x2a000208, "a3b98041");
+    w(&mut m, 0x2a000214, "0930e341");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "1cca36be");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 3, 7.405956745147705f32, -1.3675224781036377f32, 0.0f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_42() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[96, 21, 52, 65]);
-    m.write(0x2a00020c, &[221, 20, 48, 193]);
-    m.write(0x2a000218, &[29, 201, 156, 62]);
-    m.write(0x2a000204, &[187, 236, 197, 64]);
-    m.write(0x2a000210, &[79, 136, 190, 63]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[183, 128, 24, 192]);
-    m.write(0x2a000214, &[255, 136, 160, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[50, 125, 47, 190]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "60153441");
+    w(&mut m, 0x2a00020c, "dd1430c1");
+    w(&mut m, 0x2a000218, "1dc99c3e");
+    w(&mut m, 0x2a000204, "bbecc540");
+    w(&mut m, 0x2a000210, "4f88be3f");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "b78018c0");
+    w(&mut m, 0x2a000214, "ff88a0c1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "327d2fbe");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 0, -0.44892093539237976f32, 1.550927996635437f32, 7.6724629402160645f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[247, 216, 229, 190][..]), (0x2a00020c, &[207, 132, 198, 63][..]), (0x2a000218, &[221, 118, 5][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "f7d8e5be"), (0x2a00020c, "cf84c63f"), (0x2a000218, "dd7605")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_43() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[48, 22, 253, 64]);
-    m.write(0x2a00020c, &[192, 160, 26, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[14, 0, 31, 192]);
-    m.write(0x2a000210, &[20, 142, 155, 193]);
-    m.write(0x2a00021c, &[16, 188, 25, 64]);
-    m.write(0x2a000208, &[117, 243, 96, 65]);
-    m.write(0x2a000214, &[73, 197, 70, 64]);
-    m.write(0x2a000220, &[49, 22, 94, 64]);
-    m.write(0x2a000224, &[73, 166, 70, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "3016fd40");
+    w(&mut m, 0x2a00020c, "c0a01ac1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "0e001fc0");
+    w(&mut m, 0x2a000210, "148e9bc1");
+    w(&mut m, 0x2a00021c, "10bc1940");
+    w(&mut m, 0x2a000208, "75f36041");
+    w(&mut m, 0x2a000214, "49c54640");
+    w(&mut m, 0x2a000220, "31165e40");
+    w(&mut m, 0x2a000224, "49a6463f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 2, 3.7321724891662598f32, 6.489689826965332f32, 4.842657089233398f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000208, &[234, 219, 110, 64][..]), (0x2a000214, &[138, 171, 207][..]), (0x2a000220, &[68, 116, 83, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000208, "eadb6e40"), (0x2a000214, "8aabcf"), (0x2a000220, "4474533e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_44() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[144, 199, 56, 65]);
-    m.write(0x2a00020c, &[124, 82, 106, 65]);
-    m.write(0x2a000218, &[91, 61, 121, 64]);
-    m.write(0x2a000204, &[139, 176, 70, 64]);
-    m.write(0x2a000210, &[9, 25, 81, 193]);
-    m.write(0x2a00021c, &[71, 18, 89, 64]);
-    m.write(0x2a000208, &[219, 99, 29, 65]);
-    m.write(0x2a000214, &[33, 228, 195, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[6, 90, 74, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "90c73841");
+    w(&mut m, 0x2a00020c, "7c526a41");
+    w(&mut m, 0x2a000218, "5b3d7940");
+    w(&mut m, 0x2a000204, "8bb04640");
+    w(&mut m, 0x2a000210, "091951c1");
+    w(&mut m, 0x2a00021c, "47125940");
+    w(&mut m, 0x2a000208, "db631d41");
+    w(&mut m, 0x2a000214, "21e4c341");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "065a4a3f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 0, -1.9211666584014893f32, 5.40612268447876f32, 0.0f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[202, 232, 245, 191][..]), (0x2a00020c, &[245, 254, 172, 64][..]), (0x2a000218, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "cae8f5bf"), (0x2a00020c, "f5feac40"), (0x2a000218, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_45() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[110, 155, 79, 64]);
-    m.write(0x2a00020c, &[147, 160, 205, 65]);
-    m.write(0x2a000218, &[232, 247, 159, 64]);
-    m.write(0x2a000204, &[189, 240, 57, 65]);
-    m.write(0x2a000210, &[88, 254, 243, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[200, 222, 49, 65]);
-    m.write(0x2a000214, &[35, 42, 52, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[46, 54, 44, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "6e9b4f40");
+    w(&mut m, 0x2a00020c, "93a0cd41");
+    w(&mut m, 0x2a000218, "e8f79f40");
+    w(&mut m, 0x2a000204, "bdf03941");
+    w(&mut m, 0x2a000210, "58fef341");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "c8de3141");
+    w(&mut m, 0x2a000214, "232a3441");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "2e362c3f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 2, 4.745589256286621f32, -1.6359459161758423f32, 7.291332244873047f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000208, &[222, 219, 151, 64][..]), (0x2a000214, &[173, 102, 209, 191][..]), (0x2a000220, &[211, 112, 12, 62][..]), (0x2a00022c, &[3][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000208, "dedb9740"), (0x2a000214, "ad66d1bf"), (0x2a000220, "d3700c3e"), (0x2a00022c, "03")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_46() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[124, 68, 98, 192]);
-    m.write(0x2a00020c, &[193, 115, 1, 194]);
-    m.write(0x2a000218, &[80, 133, 135, 64]);
-    m.write(0x2a000204, &[132, 186, 157, 65]);
-    m.write(0x2a000210, &[47, 178, 119, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[44, 57, 103, 64]);
-    m.write(0x2a000214, &[237, 17, 181, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[115, 20, 146, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "7c4462c0");
+    w(&mut m, 0x2a00020c, "c17301c2");
+    w(&mut m, 0x2a000218, "50858740");
+    w(&mut m, 0x2a000204, "84ba9d41");
+    w(&mut m, 0x2a000210, "2fb27741");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "2c396740");
+    w(&mut m, 0x2a000214, "ed11b541");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "7314923f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 0, -2.8485817909240723f32, 7.149426460266113f32, 8.151806831359863f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[42, 79, 54][..]), (0x2a00020c, &[26, 200, 228, 64][..]), (0x2a000218, &[143, 59, 251, 61][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "2a4f36"), (0x2a00020c, "1ac8e440"), (0x2a000218, "8f3bfb3d")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_47() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[207, 46, 98, 65]);
-    m.write(0x2a00020c, &[94, 153, 36, 192]);
-    m.write(0x2a000218, &[249, 94, 166, 63]);
-    m.write(0x2a000204, &[185, 243, 123, 64]);
-    m.write(0x2a000210, &[141, 235, 9, 193]);
-    m.write(0x2a00021c, &[85, 99, 27, 64]);
-    m.write(0x2a000208, &[17, 96, 229, 191]);
-    m.write(0x2a000214, &[17, 96, 229, 191]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[24, 126, 21, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "cf2e6241");
+    w(&mut m, 0x2a00020c, "5e9924c0");
+    w(&mut m, 0x2a000218, "f95ea63f");
+    w(&mut m, 0x2a000204, "b9f37b40");
+    w(&mut m, 0x2a000210, "8deb09c1");
+    w(&mut m, 0x2a00021c, "55631b40");
+    w(&mut m, 0x2a000208, "1160e5bf");
+    w(&mut m, 0x2a000214, "1160e5bf");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "187e153f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 1, -2.726047992706299f32, 8.28840160369873f32, 0.0f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000204, &[146, 119, 46, 192][..]), (0x2a000210, &[75, 157, 4, 65][..]), (0x2a00021c, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000204, "92772ec0"), (0x2a000210, "4b9d0441"), (0x2a00021c, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_48() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[104, 62, 116, 65]);
-    m.write(0x2a00020c, &[104, 62, 116, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[173, 73, 81, 65]);
-    m.write(0x2a000210, &[222, 188, 67, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[240, 228, 7, 65]);
-    m.write(0x2a000214, &[90, 109, 199, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[228, 214, 150, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "683e7441");
+    w(&mut m, 0x2a00020c, "683e7441");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "ad495141");
+    w(&mut m, 0x2a000210, "debc43c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "f0e40741");
+    w(&mut m, 0x2a000214, "5a6dc741");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "e4d6963f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, -1, -0.6462571024894714f32, 1.903491735458374f32, 7.175667762756348f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_49() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[77, 135, 160, 64]);
-    m.write(0x2a00020c, &[201, 163, 117, 65]);
-    m.write(0x2a000218, &[160, 68, 157, 63]);
-    m.write(0x2a000204, &[129, 190, 227, 64]);
-    m.write(0x2a000210, &[104, 201, 57, 65]);
-    m.write(0x2a00021c, &[191, 51, 55, 64]);
-    m.write(0x2a000208, &[77, 155, 75, 65]);
-    m.write(0x2a000214, &[2, 129, 156, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[151, 55, 71, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "4d87a040");
+    w(&mut m, 0x2a00020c, "c9a37541");
+    w(&mut m, 0x2a000218, "a0449d3f");
+    w(&mut m, 0x2a000204, "81bee340");
+    w(&mut m, 0x2a000210, "68c93941");
+    w(&mut m, 0x2a00021c, "bf333740");
+    w(&mut m, 0x2a000208, "4d9b4b41");
+    w(&mut m, 0x2a000214, "02819c41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "9737473f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 1, 1.7714247703552246f32, 2.6992480754852295f32, 0.0f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000204, &[12, 190, 226, 63][..]), (0x2a000210, &[123, 192, 44, 64][..]), (0x2a00021c, &[0, 0, 0, 0][..]), (0x2a00022c, &[2][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000204, "0cbee23f"), (0x2a000210, "7bc02c40"), (0x2a00021c, "00000000"), (0x2a00022c, "02")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_50() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[49, 2, 148, 64]);
-    m.write(0x2a00020c, &[175, 46, 160, 191]);
-    m.write(0x2a000218, &[167, 164, 84, 64]);
-    m.write(0x2a000204, &[84, 219, 204, 191]);
-    m.write(0x2a000210, &[88, 231, 118, 65]);
-    m.write(0x2a00021c, &[166, 175, 137, 64]);
-    m.write(0x2a000208, &[244, 249, 221, 64]);
-    m.write(0x2a000214, &[21, 98, 3, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[160, 197, 71, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "31029440");
+    w(&mut m, 0x2a00020c, "af2ea0bf");
+    w(&mut m, 0x2a000218, "a7a45440");
+    w(&mut m, 0x2a000204, "54dbccbf");
+    w(&mut m, 0x2a000210, "58e77641");
+    w(&mut m, 0x2a00021c, "a6af8940");
+    w(&mut m, 0x2a000208, "f4f9dd40");
+    w(&mut m, 0x2a000214, "15620342");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "a0c5473f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 0, 2.254974842071533f32, -0.6842653751373291f32, 7.131939888000488f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[130, 81, 16][..]), (0x2a00020c, &[4, 44, 47][..]), (0x2a000218, &[87, 148, 15, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "825110"), (0x2a00020c, "042c2f"), (0x2a000218, "57940f3e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_51() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[25, 194, 100, 65]);
-    m.write(0x2a00020c, &[225, 211, 205, 65]);
-    m.write(0x2a000218, &[154, 155, 241, 63]);
-    m.write(0x2a000204, &[116, 134, 25, 192]);
-    m.write(0x2a000210, &[177, 247, 76, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[88, 142, 21, 65]);
-    m.write(0x2a000214, &[30, 130, 8, 66]);
-    m.write(0x2a000220, &[12, 27, 104, 64]);
-    m.write(0x2a000224, &[181, 9, 133, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "19c26441");
+    w(&mut m, 0x2a00020c, "e1d3cd41");
+    w(&mut m, 0x2a000218, "9a9bf13f");
+    w(&mut m, 0x2a000204, "748619c0");
+    w(&mut m, 0x2a000210, "b1f74c41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "588e1541");
+    w(&mut m, 0x2a000214, "1e820842");
+    w(&mut m, 0x2a000220, "0c1b6840");
+    w(&mut m, 0x2a000224, "b509853f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, -1, -0.2507816553115845f32, 0.24517810344696045f32, 0.0f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_52() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[201, 173, 117, 65]);
-    m.write(0x2a00020c, &[158, 170, 207, 64]);
-    m.write(0x2a000218, &[146, 69, 129, 64]);
-    m.write(0x2a000204, &[131, 138, 42, 65]);
-    m.write(0x2a000210, &[69, 20, 95, 65]);
-    m.write(0x2a00021c, &[142, 183, 142, 64]);
-    m.write(0x2a000208, &[165, 77, 207, 191]);
-    m.write(0x2a000214, &[48, 163, 74, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[231, 222, 30, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "c9ad7541");
+    w(&mut m, 0x2a00020c, "9eaacf40");
+    w(&mut m, 0x2a000218, "92458140");
+    w(&mut m, 0x2a000204, "838a2a41");
+    w(&mut m, 0x2a000210, "45145f41");
+    w(&mut m, 0x2a00021c, "8eb78e40");
+    w(&mut m, 0x2a000208, "a54dcfbf");
+    w(&mut m, 0x2a000214, "30a34a41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "e7de1e3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 0, 8.528482437133789f32, 5.444464683532715f32, 0.0f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[170, 116, 8][..]), (0x2a00020c, &[14, 57, 174][..]), (0x2a000218, &[0, 0, 0, 0][..]), (0x2a00022c, &[1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "aa7408"), (0x2a00020c, "0e39ae"), (0x2a000218, "00000000"), (0x2a00022c, "01")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_53() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[98, 130, 140, 65]);
-    m.write(0x2a00020c, &[104, 2, 135, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[163, 149, 75, 63]);
-    m.write(0x2a000210, &[130, 43, 183, 65]);
-    m.write(0x2a00021c, &[140, 219, 140, 64]);
-    m.write(0x2a000208, &[156, 25, 86, 65]);
-    m.write(0x2a000214, &[12, 73, 2, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[122, 8, 242, 189]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "62828c41");
+    w(&mut m, 0x2a00020c, "68028741");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "a3954b3f");
+    w(&mut m, 0x2a000210, "822bb741");
+    w(&mut m, 0x2a00021c, "8cdb8c40");
+    w(&mut m, 0x2a000208, "9c195641");
+    w(&mut m, 0x2a000214, "0c4902c1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "7a08f2bd");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 3, 5.117702484130859f32, 0.128553107380867f32, 0.0f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_54() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[134, 74, 139, 192]);
-    m.write(0x2a00020c, &[165, 76, 88, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[195, 6, 159, 63]);
-    m.write(0x2a000210, &[51, 243, 189, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[134, 41, 31, 63]);
-    m.write(0x2a000214, &[227, 248, 115, 64]);
-    m.write(0x2a000220, &[51, 247, 138, 63]);
-    m.write(0x2a000224, &[148, 106, 121, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "864a8bc0");
+    w(&mut m, 0x2a00020c, "a54c58c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "c3069f3f");
+    w(&mut m, 0x2a000210, "33f3bdc1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "86291f3f");
+    w(&mut m, 0x2a000214, "e3f87340");
+    w(&mut m, 0x2a000220, "33f78a3f");
+    w(&mut m, 0x2a000224, "946a793e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 0, 1.3453482389450073f32, 3.9574317932128906f32, 0.0f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000200, &[95, 52, 172, 63][..]), (0x2a00020c, &[144, 70, 125, 64][..]), (0x2a00022c, &[1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000200, "5f34ac3f"), (0x2a00020c, "90467d40"), (0x2a00022c, "01")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_55() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[227, 42, 80, 64]);
-    m.write(0x2a00020c, &[205, 34, 66, 62]);
-    m.write(0x2a000218, &[228, 247, 7, 63]);
-    m.write(0x2a000204, &[248, 62, 36, 65]);
-    m.write(0x2a000210, &[66, 237, 98, 65]);
-    m.write(0x2a00021c, &[251, 54, 93, 63]);
-    m.write(0x2a000208, &[62, 17, 56, 192]);
-    m.write(0x2a000214, &[195, 173, 17, 193]);
-    m.write(0x2a000220, &[125, 186, 66, 64]);
-    m.write(0x2a000224, &[191, 114, 52, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "e32a5040");
+    w(&mut m, 0x2a00020c, "cd22423e");
+    w(&mut m, 0x2a000218, "e4f7073f");
+    w(&mut m, 0x2a000204, "f83e2441");
+    w(&mut m, 0x2a000210, "42ed6241");
+    w(&mut m, 0x2a00021c, "fb365d3f");
+    w(&mut m, 0x2a000208, "3e1138c0");
+    w(&mut m, 0x2a000214, "c3ad11c1");
+    w(&mut m, 0x2a000220, "7dba4240");
+    w(&mut m, 0x2a000224, "bf72343f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 1, -1.143027901649475f32, -1.010945439338684f32, 0.0f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000204, &[189, 78, 146, 191][..]), (0x2a000210, &[169, 102, 129, 191][..]), (0x2a00021c, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000204, "bd4e92bf"), (0x2a000210, "a96681bf"), (0x2a00021c, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_56() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[59, 182, 161, 62]);
-    m.write(0x2a00020c, &[117, 65, 72, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[209, 236, 184, 63]);
-    m.write(0x2a000210, &[122, 245, 47, 193]);
-    m.write(0x2a00021c, &[183, 67, 190, 63]);
-    m.write(0x2a000208, &[220, 206, 118, 65]);
-    m.write(0x2a000214, &[92, 38, 164, 65]);
-    m.write(0x2a000220, &[152, 190, 175, 63]);
-    m.write(0x2a000224, &[173, 172, 120, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "3bb6a13e");
+    w(&mut m, 0x2a00020c, "754148c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "d1ecb83f");
+    w(&mut m, 0x2a000210, "7af52fc1");
+    w(&mut m, 0x2a00021c, "b743be3f");
+    w(&mut m, 0x2a000208, "dcce7641");
+    w(&mut m, 0x2a000214, "5c26a441");
+    w(&mut m, 0x2a000220, "98beaf3f");
+    w(&mut m, 0x2a000224, "adac783f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, -1, 4.120893478393555f32, 6.6608405113220215f32, 0.0f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_57() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[232, 25, 28, 65]);
-    m.write(0x2a00020c, &[124, 161, 149, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[67, 206, 150, 192]);
-    m.write(0x2a000210, &[11, 202, 140, 65]);
-    m.write(0x2a00021c, &[219, 210, 66, 64]);
-    m.write(0x2a000208, &[58, 93, 25, 65]);
-    m.write(0x2a000214, &[145, 89, 131, 65]);
-    m.write(0x2a000220, &[148, 46, 136, 64]);
-    m.write(0x2a000224, &[176, 231, 2, 190]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "e8191c41");
+    w(&mut m, 0x2a00020c, "7ca19541");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "43ce96c0");
+    w(&mut m, 0x2a000210, "0bca8c41");
+    w(&mut m, 0x2a00021c, "dbd24240");
+    w(&mut m, 0x2a000208, "3a5d1941");
+    w(&mut m, 0x2a000214, "91598341");
+    w(&mut m, 0x2a000220, "942e8840");
+    w(&mut m, 0x2a000224, "b0e702be");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 2, 0.7470874190330505f32, 0.29668769240379333f32, 0.0f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_58() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[214, 14, 101, 65]);
-    m.write(0x2a00020c, &[48, 0, 215, 191]);
-    m.write(0x2a000218, &[199, 154, 75, 64]);
-    m.write(0x2a000204, &[107, 103, 88, 65]);
-    m.write(0x2a000210, &[111, 56, 156, 63]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[223, 222, 120, 65]);
-    m.write(0x2a000214, &[237, 208, 223, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[255, 182, 108, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "d60e6541");
+    w(&mut m, 0x2a00020c, "3000d7bf");
+    w(&mut m, 0x2a000218, "c79a4b40");
+    w(&mut m, 0x2a000204, "6b675841");
+    w(&mut m, 0x2a000210, "6f389c3f");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "dfde7841");
+    w(&mut m, 0x2a000214, "edd0df41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "ffb66c3f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 2, -0.185752734541893f32, 0.5441616773605347f32, 4.8208231925964355f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000208, &[247, 53, 62, 190][..]), (0x2a000214, &[46, 78, 11, 63][..]), (0x2a000220, &[111, 105, 84, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000208, "f7353ebe"), (0x2a000214, "2e4e0b3f"), (0x2a000220, "6f69543e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_59() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[115, 228, 132, 192]);
-    m.write(0x2a00020c, &[61, 39, 17, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[59, 251, 120, 65]);
-    m.write(0x2a000210, &[59, 251, 120, 65]);
-    m.write(0x2a00021c, &[27, 202, 150, 64]);
-    m.write(0x2a000208, &[241, 61, 128, 190]);
-    m.write(0x2a000214, &[75, 217, 48, 64]);
-    m.write(0x2a000220, &[126, 139, 85, 62]);
-    m.write(0x2a000224, &[169, 15, 143, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "73e484c0");
+    w(&mut m, 0x2a00020c, "3d2711c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "3bfb7841");
+    w(&mut m, 0x2a000210, "3bfb7841");
+    w(&mut m, 0x2a00021c, "1bca9640");
+    w(&mut m, 0x2a000208, "f13d80be");
+    w(&mut m, 0x2a000214, "4bd93040");
+    w(&mut m, 0x2a000220, "7e8b553e");
+    w(&mut m, 0x2a000224, "a90f8f3e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, -1, 8.78127384185791f32, 9.585577011108398f32, 0.18192344903945923f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_60() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[111, 85, 151, 65]);
-    m.write(0x2a00020c, &[101, 157, 5, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[47, 138, 151, 65]);
-    m.write(0x2a000210, &[27, 60, 197, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[96, 14, 157, 65]);
-    m.write(0x2a000214, &[124, 234, 13, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[72, 254, 14, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "6f559741");
+    w(&mut m, 0x2a00020c, "659d05c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "2f8a9741");
+    w(&mut m, 0x2a000210, "1b3cc541");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "600e9d41");
+    w(&mut m, 0x2a000214, "7cea0d42");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "48fe0e3e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 2, 5.195921421051025f32, 6.811254978179932f32, 8.288846015930176f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_61() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[3, 149, 6, 62]);
-    m.write(0x2a00020c, &[204, 148, 162, 62]);
-    m.write(0x2a000218, &[25, 154, 117, 64]);
-    m.write(0x2a000204, &[159, 178, 22, 65]);
-    m.write(0x2a000210, &[105, 188, 161, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[25, 102, 74, 63]);
-    m.write(0x2a000214, &[13, 225, 91, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[161, 190, 161, 60]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "0395063e");
+    w(&mut m, 0x2a00020c, "cc94a23e");
+    w(&mut m, 0x2a000218, "199a7540");
+    w(&mut m, 0x2a000204, "9fb21641");
+    w(&mut m, 0x2a000210, "69bca141");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "19664a3f");
+    w(&mut m, 0x2a000214, "0de15b41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "a1bea13c");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, -1, -2.635503053665161f32, -0.6534568071365356f32, 0.8177792429924011f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_62() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[22, 150, 63, 65]);
-    m.write(0x2a00020c, &[49, 108, 15, 66]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[80, 206, 78, 64]);
-    m.write(0x2a000210, &[154, 234, 146, 193]);
-    m.write(0x2a00021c, &[200, 204, 111, 64]);
-    m.write(0x2a000208, &[46, 251, 250, 64]);
-    m.write(0x2a000214, &[166, 98, 218, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[138, 59, 139, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "16963f41");
+    w(&mut m, 0x2a00020c, "316c0f42");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "50ce4e40");
+    w(&mut m, 0x2a000210, "9aea92c1");
+    w(&mut m, 0x2a00021c, "c8cc6f40");
+    w(&mut m, 0x2a000208, "2efbfa40");
+    w(&mut m, 0x2a000214, "a662da41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "8a3b8b3f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, -1, 2.4341959953308105f32, -0.5600858330726624f32, 0.0f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_63() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[250, 149, 154, 65]);
-    m.write(0x2a00020c, &[59, 238, 14, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[62, 50, 68, 192]);
-    m.write(0x2a000210, &[195, 208, 37, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[187, 88, 37, 65]);
-    m.write(0x2a000214, &[86, 71, 252, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[238, 228, 164, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "fa959a41");
+    w(&mut m, 0x2a00020c, "3bee0e41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "3e3244c0");
+    w(&mut m, 0x2a000210, "c3d025c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "bb582541");
+    w(&mut m, 0x2a000214, "5647fc41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "eee4a43e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 1, 0.8738908171653748f32, -2.510687828063965f32, 0.0f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_64() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[85, 15, 146, 65]);
-    m.write(0x2a00020c, &[85, 15, 146, 65]);
-    m.write(0x2a000218, &[182, 107, 198, 63]);
-    m.write(0x2a000204, &[46, 0, 156, 191]);
-    m.write(0x2a000210, &[46, 0, 156, 191]);
-    m.write(0x2a00021c, &[34, 51, 131, 63]);
-    m.write(0x2a000208, &[118, 106, 60, 65]);
-    m.write(0x2a000214, &[159, 223, 107, 64]);
-    m.write(0x2a000220, &[182, 71, 209, 63]);
-    m.write(0x2a000224, &[136, 38, 252, 189]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "550f9241");
+    w(&mut m, 0x2a00020c, "550f9241");
+    w(&mut m, 0x2a000218, "b66bc63f");
+    w(&mut m, 0x2a000204, "2e009cbf");
+    w(&mut m, 0x2a000210, "2e009cbf");
+    w(&mut m, 0x2a00021c, "2233833f");
+    w(&mut m, 0x2a000208, "766a3c41");
+    w(&mut m, 0x2a000214, "9fdf6b40");
+    w(&mut m, 0x2a000220, "b647d13f");
+    w(&mut m, 0x2a000224, "8826fcbd");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::define(&mut m, 0x2a000200, 2, 7.144121170043945f32, 6.454505443572998f32, 0.788992166519165f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_65() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[37, 73, 142, 63]);
-    m.write(0x2a00020c, &[176, 208, 208, 65]);
-    m.write(0x2a000218, &[217, 162, 157, 64]);
-    m.write(0x2a000204, &[176, 48, 72, 65]);
-    m.write(0x2a000210, &[150, 59, 161, 65]);
-    m.write(0x2a00021c, &[164, 137, 29, 63]);
-    m.write(0x2a000208, &[162, 19, 32, 65]);
-    m.write(0x2a000214, &[179, 171, 171, 65]);
-    m.write(0x2a000220, &[69, 47, 77, 64]);
-    m.write(0x2a000224, &[55, 7, 152, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "25498e3f");
+    w(&mut m, 0x2a00020c, "b0d0d041");
+    w(&mut m, 0x2a000218, "d9a29d40");
+    w(&mut m, 0x2a000204, "b0304841");
+    w(&mut m, 0x2a000210, "963ba141");
+    w(&mut m, 0x2a00021c, "a4891d3f");
+    w(&mut m, 0x2a000208, "a2132041");
+    w(&mut m, 0x2a000214, "b3abab41");
+    w(&mut m, 0x2a000220, "452f4d40");
+    w(&mut m, 0x2a000224, "3707983f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_66() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[178, 48, 199, 64]);
-    m.write(0x2a00020c, &[178, 48, 199, 64]);
-    m.write(0x2a000218, &[90, 68, 255, 63]);
-    m.write(0x2a000204, &[26, 219, 145, 64]);
-    m.write(0x2a000210, &[217, 38, 195, 191]);
-    m.write(0x2a00021c, &[67, 18, 249, 63]);
-    m.write(0x2a000208, &[200, 205, 221, 63]);
-    m.write(0x2a000214, &[187, 143, 43, 64]);
-    m.write(0x2a000220, &[156, 46, 254, 62]);
-    m.write(0x2a000224, &[242, 181, 10, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b230c740");
+    w(&mut m, 0x2a00020c, "b230c740");
+    w(&mut m, 0x2a000218, "5a44ff3f");
+    w(&mut m, 0x2a000204, "1adb9140");
+    w(&mut m, 0x2a000210, "d926c3bf");
+    w(&mut m, 0x2a00021c, "4312f93f");
+    w(&mut m, 0x2a000208, "c8cddd3f");
+    w(&mut m, 0x2a000214, "bb8f2b40");
+    w(&mut m, 0x2a000220, "9c2efe3e");
+    w(&mut m, 0x2a000224, "f2b50a3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_67() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[156, 140, 35, 64]);
-    m.write(0x2a00020c, &[58, 84, 202, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[4, 34, 128, 65]);
-    m.write(0x2a000210, &[34, 100, 146, 65]);
-    m.write(0x2a00021c, &[204, 14, 195, 62]);
-    m.write(0x2a000208, &[70, 117, 154, 192]);
-    m.write(0x2a000214, &[70, 117, 154, 192]);
-    m.write(0x2a000220, &[191, 141, 32, 63]);
-    m.write(0x2a000224, &[136, 189, 215, 189]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "9c8c2340");
+    w(&mut m, 0x2a00020c, "3a54cac1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "04228041");
+    w(&mut m, 0x2a000210, "22649241");
+    w(&mut m, 0x2a00021c, "cc0ec33e");
+    w(&mut m, 0x2a000208, "46759ac0");
+    w(&mut m, 0x2a000214, "46759ac0");
+    w(&mut m, 0x2a000220, "bf8d203f");
+    w(&mut m, 0x2a000224, "88bdd7bd");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_68() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[95, 129, 150, 64]);
-    m.write(0x2a00020c, &[208, 144, 130, 193]);
-    m.write(0x2a000218, &[21, 241, 189, 63]);
-    m.write(0x2a000204, &[197, 145, 139, 62]);
-    m.write(0x2a000210, &[151, 109, 196, 190]);
-    m.write(0x2a00021c, &[210, 167, 156, 63]);
-    m.write(0x2a000208, &[187, 54, 80, 65]);
-    m.write(0x2a000214, &[14, 38, 40, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[136, 242, 52, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "5f819640");
+    w(&mut m, 0x2a00020c, "d09082c1");
+    w(&mut m, 0x2a000218, "15f1bd3f");
+    w(&mut m, 0x2a000204, "c5918b3e");
+    w(&mut m, 0x2a000210, "976dc4be");
+    w(&mut m, 0x2a00021c, "d2a79c3f");
+    w(&mut m, 0x2a000208, "bb365041");
+    w(&mut m, 0x2a000214, "0e262841");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "88f2343e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_69() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[178, 22, 85, 65]);
-    m.write(0x2a00020c, &[178, 22, 85, 65]);
-    m.write(0x2a000218, &[27, 226, 200, 63]);
-    m.write(0x2a000204, &[190, 184, 165, 64]);
-    m.write(0x2a000210, &[114, 188, 248, 65]);
-    m.write(0x2a00021c, &[223, 12, 158, 62]);
-    m.write(0x2a000208, &[252, 99, 148, 65]);
-    m.write(0x2a000214, &[214, 177, 142, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[223, 174, 0, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b2165541");
+    w(&mut m, 0x2a00020c, "b2165541");
+    w(&mut m, 0x2a000218, "1be2c83f");
+    w(&mut m, 0x2a000204, "beb8a540");
+    w(&mut m, 0x2a000210, "72bcf841");
+    w(&mut m, 0x2a00021c, "df0c9e3e");
+    w(&mut m, 0x2a000208, "fc639441");
+    w(&mut m, 0x2a000214, "d6b18e41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "dfae003e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_70() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[69, 37, 139, 64]);
-    m.write(0x2a00020c, &[102, 195, 165, 65]);
-    m.write(0x2a000218, &[29, 24, 172, 63]);
-    m.write(0x2a000204, &[190, 186, 149, 65]);
-    m.write(0x2a000210, &[166, 213, 107, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[246, 206, 56, 65]);
-    m.write(0x2a000214, &[246, 206, 56, 65]);
-    m.write(0x2a000220, &[68, 145, 139, 64]);
-    m.write(0x2a000224, &[229, 238, 29, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "45258b40");
+    w(&mut m, 0x2a00020c, "66c3a541");
+    w(&mut m, 0x2a000218, "1d18ac3f");
+    w(&mut m, 0x2a000204, "beba9541");
+    w(&mut m, 0x2a000210, "a6d56b41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "f6ce3841");
+    w(&mut m, 0x2a000214, "f6ce3841");
+    w(&mut m, 0x2a000220, "44918b40");
+    w(&mut m, 0x2a000224, "e5ee1d3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_71() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[170, 30, 250, 64]);
-    m.write(0x2a00020c, &[232, 190, 248, 192]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[162, 19, 54, 192]);
-    m.write(0x2a000210, &[42, 214, 131, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[160, 77, 153, 65]);
-    m.write(0x2a000214, &[108, 195, 1, 66]);
-    m.write(0x2a000220, &[73, 114, 147, 64]);
-    m.write(0x2a000224, &[218, 192, 159, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "aa1efa40");
+    w(&mut m, 0x2a00020c, "e8bef8c0");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "a21336c0");
+    w(&mut m, 0x2a000210, "2ad68340");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "a04d9941");
+    w(&mut m, 0x2a000214, "6cc30142");
+    w(&mut m, 0x2a000220, "49729340");
+    w(&mut m, 0x2a000224, "dac09f3e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_72() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[244, 212, 23, 192]);
-    m.write(0x2a00020c, &[53, 122, 198, 193]);
-    m.write(0x2a000218, &[24, 40, 112, 64]);
-    m.write(0x2a000204, &[170, 187, 174, 64]);
-    m.write(0x2a000210, &[145, 40, 4, 192]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[78, 24, 168, 64]);
-    m.write(0x2a000214, &[186, 119, 202, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[155, 19, 238, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "f4d417c0");
+    w(&mut m, 0x2a00020c, "357ac6c1");
+    w(&mut m, 0x2a000218, "18287040");
+    w(&mut m, 0x2a000204, "aabbae40");
+    w(&mut m, 0x2a000210, "912804c0");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "4e18a840");
+    w(&mut m, 0x2a000214, "ba77ca41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "9b13ee3e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_73() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[204, 158, 136, 65]);
-    m.write(0x2a00020c, &[76, 192, 6, 66]);
-    m.write(0x2a000218, &[196, 147, 254, 62]);
-    m.write(0x2a000204, &[45, 41, 98, 65]);
-    m.write(0x2a000210, &[20, 157, 74, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[161, 203, 17, 65]);
-    m.write(0x2a000214, &[183, 167, 150, 193]);
-    m.write(0x2a000220, &[15, 0, 94, 64]);
-    m.write(0x2a000224, &[103, 219, 78, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "cc9e8841");
+    w(&mut m, 0x2a00020c, "4cc00642");
+    w(&mut m, 0x2a000218, "c493fe3e");
+    w(&mut m, 0x2a000204, "2d296241");
+    w(&mut m, 0x2a000210, "149d4a41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "a1cb1141");
+    w(&mut m, 0x2a000214, "b7a796c1");
+    w(&mut m, 0x2a000220, "0f005e40");
+    w(&mut m, 0x2a000224, "67db4e3e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_74() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[76, 83, 48, 65]);
-    m.write(0x2a00020c, &[120, 188, 207, 192]);
-    m.write(0x2a000218, &[211, 167, 109, 63]);
-    m.write(0x2a000204, &[252, 237, 97, 64]);
-    m.write(0x2a000210, &[195, 12, 148, 193]);
-    m.write(0x2a00021c, &[62, 103, 161, 63]);
-    m.write(0x2a000208, &[197, 166, 129, 65]);
-    m.write(0x2a000214, &[171, 238, 42, 66]);
-    m.write(0x2a000220, &[90, 85, 70, 64]);
-    m.write(0x2a000224, &[138, 107, 4, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "4c533041");
+    w(&mut m, 0x2a00020c, "78bccfc0");
+    w(&mut m, 0x2a000218, "d3a76d3f");
+    w(&mut m, 0x2a000204, "fced6140");
+    w(&mut m, 0x2a000210, "c30c94c1");
+    w(&mut m, 0x2a00021c, "3e67a13f");
+    w(&mut m, 0x2a000208, "c5a68141");
+    w(&mut m, 0x2a000214, "abee2a42");
+    w(&mut m, 0x2a000220, "5a554640");
+    w(&mut m, 0x2a000224, "8a6b043f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_75() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[103, 83, 224, 64]);
-    m.write(0x2a00020c, &[103, 83, 224, 64]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[182, 163, 154, 192]);
-    m.write(0x2a000210, &[138, 95, 238, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[247, 69, 39, 64]);
-    m.write(0x2a000214, &[247, 69, 39, 64]);
-    m.write(0x2a000220, &[46, 22, 138, 63]);
-    m.write(0x2a000224, &[11, 18, 68, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "6753e040");
+    w(&mut m, 0x2a00020c, "6753e040");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "b6a39ac0");
+    w(&mut m, 0x2a000210, "8a5feec1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "f7452740");
+    w(&mut m, 0x2a000214, "f7452740");
+    w(&mut m, 0x2a000220, "2e168a3f");
+    w(&mut m, 0x2a000224, "0b12443f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_76() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[182, 24, 8, 65]);
-    m.write(0x2a00020c, &[16, 35, 150, 65]);
-    m.write(0x2a000218, &[233, 130, 24, 64]);
-    m.write(0x2a000204, &[133, 120, 7, 65]);
-    m.write(0x2a000210, &[158, 120, 29, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[98, 185, 139, 190]);
-    m.write(0x2a000214, &[113, 211, 145, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[199, 54, 27, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b6180841");
+    w(&mut m, 0x2a00020c, "10239641");
+    w(&mut m, 0x2a000218, "e9821840");
+    w(&mut m, 0x2a000204, "85780741");
+    w(&mut m, 0x2a000210, "9e781dc1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "62b98bbe");
+    w(&mut m, 0x2a000214, "71d39141");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "c7361b3f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000001")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_77() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[223, 138, 127, 192]);
-    m.write(0x2a00020c, &[225, 88, 32, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[237, 203, 66, 65]);
-    m.write(0x2a000210, &[74, 6, 181, 65]);
-    m.write(0x2a00021c, &[128, 146, 141, 64]);
-    m.write(0x2a000208, &[25, 144, 150, 65]);
-    m.write(0x2a000214, &[25, 144, 150, 65]);
-    m.write(0x2a000220, &[70, 217, 59, 64]);
-    m.write(0x2a000224, &[207, 76, 144, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "df8a7fc0");
+    w(&mut m, 0x2a00020c, "e1582041");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "edcb4241");
+    w(&mut m, 0x2a000210, "4a06b541");
+    w(&mut m, 0x2a00021c, "80928d40");
+    w(&mut m, 0x2a000208, "19909641");
+    w(&mut m, 0x2a000214, "19909641");
+    w(&mut m, 0x2a000220, "46d93b40");
+    w(&mut m, 0x2a000224, "cf4c903f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_78() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[240, 180, 135, 63]);
-    m.write(0x2a00020c, &[169, 239, 127, 64]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[90, 117, 129, 64]);
-    m.write(0x2a000210, &[47, 79, 81, 65]);
-    m.write(0x2a00021c, &[94, 128, 138, 64]);
-    m.write(0x2a000208, &[92, 219, 158, 65]);
-    m.write(0x2a000214, &[92, 219, 158, 65]);
-    m.write(0x2a000220, &[161, 160, 52, 64]);
-    m.write(0x2a000224, &[58, 247, 98, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "f0b4873f");
+    w(&mut m, 0x2a00020c, "a9ef7f40");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "5a758140");
+    w(&mut m, 0x2a000210, "2f4f5141");
+    w(&mut m, 0x2a00021c, "5e808a40");
+    w(&mut m, 0x2a000208, "5cdb9e41");
+    w(&mut m, 0x2a000214, "5cdb9e41");
+    w(&mut m, 0x2a000220, "a1a03440");
+    w(&mut m, 0x2a000224, "3af7623f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_79() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[176, 133, 132, 192]);
-    m.write(0x2a00020c, &[253, 182, 142, 65]);
-    m.write(0x2a000218, &[28, 223, 82, 64]);
-    m.write(0x2a000204, &[140, 208, 166, 64]);
-    m.write(0x2a000210, &[129, 152, 252, 191]);
-    m.write(0x2a00021c, &[245, 157, 49, 64]);
-    m.write(0x2a000208, &[68, 168, 177, 63]);
-    m.write(0x2a000214, &[177, 114, 152, 192]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[170, 127, 114, 189]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b08584c0");
+    w(&mut m, 0x2a00020c, "fdb68e41");
+    w(&mut m, 0x2a000218, "1cdf5240");
+    w(&mut m, 0x2a000204, "8cd0a640");
+    w(&mut m, 0x2a000210, "8198fcbf");
+    w(&mut m, 0x2a00021c, "f59d3140");
+    w(&mut m, 0x2a000208, "44a8b13f");
+    w(&mut m, 0x2a000214, "b17298c0");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "aa7f72bd");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 2][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f02")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_80() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[84, 166, 72, 64]);
-    m.write(0x2a00020c, &[227, 166, 170, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[178, 74, 8, 65]);
-    m.write(0x2a000210, &[229, 208, 166, 64]);
-    m.write(0x2a00021c, &[100, 211, 121, 64]);
-    m.write(0x2a000208, &[126, 73, 52, 192]);
-    m.write(0x2a000214, &[218, 118, 115, 65]);
-    m.write(0x2a000220, &[199, 29, 204, 63]);
-    m.write(0x2a000224, &[63, 137, 32, 61]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "54a64840");
+    w(&mut m, 0x2a00020c, "e3a6aa41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "b24a0841");
+    w(&mut m, 0x2a000210, "e5d0a640");
+    w(&mut m, 0x2a00021c, "64d37940");
+    w(&mut m, 0x2a000208, "7e4934c0");
+    w(&mut m, 0x2a000214, "da767341");
+    w(&mut m, 0x2a000220, "c71dcc3f");
+    w(&mut m, 0x2a000224, "3f89203d");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 2][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000002")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_81() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[70, 122, 35, 65]);
-    m.write(0x2a00020c, &[70, 122, 35, 65]);
-    m.write(0x2a000218, &[139, 219, 128, 64]);
-    m.write(0x2a000204, &[207, 136, 3, 65]);
-    m.write(0x2a000210, &[61, 241, 99, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[1, 58, 148, 65]);
-    m.write(0x2a000214, &[174, 242, 59, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[76, 144, 56, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "467a2341");
+    w(&mut m, 0x2a00020c, "467a2341");
+    w(&mut m, 0x2a000218, "8bdb8040");
+    w(&mut m, 0x2a000204, "cf880341");
+    w(&mut m, 0x2a000210, "3df163c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "013a9441");
+    w(&mut m, 0x2a000214, "aef23b42");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "4c90383e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000228, &[0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000228, "00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_82() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[112, 133, 93, 65]);
-    m.write(0x2a00020c, &[112, 133, 93, 65]);
-    m.write(0x2a000218, &[178, 72, 112, 64]);
-    m.write(0x2a000204, &[157, 82, 147, 192]);
-    m.write(0x2a000210, &[241, 14, 163, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[121, 224, 123, 192]);
-    m.write(0x2a000214, &[29, 123, 105, 193]);
-    m.write(0x2a000220, &[144, 165, 6, 64]);
-    m.write(0x2a000224, &[97, 89, 153, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "70855d41");
+    w(&mut m, 0x2a00020c, "70855d41");
+    w(&mut m, 0x2a000218, "b2487040");
+    w(&mut m, 0x2a000204, "9d5293c0");
+    w(&mut m, 0x2a000210, "f10ea340");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "79e07bc0");
+    w(&mut m, 0x2a000214, "1d7b69c1");
+    w(&mut m, 0x2a000220, "90a50640");
+    w(&mut m, 0x2a000224, "6159993f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_83() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[57, 138, 129, 65]);
-    m.write(0x2a00020c, &[51, 115, 181, 65]);
-    m.write(0x2a000218, &[8, 83, 98, 64]);
-    m.write(0x2a000204, &[61, 240, 227, 63]);
-    m.write(0x2a000210, &[191, 168, 7, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[135, 231, 208, 64]);
-    m.write(0x2a000214, &[215, 111, 133, 65]);
-    m.write(0x2a000220, &[172, 248, 55, 62]);
-    m.write(0x2a000224, &[143, 130, 58, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "398a8141");
+    w(&mut m, 0x2a00020c, "3373b541");
+    w(&mut m, 0x2a000218, "08536240");
+    w(&mut m, 0x2a000204, "3df0e33f");
+    w(&mut m, 0x2a000210, "bfa807c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "87e7d040");
+    w(&mut m, 0x2a000214, "d76f8541");
+    w(&mut m, 0x2a000220, "acf8373e");
+    w(&mut m, 0x2a000224, "8f823a3f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 2][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f02")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_84() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[214, 134, 133, 192]);
-    m.write(0x2a00020c, &[246, 234, 208, 193]);
-    m.write(0x2a000218, &[213, 36, 208, 61]);
-    m.write(0x2a000204, &[229, 81, 37, 65]);
-    m.write(0x2a000210, &[126, 205, 22, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[192, 205, 146, 65]);
-    m.write(0x2a000214, &[117, 252, 240, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[77, 245, 131, 188]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "d68685c0");
+    w(&mut m, 0x2a00020c, "f6ead0c1");
+    w(&mut m, 0x2a000218, "d524d03d");
+    w(&mut m, 0x2a000204, "e5512541");
+    w(&mut m, 0x2a000210, "7ecd16c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "c0cd9241");
+    w(&mut m, 0x2a000214, "75fcf041");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "4df583bc");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000001")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_85() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[16, 191, 54, 65]);
-    m.write(0x2a00020c, &[131, 25, 230, 64]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[168, 50, 216, 63]);
-    m.write(0x2a000210, &[168, 50, 216, 63]);
-    m.write(0x2a00021c, &[109, 240, 144, 64]);
-    m.write(0x2a000208, &[138, 226, 14, 65]);
-    m.write(0x2a000214, &[0, 187, 154, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[28, 11, 143, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "10bf3641");
+    w(&mut m, 0x2a00020c, "8319e640");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "a832d83f");
+    w(&mut m, 0x2a000210, "a832d83f");
+    w(&mut m, 0x2a00021c, "6df09040");
+    w(&mut m, 0x2a000208, "8ae20e41");
+    w(&mut m, 0x2a000214, "00bb9a41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "1c0b8f3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_86() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[214, 71, 133, 65]);
-    m.write(0x2a00020c, &[137, 199, 248, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[47, 11, 30, 65]);
-    m.write(0x2a000210, &[120, 41, 11, 66]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[179, 115, 194, 64]);
-    m.write(0x2a000214, &[250, 34, 240, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[103, 100, 204, 61]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "d6478541");
+    w(&mut m, 0x2a00020c, "89c7f841");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "2f0b1e41");
+    w(&mut m, 0x2a000210, "78290b42");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "b373c240");
+    w(&mut m, 0x2a000214, "fa22f041");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "6764cc3d");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_87() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[17, 183, 251, 64]);
-    m.write(0x2a00020c, &[162, 4, 82, 65]);
-    m.write(0x2a000218, &[98, 40, 219, 63]);
-    m.write(0x2a000204, &[153, 203, 18, 64]);
-    m.write(0x2a000210, &[153, 203, 18, 64]);
-    m.write(0x2a00021c, &[105, 98, 95, 64]);
-    m.write(0x2a000208, &[41, 201, 115, 65]);
-    m.write(0x2a000214, &[64, 98, 228, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[121, 150, 107, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "11b7fb40");
+    w(&mut m, 0x2a00020c, "a2045241");
+    w(&mut m, 0x2a000218, "6228db3f");
+    w(&mut m, 0x2a000204, "99cb1240");
+    w(&mut m, 0x2a000210, "99cb1240");
+    w(&mut m, 0x2a00021c, "69625f40");
+    w(&mut m, 0x2a000208, "29c97341");
+    w(&mut m, 0x2a000214, "4062e441");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "79966b3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000001")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_88() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[174, 161, 85, 192]);
-    m.write(0x2a00020c, &[34, 22, 139, 64]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[243, 29, 155, 65]);
-    m.write(0x2a000210, &[238, 94, 14, 65]);
-    m.write(0x2a00021c, &[140, 63, 72, 63]);
-    m.write(0x2a000208, &[135, 77, 12, 65]);
-    m.write(0x2a000214, &[164, 70, 24, 66]);
-    m.write(0x2a000220, &[230, 81, 41, 64]);
-    m.write(0x2a000224, &[48, 248, 131, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "aea155c0");
+    w(&mut m, 0x2a00020c, "22168b40");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "f31d9b41");
+    w(&mut m, 0x2a000210, "ee5e0e41");
+    w(&mut m, 0x2a00021c, "8c3f483f");
+    w(&mut m, 0x2a000208, "874d0c41");
+    w(&mut m, 0x2a000214, "a4461842");
+    w(&mut m, 0x2a000220, "e6512940");
+    w(&mut m, 0x2a000224, "30f8833f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f01")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_89() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[236, 63, 97, 63]);
-    m.write(0x2a00020c, &[204, 225, 241, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[172, 173, 162, 191]);
-    m.write(0x2a000210, &[200, 81, 206, 64]);
-    m.write(0x2a00021c, &[122, 148, 167, 63]);
-    m.write(0x2a000208, &[154, 116, 127, 192]);
-    m.write(0x2a000214, &[133, 84, 173, 63]);
-    m.write(0x2a000220, &[158, 20, 187, 63]);
-    m.write(0x2a000224, &[244, 165, 4, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "ec3f613f");
+    w(&mut m, 0x2a00020c, "cce1f141");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "acada2bf");
+    w(&mut m, 0x2a000210, "c851ce40");
+    w(&mut m, 0x2a00021c, "7a94a73f");
+    w(&mut m, 0x2a000208, "9a747fc0");
+    w(&mut m, 0x2a000214, "8554ad3f");
+    w(&mut m, 0x2a000220, "9e14bb3f");
+    w(&mut m, 0x2a000224, "f4a5043f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[222, 89, 209, 59, 1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "de59d13b01")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_90() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[117, 157, 29, 65]);
-    m.write(0x2a00020c, &[213, 200, 165, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[114, 230, 177, 64]);
-    m.write(0x2a000210, &[210, 180, 212, 65]);
-    m.write(0x2a00021c, &[249, 162, 142, 64]);
-    m.write(0x2a000208, &[179, 35, 13, 64]);
-    m.write(0x2a000214, &[232, 222, 133, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[245, 3, 86, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "759d1d41");
+    w(&mut m, 0x2a00020c, "d5c8a541");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "72e6b140");
+    w(&mut m, 0x2a000210, "d2b4d441");
+    w(&mut m, 0x2a00021c, "f9a28e40");
+    w(&mut m, 0x2a000208, "b3230d40");
+    w(&mut m, 0x2a000214, "e8de8541");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "f503563e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 2][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f02")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_91() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[9, 121, 149, 65]);
-    m.write(0x2a00020c, &[204, 131, 175, 65]);
-    m.write(0x2a000218, &[41, 79, 135, 64]);
-    m.write(0x2a000204, &[56, 117, 153, 65]);
-    m.write(0x2a000210, &[4, 246, 71, 65]);
-    m.write(0x2a00021c, &[143, 59, 96, 64]);
-    m.write(0x2a000208, &[24, 4, 73, 64]);
-    m.write(0x2a000214, &[199, 21, 238, 62]);
-    m.write(0x2a000220, &[56, 38, 134, 64]);
-    m.write(0x2a000224, &[190, 43, 13, 190]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "09799541");
+    w(&mut m, 0x2a00020c, "cc83af41");
+    w(&mut m, 0x2a000218, "294f8740");
+    w(&mut m, 0x2a000204, "38759941");
+    w(&mut m, 0x2a000210, "04f64741");
+    w(&mut m, 0x2a00021c, "8f3b6040");
+    w(&mut m, 0x2a000208, "18044940");
+    w(&mut m, 0x2a000214, "c715ee3e");
+    w(&mut m, 0x2a000220, "38268640");
+    w(&mut m, 0x2a000224, "be2b0dbe");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_92() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[232, 106, 18, 65]);
-    m.write(0x2a00020c, &[69, 48, 122, 65]);
-    m.write(0x2a000218, &[24, 207, 60, 63]);
-    m.write(0x2a000204, &[27, 100, 211, 64]);
-    m.write(0x2a000210, &[155, 93, 36, 192]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[64, 2, 152, 64]);
-    m.write(0x2a000214, &[120, 228, 168, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[107, 149, 53, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "e86a1241");
+    w(&mut m, 0x2a00020c, "45307a41");
+    w(&mut m, 0x2a000218, "18cf3c3f");
+    w(&mut m, 0x2a000204, "1b64d340");
+    w(&mut m, 0x2a000210, "9b5d24c0");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "40029840");
+    w(&mut m, 0x2a000214, "78e4a840");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "6b95353f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_93() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[70, 206, 141, 65]);
-    m.write(0x2a00020c, &[185, 218, 32, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[68, 5, 183, 62]);
-    m.write(0x2a000210, &[245, 80, 172, 193]);
-    m.write(0x2a00021c, &[146, 78, 118, 64]);
-    m.write(0x2a000208, &[211, 192, 151, 64]);
-    m.write(0x2a000214, &[211, 192, 151, 64]);
-    m.write(0x2a000220, &[59, 235, 131, 64]);
-    m.write(0x2a000224, &[119, 188, 154, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "46ce8d41");
+    w(&mut m, 0x2a00020c, "b9da2041");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "4405b73e");
+    w(&mut m, 0x2a000210, "f550acc1");
+    w(&mut m, 0x2a00021c, "924e7640");
+    w(&mut m, 0x2a000208, "d3c09740");
+    w(&mut m, 0x2a000214, "d3c09740");
+    w(&mut m, 0x2a000220, "3beb8340");
+    w(&mut m, 0x2a000224, "77bc9a3f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_94() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[14, 234, 47, 65]);
-    m.write(0x2a00020c, &[145, 37, 16, 66]);
-    m.write(0x2a000218, &[110, 68, 4, 64]);
-    m.write(0x2a000204, &[80, 191, 63, 63]);
-    m.write(0x2a000210, &[92, 152, 119, 65]);
-    m.write(0x2a00021c, &[67, 12, 156, 64]);
-    m.write(0x2a000208, &[177, 135, 150, 65]);
-    m.write(0x2a000214, &[8, 206, 22, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[65, 254, 65, 190]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "0eea2f41");
+    w(&mut m, 0x2a00020c, "91251042");
+    w(&mut m, 0x2a000218, "6e440440");
+    w(&mut m, 0x2a000204, "50bf3f3f");
+    w(&mut m, 0x2a000210, "5c987741");
+    w(&mut m, 0x2a00021c, "430c9c40");
+    w(&mut m, 0x2a000208, "b1879641");
+    w(&mut m, 0x2a000214, "08ce1642");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "41fe41be");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_95() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[29, 244, 69, 192]);
-    m.write(0x2a00020c, &[29, 244, 69, 192]);
-    m.write(0x2a000218, &[141, 37, 136, 64]);
-    m.write(0x2a000204, &[54, 150, 232, 64]);
-    m.write(0x2a000210, &[169, 186, 180, 64]);
-    m.write(0x2a00021c, &[228, 34, 69, 64]);
-    m.write(0x2a000208, &[236, 55, 153, 65]);
-    m.write(0x2a000214, &[43, 11, 44, 193]);
-    m.write(0x2a000220, &[191, 112, 149, 64]);
-    m.write(0x2a000224, &[182, 15, 147, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "1df445c0");
+    w(&mut m, 0x2a00020c, "1df445c0");
+    w(&mut m, 0x2a000218, "8d258840");
+    w(&mut m, 0x2a000204, "3696e840");
+    w(&mut m, 0x2a000210, "a9bab440");
+    w(&mut m, 0x2a00021c, "e4224540");
+    w(&mut m, 0x2a000208, "ec379941");
+    w(&mut m, 0x2a000214, "2b0b2cc1");
+    w(&mut m, 0x2a000220, "bf709540");
+    w(&mut m, 0x2a000224, "b60f933f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000001")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_96() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[154, 82, 136, 65]);
-    m.write(0x2a00020c, &[127, 138, 47, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[243, 201, 147, 65]);
-    m.write(0x2a000210, &[217, 244, 248, 63]);
-    m.write(0x2a00021c, &[75, 139, 0, 64]);
-    m.write(0x2a000208, &[252, 193, 81, 65]);
-    m.write(0x2a000214, &[194, 72, 208, 65]);
-    m.write(0x2a000220, &[35, 174, 19, 64]);
-    m.write(0x2a000224, &[2, 112, 210, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "9a528841");
+    w(&mut m, 0x2a00020c, "7f8a2fc1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "f3c99341");
+    w(&mut m, 0x2a000210, "d9f4f83f");
+    w(&mut m, 0x2a00021c, "4b8b0040");
+    w(&mut m, 0x2a000208, "fcc15141");
+    w(&mut m, 0x2a000214, "c248d041");
+    w(&mut m, 0x2a000220, "23ae1340");
+    w(&mut m, 0x2a000224, "0270d23e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[77, 132, 72, 63, 1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "4d84483f01")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_97() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[215, 38, 51, 64]);
-    m.write(0x2a00020c, &[61, 196, 55, 65]);
-    m.write(0x2a000218, &[162, 4, 48, 64]);
-    m.write(0x2a000204, &[192, 230, 251, 64]);
-    m.write(0x2a000210, &[192, 230, 251, 64]);
-    m.write(0x2a00021c, &[116, 213, 108, 64]);
-    m.write(0x2a000208, &[142, 114, 110, 192]);
-    m.write(0x2a000214, &[160, 198, 193, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[81, 135, 110, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "d7263340");
+    w(&mut m, 0x2a00020c, "3dc43741");
+    w(&mut m, 0x2a000218, "a2043040");
+    w(&mut m, 0x2a000204, "c0e6fb40");
+    w(&mut m, 0x2a000210, "c0e6fb40");
+    w(&mut m, 0x2a00021c, "74d56c40");
+    w(&mut m, 0x2a000208, "8e726ec0");
+    w(&mut m, 0x2a000214, "a0c6c1c1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "51876e3f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 2][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000002")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_98() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[180, 119, 47, 65]);
-    m.write(0x2a00020c, &[31, 33, 76, 191]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[144, 23, 144, 65]);
-    m.write(0x2a000210, &[10, 109, 89, 64]);
-    m.write(0x2a00021c, &[158, 104, 47, 64]);
-    m.write(0x2a000208, &[229, 11, 143, 65]);
-    m.write(0x2a000214, &[68, 165, 13, 66]);
-    m.write(0x2a000220, &[105, 138, 75, 60]);
-    m.write(0x2a000224, &[105, 205, 76, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b4772f41");
+    w(&mut m, 0x2a00020c, "1f214cbf");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "90179041");
+    w(&mut m, 0x2a000210, "0a6d5940");
+    w(&mut m, 0x2a00021c, "9e682f40");
+    w(&mut m, 0x2a000208, "e50b8f41");
+    w(&mut m, 0x2a000214, "44a50d42");
+    w(&mut m, 0x2a000220, "698a4b3c");
+    w(&mut m, 0x2a000224, "69cd4c3f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_99() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[51, 198, 110, 191]);
-    m.write(0x2a00020c, &[77, 235, 250, 191]);
-    m.write(0x2a000218, &[41, 203, 69, 64]);
-    m.write(0x2a000204, &[191, 123, 136, 65]);
-    m.write(0x2a000210, &[104, 144, 79, 65]);
-    m.write(0x2a00021c, &[217, 19, 37, 62]);
-    m.write(0x2a000208, &[85, 129, 63, 65]);
-    m.write(0x2a000214, &[85, 129, 63, 65]);
-    m.write(0x2a000220, &[221, 178, 214, 62]);
-    m.write(0x2a000224, &[176, 229, 49, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "33c66ebf");
+    w(&mut m, 0x2a00020c, "4debfabf");
+    w(&mut m, 0x2a000218, "29cb4540");
+    w(&mut m, 0x2a000204, "bf7b8841");
+    w(&mut m, 0x2a000210, "68904f41");
+    w(&mut m, 0x2a00021c, "d913253e");
+    w(&mut m, 0x2a000208, "55813f41");
+    w(&mut m, 0x2a000214, "55813f41");
+    w(&mut m, 0x2a000220, "ddb2d63e");
+    w(&mut m, 0x2a000224, "b0e5313f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_100() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[77, 36, 174, 62]);
-    m.write(0x2a00020c, &[182, 93, 131, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[148, 234, 4, 65]);
-    m.write(0x2a000210, &[220, 254, 155, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[111, 204, 35, 65]);
-    m.write(0x2a000214, &[234, 11, 191, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[16, 63, 78, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "4d24ae3e");
+    w(&mut m, 0x2a00020c, "b65d8341");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "94ea0441");
+    w(&mut m, 0x2a000210, "dcfe9b40");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "6fcc2341");
+    w(&mut m, 0x2a000214, "ea0bbf41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "103f4e3f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_101() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[49, 169, 80, 65]);
-    m.write(0x2a00020c, &[136, 238, 12, 66]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[40, 189, 16, 192]);
-    m.write(0x2a000210, &[123, 37, 184, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[228, 113, 12, 65]);
-    m.write(0x2a000214, &[135, 126, 202, 63]);
-    m.write(0x2a000220, &[159, 49, 147, 64]);
-    m.write(0x2a000224, &[159, 142, 71, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "31a95041");
+    w(&mut m, 0x2a00020c, "88ee0c42");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "28bd10c0");
+    w(&mut m, 0x2a000210, "7b25b841");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "e4710c41");
+    w(&mut m, 0x2a000214, "877eca3f");
+    w(&mut m, 0x2a000220, "9f319340");
+    w(&mut m, 0x2a000224, "9f8e473f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_102() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[149, 91, 75, 65]);
-    m.write(0x2a00020c, &[168, 24, 119, 193]);
-    m.write(0x2a000218, &[130, 145, 19, 63]);
-    m.write(0x2a000204, &[224, 227, 103, 65]);
-    m.write(0x2a000210, &[45, 14, 190, 65]);
-    m.write(0x2a00021c, &[59, 120, 250, 63]);
-    m.write(0x2a000208, &[85, 118, 58, 65]);
-    m.write(0x2a000214, &[113, 11, 188, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[49, 201, 128, 60]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "955b4b41");
+    w(&mut m, 0x2a00020c, "a81877c1");
+    w(&mut m, 0x2a000218, "8291133f");
+    w(&mut m, 0x2a000204, "e0e36741");
+    w(&mut m, 0x2a000210, "2d0ebe41");
+    w(&mut m, 0x2a00021c, "3b78fa3f");
+    w(&mut m, 0x2a000208, "55763a41");
+    w(&mut m, 0x2a000214, "710bbc40");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "31c9803c");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_103() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[84, 246, 151, 64]);
-    m.write(0x2a00020c, &[75, 196, 230, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[193, 212, 16, 62]);
-    m.write(0x2a000210, &[37, 116, 14, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[231, 249, 226, 189]);
-    m.write(0x2a000214, &[168, 208, 13, 191]);
-    m.write(0x2a000220, &[233, 10, 40, 64]);
-    m.write(0x2a000224, &[74, 200, 8, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "54f69740");
+    w(&mut m, 0x2a00020c, "4bc4e641");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "c1d4103e");
+    w(&mut m, 0x2a000210, "25740e41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "e7f9e2bd");
+    w(&mut m, 0x2a000214, "a8d00dbf");
+    w(&mut m, 0x2a000220, "e90a2840");
+    w(&mut m, 0x2a000224, "4ac8083f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_104() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[190, 137, 142, 65]);
-    m.write(0x2a00020c, &[159, 80, 218, 192]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[229, 151, 52, 65]);
-    m.write(0x2a000210, &[86, 124, 199, 65]);
-    m.write(0x2a00021c, &[234, 141, 147, 64]);
-    m.write(0x2a000208, &[76, 82, 113, 65]);
-    m.write(0x2a000214, &[236, 25, 121, 64]);
-    m.write(0x2a000220, &[81, 242, 107, 63]);
-    m.write(0x2a000224, &[164, 15, 62, 190]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "be898e41");
+    w(&mut m, 0x2a00020c, "9f50dac0");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "e5973441");
+    w(&mut m, 0x2a000210, "567cc741");
+    w(&mut m, 0x2a00021c, "ea8d9340");
+    w(&mut m, 0x2a000208, "4c527141");
+    w(&mut m, 0x2a000214, "ec197940");
+    w(&mut m, 0x2a000220, "51f26b3f");
+    w(&mut m, 0x2a000224, "a40f3ebe");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_105() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[78, 72, 65, 65]);
-    m.write(0x2a00020c, &[169, 193, 6, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[253, 138, 123, 65]);
-    m.write(0x2a000210, &[7, 248, 36, 192]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[93, 200, 105, 65]);
-    m.write(0x2a000214, &[93, 200, 105, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[71, 56, 49, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "4e484141");
+    w(&mut m, 0x2a00020c, "a9c10641");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "fd8a7b41");
+    w(&mut m, 0x2a000210, "07f824c0");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "5dc86941");
+    w(&mut m, 0x2a000214, "5dc86941");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "4738313f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 2][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000002")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_106() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[180, 158, 41, 65]);
-    m.write(0x2a00020c, &[180, 158, 41, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[78, 189, 125, 65]);
-    m.write(0x2a000210, &[226, 131, 220, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[211, 179, 54, 64]);
-    m.write(0x2a000214, &[64, 253, 187, 193]);
-    m.write(0x2a000220, &[225, 32, 207, 63]);
-    m.write(0x2a000224, &[114, 61, 139, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b49e2941");
+    w(&mut m, 0x2a00020c, "b49e2941");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "4ebd7d41");
+    w(&mut m, 0x2a000210, "e283dc41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "d3b33640");
+    w(&mut m, 0x2a000214, "40fdbbc1");
+    w(&mut m, 0x2a000220, "e120cf3f");
+    w(&mut m, 0x2a000224, "723d8b3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000001")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_107() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[190, 51, 141, 65]);
-    m.write(0x2a00020c, &[74, 138, 17, 66]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[180, 15, 5, 64]);
-    m.write(0x2a000210, &[65, 88, 120, 193]);
-    m.write(0x2a00021c, &[162, 218, 131, 64]);
-    m.write(0x2a000208, &[24, 251, 202, 64]);
-    m.write(0x2a000214, &[211, 144, 64, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[9, 14, 32, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "be338d41");
+    w(&mut m, 0x2a00020c, "4a8a1142");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "b40f0540");
+    w(&mut m, 0x2a000210, "415878c1");
+    w(&mut m, 0x2a00021c, "a2da8340");
+    w(&mut m, 0x2a000208, "18fbca40");
+    w(&mut m, 0x2a000214, "d3904041");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "090e203f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_108() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[251, 174, 208, 64]);
-    m.write(0x2a00020c, &[140, 88, 183, 193]);
-    m.write(0x2a000218, &[174, 184, 115, 64]);
-    m.write(0x2a000204, &[185, 40, 16, 65]);
-    m.write(0x2a000210, &[140, 238, 18, 192]);
-    m.write(0x2a00021c, &[136, 102, 22, 64]);
-    m.write(0x2a000208, &[193, 73, 22, 65]);
-    m.write(0x2a000214, &[124, 166, 118, 65]);
-    m.write(0x2a000220, &[135, 62, 95, 64]);
-    m.write(0x2a000224, &[63, 222, 4, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "fbaed040");
+    w(&mut m, 0x2a00020c, "8c58b7c1");
+    w(&mut m, 0x2a000218, "aeb87340");
+    w(&mut m, 0x2a000204, "b9281041");
+    w(&mut m, 0x2a000210, "8cee12c0");
+    w(&mut m, 0x2a00021c, "88661640");
+    w(&mut m, 0x2a000208, "c1491641");
+    w(&mut m, 0x2a000214, "7ca67641");
+    w(&mut m, 0x2a000220, "873e5f40");
+    w(&mut m, 0x2a000224, "3fde043f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f01")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_109() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[182, 29, 161, 63]);
-    m.write(0x2a00020c, &[8, 10, 238, 192]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[123, 163, 47, 61]);
-    m.write(0x2a000210, &[222, 213, 128, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[151, 176, 75, 65]);
-    m.write(0x2a000214, &[245, 163, 35, 65]);
-    m.write(0x2a000220, &[60, 102, 135, 64]);
-    m.write(0x2a000224, &[151, 196, 101, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b61da13f");
+    w(&mut m, 0x2a00020c, "080aeec0");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "7ba32f3d");
+    w(&mut m, 0x2a000210, "ded58041");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "97b04b41");
+    w(&mut m, 0x2a000214, "f5a32341");
+    w(&mut m, 0x2a000220, "3c668740");
+    w(&mut m, 0x2a000224, "97c4653f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_110() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[91, 125, 21, 65]);
-    m.write(0x2a00020c, &[194, 192, 120, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[30, 102, 66, 192]);
-    m.write(0x2a000210, &[181, 80, 186, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[209, 183, 159, 65]);
-    m.write(0x2a000214, &[164, 58, 109, 65]);
-    m.write(0x2a000220, &[27, 6, 180, 63]);
-    m.write(0x2a000224, &[24, 220, 72, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "5b7d1541");
+    w(&mut m, 0x2a00020c, "c2c07841");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "1e6642c0");
+    w(&mut m, 0x2a000210, "b550ba41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "d1b79f41");
+    w(&mut m, 0x2a000214, "a43a6d41");
+    w(&mut m, 0x2a000220, "1b06b43f");
+    w(&mut m, 0x2a000224, "18dc483e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[132, 56, 4, 63, 1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "8438043f01")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_111() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[125, 82, 138, 191]);
-    m.write(0x2a00020c, &[125, 82, 138, 191]);
-    m.write(0x2a000218, &[154, 214, 29, 63]);
-    m.write(0x2a000204, &[132, 127, 39, 65]);
-    m.write(0x2a000210, &[115, 15, 24, 64]);
-    m.write(0x2a00021c, &[46, 95, 225, 62]);
-    m.write(0x2a000208, &[166, 161, 15, 65]);
-    m.write(0x2a000214, &[151, 60, 184, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[216, 120, 15, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "7d528abf");
+    w(&mut m, 0x2a00020c, "7d528abf");
+    w(&mut m, 0x2a000218, "9ad61d3f");
+    w(&mut m, 0x2a000204, "847f2741");
+    w(&mut m, 0x2a000210, "730f1840");
+    w(&mut m, 0x2a00021c, "2e5fe13e");
+    w(&mut m, 0x2a000208, "a6a10f41");
+    w(&mut m, 0x2a000214, "973cb840");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "d8780f3f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_112() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[184, 248, 66, 65]);
-    m.write(0x2a00020c, &[62, 193, 99, 193]);
-    m.write(0x2a000218, &[85, 53, 192, 63]);
-    m.write(0x2a000204, &[28, 13, 148, 192]);
-    m.write(0x2a000210, &[14, 125, 172, 191]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[28, 94, 115, 62]);
-    m.write(0x2a000214, &[108, 81, 7, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[65, 213, 7, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b8f84241");
+    w(&mut m, 0x2a00020c, "3ec163c1");
+    w(&mut m, 0x2a000218, "5535c03f");
+    w(&mut m, 0x2a000204, "1c0d94c0");
+    w(&mut m, 0x2a000210, "0e7dacbf");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "1c5e733e");
+    w(&mut m, 0x2a000214, "6c5107c1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "41d5073f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[62, 121, 32, 63, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "3e79203f00")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_113() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[102, 9, 246, 64]);
-    m.write(0x2a00020c, &[205, 187, 43, 65]);
-    m.write(0x2a000218, &[87, 128, 105, 64]);
-    m.write(0x2a000204, &[82, 190, 223, 64]);
-    m.write(0x2a000210, &[73, 248, 20, 191]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[134, 18, 60, 65]);
-    m.write(0x2a000214, &[54, 212, 235, 191]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[95, 71, 26, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "6609f640");
+    w(&mut m, 0x2a00020c, "cdbb2b41");
+    w(&mut m, 0x2a000218, "57806940");
+    w(&mut m, 0x2a000204, "52bedf40");
+    w(&mut m, 0x2a000210, "49f814bf");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "86123c41");
+    w(&mut m, 0x2a000214, "36d4ebbf");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "5f471a3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 1][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000001")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_114() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[3, 181, 36, 65]);
-    m.write(0x2a00020c, &[210, 72, 211, 65]);
-    m.write(0x2a000218, &[128, 218, 140, 63]);
-    m.write(0x2a000204, &[158, 123, 150, 65]);
-    m.write(0x2a000210, &[200, 252, 222, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[145, 130, 158, 65]);
-    m.write(0x2a000214, &[38, 116, 68, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[31, 187, 21, 190]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "03b52441");
+    w(&mut m, 0x2a00020c, "d248d341");
+    w(&mut m, 0x2a000218, "80da8c3f");
+    w(&mut m, 0x2a000204, "9e7b9641");
+    w(&mut m, 0x2a000210, "c8fcde40");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "91829e41");
+    w(&mut m, 0x2a000214, "26744442");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "1fbb15be");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_115() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[35, 152, 153, 65]);
-    m.write(0x2a00020c, &[125, 233, 231, 192]);
-    m.write(0x2a000218, &[33, 182, 0, 64]);
-    m.write(0x2a000204, &[63, 129, 103, 63]);
-    m.write(0x2a000210, &[63, 129, 103, 63]);
-    m.write(0x2a00021c, &[42, 114, 132, 64]);
-    m.write(0x2a000208, &[239, 122, 123, 65]);
-    m.write(0x2a000214, &[239, 122, 123, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[24, 220, 137, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "23989941");
+    w(&mut m, 0x2a00020c, "7de9e7c0");
+    w(&mut m, 0x2a000218, "21b60040");
+    w(&mut m, 0x2a000204, "3f81673f");
+    w(&mut m, 0x2a000210, "3f81673f");
+    w(&mut m, 0x2a00021c, "2a728440");
+    w(&mut m, 0x2a000208, "ef7a7b41");
+    w(&mut m, 0x2a000214, "ef7a7b41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "18dc893f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 2][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f02")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_116() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[180, 4, 141, 65]);
-    m.write(0x2a00020c, &[39, 79, 46, 66]);
-    m.write(0x2a000218, &[52, 240, 147, 64]);
-    m.write(0x2a000204, &[251, 234, 143, 64]);
-    m.write(0x2a000210, &[25, 123, 199, 193]);
-    m.write(0x2a00021c, &[176, 9, 117, 64]);
-    m.write(0x2a000208, &[33, 55, 147, 65]);
-    m.write(0x2a000214, &[62, 179, 1, 66]);
-    m.write(0x2a000220, &[252, 53, 89, 64]);
-    m.write(0x2a000224, &[235, 147, 182, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b4048d41");
+    w(&mut m, 0x2a00020c, "274f2e42");
+    w(&mut m, 0x2a000218, "34f09340");
+    w(&mut m, 0x2a000204, "fbea8f40");
+    w(&mut m, 0x2a000210, "197bc7c1");
+    w(&mut m, 0x2a00021c, "b0097540");
+    w(&mut m, 0x2a000208, "21379341");
+    w(&mut m, 0x2a000214, "3eb30142");
+    w(&mut m, 0x2a000220, "fc355940");
+    w(&mut m, 0x2a000224, "eb93b63e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_117() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[108, 231, 68, 64]);
-    m.write(0x2a00020c, &[162, 126, 156, 63]);
-    m.write(0x2a000218, &[144, 177, 146, 64]);
-    m.write(0x2a000204, &[32, 48, 50, 192]);
-    m.write(0x2a000210, &[138, 142, 32, 193]);
-    m.write(0x2a00021c, &[65, 110, 130, 64]);
-    m.write(0x2a000208, &[189, 35, 254, 64]);
-    m.write(0x2a000214, &[37, 150, 52, 65]);
-    m.write(0x2a000220, &[72, 13, 215, 63]);
-    m.write(0x2a000224, &[150, 12, 116, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "6ce74440");
+    w(&mut m, 0x2a00020c, "a27e9c3f");
+    w(&mut m, 0x2a000218, "90b19240");
+    w(&mut m, 0x2a000204, "203032c0");
+    w(&mut m, 0x2a000210, "8a8e20c1");
+    w(&mut m, 0x2a00021c, "416e8240");
+    w(&mut m, 0x2a000208, "bd23fe40");
+    w(&mut m, 0x2a000214, "25963441");
+    w(&mut m, 0x2a000220, "480dd73f");
+    w(&mut m, 0x2a000224, "960c743f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_118() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[112, 105, 55, 65]);
-    m.write(0x2a00020c, &[112, 105, 55, 65]);
-    m.write(0x2a000218, &[141, 64, 159, 64]);
-    m.write(0x2a000204, &[186, 122, 31, 65]);
-    m.write(0x2a000210, &[186, 122, 31, 65]);
-    m.write(0x2a00021c, &[71, 170, 225, 62]);
-    m.write(0x2a000208, &[221, 85, 23, 65]);
-    m.write(0x2a000214, &[21, 174, 158, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[243, 92, 82, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "70693741");
+    w(&mut m, 0x2a00020c, "70693741");
+    w(&mut m, 0x2a000218, "8d409f40");
+    w(&mut m, 0x2a000204, "ba7a1f41");
+    w(&mut m, 0x2a000210, "ba7a1f41");
+    w(&mut m, 0x2a00021c, "47aae13e");
+    w(&mut m, 0x2a000208, "dd551741");
+    w(&mut m, 0x2a000214, "15ae9e41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "f35c523f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_119() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[153, 213, 20, 65]);
-    m.write(0x2a00020c, &[143, 145, 92, 193]);
-    m.write(0x2a000218, &[83, 47, 133, 64]);
-    m.write(0x2a000204, &[30, 221, 66, 65]);
-    m.write(0x2a000210, &[32, 84, 2, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[185, 69, 170, 63]);
-    m.write(0x2a000214, &[240, 242, 55, 193]);
-    m.write(0x2a000220, &[217, 169, 21, 63]);
-    m.write(0x2a000224, &[5, 225, 149, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "99d51441");
+    w(&mut m, 0x2a00020c, "8f915cc1");
+    w(&mut m, 0x2a000218, "532f8540");
+    w(&mut m, 0x2a000204, "1edd4241");
+    w(&mut m, 0x2a000210, "205402c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "b945aa3f");
+    w(&mut m, 0x2a000214, "f0f237c1");
+    w(&mut m, 0x2a000220, "d9a9153f");
+    w(&mut m, 0x2a000224, "05e1953f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 1);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_120() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[50, 229, 246, 191]);
-    m.write(0x2a00020c, &[81, 73, 191, 192]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[102, 167, 249, 64]);
-    m.write(0x2a000210, &[42, 10, 206, 65]);
-    m.write(0x2a00021c, &[205, 101, 150, 63]);
-    m.write(0x2a000208, &[42, 194, 54, 65]);
-    m.write(0x2a000214, &[187, 176, 79, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[8, 67, 6, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "32e5f6bf");
+    w(&mut m, 0x2a00020c, "5149bfc0");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "66a7f940");
+    w(&mut m, 0x2a000210, "2a0ace41");
+    w(&mut m, 0x2a00021c, "cd65963f");
+    w(&mut m, 0x2a000208, "2ac23641");
+    w(&mut m, 0x2a000214, "bbb04fc1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "0843063f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_121() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[198, 134, 21, 65]);
-    m.write(0x2a00020c, &[2, 196, 12, 65]);
-    m.write(0x2a000218, &[218, 201, 37, 64]);
-    m.write(0x2a000204, &[109, 226, 60, 192]);
-    m.write(0x2a000210, &[219, 149, 203, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[42, 79, 173, 63]);
-    m.write(0x2a000214, &[43, 187, 166, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[184, 90, 150, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "c6861541");
+    w(&mut m, 0x2a00020c, "02c40c41");
+    w(&mut m, 0x2a000218, "dac92540");
+    w(&mut m, 0x2a000204, "6de23cc0");
+    w(&mut m, 0x2a000210, "db95cbc1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "2a4fad3f");
+    w(&mut m, 0x2a000214, "2bbba641");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "b85a963e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 0);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_122() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[6, 23, 199, 63]);
-    m.write(0x2a00020c, &[64, 202, 219, 190]);
-    m.write(0x2a000218, &[48, 214, 43, 61]);
-    m.write(0x2a000204, &[97, 24, 138, 65]);
-    m.write(0x2a000210, &[36, 161, 175, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[122, 82, 134, 65]);
-    m.write(0x2a000214, &[254, 75, 36, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[119, 89, 24, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "0617c73f");
+    w(&mut m, 0x2a00020c, "40cadbbe");
+    w(&mut m, 0x2a000218, "30d62b3d");
+    w(&mut m, 0x2a000204, "61188a41");
+    w(&mut m, 0x2a000210, "24a1af41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "7a528641");
+    w(&mut m, 0x2a000214, "fe4b2442");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "7759183f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 2][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f02")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_123() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[159, 66, 60, 65]);
-    m.write(0x2a00020c, &[223, 248, 91, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[163, 159, 43, 65]);
-    m.write(0x2a000210, &[23, 56, 247, 65]);
-    m.write(0x2a00021c, &[117, 204, 37, 64]);
-    m.write(0x2a000208, &[245, 24, 70, 65]);
-    m.write(0x2a000214, &[198, 4, 237, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[228, 113, 132, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "9f423c41");
+    w(&mut m, 0x2a00020c, "dff85bc1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "a39f2b41");
+    w(&mut m, 0x2a000210, "1738f741");
+    w(&mut m, 0x2a00021c, "75cc2540");
+    w(&mut m, 0x2a000208, "f5184641");
+    w(&mut m, 0x2a000214, "c604ed41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "e471843f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63, 2][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f02")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_124() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[0, 65, 13, 65]);
-    m.write(0x2a00020c, &[0, 65, 13, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[194, 247, 255, 64]);
-    m.write(0x2a000210, &[23, 221, 211, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[99, 49, 214, 64]);
-    m.write(0x2a000214, &[99, 49, 214, 64]);
-    m.write(0x2a000220, &[202, 199, 95, 64]);
-    m.write(0x2a000224, &[10, 247, 120, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "00410d41");
+    w(&mut m, 0x2a00020c, "00410d41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "c2f7ff40");
+    w(&mut m, 0x2a000210, "17ddd340");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "6331d640");
+    w(&mut m, 0x2a000214, "6331d640");
+    w(&mut m, 0x2a000220, "cac75f40");
+    w(&mut m, 0x2a000224, "0af7783f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_upgrade(&mut m, 0x2a000200, 2);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0, 2][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000000002")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_125() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[98, 119, 78, 192]);
-    m.write(0x2a00020c, &[145, 175, 63, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[218, 222, 196, 62]);
-    m.write(0x2a000210, &[218, 222, 196, 62]);
-    m.write(0x2a00021c, &[219, 73, 54, 64]);
-    m.write(0x2a000208, &[86, 222, 89, 65]);
-    m.write(0x2a000214, &[29, 208, 116, 65]);
-    m.write(0x2a000220, &[72, 154, 34, 64]);
-    m.write(0x2a000224, &[47, 247, 102, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "62774ec0");
+    w(&mut m, 0x2a00020c, "91af3f41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "dadec43e");
+    w(&mut m, 0x2a000210, "dadec43e");
+    w(&mut m, 0x2a00021c, "db493640");
+    w(&mut m, 0x2a000208, "56de5941");
+    w(&mut m, 0x2a000214, "1dd07441");
+    w(&mut m, 0x2a000220, "489a2240");
+    w(&mut m, 0x2a000224, "2ff7663f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 10.493317604064941f32), "returned {got}, original 10.493317604064941f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_126() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[198, 195, 142, 191]);
-    m.write(0x2a00020c, &[200, 56, 197, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[156, 168, 225, 191]);
-    m.write(0x2a000210, &[226, 126, 141, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[60, 209, 51, 65]);
-    m.write(0x2a000214, &[138, 64, 174, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[247, 157, 120, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "c6c38ebf");
+    w(&mut m, 0x2a00020c, "c838c541");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "9ca8e1bf");
+    w(&mut m, 0x2a000210, "e27e8d40");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "3cd13341");
+    w(&mut m, 0x2a000214, "8a40ae40");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "f79d783f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 4.243374347686768f32), "returned {got}, original 4.243374347686768f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_127() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[50, 23, 179, 190]);
-    m.write(0x2a00020c, &[179, 100, 161, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[249, 156, 199, 64]);
-    m.write(0x2a000210, &[41, 87, 43, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[67, 130, 46, 65]);
-    m.write(0x2a000214, &[122, 130, 4, 66]);
-    m.write(0x2a000220, &[17, 211, 80, 64]);
-    m.write(0x2a000224, &[226, 251, 160, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "3217b3be");
+    w(&mut m, 0x2a00020c, "b364a1c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "f99cc740");
+    w(&mut m, 0x2a000210, "29572b40");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "43822e41");
+    w(&mut m, 0x2a000214, "7a820442");
+    w(&mut m, 0x2a000220, "11d35040");
+    w(&mut m, 0x2a000224, "e2fba03f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, -25.282651901245117f32), "returned {got}, original -25.282651901245117f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_128() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[112, 27, 122, 65]);
-    m.write(0x2a00020c, &[160, 255, 41, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[62, 23, 207, 63]);
-    m.write(0x2a000210, &[13, 30, 53, 65]);
-    m.write(0x2a00021c, &[231, 11, 68, 63]);
-    m.write(0x2a000208, &[20, 130, 11, 65]);
-    m.write(0x2a000214, &[180, 125, 129, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[166, 116, 93, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "701b7a41");
+    w(&mut m, 0x2a00020c, "a0ff2941");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "3e17cf3f");
+    w(&mut m, 0x2a000210, "0d1e3541");
+    w(&mut m, 0x2a00021c, "e70b443f");
+    w(&mut m, 0x2a000208, "14820b41");
+    w(&mut m, 0x2a000214, "b47d81c1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "a6745d3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, -12.825640678405762f32), "returned {got}, original -12.825640678405762f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_129() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[59, 199, 191, 61]);
-    m.write(0x2a00020c, &[226, 174, 0, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[149, 219, 223, 64]);
-    m.write(0x2a000210, &[109, 145, 74, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[237, 205, 112, 192]);
-    m.write(0x2a000214, &[127, 91, 158, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[246, 192, 19, 190]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "3bc7bf3d");
+    w(&mut m, 0x2a00020c, "e2ae00c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "95dbdf40");
+    w(&mut m, 0x2a000210, "6d914a41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "edcd70c0");
+    w(&mut m, 0x2a000214, "7f5b9ec1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "f6c013be");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 1.267640233039856f32), "returned {got}, original 1.267640233039856f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_130() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[137, 104, 19, 64]);
-    m.write(0x2a00020c, &[8, 201, 137, 193]);
-    m.write(0x2a000218, &[42, 238, 102, 63]);
-    m.write(0x2a000204, &[242, 38, 240, 64]);
-    m.write(0x2a000210, &[1, 173, 65, 191]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[54, 218, 114, 192]);
-    m.write(0x2a000214, &[54, 218, 114, 192]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[10, 12, 76, 190]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "89681340");
+    w(&mut m, 0x2a00020c, "08c989c1");
+    w(&mut m, 0x2a000218, "2aee663f");
+    w(&mut m, 0x2a000204, "f226f040");
+    w(&mut m, 0x2a000210, "01ad41bf");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "36da72c0");
+    w(&mut m, 0x2a000214, "36da72c0");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "0a0c4cbe");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 6.194180011749268f32), "returned {got}, original 6.194180011749268f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_131() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[249, 28, 189, 191]);
-    m.write(0x2a00020c, &[233, 160, 86, 193]);
-    m.write(0x2a000218, &[210, 47, 137, 61]);
-    m.write(0x2a000204, &[249, 188, 95, 192]);
-    m.write(0x2a000210, &[215, 123, 137, 193]);
-    m.write(0x2a00021c, &[35, 51, 122, 62]);
-    m.write(0x2a000208, &[78, 199, 91, 65]);
-    m.write(0x2a000214, &[63, 39, 32, 66]);
-    m.write(0x2a000220, &[148, 36, 20, 63]);
-    m.write(0x2a000224, &[33, 131, 102, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "f91cbdbf");
+    w(&mut m, 0x2a00020c, "e9a056c1");
+    w(&mut m, 0x2a000218, "d22f893d");
+    w(&mut m, 0x2a000204, "f9bc5fc0");
+    w(&mut m, 0x2a000210, "d77b89c1");
+    w(&mut m, 0x2a00021c, "23337a3e");
+    w(&mut m, 0x2a000208, "4ec75b41");
+    w(&mut m, 0x2a000214, "3f272042");
+    w(&mut m, 0x2a000220, "9424143f");
+    w(&mut m, 0x2a000224, "2183663f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, -12.225833892822266f32), "returned {got}, original -12.225833892822266f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_132() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[75, 154, 149, 62]);
-    m.write(0x2a00020c, &[165, 21, 213, 65]);
-    m.write(0x2a000218, &[2, 103, 135, 63]);
-    m.write(0x2a000204, &[176, 208, 80, 64]);
-    m.write(0x2a000210, &[245, 94, 199, 193]);
-    m.write(0x2a00021c, &[225, 35, 114, 63]);
-    m.write(0x2a000208, &[115, 139, 2, 64]);
-    m.write(0x2a000214, &[242, 22, 130, 65]);
-    m.write(0x2a000220, &[70, 100, 168, 62]);
-    m.write(0x2a000224, &[192, 87, 147, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "4b9a953e");
+    w(&mut m, 0x2a00020c, "a515d541");
+    w(&mut m, 0x2a000218, "0267873f");
+    w(&mut m, 0x2a000204, "b0d05040");
+    w(&mut m, 0x2a000210, "f55ec7c1");
+    w(&mut m, 0x2a00021c, "e123723f");
+    w(&mut m, 0x2a000208, "738b0240");
+    w(&mut m, 0x2a000214, "f2168241");
+    w(&mut m, 0x2a000220, "4664a83e");
+    w(&mut m, 0x2a000224, "c057933f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, -29.180418014526367f32), "returned {got}, original -29.180418014526367f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_133() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[2, 117, 42, 65]);
-    m.write(0x2a00020c, &[40, 50, 226, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[161, 123, 81, 65]);
-    m.write(0x2a000210, &[116, 92, 195, 65]);
-    m.write(0x2a00021c, &[56, 16, 149, 63]);
-    m.write(0x2a000208, &[25, 229, 159, 65]);
-    m.write(0x2a000214, &[225, 53, 5, 66]);
-    m.write(0x2a000220, &[212, 181, 192, 62]);
-    m.write(0x2a000224, &[49, 156, 88, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "02752a41");
+    w(&mut m, 0x2a00020c, "2832e241");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "a17b5141");
+    w(&mut m, 0x2a000210, "745cc341");
+    w(&mut m, 0x2a00021c, "3810953f");
+    w(&mut m, 0x2a000208, "19e59f41");
+    w(&mut m, 0x2a000214, "e1350542");
+    w(&mut m, 0x2a000220, "d4b5c03e");
+    w(&mut m, 0x2a000224, "319c583f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 25.563217163085938f32), "returned {got}, original 25.563217163085938f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_134() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[44, 152, 46, 63]);
-    m.write(0x2a00020c, &[10, 156, 125, 65]);
-    m.write(0x2a000218, &[174, 22, 165, 63]);
-    m.write(0x2a000204, &[133, 205, 62, 65]);
-    m.write(0x2a000210, &[82, 220, 23, 66]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[181, 241, 140, 65]);
-    m.write(0x2a000214, &[136, 34, 248, 63]);
-    m.write(0x2a000220, &[92, 83, 109, 64]);
-    m.write(0x2a000224, &[19, 88, 154, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "2c982e3f");
+    w(&mut m, 0x2a00020c, "0a9c7d41");
+    w(&mut m, 0x2a000218, "ae16a53f");
+    w(&mut m, 0x2a000204, "85cd3e41");
+    w(&mut m, 0x2a000210, "52dc1742");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "b5f18c41");
+    w(&mut m, 0x2a000214, "8822f83f");
+    w(&mut m, 0x2a000220, "5c536d40");
+    w(&mut m, 0x2a000224, "13589a3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, -1.2884814739227295f32), "returned {got}, original -1.2884814739227295f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_135() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[132, 143, 120, 65]);
-    m.write(0x2a00020c, &[132, 143, 120, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[191, 194, 112, 65]);
-    m.write(0x2a000210, &[191, 194, 112, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[174, 103, 104, 192]);
-    m.write(0x2a000214, &[167, 145, 113, 192]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[19, 234, 30, 189]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "848f7841");
+    w(&mut m, 0x2a00020c, "848f7841");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "bfc27041");
+    w(&mut m, 0x2a000210, "bfc27041");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "ae6768c0");
+    w(&mut m, 0x2a000214, "a79171c0");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "13ea1ebd");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 15.535037994384766f32), "returned {got}, original 15.535037994384766f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_136() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[178, 162, 151, 192]);
-    m.write(0x2a00020c, &[71, 231, 129, 193]);
-    m.write(0x2a000218, &[225, 152, 68, 63]);
-    m.write(0x2a000204, &[9, 110, 1, 65]);
-    m.write(0x2a000210, &[128, 187, 179, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[61, 41, 110, 65]);
-    m.write(0x2a000214, &[66, 87, 97, 193]);
-    m.write(0x2a000220, &[44, 235, 98, 64]);
-    m.write(0x2a000224, &[76, 181, 165, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b2a297c0");
+    w(&mut m, 0x2a00020c, "47e781c1");
+    w(&mut m, 0x2a000218, "e198443f");
+    w(&mut m, 0x2a000204, "096e0141");
+    w(&mut m, 0x2a000210, "80bbb341");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "3d296e41");
+    w(&mut m, 0x2a000214, "425761c1");
+    w(&mut m, 0x2a000220, "2ceb6240");
+    w(&mut m, 0x2a000224, "4cb5a53f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 26.702003479003906f32), "returned {got}, original 26.702003479003906f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_137() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[230, 137, 1, 65]);
-    m.write(0x2a00020c, &[118, 31, 148, 193]);
-    m.write(0x2a000218, &[5, 204, 216, 63]);
-    m.write(0x2a000204, &[196, 169, 36, 192]);
-    m.write(0x2a000210, &[96, 178, 243, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[48, 233, 178, 191]);
-    m.write(0x2a000214, &[214, 125, 177, 193]);
-    m.write(0x2a000220, &[180, 251, 136, 63]);
-    m.write(0x2a000224, &[103, 73, 142, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "e6890141");
+    w(&mut m, 0x2a00020c, "761f94c1");
+    w(&mut m, 0x2a000218, "05ccd83f");
+    w(&mut m, 0x2a000204, "c4a924c0");
+    w(&mut m, 0x2a000210, "60b2f3c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "30e9b2bf");
+    w(&mut m, 0x2a000214, "d67db1c1");
+    w(&mut m, 0x2a000220, "b4fb883f");
+    w(&mut m, 0x2a000224, "67498e3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, -24.50677490234375f32), "returned {got}, original -24.50677490234375f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_138() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[117, 41, 8, 65]);
-    m.write(0x2a00020c, &[48, 156, 131, 64]);
-    m.write(0x2a000218, &[127, 102, 100, 64]);
-    m.write(0x2a000204, &[83, 92, 163, 63]);
-    m.write(0x2a000210, &[157, 179, 16, 191]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[175, 22, 131, 65]);
-    m.write(0x2a000214, &[78, 48, 234, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[178, 138, 21, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "75290841");
+    w(&mut m, 0x2a00020c, "309c8340");
+    w(&mut m, 0x2a000218, "7f666440");
+    w(&mut m, 0x2a000204, "535ca33f");
+    w(&mut m, 0x2a000210, "9db310bf");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "af168341");
+    w(&mut m, 0x2a000214, "4e30ea41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "b28a153f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 0.20054976642131805f32), "returned {got}, original 0.20054976642131805f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_139() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[0, 161, 22, 65]);
-    m.write(0x2a00020c, &[47, 50, 93, 64]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[110, 90, 37, 192]);
-    m.write(0x2a000210, &[44, 216, 176, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[165, 252, 128, 63]);
-    m.write(0x2a000214, &[249, 88, 137, 190]);
-    m.write(0x2a000220, &[0, 56, 88, 64]);
-    m.write(0x2a000224, &[100, 239, 70, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "00a11641");
+    w(&mut m, 0x2a00020c, "2f325d40");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "6e5a25c0");
+    w(&mut m, 0x2a000210, "2cd8b041");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "a5fc803f");
+    w(&mut m, 0x2a000214, "f95889be");
+    w(&mut m, 0x2a000220, "00385840");
+    w(&mut m, 0x2a000224, "64ef463f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 0.01616848073899746f32), "returned {got}, original 0.01616848073899746f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_140() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[30, 158, 134, 65]);
-    m.write(0x2a00020c, &[197, 134, 20, 66]);
-    m.write(0x2a000218, &[172, 164, 107, 64]);
-    m.write(0x2a000204, &[61, 3, 215, 64]);
-    m.write(0x2a000210, &[198, 53, 50, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[123, 194, 2, 192]);
-    m.write(0x2a000214, &[59, 101, 160, 192]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[191, 8, 147, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "1e9e8641");
+    w(&mut m, 0x2a00020c, "c5861442");
+    w(&mut m, 0x2a000218, "aca46b40");
+    w(&mut m, 0x2a000204, "3d03d740");
+    w(&mut m, 0x2a000210, "c6353241");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "7bc202c0");
+    w(&mut m, 0x2a000214, "3b65a0c0");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "bf08933f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 11.79525089263916f32), "returned {got}, original 11.79525089263916f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_141() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[90, 85, 78, 65]);
-    m.write(0x2a00020c, &[126, 200, 164, 65]);
-    m.write(0x2a000218, &[150, 4, 114, 64]);
-    m.write(0x2a000204, &[88, 154, 247, 63]);
-    m.write(0x2a000210, &[7, 141, 248, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[101, 39, 158, 192]);
-    m.write(0x2a000214, &[155, 109, 123, 193]);
-    m.write(0x2a000220, &[48, 155, 95, 64]);
-    m.write(0x2a000224, &[78, 222, 191, 189]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "5a554e41");
+    w(&mut m, 0x2a00020c, "7ec8a441");
+    w(&mut m, 0x2a000218, "96047240");
+    w(&mut m, 0x2a000204, "589af73f");
+    w(&mut m, 0x2a000210, "078df840");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "65279ec0");
+    w(&mut m, 0x2a000214, "9b6d7bc1");
+    w(&mut m, 0x2a000220, "309b5f40");
+    w(&mut m, 0x2a000224, "4edebfbd");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 12.174264907836914f32), "returned {got}, original 12.174264907836914f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_142() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[185, 35, 191, 64]);
-    m.write(0x2a00020c, &[253, 85, 78, 63]);
-    m.write(0x2a000218, &[210, 9, 171, 63]);
-    m.write(0x2a000204, &[60, 63, 159, 65]);
-    m.write(0x2a000210, &[88, 97, 56, 66]);
-    m.write(0x2a00021c, &[163, 5, 9, 64]);
-    m.write(0x2a000208, &[83, 251, 92, 63]);
-    m.write(0x2a000214, &[242, 196, 160, 65]);
-    m.write(0x2a000220, &[180, 233, 73, 64]);
-    m.write(0x2a000224, &[92, 250, 155, 189]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b923bf40");
+    w(&mut m, 0x2a00020c, "fd554e3f");
+    w(&mut m, 0x2a000218, "d209ab3f");
+    w(&mut m, 0x2a000204, "3c3f9f41");
+    w(&mut m, 0x2a000210, "58613842");
+    w(&mut m, 0x2a00021c, "a3050940");
+    w(&mut m, 0x2a000208, "53fb5c3f");
+    w(&mut m, 0x2a000214, "f2c4a041");
+    w(&mut m, 0x2a000220, "b4e94940");
+    w(&mut m, 0x2a000224, "5cfa9bbd");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, -0.6015934348106384f32), "returned {got}, original -0.6015934348106384f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_143() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[190, 203, 70, 65]);
-    m.write(0x2a00020c, &[137, 233, 16, 66]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[251, 240, 146, 65]);
-    m.write(0x2a000210, &[28, 155, 254, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[30, 93, 144, 65]);
-    m.write(0x2a000214, &[234, 75, 101, 64]);
-    m.write(0x2a000220, &[219, 65, 121, 64]);
-    m.write(0x2a000224, &[129, 48, 162, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "becb4641");
+    w(&mut m, 0x2a00020c, "89e91042");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "fbf09241");
+    w(&mut m, 0x2a000210, "1c9bfe41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "1e5d9041");
+    w(&mut m, 0x2a000214, "ea4b6540");
+    w(&mut m, 0x2a000220, "db417940");
+    w(&mut m, 0x2a000224, "8130a23f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 35.42045974731445f32), "returned {got}, original 35.42045974731445f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_144() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[102, 63, 188, 62]);
-    m.write(0x2a00020c, &[183, 183, 145, 193]);
-    m.write(0x2a000218, &[52, 131, 148, 64]);
-    m.write(0x2a000204, &[27, 162, 95, 61]);
-    m.write(0x2a000210, &[27, 162, 95, 61]);
-    m.write(0x2a00021c, &[165, 46, 53, 63]);
-    m.write(0x2a000208, &[235, 253, 84, 64]);
-    m.write(0x2a000214, &[93, 241, 97, 65]);
-    m.write(0x2a000220, &[13, 23, 140, 63]);
-    m.write(0x2a000224, &[201, 165, 130, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "663fbc3e");
+    w(&mut m, 0x2a00020c, "b7b791c1");
+    w(&mut m, 0x2a000218, "34839440");
+    w(&mut m, 0x2a000204, "1ba25f3d");
+    w(&mut m, 0x2a000210, "1ba25f3d");
+    w(&mut m, 0x2a00021c, "a52e353f");
+    w(&mut m, 0x2a000208, "ebfd5440");
+    w(&mut m, 0x2a000214, "5df16141");
+    w(&mut m, 0x2a000220, "0d178c3f");
+    w(&mut m, 0x2a000224, "c9a5823f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, -18.599069595336914f32), "returned {got}, original -18.599069595336914f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_145() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[56, 106, 188, 64]);
-    m.write(0x2a00020c, &[41, 5, 92, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[159, 21, 131, 65]);
-    m.write(0x2a000210, &[27, 214, 14, 193]);
-    m.write(0x2a00021c, &[94, 37, 177, 63]);
-    m.write(0x2a000208, &[148, 127, 148, 64]);
-    m.write(0x2a000214, &[200, 18, 218, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[149, 213, 195, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "386abc40");
+    w(&mut m, 0x2a00020c, "29055cc1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "9f158341");
+    w(&mut m, 0x2a000210, "1bd60ec1");
+    w(&mut m, 0x2a00021c, "5e25b13f");
+    w(&mut m, 0x2a000208, "947f9440");
+    w(&mut m, 0x2a000214, "c812da41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "95d5c33e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 6.703681468963623f32), "returned {got}, original 6.703681468963623f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_146() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[183, 239, 140, 65]);
-    m.write(0x2a00020c, &[163, 217, 87, 65]);
-    m.write(0x2a000218, &[175, 138, 146, 64]);
-    m.write(0x2a000204, &[147, 176, 34, 65]);
-    m.write(0x2a000210, &[128, 225, 4, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[28, 236, 68, 64]);
-    m.write(0x2a000214, &[237, 131, 155, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[65, 214, 5, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b7ef8c41");
+    w(&mut m, 0x2a00020c, "a3d95741");
+    w(&mut m, 0x2a000218, "af8a9240");
+    w(&mut m, 0x2a000204, "93b02241");
+    w(&mut m, 0x2a000210, "80e104c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "1cec4440");
+    w(&mut m, 0x2a000214, "ed839b40");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "41d6053f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 4.009034633636475f32), "returned {got}, original 4.009034633636475f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_147() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[48, 245, 0, 65]);
-    m.write(0x2a00020c, &[92, 125, 221, 65]);
-    m.write(0x2a000218, &[209, 88, 197, 63]);
-    m.write(0x2a000204, &[152, 148, 149, 64]);
-    m.write(0x2a000210, &[217, 156, 60, 65]);
-    m.write(0x2a00021c, &[156, 27, 24, 62]);
-    m.write(0x2a000208, &[19, 229, 156, 192]);
-    m.write(0x2a000214, &[147, 249, 208, 192]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[2, 193, 42, 61]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "30f50041");
+    w(&mut m, 0x2a00020c, "5c7ddd41");
+    w(&mut m, 0x2a000218, "d158c53f");
+    w(&mut m, 0x2a000204, "98949540");
+    w(&mut m, 0x2a000210, "d99c3c41");
+    w(&mut m, 0x2a00021c, "9c1b183e");
+    w(&mut m, 0x2a000208, "13e59cc0");
+    w(&mut m, 0x2a000214, "93f9d0c0");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "02c12a3d");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 4.970952987670898f32), "returned {got}, original 4.970952987670898f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_148() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[120, 95, 148, 65]);
-    m.write(0x2a00020c, &[215, 21, 167, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[170, 23, 86, 65]);
-    m.write(0x2a000210, &[170, 23, 86, 65]);
-    m.write(0x2a00021c, &[143, 232, 99, 64]);
-    m.write(0x2a000208, &[150, 31, 106, 192]);
-    m.write(0x2a000214, &[23, 11, 235, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[26, 202, 87, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "785f9441");
+    w(&mut m, 0x2a00020c, "d715a741");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "aa175641");
+    w(&mut m, 0x2a000210, "aa175641");
+    w(&mut m, 0x2a00021c, "8fe86340");
+    w(&mut m, 0x2a000208, "961f6ac0");
+    w(&mut m, 0x2a000214, "170bebc1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "1aca573f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, -25.340160369873047f32), "returned {got}, original -25.340160369873047f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_149() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[29, 74, 147, 62]);
-    m.write(0x2a00020c, &[51, 198, 165, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[179, 59, 137, 65]);
-    m.write(0x2a000210, &[28, 134, 34, 66]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[45, 169, 186, 64]);
-    m.write(0x2a000214, &[153, 233, 58, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[140, 127, 149, 189]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "1d4a933e");
+    w(&mut m, 0x2a00020c, "33c6a5c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "b33b8941");
+    w(&mut m, 0x2a000210, "1c862242");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "2da9ba40");
+    w(&mut m, 0x2a000214, "99e93a41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "8c7f95bd");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 1.8213056325912476f32), "returned {got}, original 1.8213056325912476f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_150() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[13, 192, 138, 65]);
-    m.write(0x2a00020c, &[22, 68, 127, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[54, 53, 95, 64]);
-    m.write(0x2a000210, &[140, 33, 39, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[31, 156, 88, 192]);
-    m.write(0x2a000214, &[113, 102, 162, 192]);
-    m.write(0x2a000220, &[190, 25, 119, 64]);
-    m.write(0x2a000224, &[86, 8, 81, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "0dc08a41");
+    w(&mut m, 0x2a00020c, "16447f41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "36355f40");
+    w(&mut m, 0x2a000210, "8c2127c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "1f9c58c0");
+    w(&mut m, 0x2a000214, "7166a2c0");
+    w(&mut m, 0x2a000220, "be197740");
+    w(&mut m, 0x2a000224, "5608513f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, -4.764859199523926f32), "returned {got}, original -4.764859199523926f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_151() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[128, 228, 130, 63]);
-    m.write(0x2a00020c, &[128, 228, 130, 63]);
-    m.write(0x2a000218, &[155, 235, 155, 64]);
-    m.write(0x2a000204, &[214, 118, 113, 65]);
-    m.write(0x2a000210, &[214, 118, 113, 65]);
-    m.write(0x2a00021c, &[176, 42, 143, 64]);
-    m.write(0x2a000208, &[41, 65, 150, 65]);
-    m.write(0x2a000214, &[36, 161, 249, 65]);
-    m.write(0x2a000220, &[131, 14, 76, 62]);
-    m.write(0x2a000224, &[139, 218, 19, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "80e4823f");
+    w(&mut m, 0x2a00020c, "80e4823f");
+    w(&mut m, 0x2a000218, "9beb9b40");
+    w(&mut m, 0x2a000204, "d6767141");
+    w(&mut m, 0x2a000210, "d6767141");
+    w(&mut m, 0x2a00021c, "b02a8f40");
+    w(&mut m, 0x2a000208, "29419641");
+    w(&mut m, 0x2a000214, "24a1f941");
+    w(&mut m, 0x2a000220, "830e4c3e");
+    w(&mut m, 0x2a000224, "8bda133e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 20.575389862060547f32), "returned {got}, original 20.575389862060547f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_152() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[128, 227, 55, 65]);
-    m.write(0x2a00020c, &[84, 230, 230, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[36, 151, 109, 192]);
-    m.write(0x2a000210, &[176, 103, 113, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[9, 219, 151, 65]);
-    m.write(0x2a000214, &[248, 255, 136, 65]);
-    m.write(0x2a000220, &[94, 223, 48, 64]);
-    m.write(0x2a000224, &[60, 132, 161, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "80e33741");
+    w(&mut m, 0x2a00020c, "54e6e641");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "24976dc0");
+    w(&mut m, 0x2a000210, "b06771c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "09db9741");
+    w(&mut m, 0x2a000214, "f8ff8841");
+    w(&mut m, 0x2a000220, "5edf3040");
+    w(&mut m, 0x2a000224, "3c84a13f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 16.638742446899414f32), "returned {got}, original 16.638742446899414f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_153() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[42, 156, 35, 63]);
-    m.write(0x2a00020c, &[88, 23, 193, 64]);
-    m.write(0x2a000218, &[195, 250, 104, 64]);
-    m.write(0x2a000204, &[216, 8, 159, 191]);
-    m.write(0x2a000210, &[89, 7, 178, 191]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[250, 193, 159, 192]);
-    m.write(0x2a000214, &[133, 191, 165, 193]);
-    m.write(0x2a000220, &[54, 173, 78, 64]);
-    m.write(0x2a000224, &[125, 174, 159, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "2a9c233f");
+    w(&mut m, 0x2a00020c, "5817c140");
+    w(&mut m, 0x2a000218, "c3fa6840");
+    w(&mut m, 0x2a000204, "d8089fbf");
+    w(&mut m, 0x2a000210, "5907b2bf");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "fac19fc0");
+    w(&mut m, 0x2a000214, "85bfa5c1");
+    w(&mut m, 0x2a000220, "36ad4e40");
+    w(&mut m, 0x2a000224, "7dae9f3e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, -9.897050857543945f32), "returned {got}, original -9.897050857543945f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_154() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[95, 62, 138, 65]);
-    m.write(0x2a00020c, &[95, 62, 138, 65]);
-    m.write(0x2a000218, &[190, 228, 144, 64]);
-    m.write(0x2a000204, &[209, 20, 54, 64]);
-    m.write(0x2a000210, &[228, 89, 30, 192]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[195, 13, 250, 64]);
-    m.write(0x2a000214, &[161, 89, 207, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[184, 96, 52, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "5f3e8a41");
+    w(&mut m, 0x2a00020c, "5f3e8a41");
+    w(&mut m, 0x2a000218, "bee49040");
+    w(&mut m, 0x2a000204, "d1143640");
+    w(&mut m, 0x2a000210, "e4591ec0");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "c30dfa40");
+    w(&mut m, 0x2a000214, "a159cf41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "b860343e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::value(&m, 0x2a000200);
     assert!(close(got, 17.280454635620117f32), "returned {got}, original 17.280454635620117f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_155() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[32, 249, 43, 65]);
-    m.write(0x2a00020c, &[82, 194, 15, 66]);
-    m.write(0x2a000218, &[31, 98, 237, 62]);
-    m.write(0x2a000204, &[80, 146, 211, 191]);
-    m.write(0x2a000210, &[80, 146, 211, 191]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[116, 120, 134, 192]);
-    m.write(0x2a000214, &[15, 219, 134, 63]);
-    m.write(0x2a000220, &[173, 175, 36, 64]);
-    m.write(0x2a000224, &[161, 22, 118, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "20f92b41");
+    w(&mut m, 0x2a00020c, "52c20f42");
+    w(&mut m, 0x2a000218, "1f62ed3e");
+    w(&mut m, 0x2a000204, "5092d3bf");
+    w(&mut m, 0x2a000210, "5092d3bf");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "747886c0");
+    w(&mut m, 0x2a000214, "0fdb863f");
+    w(&mut m, 0x2a000220, "adaf2440");
+    w(&mut m, 0x2a000224, "a116763f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 3.4658844470977783f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_156() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[252, 83, 134, 65]);
-    m.write(0x2a00020c, &[107, 167, 152, 65]);
-    m.write(0x2a000218, &[53, 35, 42, 64]);
-    m.write(0x2a000204, &[104, 152, 48, 64]);
-    m.write(0x2a000210, &[93, 57, 178, 193]);
-    m.write(0x2a00021c, &[28, 56, 51, 64]);
-    m.write(0x2a000208, &[108, 73, 4, 65]);
-    m.write(0x2a000214, &[202, 165, 142, 192]);
-    m.write(0x2a000220, &[126, 253, 142, 64]);
-    m.write(0x2a000224, &[254, 164, 82, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "fc538641");
+    w(&mut m, 0x2a00020c, "6ba79841");
+    w(&mut m, 0x2a000218, "35232a40");
+    w(&mut m, 0x2a000204, "68983040");
+    w(&mut m, 0x2a000210, "5d39b2c1");
+    w(&mut m, 0x2a00021c, "1c383340");
+    w(&mut m, 0x2a000208, "6c490441");
+    w(&mut m, 0x2a000214, "caa58ec0");
+    w(&mut m, 0x2a000220, "7efd8e40");
+    w(&mut m, 0x2a000224, "fea4523f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 16.546314239501953f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_157() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[112, 203, 51, 192]);
-    m.write(0x2a00020c, &[171, 121, 14, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[120, 183, 168, 64]);
-    m.write(0x2a000210, &[113, 150, 1, 66]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[3, 232, 64, 65]);
-    m.write(0x2a000214, &[62, 112, 18, 66]);
-    m.write(0x2a000220, &[252, 158, 140, 64]);
-    m.write(0x2a000224, &[83, 6, 158, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "70cb33c0");
+    w(&mut m, 0x2a00020c, "ab790ec1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "78b7a840");
+    w(&mut m, 0x2a000210, "71960142");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "03e84041");
+    w(&mut m, 0x2a000214, "3e701242");
+    w(&mut m, 0x2a000220, "fc9e8c40");
+    w(&mut m, 0x2a000224, "53069e3f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, -6.120217323303223f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_158() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[113, 164, 67, 65]);
-    m.write(0x2a00020c, &[254, 5, 191, 65]);
-    m.write(0x2a000218, &[217, 38, 142, 64]);
-    m.write(0x2a000204, &[189, 92, 156, 65]);
-    m.write(0x2a000210, &[56, 29, 2, 66]);
-    m.write(0x2a00021c, &[120, 160, 228, 63]);
-    m.write(0x2a000208, &[235, 190, 180, 64]);
-    m.write(0x2a000214, &[39, 132, 240, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[98, 81, 128, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "71a44341");
+    w(&mut m, 0x2a00020c, "fe05bf41");
+    w(&mut m, 0x2a000218, "d9268e40");
+    w(&mut m, 0x2a000204, "bd5c9c41");
+    w(&mut m, 0x2a000210, "381d0242");
+    w(&mut m, 0x2a00021c, "78a0e43f");
+    w(&mut m, 0x2a000208, "ebbeb440");
+    w(&mut m, 0x2a000214, "2784f041");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "6251803f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 2.6993393898010254f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_159() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[206, 137, 84, 65]);
-    m.write(0x2a00020c, &[206, 137, 84, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[80, 48, 50, 65]);
-    m.write(0x2a000210, &[117, 13, 202, 192]);
-    m.write(0x2a00021c, &[81, 50, 201, 62]);
-    m.write(0x2a000208, &[20, 35, 131, 65]);
-    m.write(0x2a000214, &[33, 250, 29, 66]);
-    m.write(0x2a000220, &[84, 23, 190, 63]);
-    m.write(0x2a000224, &[132, 43, 30, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "ce895441");
+    w(&mut m, 0x2a00020c, "ce895441");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "50303241");
+    w(&mut m, 0x2a000210, "750dcac0");
+    w(&mut m, 0x2a00021c, "5132c93e");
+    w(&mut m, 0x2a000208, "14238341");
+    w(&mut m, 0x2a000214, "21fa1d42");
+    w(&mut m, 0x2a000220, "5417be3f");
+    w(&mut m, 0x2a000224, "842b1e3f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 5.608962059020996f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[236, 46, 162, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "ec2ea23e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_160() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[216, 234, 139, 65]);
-    m.write(0x2a00020c, &[135, 220, 146, 65]);
-    m.write(0x2a000218, &[231, 30, 128, 64]);
-    m.write(0x2a000204, &[171, 74, 130, 64]);
-    m.write(0x2a000210, &[29, 182, 169, 63]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[82, 86, 187, 64]);
-    m.write(0x2a000214, &[117, 25, 97, 192]);
-    m.write(0x2a000220, &[183, 49, 87, 64]);
-    m.write(0x2a000224, &[141, 60, 163, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "d8ea8b41");
+    w(&mut m, 0x2a00020c, "87dc9241");
+    w(&mut m, 0x2a000218, "e71e8040");
+    w(&mut m, 0x2a000204, "ab4a8240");
+    w(&mut m, 0x2a000210, "1db6a93f");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "5256bb40");
+    w(&mut m, 0x2a000214, "751961c0");
+    w(&mut m, 0x2a000220, "b7315740");
+    w(&mut m, 0x2a000224, "8d3ca33e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, -5.654083728790283f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_161() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[183, 161, 16, 64]);
-    m.write(0x2a00020c, &[201, 209, 242, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[84, 213, 100, 65]);
-    m.write(0x2a000210, &[22, 84, 180, 192]);
-    m.write(0x2a00021c, &[36, 211, 45, 64]);
-    m.write(0x2a000208, &[220, 246, 150, 65]);
-    m.write(0x2a000214, &[155, 116, 185, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[120, 104, 11, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b7a11040");
+    w(&mut m, 0x2a00020c, "c9d1f241");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "54d56441");
+    w(&mut m, 0x2a000210, "1654b4c0");
+    w(&mut m, 0x2a00021c, "24d32d40");
+    w(&mut m, 0x2a000208, "dcf69641");
+    w(&mut m, 0x2a000214, "9b74b941");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "78680b3e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 16.23293685913086f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_162() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[169, 172, 138, 65]);
-    m.write(0x2a00020c, &[171, 26, 21, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[156, 133, 98, 65]);
-    m.write(0x2a000210, &[127, 223, 45, 193]);
-    m.write(0x2a00021c, &[181, 156, 64, 63]);
-    m.write(0x2a000208, &[24, 215, 130, 65]);
-    m.write(0x2a000214, &[36, 128, 75, 193]);
-    m.write(0x2a000220, &[133, 75, 122, 64]);
-    m.write(0x2a000224, &[167, 176, 23, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "a9ac8a41");
+    w(&mut m, 0x2a00020c, "ab1a1541");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "9c856241");
+    w(&mut m, 0x2a000210, "7fdf2dc1");
+    w(&mut m, 0x2a00021c, "b59c403f");
+    w(&mut m, 0x2a000208, "18d78241");
+    w(&mut m, 0x2a000214, "24804bc1");
+    w(&mut m, 0x2a000220, "854b7a40");
+    w(&mut m, 0x2a000224, "a7b0173f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 20.14912986755371f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_163() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[162, 115, 122, 65]);
-    m.write(0x2a00020c, &[183, 174, 157, 65]);
-    m.write(0x2a000218, &[63, 247, 42, 64]);
-    m.write(0x2a000204, &[228, 182, 15, 65]);
-    m.write(0x2a000210, &[3, 253, 241, 192]);
-    m.write(0x2a00021c, &[94, 114, 63, 64]);
-    m.write(0x2a000208, &[57, 255, 104, 192]);
-    m.write(0x2a000214, &[125, 155, 26, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[67, 68, 90, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "a2737a41");
+    w(&mut m, 0x2a00020c, "b7ae9d41");
+    w(&mut m, 0x2a000218, "3ff72a40");
+    w(&mut m, 0x2a000204, "e4b60f41");
+    w(&mut m, 0x2a000210, "03fdf1c0");
+    w(&mut m, 0x2a00021c, "5e723f40");
+    w(&mut m, 0x2a000208, "39ff68c0");
+    w(&mut m, 0x2a000214, "7d9b1a40");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "43445a3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, -2.0145461559295654f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[227, 118, 137, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "e376893e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_164() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[67, 151, 149, 65]);
-    m.write(0x2a00020c, &[128, 20, 27, 66]);
-    m.write(0x2a000218, &[215, 102, 63, 64]);
-    m.write(0x2a000204, &[219, 145, 58, 65]);
-    m.write(0x2a000210, &[59, 243, 209, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[141, 255, 244, 190]);
-    m.write(0x2a000214, &[89, 246, 143, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[27, 23, 83, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "43979541");
+    w(&mut m, 0x2a00020c, "80141b42");
+    w(&mut m, 0x2a000218, "d7663f40");
+    w(&mut m, 0x2a000204, "db913a41");
+    w(&mut m, 0x2a000210, "3bf3d141");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "8dfff4be");
+    w(&mut m, 0x2a000214, "59f68fc1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "1b17533f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 5.346499443054199f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_165() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[4, 248, 135, 65]);
-    m.write(0x2a00020c, &[187, 89, 59, 66]);
-    m.write(0x2a000218, &[50, 129, 181, 63]);
-    m.write(0x2a000204, &[204, 91, 135, 192]);
-    m.write(0x2a000210, &[204, 91, 135, 192]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[30, 125, 102, 192]);
-    m.write(0x2a000214, &[131, 73, 126, 65]);
-    m.write(0x2a000220, &[79, 115, 210, 62]);
-    m.write(0x2a000224, &[53, 189, 53, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "04f88741");
+    w(&mut m, 0x2a00020c, "bb593b42");
+    w(&mut m, 0x2a000218, "3281b53f");
+    w(&mut m, 0x2a000204, "cc5b87c0");
+    w(&mut m, 0x2a000210, "cc5b87c0");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "1e7d66c0");
+    w(&mut m, 0x2a000214, "83497e41");
+    w(&mut m, 0x2a000220, "4f73d23e");
+    w(&mut m, 0x2a000224, "35bd353f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, -3.850252628326416f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_166() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[194, 17, 105, 65]);
-    m.write(0x2a00020c, &[171, 102, 123, 191]);
-    m.write(0x2a000218, &[40, 30, 159, 64]);
-    m.write(0x2a000204, &[92, 33, 88, 63]);
-    m.write(0x2a000210, &[134, 174, 56, 65]);
-    m.write(0x2a00021c, &[6, 27, 3, 64]);
-    m.write(0x2a000208, &[159, 30, 209, 191]);
-    m.write(0x2a000214, &[100, 208, 183, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[251, 232, 44, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "c2116941");
+    w(&mut m, 0x2a00020c, "ab667bbf");
+    w(&mut m, 0x2a000218, "281e9f40");
+    w(&mut m, 0x2a000204, "5c21583f");
+    w(&mut m, 0x2a000210, "86ae3841");
+    w(&mut m, 0x2a00021c, "061b0340");
+    w(&mut m, 0x2a000208, "9f1ed1bf");
+    w(&mut m, 0x2a000214, "64d0b7c1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "fbe82c3f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 21.59589195251465f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_167() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[194, 103, 144, 64]);
-    m.write(0x2a00020c, &[142, 184, 191, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[134, 128, 196, 64]);
-    m.write(0x2a000210, &[134, 128, 196, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[253, 98, 160, 64]);
-    m.write(0x2a000214, &[64, 48, 171, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[165, 116, 171, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "c2679040");
+    w(&mut m, 0x2a00020c, "8eb8bfc1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "8680c440");
+    w(&mut m, 0x2a000210, "8680c440");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "fd62a040");
+    w(&mut m, 0x2a000214, "4030ab41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "a574ab3e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, -3.0212395191192627f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_168() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[16, 206, 67, 65]);
-    m.write(0x2a00020c, &[220, 110, 138, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[175, 56, 116, 65]);
-    m.write(0x2a000210, &[191, 105, 52, 65]);
-    m.write(0x2a00021c, &[26, 83, 142, 64]);
-    m.write(0x2a000208, &[106, 230, 49, 65]);
-    m.write(0x2a000214, &[33, 49, 88, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[120, 165, 19, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "10ce4341");
+    w(&mut m, 0x2a00020c, "dc6e8a41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "af387441");
+    w(&mut m, 0x2a000210, "bf693441");
+    w(&mut m, 0x2a00021c, "1a538e40");
+    w(&mut m, 0x2a000208, "6ae63141");
+    w(&mut m, 0x2a000214, "213158c1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "78a5133f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 24.327768325805664f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_169() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[253, 177, 71, 65]);
-    m.write(0x2a00020c, &[102, 72, 220, 192]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[210, 133, 237, 64]);
-    m.write(0x2a000210, &[83, 87, 168, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[166, 120, 137, 65]);
-    m.write(0x2a000214, &[162, 11, 72, 65]);
-    m.write(0x2a000220, &[85, 179, 147, 64]);
-    m.write(0x2a000224, &[3, 238, 41, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "fdb14741");
+    w(&mut m, 0x2a00020c, "6648dcc0");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "d285ed40");
+    w(&mut m, 0x2a000210, "5357a841");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "a6788941");
+    w(&mut m, 0x2a000214, "a20b4841");
+    w(&mut m, 0x2a000220, "55b39340");
+    w(&mut m, 0x2a000224, "03ee293f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 5.042200088500977f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_170() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[2, 129, 154, 65]);
-    m.write(0x2a00020c, &[91, 102, 12, 66]);
-    m.write(0x2a000218, &[71, 199, 158, 64]);
-    m.write(0x2a000204, &[41, 141, 108, 192]);
-    m.write(0x2a000210, &[119, 170, 66, 192]);
-    m.write(0x2a00021c, &[84, 60, 191, 63]);
-    m.write(0x2a000208, &[200, 9, 113, 191]);
-    m.write(0x2a000214, &[196, 157, 85, 65]);
-    m.write(0x2a000220, &[41, 73, 149, 63]);
-    m.write(0x2a000224, &[225, 85, 108, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "02819a41");
+    w(&mut m, 0x2a00020c, "5b660c42");
+    w(&mut m, 0x2a000218, "47c79e40");
+    w(&mut m, 0x2a000204, "298d6cc0");
+    w(&mut m, 0x2a000210, "77aa42c0");
+    w(&mut m, 0x2a00021c, "543cbf3f");
+    w(&mut m, 0x2a000208, "c80971bf");
+    w(&mut m, 0x2a000214, "c49d5541");
+    w(&mut m, 0x2a000220, "2949953f");
+    w(&mut m, 0x2a000224, "e1556c3e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 2.5959630012512207f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_171() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[107, 142, 134, 190]);
-    m.write(0x2a00020c, &[187, 90, 182, 192]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[135, 176, 193, 64]);
-    m.write(0x2a000210, &[254, 15, 171, 193]);
-    m.write(0x2a00021c, &[98, 164, 97, 64]);
-    m.write(0x2a000208, &[182, 107, 23, 192]);
-    m.write(0x2a000214, &[69, 89, 169, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[46, 60, 130, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "6b8e86be");
+    w(&mut m, 0x2a00020c, "bb5ab6c0");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "87b0c140");
+    w(&mut m, 0x2a000210, "fe0fabc1");
+    w(&mut m, 0x2a00021c, "62a46140");
+    w(&mut m, 0x2a000208, "b66b17c0");
+    w(&mut m, 0x2a000214, "4559a941");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "2e3c823e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 14.533864974975586f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_172() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[245, 164, 81, 65]);
-    m.write(0x2a00020c, &[218, 158, 128, 63]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[40, 50, 136, 65]);
-    m.write(0x2a000210, &[71, 143, 63, 62]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[44, 183, 139, 65]);
-    m.write(0x2a000214, &[23, 167, 62, 193]);
-    m.write(0x2a000220, &[71, 86, 161, 63]);
-    m.write(0x2a000224, &[65, 47, 192, 189]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "f5a45141");
+    w(&mut m, 0x2a00020c, "da9e803f");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "28328841");
+    w(&mut m, 0x2a000210, "478f3f3e");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "2cb78b41");
+    w(&mut m, 0x2a000214, "17a73ec1");
+    w(&mut m, 0x2a000220, "4756a13f");
+    w(&mut m, 0x2a000224, "412fc0bd");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 0.22978967428207397f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[185, 89, 127, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "b9597f3f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_173() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[53, 24, 154, 192]);
-    m.write(0x2a00020c, &[170, 213, 1, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[180, 251, 123, 64]);
-    m.write(0x2a000210, &[67, 181, 176, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[131, 189, 26, 65]);
-    m.write(0x2a000214, &[126, 128, 189, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[146, 44, 66, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "35189ac0");
+    w(&mut m, 0x2a00020c, "aad50141");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "b4fb7b40");
+    w(&mut m, 0x2a000210, "43b5b041");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "83bd1a41");
+    w(&mut m, 0x2a000214, "7e80bd41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "922c423f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 23.084699630737305f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_174() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[228, 145, 149, 192]);
-    m.write(0x2a00020c, &[228, 145, 149, 192]);
-    m.write(0x2a000218, &[39, 113, 146, 64]);
-    m.write(0x2a000204, &[150, 29, 153, 65]);
-    m.write(0x2a000210, &[150, 206, 153, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[247, 110, 171, 64]);
-    m.write(0x2a000214, &[223, 34, 192, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[92, 151, 26, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "e49195c0");
+    w(&mut m, 0x2a00020c, "e49195c0");
+    w(&mut m, 0x2a000218, "27719240");
+    w(&mut m, 0x2a000204, "961d9941");
+    w(&mut m, 0x2a000210, "96ce9941");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "f76eab40");
+    w(&mut m, 0x2a000214, "df22c041");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "5c971a3f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, -4.230160713195801f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_175() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[71, 88, 11, 65]);
-    m.write(0x2a00020c, &[172, 219, 4, 192]);
-    m.write(0x2a000218, &[121, 123, 129, 63]);
-    m.write(0x2a000204, &[135, 149, 204, 64]);
-    m.write(0x2a000210, &[120, 171, 157, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[38, 144, 177, 64]);
-    m.write(0x2a000214, &[142, 254, 139, 65]);
-    m.write(0x2a000220, &[120, 190, 238, 63]);
-    m.write(0x2a000224, &[120, 166, 37, 61]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "47580b41");
+    w(&mut m, 0x2a00020c, "acdb04c0");
+    w(&mut m, 0x2a000218, "797b813f");
+    w(&mut m, 0x2a000204, "8795cc40");
+    w(&mut m, 0x2a000210, "78ab9d41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "2690b140");
+    w(&mut m, 0x2a000214, "8efe8b41");
+    w(&mut m, 0x2a000220, "78beee3f");
+    w(&mut m, 0x2a000224, "78a6253d");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 10.651909828186035f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[47, 162, 218, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "2fa2da3e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_176() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[233, 28, 112, 65]);
-    m.write(0x2a00020c, &[205, 208, 122, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[161, 169, 174, 62]);
-    m.write(0x2a000210, &[26, 116, 31, 65]);
-    m.write(0x2a00021c, &[81, 209, 81, 63]);
-    m.write(0x2a000208, &[207, 148, 108, 65]);
-    m.write(0x2a000214, &[36, 62, 178, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[118, 250, 118, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "e91c7041");
+    w(&mut m, 0x2a00020c, "cdd07a41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "a1a9ae3e");
+    w(&mut m, 0x2a000210, "1a741f41");
+    w(&mut m, 0x2a00021c, "51d1513f");
+    w(&mut m, 0x2a000208, "cf946c41");
+    w(&mut m, 0x2a000214, "243eb240");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "76fa763e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, -4.73368501663208f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_177() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[48, 216, 145, 192]);
-    m.write(0x2a00020c, &[65, 50, 19, 193]);
-    m.write(0x2a000218, &[21, 105, 111, 64]);
-    m.write(0x2a000204, &[239, 215, 178, 64]);
-    m.write(0x2a000210, &[239, 215, 178, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[15, 185, 91, 65]);
-    m.write(0x2a000214, &[27, 205, 45, 65]);
-    m.write(0x2a000220, &[182, 29, 244, 63]);
-    m.write(0x2a000224, &[120, 206, 124, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "30d891c0");
+    w(&mut m, 0x2a00020c, "413213c1");
+    w(&mut m, 0x2a000218, "15696f40");
+    w(&mut m, 0x2a000204, "efd7b240");
+    w(&mut m, 0x2a000210, "efd7b240");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "0fb95b41");
+    w(&mut m, 0x2a000214, "1bcd2d41");
+    w(&mut m, 0x2a000220, "b61df43f");
+    w(&mut m, 0x2a000224, "78ce7c3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 13.504044532775879f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[92, 37, 163, 61][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "5c25a33d")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_178() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[245, 251, 207, 64]);
-    m.write(0x2a00020c, &[23, 222, 61, 65]);
-    m.write(0x2a000218, &[180, 66, 140, 64]);
-    m.write(0x2a000204, &[189, 165, 12, 65]);
-    m.write(0x2a000210, &[216, 109, 80, 193]);
-    m.write(0x2a00021c, &[91, 230, 23, 64]);
-    m.write(0x2a000208, &[205, 0, 45, 192]);
-    m.write(0x2a000214, &[237, 125, 143, 65]);
-    m.write(0x2a000220, &[228, 81, 62, 64]);
-    m.write(0x2a000224, &[90, 182, 120, 61]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "f5fbcf40");
+    w(&mut m, 0x2a00020c, "17de3d41");
+    w(&mut m, 0x2a000218, "b4428c40");
+    w(&mut m, 0x2a000204, "bda50c41");
+    w(&mut m, 0x2a000210, "d86d50c1");
+    w(&mut m, 0x2a00021c, "5be61740");
+    w(&mut m, 0x2a000208, "cd002dc0");
+    w(&mut m, 0x2a000214, "ed7d8f41");
+    w(&mut m, 0x2a000220, "e4513e40");
+    w(&mut m, 0x2a000224, "5ab6783d");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, -1.4659066200256348f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[89, 177, 240, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "59b1f03e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_179() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[231, 176, 103, 65]);
-    m.write(0x2a00020c, &[156, 238, 30, 193]);
-    m.write(0x2a000218, &[108, 61, 1, 64]);
-    m.write(0x2a000204, &[93, 145, 54, 65]);
-    m.write(0x2a000210, &[228, 96, 245, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[61, 137, 66, 65]);
-    m.write(0x2a000214, &[97, 57, 80, 193]);
-    m.write(0x2a000220, &[16, 251, 227, 62]);
-    m.write(0x2a000224, &[54, 240, 72, 190]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "e7b06741");
+    w(&mut m, 0x2a00020c, "9cee1ec1");
+    w(&mut m, 0x2a000218, "6c3d0140");
+    w(&mut m, 0x2a000204, "5d913641");
+    w(&mut m, 0x2a000210, "e460f541");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "3d894241");
+    w(&mut m, 0x2a000214, "613950c1");
+    w(&mut m, 0x2a000220, "10fbe33e");
+    w(&mut m, 0x2a000224, "36f048be");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, -7.21980094909668f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[238, 18, 69, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "ee12453f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_180() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[146, 78, 166, 191]);
-    m.write(0x2a00020c, &[146, 78, 166, 191]);
-    m.write(0x2a000218, &[194, 185, 59, 64]);
-    m.write(0x2a000204, &[131, 85, 3, 65]);
-    m.write(0x2a000210, &[222, 62, 58, 65]);
-    m.write(0x2a00021c, &[107, 218, 131, 64]);
-    m.write(0x2a000208, &[9, 10, 249, 189]);
-    m.write(0x2a000214, &[172, 67, 197, 64]);
-    m.write(0x2a000220, &[57, 225, 45, 63]);
-    m.write(0x2a000224, &[207, 143, 66, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "924ea6bf");
+    w(&mut m, 0x2a00020c, "924ea6bf");
+    w(&mut m, 0x2a000218, "c2b93b40");
+    w(&mut m, 0x2a000204, "83550341");
+    w(&mut m, 0x2a000210, "de3e3a41");
+    w(&mut m, 0x2a00021c, "6bda8340");
+    w(&mut m, 0x2a000208, "090af9bd");
+    w(&mut m, 0x2a000214, "ac43c540");
+    w(&mut m, 0x2a000220, "39e12d3f");
+    w(&mut m, 0x2a000224, "cf8f423f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 6.6789069175720215f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_181() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[253, 175, 148, 65]);
-    m.write(0x2a00020c, &[151, 77, 7, 66]);
-    m.write(0x2a000218, &[2, 202, 33, 64]);
-    m.write(0x2a000204, &[74, 124, 229, 64]);
-    m.write(0x2a000210, &[180, 31, 172, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[61, 75, 0, 65]);
-    m.write(0x2a000214, &[51, 152, 84, 65]);
-    m.write(0x2a000220, &[178, 23, 128, 64]);
-    m.write(0x2a000224, &[190, 91, 154, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "fdaf9441");
+    w(&mut m, 0x2a00020c, "974d0742");
+    w(&mut m, 0x2a000218, "02ca2140");
+    w(&mut m, 0x2a000204, "4a7ce540");
+    w(&mut m, 0x2a000210, "b41fac41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "3d4b0041");
+    w(&mut m, 0x2a000214, "33985441");
+    w(&mut m, 0x2a000220, "b2178040");
+    w(&mut m, 0x2a000224, "be5b9a3f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 2.9930214881896973f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_182() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[206, 192, 211, 191]);
-    m.write(0x2a00020c, &[83, 51, 131, 65]);
-    m.write(0x2a000218, &[148, 66, 120, 64]);
-    m.write(0x2a000204, &[111, 20, 141, 65]);
-    m.write(0x2a000210, &[111, 20, 141, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[15, 168, 126, 65]);
-    m.write(0x2a000214, &[103, 171, 232, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[67, 85, 67, 190]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "cec0d3bf");
+    w(&mut m, 0x2a00020c, "53338341");
+    w(&mut m, 0x2a000218, "94427840");
+    w(&mut m, 0x2a000204, "6f148d41");
+    w(&mut m, 0x2a000210, "6f148d41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "0fa87e41");
+    w(&mut m, 0x2a000214, "67abe841");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "435543be");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 14.452974319458008f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_183() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[118, 11, 148, 65]);
-    m.write(0x2a00020c, &[82, 157, 177, 191]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[243, 129, 5, 64]);
-    m.write(0x2a000210, &[248, 213, 80, 65]);
-    m.write(0x2a00021c, &[138, 125, 14, 64]);
-    m.write(0x2a000208, &[44, 39, 22, 64]);
-    m.write(0x2a000214, &[205, 137, 220, 64]);
-    m.write(0x2a000220, &[139, 181, 114, 64]);
-    m.write(0x2a000224, &[146, 2, 64, 58]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "760b9441");
+    w(&mut m, 0x2a00020c, "529db1bf");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "f3810540");
+    w(&mut m, 0x2a000210, "f8d55041");
+    w(&mut m, 0x2a00021c, "8a7d0e40");
+    w(&mut m, 0x2a000208, "2c271640");
+    w(&mut m, 0x2a000214, "cd89dc40");
+    w(&mut m, 0x2a000220, "8bb57240");
+    w(&mut m, 0x2a000224, "9202403a");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 10.627766609191895f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[75, 193, 202, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "4bc1ca3e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_184() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[172, 51, 60, 64]);
-    m.write(0x2a00020c, &[172, 51, 60, 64]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[128, 91, 135, 65]);
-    m.write(0x2a000210, &[44, 42, 25, 65]);
-    m.write(0x2a00021c, &[77, 162, 110, 63]);
-    m.write(0x2a000208, &[238, 154, 142, 63]);
-    m.write(0x2a000214, &[232, 24, 219, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[240, 178, 167, 189]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "ac333c40");
+    w(&mut m, 0x2a00020c, "ac333c40");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "805b8741");
+    w(&mut m, 0x2a000210, "2c2a1941");
+    w(&mut m, 0x2a00021c, "4da26e3f");
+    w(&mut m, 0x2a000208, "ee9a8e3f");
+    w(&mut m, 0x2a000214, "e818db41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "f0b2a7bd");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 0.5755563378334045f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_185() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[60, 254, 181, 63]);
-    m.write(0x2a00020c, &[35, 18, 197, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[230, 150, 40, 65]);
-    m.write(0x2a000210, &[3, 52, 112, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[20, 105, 86, 191]);
-    m.write(0x2a000214, &[144, 30, 157, 65]);
-    m.write(0x2a000220, &[10, 126, 41, 64]);
-    m.write(0x2a000224, &[29, 124, 35, 61]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "3cfeb53f");
+    w(&mut m, 0x2a00020c, "2312c5c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "e6962841");
+    w(&mut m, 0x2a000210, "033470c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "146956bf");
+    w(&mut m, 0x2a000214, "901e9d41");
+    w(&mut m, 0x2a000220, "0a7e2940");
+    w(&mut m, 0x2a000224, "1d7c233d");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 0.38715916872024536f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[1, 101, 203, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0165cb3e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_186() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[91, 220, 164, 64]);
-    m.write(0x2a00020c, &[74, 117, 221, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[125, 242, 232, 191]);
-    m.write(0x2a000210, &[125, 242, 232, 191]);
-    m.write(0x2a00021c, &[48, 59, 112, 64]);
-    m.write(0x2a000208, &[23, 121, 3, 64]);
-    m.write(0x2a000214, &[115, 69, 223, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[81, 91, 13, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "5bdca440");
+    w(&mut m, 0x2a00020c, "4a75dd41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "7df2e8bf");
+    w(&mut m, 0x2a000210, "7df2e8bf");
+    w(&mut m, 0x2a00021c, "303b7040");
+    w(&mut m, 0x2a000208, "17790340");
+    w(&mut m, 0x2a000214, "7345df40");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "515b0d3f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 21.429567337036133f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[60, 244, 56][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "3cf438")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_187() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[80, 87, 129, 65]);
-    m.write(0x2a00020c, &[11, 46, 18, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[103, 154, 81, 65]);
-    m.write(0x2a000210, &[153, 64, 75, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[94, 216, 41, 192]);
-    m.write(0x2a000214, &[94, 216, 41, 192]);
-    m.write(0x2a000220, &[10, 66, 115, 64]);
-    m.write(0x2a000224, &[46, 56, 136, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "50578141");
+    w(&mut m, 0x2a00020c, "0b2e1241");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "679a5141");
+    w(&mut m, 0x2a000210, "99404b41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "5ed829c0");
+    w(&mut m, 0x2a000214, "5ed829c0");
+    w(&mut m, 0x2a000220, "0a427340");
+    w(&mut m, 0x2a000224, "2e38883f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 24.77066993713379f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_188() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[158, 214, 235, 63]);
-    m.write(0x2a00020c, &[87, 64, 185, 192]);
-    m.write(0x2a000218, &[134, 93, 113, 63]);
-    m.write(0x2a000204, &[17, 205, 57, 65]);
-    m.write(0x2a000210, &[201, 49, 218, 62]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[255, 118, 51, 65]);
-    m.write(0x2a000214, &[202, 214, 120, 65]);
-    m.write(0x2a000220, &[197, 235, 138, 64]);
-    m.write(0x2a000224, &[194, 139, 163, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "9ed6eb3f");
+    w(&mut m, 0x2a00020c, "5740b9c0");
+    w(&mut m, 0x2a000218, "865d713f");
+    w(&mut m, 0x2a000204, "11cd3941");
+    w(&mut m, 0x2a000210, "c931da3e");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "ff763341");
+    w(&mut m, 0x2a000214, "cad67841");
+    w(&mut m, 0x2a000220, "c5eb8a40");
+    w(&mut m, 0x2a000224, "c28ba33f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, -7.0432257652282715f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_189() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[229, 184, 177, 64]);
-    m.write(0x2a00020c, &[190, 130, 12, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[22, 125, 183, 64]);
-    m.write(0x2a000210, &[204, 210, 8, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[83, 42, 76, 64]);
-    m.write(0x2a000214, &[83, 42, 76, 64]);
-    m.write(0x2a000220, &[67, 200, 152, 64]);
-    m.write(0x2a000224, &[15, 112, 80, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "e5b8b140");
+    w(&mut m, 0x2a00020c, "be820cc1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "167db740");
+    w(&mut m, 0x2a000210, "ccd208c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "532a4c40");
+    w(&mut m, 0x2a000214, "532a4c40");
+    w(&mut m, 0x2a000220, "43c89840");
+    w(&mut m, 0x2a000224, "0f70503f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 20.772804260253906f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_190() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[27, 153, 96, 65]);
-    m.write(0x2a00020c, &[72, 238, 215, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[20, 189, 151, 64]);
-    m.write(0x2a000210, &[233, 253, 59, 65]);
-    m.write(0x2a00021c, &[14, 193, 187, 63]);
-    m.write(0x2a000208, &[223, 169, 137, 63]);
-    m.write(0x2a000214, &[223, 169, 137, 63]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[102, 170, 58, 190]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "1b996041");
+    w(&mut m, 0x2a00020c, "48eed741");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "14bd9740");
+    w(&mut m, 0x2a000210, "e9fd3b41");
+    w(&mut m, 0x2a00021c, "0ec1bb3f");
+    w(&mut m, 0x2a000208, "dfa9893f");
+    w(&mut m, 0x2a000214, "dfa9893f");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "66aa3abe");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 8.061470985412598f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_191() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[250, 98, 252, 64]);
-    m.write(0x2a00020c, &[232, 229, 175, 193]);
-    m.write(0x2a000218, &[202, 174, 125, 64]);
-    m.write(0x2a000204, &[27, 9, 14, 63]);
-    m.write(0x2a000210, &[27, 9, 14, 63]);
-    m.write(0x2a00021c, &[46, 143, 149, 63]);
-    m.write(0x2a000208, &[148, 92, 1, 61]);
-    m.write(0x2a000214, &[132, 63, 176, 193]);
-    m.write(0x2a000220, &[5, 180, 242, 63]);
-    m.write(0x2a000224, &[137, 127, 151, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "fa62fc40");
+    w(&mut m, 0x2a00020c, "e8e5afc1");
+    w(&mut m, 0x2a000218, "caae7d40");
+    w(&mut m, 0x2a000204, "1b090e3f");
+    w(&mut m, 0x2a000210, "1b090e3f");
+    w(&mut m, 0x2a00021c, "2e8f953f");
+    w(&mut m, 0x2a000208, "945c013d");
+    w(&mut m, 0x2a000214, "843fb0c1");
+    w(&mut m, 0x2a000220, "05b4f23f");
+    w(&mut m, 0x2a000224, "897f973f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, -6.7883076667785645f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[116, 131, 251, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "7483fb3e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_192() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[172, 217, 186, 64]);
-    m.write(0x2a00020c, &[193, 79, 80, 193]);
-    m.write(0x2a000218, &[206, 195, 0, 62]);
-    m.write(0x2a000204, &[49, 203, 211, 64]);
-    m.write(0x2a000210, &[71, 254, 165, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[159, 182, 15, 63]);
-    m.write(0x2a000214, &[185, 106, 141, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[172, 216, 200, 189]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "acd9ba40");
+    w(&mut m, 0x2a00020c, "c14f50c1");
+    w(&mut m, 0x2a000218, "cec3003e");
+    w(&mut m, 0x2a000204, "31cbd340");
+    w(&mut m, 0x2a000210, "47fea541");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "9fb60f3f");
+    w(&mut m, 0x2a000214, "b96a8dc1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "acd8c8bd");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, -2.3257508277893066f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_193() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[219, 69, 14, 63]);
-    m.write(0x2a00020c, &[34, 225, 167, 192]);
-    m.write(0x2a000218, &[105, 10, 128, 64]);
-    m.write(0x2a000204, &[202, 78, 134, 65]);
-    m.write(0x2a000210, &[223, 195, 56, 66]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[194, 164, 55, 192]);
-    m.write(0x2a000214, &[186, 97, 157, 193]);
-    m.write(0x2a000220, &[92, 82, 61, 64]);
-    m.write(0x2a000224, &[125, 163, 123, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "db450e3f");
+    w(&mut m, 0x2a00020c, "22e1a7c0");
+    w(&mut m, 0x2a000218, "690a8040");
+    w(&mut m, 0x2a000204, "ca4e8641");
+    w(&mut m, 0x2a000210, "dfc33842");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "c2a437c0");
+    w(&mut m, 0x2a000214, "ba619dc1");
+    w(&mut m, 0x2a000220, "5c523d40");
+    w(&mut m, 0x2a000224, "7da37b3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, -1.5087299346923828f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_194() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[210, 244, 25, 192]);
-    m.write(0x2a00020c, &[81, 8, 57, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[108, 247, 83, 65]);
-    m.write(0x2a000210, &[222, 65, 160, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[145, 30, 58, 63]);
-    m.write(0x2a000214, &[216, 118, 33, 193]);
-    m.write(0x2a000220, &[62, 97, 25, 64]);
-    m.write(0x2a000224, &[246, 134, 74, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "d2f419c0");
+    w(&mut m, 0x2a00020c, "51083941");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "6cf75341");
+    w(&mut m, 0x2a000210, "de41a040");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "911e3a3f");
+    w(&mut m, 0x2a000214, "d87621c1");
+    w(&mut m, 0x2a000220, "3e611940");
+    w(&mut m, 0x2a000224, "f6864a3f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_value(&mut m, 0x2a000200, 17.920434951782227f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_195() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[212, 213, 11, 65]);
-    m.write(0x2a00020c, &[218, 167, 214, 63]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[90, 227, 60, 65]);
-    m.write(0x2a000210, &[147, 80, 18, 66]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[230, 83, 92, 65]);
-    m.write(0x2a000214, &[83, 106, 8, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[133, 93, 6, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "d4d50b41");
+    w(&mut m, 0x2a00020c, "daa7d63f");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "5ae33c41");
+    w(&mut m, 0x2a000210, "93501242");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "e6535c41");
+    w(&mut m, 0x2a000214, "536a0842");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "855d063f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::full_value(&m, 0x2a000200);
     assert!(close(got, 36.57868576049805f32), "returned {got}, original 36.57868576049805f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_196() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[165, 189, 44, 191]);
-    m.write(0x2a00020c, &[162, 175, 193, 65]);
-    m.write(0x2a000218, &[47, 96, 119, 64]);
-    m.write(0x2a000204, &[63, 44, 26, 192]);
-    m.write(0x2a000210, &[177, 13, 61, 192]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[132, 111, 214, 61]);
-    m.write(0x2a000214, &[123, 206, 240, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[101, 185, 144, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "a5bd2cbf");
+    w(&mut m, 0x2a00020c, "a2afc141");
+    w(&mut m, 0x2a000218, "2f607740");
+    w(&mut m, 0x2a000204, "3f2c1ac0");
+    w(&mut m, 0x2a000210, "b10d3dc0");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "846fd63d");
+    w(&mut m, 0x2a000214, "7bcef041");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "65b9903f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::fraction(&m, 0x2a000200);
     assert!(close(got, 1.1306577920913696f32), "returned {got}, original 1.1306577920913696f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_197() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[47, 69, 217, 64]);
-    m.write(0x2a00020c, &[187, 228, 193, 65]);
-    m.write(0x2a000218, &[47, 92, 144, 64]);
-    m.write(0x2a000204, &[106, 68, 41, 64]);
-    m.write(0x2a000210, &[155, 60, 129, 65]);
-    m.write(0x2a00021c, &[61, 103, 50, 64]);
-    m.write(0x2a000208, &[184, 70, 158, 65]);
-    m.write(0x2a000214, &[174, 109, 42, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[114, 255, 18, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "2f45d940");
+    w(&mut m, 0x2a00020c, "bbe4c141");
+    w(&mut m, 0x2a000218, "2f5c9040");
+    w(&mut m, 0x2a000204, "6a442940");
+    w(&mut m, 0x2a000210, "9b3c8141");
+    w(&mut m, 0x2a00021c, "3d673240");
+    w(&mut m, 0x2a000208, "b8469e41");
+    w(&mut m, 0x2a000214, "ae6d2a42");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "72ff123e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::full_value(&m, 0x2a000200);
     assert!(close(got, 42.60710906982422f32), "returned {got}, original 42.60710906982422f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_198() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[179, 8, 237, 64]);
-    m.write(0x2a00020c, &[85, 189, 114, 63]);
-    m.write(0x2a000218, &[188, 37, 177, 61]);
-    m.write(0x2a000204, &[195, 241, 245, 64]);
-    m.write(0x2a000210, &[199, 127, 228, 65]);
-    m.write(0x2a00021c, &[95, 183, 105, 63]);
-    m.write(0x2a000208, &[161, 96, 112, 65]);
-    m.write(0x2a000214, &[161, 96, 112, 65]);
-    m.write(0x2a000220, &[253, 186, 50, 64]);
-    m.write(0x2a000224, &[243, 82, 61, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b308ed40");
+    w(&mut m, 0x2a00020c, "55bd723f");
+    w(&mut m, 0x2a000218, "bc25b13d");
+    w(&mut m, 0x2a000204, "c3f1f540");
+    w(&mut m, 0x2a000210, "c77fe441");
+    w(&mut m, 0x2a00021c, "5fb7693f");
+    w(&mut m, 0x2a000208, "a1607041");
+    w(&mut m, 0x2a000214, "a1607041");
+    w(&mut m, 0x2a000220, "fdba3240");
+    w(&mut m, 0x2a000224, "f3523d3e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::fraction(&m, 0x2a000200);
     assert!(close(got, 0.18488673865795135f32), "returned {got}, original 0.18488673865795135f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_199() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[94, 173, 90, 64]);
-    m.write(0x2a00020c, &[112, 234, 179, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[63, 43, 15, 65]);
-    m.write(0x2a000210, &[116, 70, 187, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[201, 108, 102, 65]);
-    m.write(0x2a000214, &[83, 74, 21, 66]);
-    m.write(0x2a000220, &[254, 119, 141, 64]);
-    m.write(0x2a000224, &[200, 207, 160, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "5ead5a40");
+    w(&mut m, 0x2a00020c, "70eab341");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "3f2b0f41");
+    w(&mut m, 0x2a000210, "7446bb41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "c96c6641");
+    w(&mut m, 0x2a000214, "534a1542");
+    w(&mut m, 0x2a000220, "fe778d40");
+    w(&mut m, 0x2a000224, "c8cfa03f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::full_value(&m, 0x2a000200);
     assert!(close(got, 37.32258224487305f32), "returned {got}, original 37.32258224487305f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_200() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[117, 6, 36, 65]);
-    m.write(0x2a00020c, &[172, 155, 165, 64]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[81, 205, 144, 65]);
-    m.write(0x2a000210, &[148, 10, 11, 63]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[189, 20, 214, 190]);
-    m.write(0x2a000214, &[202, 107, 87, 65]);
-    m.write(0x2a000220, &[209, 104, 162, 63]);
-    m.write(0x2a000224, &[196, 202, 1, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "75062441");
+    w(&mut m, 0x2a00020c, "ac9ba540");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "51cd9041");
+    w(&mut m, 0x2a000210, "940a0b3f");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "bd14d6be");
+    w(&mut m, 0x2a000214, "ca6b5741");
+    w(&mut m, 0x2a000220, "d168a23f");
+    w(&mut m, 0x2a000224, "c4ca013f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::fraction(&m, 0x2a000200);
     assert!(close(got, 0.507000207901001f32), "returned {got}, original 0.507000207901001f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_201() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[86, 158, 126, 65]);
-    m.write(0x2a00020c, &[237, 92, 49, 66]);
-    m.write(0x2a000218, &[243, 32, 138, 63]);
-    m.write(0x2a000204, &[140, 187, 140, 65]);
-    m.write(0x2a000210, &[192, 112, 140, 65]);
-    m.write(0x2a00021c, &[180, 205, 135, 63]);
-    m.write(0x2a000208, &[243, 240, 199, 63]);
-    m.write(0x2a000214, &[238, 106, 187, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[115, 108, 53, 190]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "569e7e41");
+    w(&mut m, 0x2a00020c, "ed5c3142");
+    w(&mut m, 0x2a000218, "f3208a3f");
+    w(&mut m, 0x2a000204, "8cbb8c41");
+    w(&mut m, 0x2a000210, "c0708c41");
+    w(&mut m, 0x2a00021c, "b4cd873f");
+    w(&mut m, 0x2a000208, "f3f0c73f");
+    w(&mut m, 0x2a000214, "ee6abb40");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "736c35be");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::full_value(&m, 0x2a000200);
     assert!(close(got, 5.856802940368652f32), "returned {got}, original 5.856802940368652f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_202() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[121, 93, 7, 64]);
-    m.write(0x2a00020c, &[238, 176, 35, 192]);
-    m.write(0x2a000218, &[240, 40, 43, 64]);
-    m.write(0x2a000204, &[65, 247, 113, 190]);
-    m.write(0x2a000210, &[145, 220, 156, 192]);
-    m.write(0x2a00021c, &[184, 205, 34, 64]);
-    m.write(0x2a000208, &[246, 60, 79, 65]);
-    m.write(0x2a000214, &[10, 240, 13, 66]);
-    m.write(0x2a000220, &[28, 8, 117, 64]);
-    m.write(0x2a000224, &[81, 208, 4, 61]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "795d0740");
+    w(&mut m, 0x2a00020c, "eeb023c0");
+    w(&mut m, 0x2a000218, "f0282b40");
+    w(&mut m, 0x2a000204, "41f771be");
+    w(&mut m, 0x2a000210, "91dc9cc0");
+    w(&mut m, 0x2a00021c, "b8cd2240");
+    w(&mut m, 0x2a000208, "f63c4f41");
+    w(&mut m, 0x2a000214, "0af00d42");
+    w(&mut m, 0x2a000220, "1c087540");
+    w(&mut m, 0x2a000224, "51d0043d");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::fraction(&m, 0x2a000200);
     assert!(close(got, 0.032425228506326675f32), "returned {got}, original 0.032425228506326675f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_203() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[162, 208, 144, 63]);
-    m.write(0x2a00020c, &[133, 116, 177, 64]);
-    m.write(0x2a000218, &[120, 49, 238, 63]);
-    m.write(0x2a000204, &[249, 251, 98, 64]);
-    m.write(0x2a000210, &[96, 86, 230, 65]);
-    m.write(0x2a00021c, &[20, 77, 48, 64]);
-    m.write(0x2a000208, &[35, 5, 97, 65]);
-    m.write(0x2a000214, &[159, 173, 90, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[106, 166, 83, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "a2d0903f");
+    w(&mut m, 0x2a00020c, "8574b140");
+    w(&mut m, 0x2a000218, "7831ee3f");
+    w(&mut m, 0x2a000204, "f9fb6240");
+    w(&mut m, 0x2a000210, "6056e641");
+    w(&mut m, 0x2a00021c, "144d3040");
+    w(&mut m, 0x2a000208, "23056141");
+    w(&mut m, 0x2a000214, "9fad5a41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "6aa6533f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::full_value(&m, 0x2a000200);
     assert!(close(got, 5.545473575592041f32), "returned {got}, original 5.545473575592041f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_204() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[94, 47, 10, 64]);
-    m.write(0x2a00020c, &[121, 89, 65, 64]);
-    m.write(0x2a000218, &[46, 16, 44, 64]);
-    m.write(0x2a000204, &[73, 138, 114, 64]);
-    m.write(0x2a000210, &[244, 73, 155, 191]);
-    m.write(0x2a00021c, &[122, 250, 145, 64]);
-    m.write(0x2a000208, &[32, 8, 1, 65]);
-    m.write(0x2a000214, &[100, 131, 143, 193]);
-    m.write(0x2a000220, &[5, 68, 70, 64]);
-    m.write(0x2a000224, &[3, 41, 133, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "5e2f0a40");
+    w(&mut m, 0x2a00020c, "79594140");
+    w(&mut m, 0x2a000218, "2e102c40");
+    w(&mut m, 0x2a000204, "498a7240");
+    w(&mut m, 0x2a000210, "f4499bbf");
+    w(&mut m, 0x2a00021c, "7afa9140");
+    w(&mut m, 0x2a000208, "20080141");
+    w(&mut m, 0x2a000214, "64838fc1");
+    w(&mut m, 0x2a000220, "05444640");
+    w(&mut m, 0x2a000224, "0329853f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::fraction(&m, 0x2a000200);
     assert!(close(got, 1.0403140783309937f32), "returned {got}, original 1.0403140783309937f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_205() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[131, 128, 86, 64]);
-    m.write(0x2a00020c, &[107, 160, 250, 65]);
-    m.write(0x2a000218, &[238, 250, 244, 63]);
-    m.write(0x2a000204, &[121, 63, 203, 63]);
-    m.write(0x2a000210, &[93, 141, 73, 65]);
-    m.write(0x2a00021c, &[249, 174, 198, 63]);
-    m.write(0x2a000208, &[26, 136, 70, 65]);
-    m.write(0x2a000214, &[127, 73, 30, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[192, 120, 24, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "83805640");
+    w(&mut m, 0x2a00020c, "6ba0fa41");
+    w(&mut m, 0x2a000218, "eefaf43f");
+    w(&mut m, 0x2a000204, "793fcb3f");
+    w(&mut m, 0x2a000210, "5d8d4941");
+    w(&mut m, 0x2a00021c, "f9aec63f");
+    w(&mut m, 0x2a000208, "1a884641");
+    w(&mut m, 0x2a000214, "7f491e42");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "c078183e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::full_value(&m, 0x2a000200);
     assert!(close(got, 31.32832908630371f32), "returned {got}, original 31.32832908630371f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_206() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[236, 243, 41, 64]);
-    m.write(0x2a00020c, &[144, 45, 116, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[34, 175, 71, 191]);
-    m.write(0x2a000210, &[47, 107, 223, 65]);
-    m.write(0x2a00021c, &[46, 111, 140, 64]);
-    m.write(0x2a000208, &[203, 62, 179, 63]);
-    m.write(0x2a000214, &[1, 53, 149, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[179, 137, 228, 60]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "ecf32940");
+    w(&mut m, 0x2a00020c, "902d7441");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "22af47bf");
+    w(&mut m, 0x2a000210, "2f6bdf41");
+    w(&mut m, 0x2a00021c, "2e6f8c40");
+    w(&mut m, 0x2a000208, "cb3eb33f");
+    w(&mut m, 0x2a000214, "013595c1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "b389e43c");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::fraction(&m, 0x2a000200);
     assert!(close(got, 0.02789769135415554f32), "returned {got}, original 0.02789769135415554f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_207() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[177, 146, 137, 64]);
-    m.write(0x2a00020c, &[173, 209, 140, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[122, 107, 167, 63]);
-    m.write(0x2a000210, &[10, 184, 224, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[106, 44, 149, 65]);
-    m.write(0x2a000214, &[167, 227, 44, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[50, 73, 134, 189]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b1928940");
+    w(&mut m, 0x2a00020c, "add18c41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "7a6ba73f");
+    w(&mut m, 0x2a000210, "0ab8e041");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "6a2c9541");
+    w(&mut m, 0x2a000214, "a7e32c42");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "324986bd");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::full_value(&m, 0x2a000200);
     assert!(close(got, 28.089862823486328f32), "returned {got}, original 28.089862823486328f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_208() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[52, 195, 53, 65]);
-    m.write(0x2a00020c, &[178, 35, 31, 66]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[32, 69, 75, 64]);
-    m.write(0x2a000210, &[209, 45, 106, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[143, 77, 137, 65]);
-    m.write(0x2a000214, &[143, 77, 137, 65]);
-    m.write(0x2a000220, &[186, 58, 149, 64]);
-    m.write(0x2a000224, &[243, 248, 128, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "34c33541");
+    w(&mut m, 0x2a00020c, "b2231f42");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "20454b40");
+    w(&mut m, 0x2a000210, "d12d6ac1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "8f4d8941");
+    w(&mut m, 0x2a000214, "8f4d8941");
+    w(&mut m, 0x2a000220, "ba3a9540");
+    w(&mut m, 0x2a000224, "f3f8803f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::fraction(&m, 0x2a000200);
     assert!(close(got, 1.0075973272323608f32), "returned {got}, original 1.0075973272323608f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_209() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[21, 51, 100, 65]);
-    m.write(0x2a00020c, &[128, 15, 6, 66]);
-    m.write(0x2a000218, &[14, 220, 202, 62]);
-    m.write(0x2a000204, &[223, 63, 138, 65]);
-    m.write(0x2a000210, &[153, 209, 53, 66]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[32, 11, 158, 192]);
-    m.write(0x2a000214, &[168, 217, 194, 191]);
-    m.write(0x2a000220, &[226, 26, 154, 64]);
-    m.write(0x2a000224, &[11, 203, 129, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "15336441");
+    w(&mut m, 0x2a00020c, "800f0642");
+    w(&mut m, 0x2a000218, "0edcca3e");
+    w(&mut m, 0x2a000204, "df3f8a41");
+    w(&mut m, 0x2a000210, "99d13542");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "200b9ec0");
+    w(&mut m, 0x2a000214, "a8d9c2bf");
+    w(&mut m, 0x2a000220, "e21a9a40");
+    w(&mut m, 0x2a000224, "0bcb813f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::full_value(&m, 0x2a000200);
     assert!(close(got, 33.51513671875f32), "returned {got}, original 33.51513671875f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_210() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[225, 197, 56, 65]);
-    m.write(0x2a00020c, &[209, 209, 134, 193]);
-    m.write(0x2a000218, &[168, 138, 42, 64]);
-    m.write(0x2a000204, &[17, 147, 124, 64]);
-    m.write(0x2a000210, &[222, 209, 195, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[142, 83, 57, 64]);
-    m.write(0x2a000214, &[37, 236, 43, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[19, 161, 61, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "e1c53841");
+    w(&mut m, 0x2a00020c, "d1d186c1");
+    w(&mut m, 0x2a000218, "a88a2a40");
+    w(&mut m, 0x2a000204, "11937c40");
+    w(&mut m, 0x2a000210, "ded1c3c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "8e533940");
+    w(&mut m, 0x2a000214, "25ec2b41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "13a13d3f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::fraction(&m, 0x2a000200);
     assert!(close(got, 0.7407390475273132f32), "returned {got}, original 0.7407390475273132f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_211() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[46, 253, 130, 65]);
-    m.write(0x2a00020c, &[28, 184, 72, 192]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[226, 124, 174, 64]);
-    m.write(0x2a000210, &[100, 231, 233, 65]);
-    m.write(0x2a00021c, &[26, 27, 123, 64]);
-    m.write(0x2a000208, &[11, 234, 28, 65]);
-    m.write(0x2a000214, &[50, 163, 82, 193]);
-    m.write(0x2a000220, &[0, 78, 95, 64]);
-    m.write(0x2a000224, &[37, 192, 252, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "2efd8241");
+    w(&mut m, 0x2a00020c, "1cb848c0");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "e27cae40");
+    w(&mut m, 0x2a000210, "64e7e941");
+    w(&mut m, 0x2a00021c, "1a1b7b40");
+    w(&mut m, 0x2a000208, "0bea1c41");
+    w(&mut m, 0x2a000214, "32a352c1");
+    w(&mut m, 0x2a000220, "004e5f40");
+    w(&mut m, 0x2a000224, "25c0fc3e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::full_value(&m, 0x2a000200);
     assert!(close(got, -13.16484260559082f32), "returned {got}, original -13.16484260559082f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_212() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[25, 96, 122, 65]);
-    m.write(0x2a00020c, &[237, 212, 211, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[95, 235, 23, 65]);
-    m.write(0x2a000210, &[209, 243, 66, 65]);
-    m.write(0x2a00021c, &[77, 36, 157, 64]);
-    m.write(0x2a000208, &[182, 20, 99, 65]);
-    m.write(0x2a000214, &[97, 151, 37, 65]);
-    m.write(0x2a000220, &[211, 247, 150, 64]);
-    m.write(0x2a000224, &[84, 168, 44, 190]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "19607a41");
+    w(&mut m, 0x2a00020c, "edd4d341");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "5feb1741");
+    w(&mut m, 0x2a000210, "d1f34241");
+    w(&mut m, 0x2a00021c, "4d249d40");
+    w(&mut m, 0x2a000208, "b6146341");
+    w(&mut m, 0x2a000214, "61972541");
+    w(&mut m, 0x2a000220, "d3f79640");
+    w(&mut m, 0x2a000224, "54a82cbe");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::fraction(&m, 0x2a000200);
     assert!(close(got, -0.16861087083816528f32), "returned {got}, original -0.16861087083816528f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_213() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[208, 94, 7, 65]);
-    m.write(0x2a00020c, &[246, 126, 7, 66]);
-    m.write(0x2a000218, &[111, 242, 141, 64]);
-    m.write(0x2a000204, &[19, 246, 229, 63]);
-    m.write(0x2a000210, &[215, 241, 210, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[22, 235, 225, 62]);
-    m.write(0x2a000214, &[4, 88, 216, 65]);
-    m.write(0x2a000220, &[155, 209, 25, 64]);
-    m.write(0x2a000224, &[197, 106, 130, 188]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "d05e0741");
+    w(&mut m, 0x2a00020c, "f67e0742");
+    w(&mut m, 0x2a000218, "6ff28d40");
+    w(&mut m, 0x2a000204, "13f6e53f");
+    w(&mut m, 0x2a000210, "d7f1d2c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "16ebe13e");
+    w(&mut m, 0x2a000214, "0458d841");
+    w(&mut m, 0x2a000220, "9bd11940");
+    w(&mut m, 0x2a000224, "c56a82bc");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::full_value(&m, 0x2a000200);
     assert!(close(got, -26.368085861206055f32), "returned {got}, original -26.368085861206055f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_214() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[134, 7, 75, 65]);
-    m.write(0x2a00020c, &[151, 211, 130, 65]);
-    m.write(0x2a000218, &[89, 26, 57, 64]);
-    m.write(0x2a000204, &[240, 204, 136, 192]);
-    m.write(0x2a000210, &[147, 242, 35, 65]);
-    m.write(0x2a00021c, &[30, 98, 89, 64]);
-    m.write(0x2a000208, &[33, 72, 150, 64]);
-    m.write(0x2a000214, &[95, 194, 2, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[125, 103, 57, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "86074b41");
+    w(&mut m, 0x2a00020c, "97d38241");
+    w(&mut m, 0x2a000218, "591a3940");
+    w(&mut m, 0x2a000204, "f0cc88c0");
+    w(&mut m, 0x2a000210, "93f22341");
+    w(&mut m, 0x2a00021c, "1e625940");
+    w(&mut m, 0x2a000208, "21489640");
+    w(&mut m, 0x2a000214, "5fc20242");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "7d67393f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     let got = ts::fraction(&m, 0x2a000200);
     assert!(close(got, 0.7242353558540344f32), "returned {got}, original 0.7242353558540344f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_215() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[86, 107, 105, 65]);
-    m.write(0x2a00020c, &[224, 163, 167, 64]);
-    m.write(0x2a000218, &[45, 122, 86, 64]);
-    m.write(0x2a000204, &[56, 246, 102, 65]);
-    m.write(0x2a000210, &[176, 241, 216, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[127, 84, 213, 64]);
-    m.write(0x2a000214, &[10, 148, 173, 64]);
-    m.write(0x2a000220, &[64, 110, 132, 63]);
-    m.write(0x2a000224, &[31, 208, 181, 60]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "566b6941");
+    w(&mut m, 0x2a00020c, "e0a3a740");
+    w(&mut m, 0x2a000218, "2d7a5640");
+    w(&mut m, 0x2a000204, "38f66641");
+    w(&mut m, 0x2a000210, "b0f1d841");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "7f54d540");
+    w(&mut m, 0x2a000214, "0a94ad40");
+    w(&mut m, 0x2a000220, "406e843f");
+    w(&mut m, 0x2a000224, "1fd0b53c");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, 1.9426859617233276f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_216() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[245, 72, 120, 65]);
-    m.write(0x2a00020c, &[114, 30, 30, 66]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[196, 41, 145, 65]);
-    m.write(0x2a000210, &[242, 60, 60, 66]);
-    m.write(0x2a00021c, &[134, 70, 111, 64]);
-    m.write(0x2a000208, &[187, 86, 26, 62]);
-    m.write(0x2a000214, &[83, 85, 172, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[71, 60, 133, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "f5487841");
+    w(&mut m, 0x2a00020c, "721e1e42");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "c4299141");
+    w(&mut m, 0x2a000210, "f23c3c42");
+    w(&mut m, 0x2a00021c, "86466f40");
+    w(&mut m, 0x2a000208, "bb561a3e");
+    w(&mut m, 0x2a000214, "5355ac41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "473c853f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, 0.23105084896087646f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[152, 152, 108, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "98986c3e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_217() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[225, 215, 154, 65]);
-    m.write(0x2a00020c, &[2, 145, 183, 189]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[21, 224, 183, 64]);
-    m.write(0x2a000210, &[74, 48, 187, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[48, 18, 59, 192]);
-    m.write(0x2a000214, &[133, 131, 212, 193]);
-    m.write(0x2a000220, &[212, 39, 118, 64]);
-    m.write(0x2a000224, &[99, 18, 88, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "e1d79a41");
+    w(&mut m, 0x2a00020c, "0291b7bd");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "15e0b740");
+    w(&mut m, 0x2a000210, "4a30bb41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "30123bc0");
+    w(&mut m, 0x2a000214, "8583d4c1");
+    w(&mut m, 0x2a000220, "d4277640");
+    w(&mut m, 0x2a000224, "6312583f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, -0.4802640974521637f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_218() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[112, 77, 0, 65]);
-    m.write(0x2a00020c, &[214, 109, 34, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[97, 160, 141, 65]);
-    m.write(0x2a000210, &[95, 135, 153, 65]);
-    m.write(0x2a00021c, &[254, 105, 61, 64]);
-    m.write(0x2a000208, &[212, 51, 26, 65]);
-    m.write(0x2a000214, &[58, 79, 149, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[105, 100, 99, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "704d0041");
+    w(&mut m, 0x2a00020c, "d66d22c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "61a08d41");
+    w(&mut m, 0x2a000210, "5f879941");
+    w(&mut m, 0x2a00021c, "fe693d40");
+    w(&mut m, 0x2a000208, "d4331a41");
+    w(&mut m, 0x2a000214, "3a4f9541");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "6964633f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, 0.2269921898841858f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[164, 112, 104, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "a470683e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_219() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[2, 82, 90, 63]);
-    m.write(0x2a00020c, &[30, 168, 159, 65]);
-    m.write(0x2a000218, &[47, 48, 28, 64]);
-    m.write(0x2a000204, &[13, 174, 102, 64]);
-    m.write(0x2a000210, &[150, 36, 248, 65]);
-    m.write(0x2a00021c, &[96, 90, 0, 64]);
-    m.write(0x2a000208, &[3, 142, 92, 63]);
-    m.write(0x2a000214, &[62, 222, 102, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[204, 43, 101, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "02525a3f");
+    w(&mut m, 0x2a00020c, "1ea89f41");
+    w(&mut m, 0x2a000218, "2f301c40");
+    w(&mut m, 0x2a000204, "0dae6640");
+    w(&mut m, 0x2a000210, "9624f841");
+    w(&mut m, 0x2a00021c, "605a0040");
+    w(&mut m, 0x2a000208, "038e5c3f");
+    w(&mut m, 0x2a000214, "3ede6640");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "cc2b653f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, -0.6442248225212097f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_220() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[88, 188, 7, 65]);
-    m.write(0x2a00020c, &[17, 162, 172, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[77, 181, 123, 192]);
-    m.write(0x2a000210, &[77, 181, 123, 192]);
-    m.write(0x2a00021c, &[35, 116, 64, 63]);
-    m.write(0x2a000208, &[200, 136, 9, 64]);
-    m.write(0x2a000214, &[133, 26, 218, 65]);
-    m.write(0x2a000220, &[68, 19, 43, 64]);
-    m.write(0x2a000224, &[245, 151, 153, 189]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "58bc0741");
+    w(&mut m, 0x2a00020c, "11a2ac41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "4db57bc0");
+    w(&mut m, 0x2a000210, "4db57bc0");
+    w(&mut m, 0x2a00021c, "2374403f");
+    w(&mut m, 0x2a000208, "c8880940");
+    w(&mut m, 0x2a000214, "851ada41");
+    w(&mut m, 0x2a000220, "44132b40");
+    w(&mut m, 0x2a000224, "f59799bd");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, 0.5388234257698059f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[85, 240, 9, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "55f0093f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_221() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[2, 121, 107, 65]);
-    m.write(0x2a00020c, &[170, 25, 223, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[17, 134, 102, 192]);
-    m.write(0x2a000210, &[71, 10, 143, 65]);
-    m.write(0x2a00021c, &[2, 125, 35, 64]);
-    m.write(0x2a000208, &[105, 147, 107, 64]);
-    m.write(0x2a000214, &[90, 201, 154, 193]);
-    m.write(0x2a000220, &[0, 232, 141, 64]);
-    m.write(0x2a000224, &[23, 233, 138, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "02796b41");
+    w(&mut m, 0x2a00020c, "aa19df41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "118666c0");
+    w(&mut m, 0x2a000210, "470a8f41");
+    w(&mut m, 0x2a00021c, "027d2340");
+    w(&mut m, 0x2a000208, "69936b40");
+    w(&mut m, 0x2a000214, "5ac99ac1");
+    w(&mut m, 0x2a000220, "00e88d40");
+    w(&mut m, 0x2a000224, "17e98a3e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, 1.5272531509399414f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_222() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[190, 165, 83, 64]);
-    m.write(0x2a00020c, &[190, 165, 83, 64]);
-    m.write(0x2a000218, &[71, 199, 211, 63]);
-    m.write(0x2a000204, &[160, 9, 20, 65]);
-    m.write(0x2a000210, &[83, 184, 36, 193]);
-    m.write(0x2a00021c, &[135, 38, 223, 63]);
-    m.write(0x2a000208, &[208, 64, 70, 65]);
-    m.write(0x2a000214, &[103, 105, 152, 65]);
-    m.write(0x2a000220, &[122, 225, 148, 64]);
-    m.write(0x2a000224, &[208, 69, 14, 59]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "bea55340");
+    w(&mut m, 0x2a00020c, "bea55340");
+    w(&mut m, 0x2a000218, "47c7d33f");
+    w(&mut m, 0x2a000204, "a0091441");
+    w(&mut m, 0x2a000210, "53b824c1");
+    w(&mut m, 0x2a00021c, "8726df3f");
+    w(&mut m, 0x2a000208, "d0404641");
+    w(&mut m, 0x2a000214, "67699841");
+    w(&mut m, 0x2a000220, "7ae19440");
+    w(&mut m, 0x2a000224, "d0450e3b");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, -0.9760755896568298f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_223() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[64, 40, 158, 64]);
-    m.write(0x2a00020c, &[67, 147, 216, 65]);
-    m.write(0x2a000218, &[160, 219, 80, 64]);
-    m.write(0x2a000204, &[156, 184, 59, 64]);
-    m.write(0x2a000210, &[212, 44, 140, 193]);
-    m.write(0x2a00021c, &[58, 84, 122, 64]);
-    m.write(0x2a000208, &[37, 149, 75, 64]);
-    m.write(0x2a000214, &[252, 45, 119, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[147, 122, 124, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "40289e40");
+    w(&mut m, 0x2a00020c, "4393d841");
+    w(&mut m, 0x2a000218, "a0db5040");
+    w(&mut m, 0x2a000204, "9cb83b40");
+    w(&mut m, 0x2a000210, "d42c8cc1");
+    w(&mut m, 0x2a00021c, "3a547a40");
+    w(&mut m, 0x2a000208, "25954b40");
+    w(&mut m, 0x2a000214, "fc2d77c1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "937a7c3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, 1.3431707620620728f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_224() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[174, 142, 222, 64]);
-    m.write(0x2a00020c, &[188, 166, 217, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[79, 78, 170, 63]);
-    m.write(0x2a000210, &[79, 78, 170, 63]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[97, 221, 131, 64]);
-    m.write(0x2a000214, &[26, 151, 34, 65]);
-    m.write(0x2a000220, &[148, 69, 120, 64]);
-    m.write(0x2a000224, &[45, 19, 212, 188]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "ae8ede40");
+    w(&mut m, 0x2a00020c, "bca6d941");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "4f4eaa3f");
+    w(&mut m, 0x2a000210, "4f4eaa3f");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "61dd8340");
+    w(&mut m, 0x2a000214, "1a972241");
+    w(&mut m, 0x2a000220, "94457840");
+    w(&mut m, 0x2a000224, "2d13d4bc");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, 1.17229163646698f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_225() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[197, 79, 172, 64]);
-    m.write(0x2a00020c, &[197, 79, 172, 64]);
-    m.write(0x2a000218, &[182, 190, 46, 64]);
-    m.write(0x2a000204, &[133, 191, 93, 65]);
-    m.write(0x2a000210, &[133, 191, 93, 65]);
-    m.write(0x2a00021c, &[67, 96, 104, 64]);
-    m.write(0x2a000208, &[132, 86, 203, 64]);
-    m.write(0x2a000214, &[255, 253, 15, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[92, 113, 155, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "c54fac40");
+    w(&mut m, 0x2a00020c, "c54fac40");
+    w(&mut m, 0x2a000218, "b6be2e40");
+    w(&mut m, 0x2a000204, "85bf5d41");
+    w(&mut m, 0x2a000210, "85bf5d41");
+    w(&mut m, 0x2a00021c, "43606840");
+    w(&mut m, 0x2a000208, "8456cb40");
+    w(&mut m, 0x2a000214, "fffd0f42");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "5c719b3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, 1.1875855922698975f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_226() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[11, 63, 86, 65]);
-    m.write(0x2a00020c, &[62, 35, 77, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[98, 20, 146, 65]);
-    m.write(0x2a000210, &[98, 20, 146, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[60, 171, 135, 189]);
-    m.write(0x2a000214, &[79, 225, 192, 65]);
-    m.write(0x2a000220, &[146, 198, 124, 64]);
-    m.write(0x2a000224, &[150, 148, 109, 61]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "0b3f5641");
+    w(&mut m, 0x2a00020c, "3e234d41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "62149241");
+    w(&mut m, 0x2a000210, "62149241");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "3cab87bd");
+    w(&mut m, 0x2a000214, "4fe1c041");
+    w(&mut m, 0x2a000220, "92c67c40");
+    w(&mut m, 0x2a000224, "96946d3d");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, -0.7130476832389832f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_227() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[62, 99, 81, 192]);
-    m.write(0x2a00020c, &[168, 50, 168, 65]);
-    m.write(0x2a000218, &[198, 29, 164, 63]);
-    m.write(0x2a000204, &[190, 169, 87, 65]);
-    m.write(0x2a000210, &[149, 215, 211, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[78, 32, 132, 65]);
-    m.write(0x2a000214, &[239, 219, 7, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[103, 168, 130, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "3e6351c0");
+    w(&mut m, 0x2a00020c, "a832a841");
+    w(&mut m, 0x2a000218, "c61da43f");
+    w(&mut m, 0x2a000204, "bea95741");
+    w(&mut m, 0x2a000210, "95d7d340");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "4e208441");
+    w(&mut m, 0x2a000214, "efdb0742");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "67a8823e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, 0.1765557825565338f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[10, 203, 52][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0acb34")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_228() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[108, 144, 134, 65]);
-    m.write(0x2a00020c, &[53, 55, 179, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[147, 140, 32, 65]);
-    m.write(0x2a000210, &[87, 133, 6, 66]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[171, 242, 234, 64]);
-    m.write(0x2a000214, &[63, 245, 4, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[158, 32, 150, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "6c908641");
+    w(&mut m, 0x2a00020c, "3537b341");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "938c2041");
+    w(&mut m, 0x2a000210, "57850642");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "abf2ea40");
+    w(&mut m, 0x2a000214, "3ff50442");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "9e20963f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, -0.6371800899505615f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_229() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[209, 187, 103, 65]);
-    m.write(0x2a00020c, &[22, 165, 182, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[250, 113, 154, 65]);
-    m.write(0x2a000210, &[183, 223, 180, 192]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[8, 16, 66, 64]);
-    m.write(0x2a000214, &[165, 104, 41, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[217, 60, 37, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "d1bb6741");
+    w(&mut m, 0x2a00020c, "16a5b641");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "fa719a41");
+    w(&mut m, 0x2a000210, "b7dfb4c0");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "08104240");
+    w(&mut m, 0x2a000214, "a56829c1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "d93c253f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, -0.24019896984100342f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_230() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[108, 125, 93, 65]);
-    m.write(0x2a00020c, &[255, 182, 53, 64]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[58, 214, 175, 64]);
-    m.write(0x2a000210, &[58, 214, 175, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[52, 106, 137, 65]);
-    m.write(0x2a000214, &[112, 21, 228, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[193, 60, 128, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "6c7d5d41");
+    w(&mut m, 0x2a00020c, "ffb63540");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "3ad6af40");
+    w(&mut m, 0x2a000210, "3ad6af40");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "346a8941");
+    w(&mut m, 0x2a000214, "7015e440");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "c13c803e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, 0.21213668584823608f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[92, 58, 89][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "5c3a59")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_231() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[72, 20, 9, 65]);
-    m.write(0x2a00020c, &[87, 75, 59, 65]);
-    m.write(0x2a000218, &[21, 7, 252, 63]);
-    m.write(0x2a000204, &[55, 125, 84, 65]);
-    m.write(0x2a000210, &[186, 23, 247, 191]);
-    m.write(0x2a00021c, &[213, 231, 136, 64]);
-    m.write(0x2a000208, &[167, 118, 16, 65]);
-    m.write(0x2a000214, &[28, 219, 137, 64]);
-    m.write(0x2a000220, &[43, 86, 15, 64]);
-    m.write(0x2a000224, &[148, 35, 78, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "48140941");
+    w(&mut m, 0x2a00020c, "574b3b41");
+    w(&mut m, 0x2a000218, "1507fc3f");
+    w(&mut m, 0x2a000204, "377d5441");
+    w(&mut m, 0x2a000210, "ba17f7bf");
+    w(&mut m, 0x2a00021c, "d5e78840");
+    w(&mut m, 0x2a000208, "a7761041");
+    w(&mut m, 0x2a000214, "1cdb8940");
+    w(&mut m, 0x2a000220, "2b560f40");
+    w(&mut m, 0x2a000224, "94234e3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, 0.5504525303840637f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[117, 234, 12][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "75ea0c")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_232() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[19, 119, 143, 65]);
-    m.write(0x2a00020c, &[44, 245, 186, 65]);
-    m.write(0x2a000218, &[53, 42, 250, 63]);
-    m.write(0x2a000204, &[51, 224, 211, 63]);
-    m.write(0x2a000210, &[103, 10, 164, 192]);
-    m.write(0x2a00021c, &[2, 8, 64, 64]);
-    m.write(0x2a000208, &[164, 93, 142, 65]);
-    m.write(0x2a000214, &[195, 146, 230, 192]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[219, 219, 2, 61]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "13778f41");
+    w(&mut m, 0x2a00020c, "2cf5ba41");
+    w(&mut m, 0x2a000218, "352afa3f");
+    w(&mut m, 0x2a000204, "33e0d33f");
+    w(&mut m, 0x2a000210, "670aa4c0");
+    w(&mut m, 0x2a00021c, "02084040");
+    w(&mut m, 0x2a000208, "a45d8e41");
+    w(&mut m, 0x2a000214, "c392e6c0");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "dbdb023d");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, 1.7111045122146606f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_233() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[101, 56, 210, 64]);
-    m.write(0x2a00020c, &[141, 205, 243, 65]);
-    m.write(0x2a000218, &[108, 178, 162, 63]);
-    m.write(0x2a000204, &[125, 60, 177, 63]);
-    m.write(0x2a000210, &[160, 215, 209, 193]);
-    m.write(0x2a00021c, &[253, 35, 204, 62]);
-    m.write(0x2a000208, &[250, 144, 34, 65]);
-    m.write(0x2a000214, &[176, 84, 17, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[54, 57, 156, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "6538d240");
+    w(&mut m, 0x2a00020c, "8dcdf341");
+    w(&mut m, 0x2a000218, "6cb2a23f");
+    w(&mut m, 0x2a000204, "7d3cb13f");
+    w(&mut m, 0x2a000210, "a0d7d1c1");
+    w(&mut m, 0x2a00021c, "fd23cc3e");
+    w(&mut m, 0x2a000208, "fa902241");
+    w(&mut m, 0x2a000214, "b0541141");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "36399c3f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, -0.8726290464401245f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_234() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[61, 102, 158, 192]);
-    m.write(0x2a00020c, &[0, 217, 17, 64]);
-    m.write(0x2a000218, &[159, 182, 89, 63]);
-    m.write(0x2a000204, &[217, 188, 61, 65]);
-    m.write(0x2a000210, &[227, 153, 246, 64]);
-    m.write(0x2a00021c, &[182, 96, 39, 64]);
-    m.write(0x2a000208, &[152, 159, 114, 64]);
-    m.write(0x2a000214, &[140, 177, 152, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[142, 213, 161, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "3d669ec0");
+    w(&mut m, 0x2a00020c, "00d91140");
+    w(&mut m, 0x2a000218, "9fb6593f");
+    w(&mut m, 0x2a000204, "d9bc3d41");
+    w(&mut m, 0x2a000210, "e399f640");
+    w(&mut m, 0x2a00021c, "b6602740");
+    w(&mut m, 0x2a000208, "989f7240");
+    w(&mut m, 0x2a000214, "8cb19841");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "8ed5a13f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_fraction(&mut m, 0x2a000200, 0.6568019986152649f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[45, 36, 40][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "2d2428")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_235() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[212, 187, 120, 64]);
-    m.write(0x2a00020c, &[206, 27, 202, 65]);
-    m.write(0x2a000218, &[42, 188, 140, 63]);
-    m.write(0x2a000204, &[113, 27, 12, 65]);
-    m.write(0x2a000210, &[116, 84, 69, 65]);
-    m.write(0x2a00021c, &[94, 219, 162, 63]);
-    m.write(0x2a000208, &[50, 121, 45, 65]);
-    m.write(0x2a000214, &[241, 117, 138, 193]);
-    m.write(0x2a000220, &[232, 57, 142, 63]);
-    m.write(0x2a000224, &[121, 102, 67, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "d4bb7840");
+    w(&mut m, 0x2a00020c, "ce1bca41");
+    w(&mut m, 0x2a000218, "2abc8c3f");
+    w(&mut m, 0x2a000204, "711b0c41");
+    w(&mut m, 0x2a000210, "74544541");
+    w(&mut m, 0x2a00021c, "5edba23f");
+    w(&mut m, 0x2a000208, "32792d41");
+    w(&mut m, 0x2a000214, "f1758ac1");
+    w(&mut m, 0x2a000220, "e8398e3f");
+    w(&mut m, 0x2a000224, "7966433e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, -0.07621640712022781f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[94, 15, 141][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "5e0f8d")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_236() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[71, 145, 44, 65]);
-    m.write(0x2a00020c, &[105, 6, 33, 66]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[202, 67, 114, 64]);
-    m.write(0x2a000210, &[160, 86, 187, 193]);
-    m.write(0x2a00021c, &[144, 34, 240, 63]);
-    m.write(0x2a000208, &[233, 29, 143, 65]);
-    m.write(0x2a000214, &[160, 198, 25, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[208, 98, 87, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "47912c41");
+    w(&mut m, 0x2a00020c, "69062142");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "ca437240");
+    w(&mut m, 0x2a000210, "a056bbc1");
+    w(&mut m, 0x2a00021c, "9022f03f");
+    w(&mut m, 0x2a000208, "e91d8f41");
+    w(&mut m, 0x2a000214, "a0c61941");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "d062573f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, -0.07621640712022781f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_237() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[139, 55, 10, 63]);
-    m.write(0x2a00020c, &[139, 55, 10, 63]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[222, 141, 17, 192]);
-    m.write(0x2a000210, &[223, 127, 80, 193]);
-    m.write(0x2a00021c, &[211, 149, 200, 62]);
-    m.write(0x2a000208, &[66, 59, 57, 65]);
-    m.write(0x2a000214, &[143, 108, 202, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[191, 149, 96, 60]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "8b370a3f");
+    w(&mut m, 0x2a00020c, "8b370a3f");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "de8d11c0");
+    w(&mut m, 0x2a000210, "df7f50c1");
+    w(&mut m, 0x2a00021c, "d395c83e");
+    w(&mut m, 0x2a000208, "423b3941");
+    w(&mut m, 0x2a000214, "8f6cca41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "bf95603c");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 1.4313323497772217f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_238() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[172, 162, 141, 65]);
-    m.write(0x2a00020c, &[45, 27, 22, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[10, 123, 65, 61]);
-    m.write(0x2a000210, &[201, 214, 183, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[108, 84, 127, 65]);
-    m.write(0x2a000214, &[200, 74, 199, 65]);
-    m.write(0x2a000220, &[252, 218, 148, 64]);
-    m.write(0x2a000224, &[216, 233, 201, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "aca28d41");
+    w(&mut m, 0x2a00020c, "2d1b1641");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "0a7b413d");
+    w(&mut m, 0x2a000210, "c9d6b7c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "6c547f41");
+    w(&mut m, 0x2a000214, "c84ac741");
+    w(&mut m, 0x2a000220, "fcda9440");
+    w(&mut m, 0x2a000224, "d8e9c93e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 1.4313323497772217f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_239() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[228, 217, 128, 192]);
-    m.write(0x2a00020c, &[79, 80, 194, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[74, 222, 62, 192]);
-    m.write(0x2a000210, &[72, 180, 55, 193]);
-    m.write(0x2a00021c, &[187, 70, 124, 63]);
-    m.write(0x2a000208, &[253, 137, 247, 64]);
-    m.write(0x2a000214, &[67, 88, 175, 65]);
-    m.write(0x2a000220, &[9, 63, 150, 64]);
-    m.write(0x2a000224, &[6, 202, 40, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "e4d980c0");
+    w(&mut m, 0x2a00020c, "4f50c2c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "4ade3ec0");
+    w(&mut m, 0x2a000210, "48b437c1");
+    w(&mut m, 0x2a00021c, "bb467c3f");
+    w(&mut m, 0x2a000208, "fd89f740");
+    w(&mut m, 0x2a000214, "4358af41");
+    w(&mut m, 0x2a000220, "093f9640");
+    w(&mut m, 0x2a000224, "06ca283f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 0.5312240719795227f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_240() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[76, 192, 150, 65]);
-    m.write(0x2a00020c, &[14, 214, 0, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[85, 96, 153, 192]);
-    m.write(0x2a000210, &[217, 47, 77, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[47, 150, 19, 65]);
-    m.write(0x2a000214, &[47, 150, 19, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[5, 50, 226, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "4cc09641");
+    w(&mut m, 0x2a00020c, "0ed60041");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "556099c0");
+    w(&mut m, 0x2a000210, "d92f4dc1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "2f961341");
+    w(&mut m, 0x2a000214, "2f961341");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "0532e23e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 0.5312240719795227f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_241() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[145, 106, 124, 65]);
-    m.write(0x2a00020c, &[74, 152, 40, 66]);
-    m.write(0x2a000218, &[74, 185, 76, 64]);
-    m.write(0x2a000204, &[107, 223, 184, 62]);
-    m.write(0x2a000210, &[87, 253, 9, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[120, 77, 115, 64]);
-    m.write(0x2a000214, &[223, 229, 243, 65]);
-    m.write(0x2a000220, &[162, 119, 163, 63]);
-    m.write(0x2a000224, &[30, 134, 161, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "916a7c41");
+    w(&mut m, 0x2a00020c, "4a982842");
+    w(&mut m, 0x2a000218, "4ab94c40");
+    w(&mut m, 0x2a000204, "6bdfb83e");
+    w(&mut m, 0x2a000210, "57fd09c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "784d7340");
+    w(&mut m, 0x2a000214, "dfe5f341");
+    w(&mut m, 0x2a000220, "a277a33f");
+    w(&mut m, 0x2a000224, "1e86a13e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 2.8580727577209473f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_242() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[47, 192, 201, 191]);
-    m.write(0x2a00020c, &[246, 252, 81, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[32, 140, 149, 191]);
-    m.write(0x2a000210, &[213, 182, 135, 65]);
-    m.write(0x2a00021c, &[37, 12, 173, 63]);
-    m.write(0x2a000208, &[230, 154, 9, 65]);
-    m.write(0x2a000214, &[230, 154, 9, 65]);
-    m.write(0x2a000220, &[126, 252, 65, 63]);
-    m.write(0x2a000224, &[242, 157, 79, 61]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "2fc0c9bf");
+    w(&mut m, 0x2a00020c, "f6fc5141");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "208c95bf");
+    w(&mut m, 0x2a000210, "d5b68741");
+    w(&mut m, 0x2a00021c, "250cad3f");
+    w(&mut m, 0x2a000208, "e69a0941");
+    w(&mut m, 0x2a000214, "e69a0941");
+    w(&mut m, 0x2a000220, "7efc413f");
+    w(&mut m, 0x2a000224, "f29d4f3d");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 2.8580727577209473f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_243() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[178, 26, 78, 65]);
-    m.write(0x2a00020c, &[178, 26, 78, 65]);
-    m.write(0x2a000218, &[3, 164, 138, 64]);
-    m.write(0x2a000204, &[99, 11, 34, 191]);
-    m.write(0x2a000210, &[1, 230, 162, 65]);
-    m.write(0x2a00021c, &[142, 1, 132, 64]);
-    m.write(0x2a000208, &[14, 37, 148, 65]);
-    m.write(0x2a000214, &[121, 169, 113, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[116, 117, 143, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b21a4e41");
+    w(&mut m, 0x2a00020c, "b21a4e41");
+    w(&mut m, 0x2a000218, "03a48a40");
+    w(&mut m, 0x2a000204, "630b22bf");
+    w(&mut m, 0x2a000210, "01e6a241");
+    w(&mut m, 0x2a00021c, "8e018440");
+    w(&mut m, 0x2a000208, "0e259441");
+    w(&mut m, 0x2a000214, "79a97141");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "74758f3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, -0.26584458351135254f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_244() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[155, 200, 154, 65]);
-    m.write(0x2a00020c, &[58, 146, 41, 66]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[192, 159, 125, 65]);
-    m.write(0x2a000210, &[125, 234, 31, 64]);
-    m.write(0x2a00021c, &[220, 234, 143, 64]);
-    m.write(0x2a000208, &[122, 185, 55, 192]);
-    m.write(0x2a000214, &[94, 168, 182, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[48, 48, 147, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "9bc89a41");
+    w(&mut m, 0x2a00020c, "3a922942");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "c09f7d41");
+    w(&mut m, 0x2a000210, "7dea1f40");
+    w(&mut m, 0x2a00021c, "dcea8f40");
+    w(&mut m, 0x2a000208, "7ab937c0");
+    w(&mut m, 0x2a000214, "5ea8b6c1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "3030933e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, -0.26584458351135254f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_245() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[242, 175, 80, 64]);
-    m.write(0x2a00020c, &[64, 84, 163, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[75, 145, 40, 65]);
-    m.write(0x2a000210, &[113, 168, 134, 193]);
-    m.write(0x2a00021c, &[225, 203, 27, 62]);
-    m.write(0x2a000208, &[51, 243, 247, 62]);
-    m.write(0x2a000214, &[140, 143, 215, 63]);
-    m.write(0x2a000220, &[82, 73, 157, 64]);
-    m.write(0x2a000224, &[136, 214, 51, 190]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "f2af5040");
+    w(&mut m, 0x2a00020c, "4054a341");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "4b912841");
+    w(&mut m, 0x2a000210, "71a886c1");
+    w(&mut m, 0x2a00021c, "e1cb1b3e");
+    w(&mut m, 0x2a000208, "33f3f73e");
+    w(&mut m, 0x2a000214, "8c8fd73f");
+    w(&mut m, 0x2a000220, "52499d40");
+    w(&mut m, 0x2a000224, "88d633be");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, -0.1623350977897644f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_246() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[135, 238, 4, 64]);
-    m.write(0x2a00020c, &[157, 79, 233, 65]);
-    m.write(0x2a000218, &[248, 66, 80, 64]);
-    m.write(0x2a000204, &[105, 165, 155, 64]);
-    m.write(0x2a000210, &[164, 185, 158, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[204, 199, 110, 65]);
-    m.write(0x2a000214, &[41, 128, 209, 192]);
-    m.write(0x2a000220, &[49, 178, 145, 64]);
-    m.write(0x2a000224, &[28, 51, 162, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "87ee0440");
+    w(&mut m, 0x2a00020c, "9d4fe941");
+    w(&mut m, 0x2a000218, "f8425040");
+    w(&mut m, 0x2a000204, "69a59b40");
+    w(&mut m, 0x2a000210, "a4b99e41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "ccc76e41");
+    w(&mut m, 0x2a000214, "2980d1c0");
+    w(&mut m, 0x2a000220, "31b29140");
+    w(&mut m, 0x2a000224, "1c33a23e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, -0.1623350977897644f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_247() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[115, 132, 27, 65]);
-    m.write(0x2a00020c, &[42, 141, 136, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[52, 227, 109, 65]);
-    m.write(0x2a000210, &[41, 246, 10, 66]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[1, 16, 25, 192]);
-    m.write(0x2a000214, &[179, 113, 185, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[248, 214, 68, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "73841b41");
+    w(&mut m, 0x2a00020c, "2a8d8841");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "34e36d41");
+    w(&mut m, 0x2a000210, "29f60a42");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "011019c0");
+    w(&mut m, 0x2a000214, "b371b940");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "f8d6443f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 2.9598443508148193f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_248() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[193, 133, 55, 192]);
-    m.write(0x2a00020c, &[134, 233, 142, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[130, 8, 202, 63]);
-    m.write(0x2a000210, &[196, 225, 7, 191]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[126, 146, 168, 64]);
-    m.write(0x2a000214, &[233, 118, 111, 63]);
-    m.write(0x2a000220, &[159, 105, 206, 63]);
-    m.write(0x2a000224, &[15, 212, 24, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "c18537c0");
+    w(&mut m, 0x2a00020c, "86e98ec1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "8208ca3f");
+    w(&mut m, 0x2a000210, "c4e107bf");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "7e92a840");
+    w(&mut m, 0x2a000214, "e9766f3f");
+    w(&mut m, 0x2a000220, "9f69ce3f");
+    w(&mut m, 0x2a000224, "0fd4183f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 2.9598443508148193f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_249() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[162, 99, 102, 65]);
-    m.write(0x2a00020c, &[100, 252, 32, 193]);
-    m.write(0x2a000218, &[222, 207, 46, 61]);
-    m.write(0x2a000204, &[183, 243, 142, 64]);
-    m.write(0x2a000210, &[17, 48, 15, 193]);
-    m.write(0x2a00021c, &[237, 144, 61, 64]);
-    m.write(0x2a000208, &[155, 142, 120, 65]);
-    m.write(0x2a000214, &[201, 224, 63, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[251, 159, 26, 190]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "a2636641");
+    w(&mut m, 0x2a00020c, "64fc20c1");
+    w(&mut m, 0x2a000218, "decf2e3d");
+    w(&mut m, 0x2a000204, "b7f38e40");
+    w(&mut m, 0x2a000210, "11300fc1");
+    w(&mut m, 0x2a00021c, "ed903d40");
+    w(&mut m, 0x2a000208, "9b8e7841");
+    w(&mut m, 0x2a000214, "c9e03f41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "fb9f1abe");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 0.04772673919796944f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_250() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[255, 146, 19, 65]);
-    m.write(0x2a00020c, &[206, 69, 241, 192]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[152, 145, 10, 64]);
-    m.write(0x2a000210, &[151, 143, 222, 193]);
-    m.write(0x2a00021c, &[11, 136, 146, 64]);
-    m.write(0x2a000208, &[43, 156, 83, 64]);
-    m.write(0x2a000214, &[214, 127, 250, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[193, 28, 140, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "ff921341");
+    w(&mut m, 0x2a00020c, "ce45f1c0");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "98910a40");
+    w(&mut m, 0x2a000210, "978fdec1");
+    w(&mut m, 0x2a00021c, "0b889240");
+    w(&mut m, 0x2a000208, "2b9c5340");
+    w(&mut m, 0x2a000214, "d67ffa41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "c11c8c3f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 0.04772673919796944f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_251() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[12, 0, 10, 65]);
-    m.write(0x2a00020c, &[3, 63, 244, 192]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[121, 224, 92, 65]);
-    m.write(0x2a000210, &[87, 191, 177, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[134, 133, 216, 64]);
-    m.write(0x2a000214, &[33, 109, 162, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[107, 100, 125, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "0c000a41");
+    w(&mut m, 0x2a00020c, "033ff4c0");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "79e05c41");
+    w(&mut m, 0x2a000210, "57bfb141");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "8685d840");
+    w(&mut m, 0x2a000214, "216da2c1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "6b647d3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 0.5469878315925598f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_252() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[127, 243, 231, 64]);
-    m.write(0x2a00020c, &[72, 51, 46, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[42, 82, 67, 65]);
-    m.write(0x2a000210, &[132, 37, 5, 193]);
-    m.write(0x2a00021c, &[152, 225, 217, 60]);
-    m.write(0x2a000208, &[31, 134, 131, 65]);
-    m.write(0x2a000214, &[73, 181, 147, 192]);
-    m.write(0x2a000220, &[4, 251, 59, 64]);
-    m.write(0x2a000224, &[220, 133, 48, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "7ff3e740");
+    w(&mut m, 0x2a00020c, "48332ec1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "2a524341");
+    w(&mut m, 0x2a000210, "842505c1");
+    w(&mut m, 0x2a00021c, "98e1d93c");
+    w(&mut m, 0x2a000208, "1f868341");
+    w(&mut m, 0x2a000214, "49b593c0");
+    w(&mut m, 0x2a000220, "04fb3b40");
+    w(&mut m, 0x2a000224, "dc85303f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 0.5469878315925598f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_253() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[32, 32, 186, 63]);
-    m.write(0x2a00020c, &[235, 111, 172, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[126, 187, 64, 65]);
-    m.write(0x2a000210, &[224, 234, 144, 65]);
-    m.write(0x2a00021c, &[76, 230, 29, 64]);
-    m.write(0x2a000208, &[96, 219, 80, 65]);
-    m.write(0x2a000214, &[96, 219, 80, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[167, 92, 33, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "2020ba3f");
+    w(&mut m, 0x2a00020c, "eb6fac41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "7ebb4041");
+    w(&mut m, 0x2a000210, "e0ea9041");
+    w(&mut m, 0x2a00021c, "4ce61d40");
+    w(&mut m, 0x2a000208, "60db5041");
+    w(&mut m, 0x2a000214, "60db5041");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "a75c213f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, -0.8655200004577637f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_254() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[23, 75, 154, 65]);
-    m.write(0x2a00020c, &[76, 208, 65, 66]);
-    m.write(0x2a000218, &[133, 85, 243, 63]);
-    m.write(0x2a000204, &[235, 212, 54, 65]);
-    m.write(0x2a000210, &[200, 25, 8, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[52, 120, 41, 192]);
-    m.write(0x2a000214, &[229, 82, 133, 65]);
-    m.write(0x2a000220, &[237, 56, 129, 64]);
-    m.write(0x2a000224, &[155, 184, 36, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "174b9a41");
+    w(&mut m, 0x2a00020c, "4cd04142");
+    w(&mut m, 0x2a000218, "8555f33f");
+    w(&mut m, 0x2a000204, "ebd43641");
+    w(&mut m, 0x2a000210, "c8190841");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "347829c0");
+    w(&mut m, 0x2a000214, "e5528541");
+    w(&mut m, 0x2a000220, "ed388140");
+    w(&mut m, 0x2a000224, "9bb8243e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, -0.8655200004577637f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_255() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[165, 166, 146, 65]);
-    m.write(0x2a00020c, &[165, 166, 146, 65]);
-    m.write(0x2a000218, &[110, 34, 230, 63]);
-    m.write(0x2a000204, &[81, 231, 252, 64]);
-    m.write(0x2a000210, &[5, 240, 162, 64]);
-    m.write(0x2a00021c, &[140, 201, 162, 63]);
-    m.write(0x2a000208, &[137, 160, 189, 191]);
-    m.write(0x2a000214, &[137, 160, 189, 191]);
-    m.write(0x2a000220, &[100, 0, 225, 63]);
-    m.write(0x2a000224, &[179, 91, 204, 189]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "a5a69241");
+    w(&mut m, 0x2a00020c, "a5a69241");
+    w(&mut m, 0x2a000218, "6e22e63f");
+    w(&mut m, 0x2a000204, "51e7fc40");
+    w(&mut m, 0x2a000210, "05f0a240");
+    w(&mut m, 0x2a00021c, "8cc9a23f");
+    w(&mut m, 0x2a000208, "89a0bdbf");
+    w(&mut m, 0x2a000214, "89a0bdbf");
+    w(&mut m, 0x2a000220, "6400e13f");
+    w(&mut m, 0x2a000224, "b35bccbd");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 1.5827643871307373f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_256() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[189, 165, 96, 191]);
-    m.write(0x2a00020c, &[69, 248, 172, 65]);
-    m.write(0x2a000218, &[246, 159, 0, 64]);
-    m.write(0x2a000204, &[158, 70, 154, 65]);
-    m.write(0x2a000210, &[38, 176, 223, 192]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[179, 248, 18, 65]);
-    m.write(0x2a000214, &[208, 205, 203, 65]);
-    m.write(0x2a000220, &[174, 5, 112, 64]);
-    m.write(0x2a000224, &[6, 237, 161, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "bda560bf");
+    w(&mut m, 0x2a00020c, "45f8ac41");
+    w(&mut m, 0x2a000218, "f69f0040");
+    w(&mut m, 0x2a000204, "9e469a41");
+    w(&mut m, 0x2a000210, "26b0dfc0");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "b3f81241");
+    w(&mut m, 0x2a000214, "d0cdcb41");
+    w(&mut m, 0x2a000220, "ae057040");
+    w(&mut m, 0x2a000224, "06eda13e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 1.5827643871307373f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_257() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[120, 162, 15, 192]);
-    m.write(0x2a00020c, &[82, 107, 111, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[4, 244, 178, 64]);
-    m.write(0x2a000210, &[207, 212, 128, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[115, 187, 71, 65]);
-    m.write(0x2a000214, &[165, 113, 52, 193]);
-    m.write(0x2a000220, &[30, 89, 100, 63]);
-    m.write(0x2a000224, &[160, 122, 141, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "78a20fc0");
+    w(&mut m, 0x2a00020c, "526b6fc1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "04f4b240");
+    w(&mut m, 0x2a000210, "cfd48040");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "73bb4741");
+    w(&mut m, 0x2a000214, "a57134c1");
+    w(&mut m, 0x2a000220, "1e59643f");
+    w(&mut m, 0x2a000224, "a07a8d3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 0.8215957880020142f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[66, 178, 190, 62][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "42b2be3e")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_258() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[107, 128, 143, 65]);
-    m.write(0x2a00020c, &[115, 8, 51, 64]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[236, 170, 130, 63]);
-    m.write(0x2a000210, &[70, 135, 59, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[220, 209, 138, 192]);
-    m.write(0x2a000214, &[170, 6, 213, 193]);
-    m.write(0x2a000220, &[249, 232, 52, 64]);
-    m.write(0x2a000224, &[185, 85, 1, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "6b808f41");
+    w(&mut m, 0x2a00020c, "73083340");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "ecaa823f");
+    w(&mut m, 0x2a000210, "46873bc1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "dcd18ac0");
+    w(&mut m, 0x2a000214, "aa06d5c1");
+    w(&mut m, 0x2a000220, "f9e83440");
+    w(&mut m, 0x2a000224, "b955013f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 0.8215957880020142f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_259() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[139, 29, 74, 65]);
-    m.write(0x2a00020c, &[14, 139, 34, 66]);
-    m.write(0x2a000218, &[112, 219, 145, 64]);
-    m.write(0x2a000204, &[94, 64, 123, 64]);
-    m.write(0x2a000210, &[164, 162, 130, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[73, 12, 30, 65]);
-    m.write(0x2a000214, &[87, 252, 5, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[28, 99, 221, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "8b1d4a41");
+    w(&mut m, 0x2a00020c, "0e8b2242");
+    w(&mut m, 0x2a000218, "70db9140");
+    w(&mut m, 0x2a000204, "5e407b40");
+    w(&mut m, 0x2a000210, "a4a282c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "490c1e41");
+    w(&mut m, 0x2a000214, "57fc0542");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "1c63dd3e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 1.869824767112732f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_260() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[121, 24, 244, 191]);
-    m.write(0x2a00020c, &[147, 23, 142, 65]);
-    m.write(0x2a000218, &[168, 51, 91, 64]);
-    m.write(0x2a000204, &[43, 63, 63, 65]);
-    m.write(0x2a000210, &[166, 156, 28, 65]);
-    m.write(0x2a00021c, &[222, 174, 46, 64]);
-    m.write(0x2a000208, &[158, 152, 86, 65]);
-    m.write(0x2a000214, &[195, 182, 1, 193]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[162, 126, 78, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "7918f4bf");
+    w(&mut m, 0x2a00020c, "93178e41");
+    w(&mut m, 0x2a000218, "a8335b40");
+    w(&mut m, 0x2a000204, "2b3f3f41");
+    w(&mut m, 0x2a000210, "a69c1c41");
+    w(&mut m, 0x2a00021c, "deae2e40");
+    w(&mut m, 0x2a000208, "9e985641");
+    w(&mut m, 0x2a000214, "c3b601c1");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "a27e4e3f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 1.869824767112732f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_261() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[89, 181, 177, 64]);
-    m.write(0x2a00020c, &[10, 229, 160, 192]);
-    m.write(0x2a000218, &[211, 227, 158, 64]);
-    m.write(0x2a000204, &[230, 97, 76, 65]);
-    m.write(0x2a000210, &[142, 88, 122, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[91, 163, 95, 65]);
-    m.write(0x2a000214, &[162, 234, 170, 64]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[110, 102, 93, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "59b5b140");
+    w(&mut m, 0x2a00020c, "0ae5a0c0");
+    w(&mut m, 0x2a000218, "d3e39e40");
+    w(&mut m, 0x2a000204, "e6614c41");
+    w(&mut m, 0x2a000210, "8e587a40");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "5ba35f41");
+    w(&mut m, 0x2a000214, "a2eaaa40");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "6e665d3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 0.0055784424766898155f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_262() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[164, 120, 97, 65]);
-    m.write(0x2a00020c, &[19, 8, 201, 65]);
-    m.write(0x2a000218, &[69, 133, 171, 62]);
-    m.write(0x2a000204, &[219, 76, 87, 65]);
-    m.write(0x2a000210, &[187, 214, 224, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[75, 184, 32, 191]);
-    m.write(0x2a000214, &[219, 40, 114, 64]);
-    m.write(0x2a000220, &[105, 204, 148, 62]);
-    m.write(0x2a000224, &[121, 79, 126, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "a4786141");
+    w(&mut m, 0x2a00020c, "1308c941");
+    w(&mut m, 0x2a000218, "4585ab3e");
+    w(&mut m, 0x2a000204, "db4c5741");
+    w(&mut m, 0x2a000210, "bbd6e041");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "4bb820bf");
+    w(&mut m, 0x2a000214, "db287240");
+    w(&mut m, 0x2a000220, "69cc943e");
+    w(&mut m, 0x2a000224, "794f7e3f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 0.0055784424766898155f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[135, 133, 127][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "87857f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_263() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[239, 29, 135, 65]);
-    m.write(0x2a00020c, &[247, 168, 241, 65]);
-    m.write(0x2a000218, &[113, 232, 140, 63]);
-    m.write(0x2a000204, &[168, 238, 159, 64]);
-    m.write(0x2a000210, &[13, 161, 181, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[98, 81, 102, 192]);
-    m.write(0x2a000214, &[230, 77, 88, 193]);
-    m.write(0x2a000220, &[236, 27, 1, 64]);
-    m.write(0x2a000224, &[14, 139, 196, 61]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "ef1d8741");
+    w(&mut m, 0x2a00020c, "f7a8f141");
+    w(&mut m, 0x2a000218, "71e88c3f");
+    w(&mut m, 0x2a000204, "a8ee9f40");
+    w(&mut m, 0x2a000210, "0da1b541");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "625166c0");
+    w(&mut m, 0x2a000214, "e64d58c1");
+    w(&mut m, 0x2a000220, "ec1b0140");
+    w(&mut m, 0x2a000224, "0e8bc43d");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 1.3186554908752441f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_264() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[221, 78, 13, 65]);
-    m.write(0x2a00020c, &[186, 230, 22, 66]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[11, 53, 141, 65]);
-    m.write(0x2a000210, &[169, 148, 117, 192]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[194, 183, 131, 65]);
-    m.write(0x2a000214, &[194, 183, 131, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[195, 223, 152, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "dd4e0d41");
+    w(&mut m, 0x2a00020c, "bae61642");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "0b358d41");
+    w(&mut m, 0x2a000210, "a99475c0");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "c2b78341");
+    w(&mut m, 0x2a000214, "c2b78341");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "c3df983f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 1.3186554908752441f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_265() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[87, 0, 159, 65]);
-    m.write(0x2a00020c, &[57, 76, 56, 192]);
-    m.write(0x2a000218, &[78, 18, 5, 64]);
-    m.write(0x2a000204, &[178, 15, 212, 64]);
-    m.write(0x2a000210, &[117, 109, 192, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[12, 71, 142, 64]);
-    m.write(0x2a000214, &[228, 70, 121, 192]);
-    m.write(0x2a000220, &[240, 20, 135, 64]);
-    m.write(0x2a000224, &[167, 198, 131, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "57009f41");
+    w(&mut m, 0x2a00020c, "394c38c0");
+    w(&mut m, 0x2a000218, "4e120540");
+    w(&mut m, 0x2a000204, "b20fd440");
+    w(&mut m, 0x2a000210, "756dc040");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "0c478e40");
+    w(&mut m, 0x2a000214, "e44679c0");
+    w(&mut m, 0x2a000220, "f0148740");
+    w(&mut m, 0x2a000224, "a7c6833f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 0.1826046258211136f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_266() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[238, 103, 62, 65]);
-    m.write(0x2a00020c, &[247, 225, 24, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[47, 185, 9, 65]);
-    m.write(0x2a000210, &[223, 37, 142, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[208, 17, 133, 65]);
-    m.write(0x2a000214, &[208, 17, 133, 65]);
-    m.write(0x2a000220, &[42, 213, 53, 64]);
-    m.write(0x2a000224, &[72, 52, 89, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "ee673e41");
+    w(&mut m, 0x2a00020c, "f7e11841");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "2fb90941");
+    w(&mut m, 0x2a000210, "df258e41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "d0118541");
+    w(&mut m, 0x2a000214, "d0118541");
+    w(&mut m, 0x2a000220, "2ad53540");
+    w(&mut m, 0x2a000224, "4834593f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 0.1826046258211136f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_267() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[18, 123, 34, 64]);
-    m.write(0x2a00020c, &[239, 0, 252, 64]);
-    m.write(0x2a000218, &[6, 105, 147, 64]);
-    m.write(0x2a000204, &[114, 201, 3, 192]);
-    m.write(0x2a000210, &[244, 23, 186, 65]);
-    m.write(0x2a00021c, &[111, 120, 114, 64]);
-    m.write(0x2a000208, &[187, 55, 141, 64]);
-    m.write(0x2a000214, &[187, 55, 141, 64]);
-    m.write(0x2a000220, &[236, 116, 63, 64]);
-    m.write(0x2a000224, &[39, 146, 138, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "127b2240");
+    w(&mut m, 0x2a00020c, "ef00fc40");
+    w(&mut m, 0x2a000218, "06699340");
+    w(&mut m, 0x2a000204, "72c903c0");
+    w(&mut m, 0x2a000210, "f417ba41");
+    w(&mut m, 0x2a00021c, "6f787240");
+    w(&mut m, 0x2a000208, "bb378d40");
+    w(&mut m, 0x2a000214, "bb378d40");
+    w(&mut m, 0x2a000220, "ec743f40");
+    w(&mut m, 0x2a000224, "27928a3e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 1.4803447723388672f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_268() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[203, 238, 85, 65]);
-    m.write(0x2a00020c, &[203, 238, 85, 65]);
-    m.write(0x2a000218, &[2, 218, 19, 64]);
-    m.write(0x2a000204, &[57, 114, 234, 64]);
-    m.write(0x2a000210, &[168, 5, 19, 66]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[131, 238, 211, 62]);
-    m.write(0x2a000214, &[90, 41, 111, 193]);
-    m.write(0x2a000220, &[84, 40, 109, 64]);
-    m.write(0x2a000224, &[115, 108, 32, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "cbee5541");
+    w(&mut m, 0x2a00020c, "cbee5541");
+    w(&mut m, 0x2a000218, "02da1340");
+    w(&mut m, 0x2a000204, "3972ea40");
+    w(&mut m, 0x2a000210, "a8051342");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "83eed33e");
+    w(&mut m, 0x2a000214, "5a296fc1");
+    w(&mut m, 0x2a000220, "54286d40");
+    w(&mut m, 0x2a000224, "736c203f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 1.4803447723388672f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_269() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[177, 16, 244, 64]);
-    m.write(0x2a00020c, &[75, 194, 162, 65]);
-    m.write(0x2a000218, &[202, 197, 144, 64]);
-    m.write(0x2a000204, &[177, 104, 98, 65]);
-    m.write(0x2a000210, &[165, 167, 112, 65]);
-    m.write(0x2a00021c, &[28, 252, 141, 64]);
-    m.write(0x2a000208, &[167, 1, 158, 65]);
-    m.write(0x2a000214, &[187, 95, 47, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[75, 10, 32, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b110f440");
+    w(&mut m, 0x2a00020c, "4bc2a241");
+    w(&mut m, 0x2a000218, "cac59040");
+    w(&mut m, 0x2a000204, "b1686241");
+    w(&mut m, 0x2a000210, "a5a77041");
+    w(&mut m, 0x2a00021c, "1cfc8d40");
+    w(&mut m, 0x2a000208, "a7019e41");
+    w(&mut m, 0x2a000214, "bb5f2f41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "4b0a203f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, -0.8414267301559448f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_270() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[66, 96, 42, 65]);
-    m.write(0x2a00020c, &[21, 116, 221, 64]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[68, 208, 147, 65]);
-    m.write(0x2a000210, &[56, 179, 216, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[17, 180, 125, 63]);
-    m.write(0x2a000214, &[14, 165, 155, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[30, 205, 128, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "42602a41");
+    w(&mut m, 0x2a00020c, "1574dd40");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "44d09341");
+    w(&mut m, 0x2a000210, "38b3d840");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "11b47d3f");
+    w(&mut m, 0x2a000214, "0ea59b41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "1ecd803e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, -0.8414267301559448f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_271() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[52, 164, 92, 64]);
-    m.write(0x2a00020c, &[53, 37, 106, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[134, 60, 85, 65]);
-    m.write(0x2a000210, &[191, 198, 187, 192]);
-    m.write(0x2a00021c, &[242, 204, 153, 64]);
-    m.write(0x2a000208, &[51, 253, 71, 65]);
-    m.write(0x2a000214, &[200, 242, 75, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[114, 114, 100, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "34a45c40");
+    w(&mut m, 0x2a00020c, "35256ac1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "863c5541");
+    w(&mut m, 0x2a000210, "bfc6bbc0");
+    w(&mut m, 0x2a00021c, "f2cc9940");
+    w(&mut m, 0x2a000208, "33fd4741");
+    w(&mut m, 0x2a000214, "c8f24b41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "7272643f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 2.4144654273986816f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_272() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[99, 165, 159, 65]);
-    m.write(0x2a00020c, &[39, 40, 1, 193]);
-    m.write(0x2a000218, &[212, 199, 38, 64]);
-    m.write(0x2a000204, &[14, 102, 77, 65]);
-    m.write(0x2a000210, &[1, 150, 39, 190]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[248, 82, 87, 64]);
-    m.write(0x2a000214, &[194, 30, 249, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[17, 60, 114, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "63a59f41");
+    w(&mut m, 0x2a00020c, "272801c1");
+    w(&mut m, 0x2a000218, "d4c72640");
+    w(&mut m, 0x2a000204, "0e664d41");
+    w(&mut m, 0x2a000210, "019627be");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "f8525740");
+    w(&mut m, 0x2a000214, "c21ef941");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "113c723e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 2.4144654273986816f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_273() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[217, 230, 115, 65]);
-    m.write(0x2a00020c, &[88, 229, 156, 64]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[77, 15, 152, 64]);
-    m.write(0x2a000210, &[77, 15, 152, 64]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[29, 166, 53, 65]);
-    m.write(0x2a000214, &[221, 118, 31, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[228, 70, 164, 61]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "d9e67341");
+    w(&mut m, 0x2a00020c, "58e59c40");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "4d0f9840");
+    w(&mut m, 0x2a000210, "4d0f9840");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "1da63541");
+    w(&mut m, 0x2a000214, "dd761f42");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "e446a43d");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 2.930428981781006f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_274() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[181, 32, 96, 65]);
-    m.write(0x2a00020c, &[141, 59, 46, 66]);
-    m.write(0x2a000218, &[213, 209, 18, 64]);
-    m.write(0x2a000204, &[22, 241, 105, 65]);
-    m.write(0x2a000210, &[123, 36, 95, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[29, 202, 142, 65]);
-    m.write(0x2a000214, &[141, 201, 54, 65]);
-    m.write(0x2a000220, &[116, 109, 6, 63]);
-    m.write(0x2a000224, &[245, 80, 57, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "b5206041");
+    w(&mut m, 0x2a00020c, "8d3b2e42");
+    w(&mut m, 0x2a000218, "d5d11240");
+    w(&mut m, 0x2a000204, "16f16941");
+    w(&mut m, 0x2a000210, "7b245fc1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "1dca8e41");
+    w(&mut m, 0x2a000214, "8dc93641");
+    w(&mut m, 0x2a000220, "746d063f");
+    w(&mut m, 0x2a000224, "f550393f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 2.930428981781006f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_275() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[39, 28, 231, 64]);
-    m.write(0x2a00020c, &[177, 168, 19, 66]);
-    m.write(0x2a000218, &[36, 147, 98, 64]);
-    m.write(0x2a000204, &[251, 237, 26, 65]);
-    m.write(0x2a000210, &[33, 71, 227, 65]);
-    m.write(0x2a00021c, &[186, 160, 34, 64]);
-    m.write(0x2a000208, &[61, 168, 255, 64]);
-    m.write(0x2a000214, &[112, 250, 172, 62]);
-    m.write(0x2a000220, &[199, 70, 141, 64]);
-    m.write(0x2a000224, &[17, 78, 143, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "271ce740");
+    w(&mut m, 0x2a00020c, "b1a81342");
+    w(&mut m, 0x2a000218, "24936240");
+    w(&mut m, 0x2a000204, "fbed1a41");
+    w(&mut m, 0x2a000210, "2147e341");
+    w(&mut m, 0x2a00021c, "baa02240");
+    w(&mut m, 0x2a000208, "3da8ff40");
+    w(&mut m, 0x2a000214, "70faac3e");
+    w(&mut m, 0x2a000220, "c7468d40");
+    w(&mut m, 0x2a000224, "114e8f3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, -0.6084132790565491f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_276() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[9, 140, 253, 62]);
-    m.write(0x2a00020c, &[238, 221, 211, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[164, 240, 253, 63]);
-    m.write(0x2a000210, &[96, 20, 212, 193]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[133, 68, 228, 64]);
-    m.write(0x2a000214, &[54, 21, 168, 191]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[88, 180, 8, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "098cfd3e");
+    w(&mut m, 0x2a00020c, "eeddd341");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "a4f0fd3f");
+    w(&mut m, 0x2a000210, "6014d4c1");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "8544e440");
+    w(&mut m, 0x2a000214, "3615a8bf");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "58b4083f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, -0.6084132790565491f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_277() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[250, 88, 25, 65]);
-    m.write(0x2a00020c, &[1, 35, 10, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[187, 197, 116, 192]);
-    m.write(0x2a000210, &[85, 60, 149, 193]);
-    m.write(0x2a00021c, &[107, 131, 192, 63]);
-    m.write(0x2a000208, &[198, 80, 22, 65]);
-    m.write(0x2a000214, &[123, 45, 51, 65]);
-    m.write(0x2a000220, &[6, 167, 74, 64]);
-    m.write(0x2a000224, &[6, 109, 174, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "fa581941");
+    w(&mut m, 0x2a00020c, "01230a41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "bbc574c0");
+    w(&mut m, 0x2a000210, "553c95c1");
+    w(&mut m, 0x2a00021c, "6b83c03f");
+    w(&mut m, 0x2a000208, "c6501641");
+    w(&mut m, 0x2a000214, "7b2d3341");
+    w(&mut m, 0x2a000220, "06a74a40");
+    w(&mut m, 0x2a000224, "066dae3e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 2.8382508754730225f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_278() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[94, 139, 84, 65]);
-    m.write(0x2a00020c, &[85, 220, 62, 65]);
-    m.write(0x2a000218, &[89, 208, 67, 64]);
-    m.write(0x2a000204, &[110, 170, 98, 65]);
-    m.write(0x2a000210, &[132, 44, 24, 66]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[39, 4, 79, 64]);
-    m.write(0x2a000214, &[90, 241, 4, 193]);
-    m.write(0x2a000220, &[226, 104, 116, 64]);
-    m.write(0x2a000224, &[181, 224, 111, 62]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "5e8b5441");
+    w(&mut m, 0x2a00020c, "55dc3e41");
+    w(&mut m, 0x2a000218, "59d04340");
+    w(&mut m, 0x2a000204, "6eaa6241");
+    w(&mut m, 0x2a000210, "842c1842");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "27044f40");
+    w(&mut m, 0x2a000214, "5af104c1");
+    w(&mut m, 0x2a000220, "e2687440");
+    w(&mut m, 0x2a000224, "b5e06f3e");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 2.8382508754730225f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_279() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[108, 204, 175, 64]);
-    m.write(0x2a00020c, &[227, 222, 55, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[16, 167, 70, 65]);
-    m.write(0x2a000210, &[199, 7, 114, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[189, 224, 86, 64]);
-    m.write(0x2a000214, &[171, 181, 78, 192]);
-    m.write(0x2a000220, &[187, 48, 130, 64]);
-    m.write(0x2a000224, &[169, 39, 155, 189]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "6cccaf40");
+    w(&mut m, 0x2a00020c, "e3de3741");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "10a74641");
+    w(&mut m, 0x2a000210, "c7077241");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "bde05640");
+    w(&mut m, 0x2a000214, "abb54ec0");
+    w(&mut m, 0x2a000220, "bb308240");
+    w(&mut m, 0x2a000224, "a9279bbd");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 0.30926018953323364f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_280() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[169, 100, 42, 65]);
-    m.write(0x2a00020c, &[225, 189, 97, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[68, 171, 125, 65]);
-    m.write(0x2a000210, &[223, 71, 194, 65]);
-    m.write(0x2a00021c, &[2, 197, 84, 64]);
-    m.write(0x2a000208, &[85, 205, 152, 65]);
-    m.write(0x2a000214, &[247, 5, 165, 65]);
-    m.write(0x2a000220, &[210, 141, 129, 64]);
-    m.write(0x2a000224, &[103, 224, 147, 61]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "a9642a41");
+    w(&mut m, 0x2a00020c, "e1bd61c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "44ab7d41");
+    w(&mut m, 0x2a000210, "df47c241");
+    w(&mut m, 0x2a00021c, "02c55440");
+    w(&mut m, 0x2a000208, "55cd9841");
+    w(&mut m, 0x2a000214, "f705a541");
+    w(&mut m, 0x2a000220, "d28d8140");
+    w(&mut m, 0x2a000224, "67e0933d");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 0.30926018953323364f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_281() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[213, 91, 67, 64]);
-    m.write(0x2a00020c, &[74, 63, 240, 65]);
-    m.write(0x2a000218, &[67, 37, 144, 64]);
-    m.write(0x2a000204, &[94, 26, 72, 65]);
-    m.write(0x2a000210, &[41, 251, 24, 66]);
-    m.write(0x2a00021c, &[165, 107, 24, 64]);
-    m.write(0x2a000208, &[247, 78, 94, 64]);
-    m.write(0x2a000214, &[143, 39, 213, 65]);
-    m.write(0x2a000220, &[57, 107, 144, 64]);
-    m.write(0x2a000224, &[134, 151, 204, 61]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "d55b4340");
+    w(&mut m, 0x2a00020c, "4a3ff041");
+    w(&mut m, 0x2a000218, "43259040");
+    w(&mut m, 0x2a000204, "5e1a4841");
+    w(&mut m, 0x2a000210, "29fb1842");
+    w(&mut m, 0x2a00021c, "a56b1840");
+    w(&mut m, 0x2a000208, "f74e5e40");
+    w(&mut m, 0x2a000214, "8f27d541");
+    w(&mut m, 0x2a000220, "396b9040");
+    w(&mut m, 0x2a000224, "8697cc3d");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, -0.5090277194976807f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0000803f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_282() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[15, 8, 196, 64]);
-    m.write(0x2a00020c, &[138, 13, 145, 64]);
-    m.write(0x2a000218, &[201, 221, 148, 62]);
-    m.write(0x2a000204, &[147, 26, 37, 64]);
-    m.write(0x2a000210, &[81, 10, 173, 193]);
-    m.write(0x2a00021c, &[239, 209, 88, 64]);
-    m.write(0x2a000208, &[191, 177, 134, 65]);
-    m.write(0x2a000214, &[182, 125, 208, 191]);
-    m.write(0x2a000220, &[213, 84, 98, 64]);
-    m.write(0x2a000224, &[226, 222, 123, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "0f08c440");
+    w(&mut m, 0x2a00020c, "8a0d9140");
+    w(&mut m, 0x2a000218, "c9dd943e");
+    w(&mut m, 0x2a000204, "931a2540");
+    w(&mut m, 0x2a000210, "510aadc1");
+    w(&mut m, 0x2a00021c, "efd15840");
+    w(&mut m, 0x2a000208, "bfb18641");
+    w(&mut m, 0x2a000214, "b67dd0bf");
+    w(&mut m, 0x2a000220, "d5546240");
+    w(&mut m, 0x2a000224, "e2de7b3f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, -0.5090277194976807f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_283() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[225, 10, 142, 65]);
-    m.write(0x2a00020c, &[92, 127, 249, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[185, 221, 84, 65]);
-    m.write(0x2a000210, &[94, 22, 174, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[196, 158, 120, 192]);
-    m.write(0x2a000214, &[196, 158, 120, 192]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[216, 68, 52, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "e10a8e41");
+    w(&mut m, 0x2a00020c, "5c7ff941");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "b9dd5441");
+    w(&mut m, 0x2a000210, "5e16ae41");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "c49e78c0");
+    w(&mut m, 0x2a000214, "c49e78c0");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "d844343f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 1.3489662408828735f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_284() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[39, 92, 49, 192]);
-    m.write(0x2a00020c, &[172, 17, 129, 65]);
-    m.write(0x2a000218, &[144, 129, 21, 64]);
-    m.write(0x2a000204, &[121, 22, 82, 65]);
-    m.write(0x2a000210, &[237, 86, 0, 66]);
-    m.write(0x2a00021c, &[48, 151, 241, 63]);
-    m.write(0x2a000208, &[222, 222, 194, 63]);
-    m.write(0x2a000214, &[199, 81, 132, 64]);
-    m.write(0x2a000220, &[163, 38, 153, 64]);
-    m.write(0x2a000224, &[163, 234, 20, 63]);
-    m.write(0x2a000228, &[0, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "275c31c0");
+    w(&mut m, 0x2a00020c, "ac118141");
+    w(&mut m, 0x2a000218, "90811540");
+    w(&mut m, 0x2a000204, "79165241");
+    w(&mut m, 0x2a000210, "ed560042");
+    w(&mut m, 0x2a00021c, "3097f13f");
+    w(&mut m, 0x2a000208, "dedec23f");
+    w(&mut m, 0x2a000214, "c7518440");
+    w(&mut m, 0x2a000220, "a3269940");
+    w(&mut m, 0x2a000224, "a3ea143f");
+    w(&mut m, 0x2a000228, "00000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 1.3489662408828735f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_285() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[100, 29, 104, 65]);
-    m.write(0x2a00020c, &[82, 30, 36, 193]);
-    m.write(0x2a000218, &[184, 74, 158, 64]);
-    m.write(0x2a000204, &[165, 125, 92, 64]);
-    m.write(0x2a000210, &[132, 229, 11, 65]);
-    m.write(0x2a00021c, &[1, 161, 119, 63]);
-    m.write(0x2a000208, &[20, 198, 156, 65]);
-    m.write(0x2a000214, &[80, 4, 227, 65]);
-    m.write(0x2a000220, &[160, 122, 147, 64]);
-    m.write(0x2a000224, &[45, 64, 241, 61]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "641d6841");
+    w(&mut m, 0x2a00020c, "521e24c1");
+    w(&mut m, 0x2a000218, "b84a9e40");
+    w(&mut m, 0x2a000204, "a57d5c40");
+    w(&mut m, 0x2a000210, "84e50b41");
+    w(&mut m, 0x2a00021c, "01a1773f");
+    w(&mut m, 0x2a000208, "14c69c41");
+    w(&mut m, 0x2a000214, "5004e341");
+    w(&mut m, 0x2a000220, "a07a9340");
+    w(&mut m, 0x2a000224, "2d40f13d");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 2.974921226501465f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_286() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[39, 53, 224, 63]);
-    m.write(0x2a00020c, &[39, 53, 224, 63]);
-    m.write(0x2a000218, &[231, 35, 11, 64]);
-    m.write(0x2a000204, &[182, 45, 21, 192]);
-    m.write(0x2a000210, &[182, 45, 21, 192]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[57, 228, 76, 65]);
-    m.write(0x2a000214, &[194, 195, 177, 65]);
-    m.write(0x2a000220, &[110, 88, 134, 64]);
-    m.write(0x2a000224, &[202, 162, 147, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "2735e03f");
+    w(&mut m, 0x2a00020c, "2735e03f");
+    w(&mut m, 0x2a000218, "e7230b40");
+    w(&mut m, 0x2a000204, "b62d15c0");
+    w(&mut m, 0x2a000210, "b62d15c0");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "39e44c41");
+    w(&mut m, 0x2a000214, "c2c3b141");
+    w(&mut m, 0x2a000220, "6e588640");
+    w(&mut m, 0x2a000224, "caa2933e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 2.974921226501465f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_287() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[94, 186, 172, 64]);
-    m.write(0x2a00020c, &[138, 185, 113, 65]);
-    m.write(0x2a000218, &[81, 227, 54, 63]);
-    m.write(0x2a000204, &[131, 6, 118, 65]);
-    m.write(0x2a000210, &[139, 113, 132, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[12, 251, 16, 65]);
-    m.write(0x2a000214, &[188, 50, 25, 66]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[192, 17, 14, 186]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "5ebaac40");
+    w(&mut m, 0x2a00020c, "8ab97141");
+    w(&mut m, 0x2a000218, "51e3363f");
+    w(&mut m, 0x2a000204, "83067641");
+    w(&mut m, 0x2a000210, "8b718441");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "0cfb1041");
+    w(&mut m, 0x2a000214, "bc321942");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "c0110eba");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, -0.5561893582344055f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_288() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[153, 81, 107, 65]);
-    m.write(0x2a00020c, &[118, 6, 7, 193]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[219, 254, 48, 65]);
-    m.write(0x2a000210, &[219, 254, 48, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[40, 231, 133, 65]);
-    m.write(0x2a000214, &[113, 33, 202, 65]);
-    m.write(0x2a000220, &[50, 174, 39, 64]);
-    m.write(0x2a000224, &[119, 208, 129, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[3, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "99516b41");
+    w(&mut m, 0x2a00020c, "760607c1");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "dbfe3041");
+    w(&mut m, 0x2a000210, "dbfe3041");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "28e78541");
+    w(&mut m, 0x2a000214, "7121ca41");
+    w(&mut m, 0x2a000220, "32ae2740");
+    w(&mut m, 0x2a000224, "77d0813f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "03000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, -0.5561893582344055f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_289() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[230, 70, 129, 65]);
-    m.write(0x2a00020c, &[230, 70, 129, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[219, 245, 221, 191]);
-    m.write(0x2a000210, &[219, 245, 221, 191]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[114, 207, 74, 64]);
-    m.write(0x2a000214, &[148, 78, 138, 65]);
-    m.write(0x2a000220, &[121, 102, 113, 64]);
-    m.write(0x2a000224, &[96, 205, 177, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "e6468141");
+    w(&mut m, 0x2a00020c, "e6468141");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "dbf5ddbf");
+    w(&mut m, 0x2a000210, "dbf5ddbf");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "72cf4a40");
+    w(&mut m, 0x2a000214, "944e8a41");
+    w(&mut m, 0x2a000220, "79667140");
+    w(&mut m, 0x2a000224, "60cdb13e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 1.4560588598251343f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 0, 0][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "00000000")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_290() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[170, 255, 105, 65]);
-    m.write(0x2a00020c, &[170, 255, 105, 65]);
-    m.write(0x2a000218, &[128, 150, 191, 63]);
-    m.write(0x2a000204, &[157, 206, 151, 65]);
-    m.write(0x2a000210, &[186, 96, 48, 66]);
-    m.write(0x2a00021c, &[157, 237, 139, 60]);
-    m.write(0x2a000208, &[227, 84, 144, 65]);
-    m.write(0x2a000214, &[111, 238, 30, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[52, 100, 148, 189]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[0, 0, 0, 0]);
-    m.write(0x2a000230, &[2, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "aaff6941");
+    w(&mut m, 0x2a00020c, "aaff6941");
+    w(&mut m, 0x2a000218, "8096bf3f");
+    w(&mut m, 0x2a000204, "9dce9741");
+    w(&mut m, 0x2a000210, "ba603042");
+    w(&mut m, 0x2a00021c, "9ded8b3c");
+    w(&mut m, 0x2a000208, "e3549041");
+    w(&mut m, 0x2a000214, "6fee1e41");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "346494bd");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "00000000");
+    w(&mut m, 0x2a000230, "02000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 1.4560588598251343f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[13, 162, 121, 63][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "0da2793f")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_291() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[146, 66, 102, 65]);
-    m.write(0x2a00020c, &[92, 250, 204, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[152, 47, 19, 192]);
-    m.write(0x2a000210, &[111, 129, 23, 65]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[105, 169, 55, 65]);
-    m.write(0x2a000214, &[218, 165, 217, 65]);
-    m.write(0x2a000220, &[0, 0, 0, 0]);
-    m.write(0x2a000224, &[223, 200, 255, 62]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "92426641");
+    w(&mut m, 0x2a00020c, "5cfacc41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "982f13c0");
+    w(&mut m, 0x2a000210, "6f811741");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "69a93741");
+    w(&mut m, 0x2a000214, "daa5d941");
+    w(&mut m, 0x2a000220, "00000000");
+    w(&mut m, 0x2a000224, "dfc8ff3e");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, 0.30799993872642517f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_292() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[205, 209, 231, 64]);
-    m.write(0x2a00020c, &[205, 209, 231, 64]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[160, 68, 138, 65]);
-    m.write(0x2a000210, &[133, 68, 215, 65]);
-    m.write(0x2a00021c, &[146, 144, 162, 63]);
-    m.write(0x2a000208, &[231, 176, 19, 65]);
-    m.write(0x2a000214, &[87, 200, 132, 192]);
-    m.write(0x2a000220, &[4, 209, 58, 64]);
-    m.write(0x2a000224, &[36, 34, 92, 63]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "cdd1e740");
+    w(&mut m, 0x2a00020c, "cdd1e740");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "a0448a41");
+    w(&mut m, 0x2a000210, "8544d741");
+    w(&mut m, 0x2a00021c, "9290a23f");
+    w(&mut m, 0x2a000208, "e7b01341");
+    w(&mut m, 0x2a000214, "57c884c0");
+    w(&mut m, 0x2a000220, "04d13a40");
+    w(&mut m, 0x2a000224, "24225c3f");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, 0.30799993872642517f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[51, 220, 27][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "33dc1b")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_293() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[69, 126, 80, 65]);
-    m.write(0x2a00020c, &[190, 189, 174, 65]);
-    m.write(0x2a000218, &[0, 0, 0, 0]);
-    m.write(0x2a000204, &[88, 175, 128, 65]);
-    m.write(0x2a000210, &[92, 246, 244, 192]);
-    m.write(0x2a00021c, &[0, 0, 0, 0]);
-    m.write(0x2a000208, &[108, 177, 78, 64]);
-    m.write(0x2a000214, &[94, 160, 208, 193]);
-    m.write(0x2a000220, &[139, 143, 152, 64]);
-    m.write(0x2a000224, &[190, 207, 202, 62]);
-    m.write(0x2a000228, &[1, 0, 0, 0]);
-    m.write(0x2a00022c, &[1, 0, 0, 0]);
-    m.write(0x2a000230, &[1, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "457e5041");
+    w(&mut m, 0x2a00020c, "bebdae41");
+    w(&mut m, 0x2a000218, "00000000");
+    w(&mut m, 0x2a000204, "58af8041");
+    w(&mut m, 0x2a000210, "5cf6f4c0");
+    w(&mut m, 0x2a00021c, "00000000");
+    w(&mut m, 0x2a000208, "6cb14e40");
+    w(&mut m, 0x2a000214, "5ea0d0c1");
+    w(&mut m, 0x2a000220, "8b8f9840");
+    w(&mut m, 0x2a000224, "becfca3e");
+    w(&mut m, 0x2a000228, "01000000");
+    w(&mut m, 0x2a00022c, "01000000");
+    w(&mut m, 0x2a000230, "01000000");
     let before0 = m.read(0x2a000200, 52);
     ts::consume(&mut m, 0x2a000200, -0.29714730381965637f32);
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a000200, &[]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
 fn case_294() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x2a000200, &[248, 3, 45, 64]);
-    m.write(0x2a00020c, &[184, 10, 247, 65]);
-    m.write(0x2a000218, &[16, 225, 95, 64]);
-    m.write(0x2a000204, &[8, 191, 101, 65]);
-    m.write(0x2a000210, &[141, 140, 213, 65]);
-    m.write(0x2a00021c, &[47, 82, 134, 64]);
-    m.write(0x2a000208, &[168, 143, 47, 65]);
-    m.write(0x2a000214, &[244, 254, 144, 193]);
-    m.write(0x2a000220, &[135, 29, 183, 63]);
-    m.write(0x2a000224, &[196, 226, 139, 63]);
-    m.write(0x2a000228, &[2, 0, 0, 0]);
-    m.write(0x2a00022c, &[2, 0, 0, 0]);
-    m.write(0x2a000230, &[0, 0, 0, 0]);
+    w(&mut m, 0x2a000200, "f8032d40");
+    w(&mut m, 0x2a00020c, "b80af741");
+    w(&mut m, 0x2a000218, "10e15f40");
+    w(&mut m, 0x2a000204, "08bf6541");
+    w(&mut m, 0x2a000210, "8d8cd541");
+    w(&mut m, 0x2a00021c, "2f528640");
+    w(&mut m, 0x2a000208, "a88f2f41");
+    w(&mut m, 0x2a000214, "f4fe90c1");
+    w(&mut m, 0x2a000220, "871db73f");
+    w(&mut m, 0x2a000224, "c4e28b3f");
+    w(&mut m, 0x2a000228, "02000000");
+    w(&mut m, 0x2a00022c, "02000000");
+    w(&mut m, 0x2a000230, "00000000");
     let before0 = m.read(0x2a000200, 52);
     ts::set_from_use(&mut m, 0x2a000200, -0.29714730381965637f32);
     let mut want0 = before0.clone();
-    patch(&mut want0, 0x2a000200, &[(0x2a000224, &[0, 0, 128][..])]);
-    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original: {:?} vs {:?}", m.read(0x2a000200, 52), want0);
+    patch(&mut want0, 0x2a000200, &[(0x2a000224, "000080")]);
+    assert!(mem_close(&m.read(0x2a000200, 52), &want0), "memory at 0x2a000200 differs from the original:{}", report(0x2a000200, &m.read(0x2a000200, 52), &want0));
 }
 
 #[test]
@@ -7166,7 +7186,7 @@ fn case_295() {
     assert!(close(got, 58.651859283447266f32), "returned {got}, original 58.651859283447266f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7178,7 +7198,7 @@ fn case_296() {
     assert!(close(got, 0.0f32), "returned {got}, original 0.0f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7190,7 +7210,7 @@ fn case_297() {
     assert!(close(got, 470.0577392578125f32), "returned {got}, original 470.0577392578125f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7202,7 +7222,7 @@ fn case_298() {
     assert!(close(got, 0.25f32), "returned {got}, original 0.25f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7214,7 +7234,7 @@ fn case_299() {
     assert!(close(got, 97.58253479003906f32), "returned {got}, original 97.58253479003906f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7226,7 +7246,7 @@ fn case_300() {
     assert!(close(got, 0.029999999329447746f32), "returned {got}, original 0.029999999329447746f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7238,7 +7258,7 @@ fn case_301() {
     assert!(close(got, 442.6302185058594f32), "returned {got}, original 442.6302185058594f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7250,7 +7270,7 @@ fn case_302() {
     assert!(close(got, 0.25f32), "returned {got}, original 0.25f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7262,7 +7282,7 @@ fn case_303() {
     assert!(close(got, 417.5113830566406f32), "returned {got}, original 417.5113830566406f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7274,7 +7294,7 @@ fn case_304() {
     assert!(close(got, 0.25f32), "returned {got}, original 0.25f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7286,7 +7306,7 @@ fn case_305() {
     assert!(close(got, 448.6136169433594f32), "returned {got}, original 448.6136169433594f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7298,7 +7318,7 @@ fn case_306() {
     assert!(close(got, 0.0f32), "returned {got}, original 0.0f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7310,7 +7330,7 @@ fn case_307() {
     assert!(close(got, 145.6212158203125f32), "returned {got}, original 145.6212158203125f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7322,7 +7342,7 @@ fn case_308() {
     assert!(close(got, 0.25f32), "returned {got}, original 0.25f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7334,7 +7354,7 @@ fn case_309() {
     assert!(close(got, 102.93426513671875f32), "returned {got}, original 102.93426513671875f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7346,7 +7366,7 @@ fn case_310() {
     assert!(close(got, 0.25f32), "returned {got}, original 0.25f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7358,7 +7378,7 @@ fn case_311() {
     assert!(close(got, 135.5016632080078f32), "returned {got}, original 135.5016632080078f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7370,7 +7390,7 @@ fn case_312() {
     assert!(close(got, 0.25f32), "returned {got}, original 0.25f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7382,7 +7402,7 @@ fn case_313() {
     assert!(close(got, 324.6452331542969f32), "returned {got}, original 324.6452331542969f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7394,7 +7414,7 @@ fn case_314() {
     assert!(close(got, 0.0f32), "returned {got}, original 0.0f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7406,7 +7426,7 @@ fn case_315() {
     assert!(close(got, 35.87053298950195f32), "returned {got}, original 35.87053298950195f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7418,7 +7438,7 @@ fn case_316() {
     assert!(close(got, 0.25f32), "returned {got}, original 0.25f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7430,7 +7450,7 @@ fn case_317() {
     assert!(close(got, 163.70411682128906f32), "returned {got}, original 163.70411682128906f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7442,7 +7462,7 @@ fn case_318() {
     assert!(close(got, 0.25f32), "returned {got}, original 0.25f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7454,7 +7474,7 @@ fn case_319() {
     assert!(close(got, 44.401458740234375f32), "returned {got}, original 44.401458740234375f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7466,7 +7486,7 @@ fn case_320() {
     assert!(close(got, 0.20000000298023224f32), "returned {got}, original 0.20000000298023224f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7478,7 +7498,7 @@ fn case_321() {
     assert!(close(got, 323.3304748535156f32), "returned {got}, original 323.3304748535156f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7490,7 +7510,7 @@ fn case_322() {
     assert!(close(got, 0.01600000075995922f32), "returned {got}, original 0.01600000075995922f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7502,7 +7522,7 @@ fn case_323() {
     assert!(close(got, 204.87074279785156f32), "returned {got}, original 204.87074279785156f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7514,7 +7534,7 @@ fn case_324() {
     assert!(close(got, 0.25f32), "returned {got}, original 0.25f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7526,7 +7546,7 @@ fn case_325() {
     assert!(close(got, 407.9859313964844f32), "returned {got}, original 407.9859313964844f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7538,7 +7558,7 @@ fn case_326() {
     assert!(close(got, 0.25f32), "returned {got}, original 0.25f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7550,7 +7570,7 @@ fn case_327() {
     assert!(close(got, 71.2850341796875f32), "returned {got}, original 71.2850341796875f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7562,7 +7582,7 @@ fn case_328() {
     assert!(close(got, 0.01600000075995922f32), "returned {got}, original 0.01600000075995922f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7574,7 +7594,7 @@ fn case_329() {
     assert!(close(got, 321.3082275390625f32), "returned {got}, original 321.3082275390625f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7586,7 +7606,7 @@ fn case_330() {
     assert!(close(got, 0.029999999329447746f32), "returned {got}, original 0.029999999329447746f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7598,7 +7618,7 @@ fn case_331() {
     assert!(close(got, 474.0252380371094f32), "returned {got}, original 474.0252380371094f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7610,7 +7630,7 @@ fn case_332() {
     assert!(close(got, 0.20000000298023224f32), "returned {got}, original 0.20000000298023224f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7622,7 +7642,7 @@ fn case_333() {
     assert!(close(got, 26.668842315673828f32), "returned {got}, original 26.668842315673828f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
@@ -7634,285 +7654,285 @@ fn case_334() {
     assert!(close(got, 0.25f32), "returned {got}, original 0.25f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x2a100000, &[]);
-    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original: {:?} vs {:?}", m.read(0x2a100000, 16), want0);
+    assert!(mem_close(&m.read(0x2a100000, 16), &want0), "memory at 0x2a100000 differs from the original:{}", report(0x2a100000, &m.read(0x2a100000, 16), &want0));
 }
 
 #[test]
 fn case_335() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[100, 0]);
-    m.write(0x6974bc, &[241, 220, 195, 65]);
+    w(&mut m, 0x6974c2, "6400");
+    w(&mut m, 0x6974bc, "f1dcc341");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::time(&m);
     assert!(close(got, 24.482881546020508f32), "returned {got}, original 24.482881546020508f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_336() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[100, 0]);
-    m.write(0x6974bc, &[241, 220, 195, 65]);
+    w(&mut m, 0x6974c2, "6400");
+    w(&mut m, 0x6974bc, "f1dcc341");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::dt(&m);
     assert!(close(got, 0.10000000149011612f32), "returned {got}, original 0.10000000149011612f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_337() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[100, 0]);
-    m.write(0x6974bc, &[169, 142, 54, 66]);
+    w(&mut m, 0x6974c2, "6400");
+    w(&mut m, 0x6974bc, "a98e3642");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::time(&m);
     assert!(close(got, 45.63931655883789f32), "returned {got}, original 45.63931655883789f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_338() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[100, 0]);
-    m.write(0x6974bc, &[169, 142, 54, 66]);
+    w(&mut m, 0x6974c2, "6400");
+    w(&mut m, 0x6974bc, "a98e3642");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::dt(&m);
     assert!(close(got, 0.10000000149011612f32), "returned {got}, original 0.10000000149011612f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_339() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[33, 0]);
-    m.write(0x6974bc, &[253, 225, 0, 66]);
+    w(&mut m, 0x6974c2, "2100");
+    w(&mut m, 0x6974bc, "fde10042");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::time(&m);
     assert!(close(got, 32.2206916809082f32), "returned {got}, original 32.2206916809082f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_340() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[33, 0]);
-    m.write(0x6974bc, &[253, 225, 0, 66]);
+    w(&mut m, 0x6974c2, "2100");
+    w(&mut m, 0x6974bc, "fde10042");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::dt(&m);
     assert!(close(got, 0.032999999821186066f32), "returned {got}, original 0.032999999821186066f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_341() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[100, 0]);
-    m.write(0x6974bc, &[71, 255, 75, 66]);
+    w(&mut m, 0x6974c2, "6400");
+    w(&mut m, 0x6974bc, "47ff4b42");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::time(&m);
     assert!(close(got, 50.99929428100586f32), "returned {got}, original 50.99929428100586f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_342() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[100, 0]);
-    m.write(0x6974bc, &[71, 255, 75, 66]);
+    w(&mut m, 0x6974c2, "6400");
+    w(&mut m, 0x6974bc, "47ff4b42");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::dt(&m);
     assert!(close(got, 0.10000000149011612f32), "returned {got}, original 0.10000000149011612f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_343() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[16, 0]);
-    m.write(0x6974bc, &[23, 241, 187, 66]);
+    w(&mut m, 0x6974c2, "1000");
+    w(&mut m, 0x6974bc, "17f1bb42");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::time(&m);
     assert!(close(got, 93.97087860107422f32), "returned {got}, original 93.97087860107422f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_344() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[16, 0]);
-    m.write(0x6974bc, &[23, 241, 187, 66]);
+    w(&mut m, 0x6974c2, "1000");
+    w(&mut m, 0x6974bc, "17f1bb42");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::dt(&m);
     assert!(close(got, 0.01600000075995922f32), "returned {got}, original 0.01600000075995922f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_345() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[33, 0]);
-    m.write(0x6974bc, &[128, 128, 50, 66]);
+    w(&mut m, 0x6974c2, "2100");
+    w(&mut m, 0x6974bc, "80803242");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::time(&m);
     assert!(close(got, 44.62548828125f32), "returned {got}, original 44.62548828125f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_346() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[33, 0]);
-    m.write(0x6974bc, &[128, 128, 50, 66]);
+    w(&mut m, 0x6974c2, "2100");
+    w(&mut m, 0x6974bc, "80803242");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::dt(&m);
     assert!(close(got, 0.032999999821186066f32), "returned {got}, original 0.032999999821186066f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_347() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[1, 0]);
-    m.write(0x6974bc, &[37, 43, 23, 66]);
+    w(&mut m, 0x6974c2, "0100");
+    w(&mut m, 0x6974bc, "252b1742");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::time(&m);
     assert!(close(got, 37.79213333129883f32), "returned {got}, original 37.79213333129883f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_348() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[1, 0]);
-    m.write(0x6974bc, &[37, 43, 23, 66]);
+    w(&mut m, 0x6974c2, "0100");
+    w(&mut m, 0x6974bc, "252b1742");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::dt(&m);
     assert!(close(got, 0.0010000000474974513f32), "returned {got}, original 0.0010000000474974513f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_349() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[1, 0]);
-    m.write(0x6974bc, &[0, 56, 67, 66]);
+    w(&mut m, 0x6974c2, "0100");
+    w(&mut m, 0x6974bc, "00384342");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::time(&m);
     assert!(close(got, 48.8046875f32), "returned {got}, original 48.8046875f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_350() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[1, 0]);
-    m.write(0x6974bc, &[0, 56, 67, 66]);
+    w(&mut m, 0x6974c2, "0100");
+    w(&mut m, 0x6974bc, "00384342");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::dt(&m);
     assert!(close(got, 0.0010000000474974513f32), "returned {got}, original 0.0010000000474974513f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_351() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[16, 0]);
-    m.write(0x6974bc, &[72, 62, 215, 65]);
+    w(&mut m, 0x6974c2, "1000");
+    w(&mut m, 0x6974bc, "483ed741");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::time(&m);
     assert!(close(got, 26.905410766601562f32), "returned {got}, original 26.905410766601562f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_352() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[16, 0]);
-    m.write(0x6974bc, &[72, 62, 215, 65]);
+    w(&mut m, 0x6974c2, "1000");
+    w(&mut m, 0x6974bc, "483ed741");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::dt(&m);
     assert!(close(got, 0.01600000075995922f32), "returned {got}, original 0.01600000075995922f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_353() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[100, 0]);
-    m.write(0x6974bc, &[132, 229, 162, 66]);
+    w(&mut m, 0x6974c2, "6400");
+    w(&mut m, 0x6974bc, "84e5a242");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::time(&m);
     assert!(close(got, 81.44827270507812f32), "returned {got}, original 81.44827270507812f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
 
 #[test]
 fn case_354() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
-    m.write(0x6974c2, &[100, 0]);
-    m.write(0x6974bc, &[132, 229, 162, 66]);
+    w(&mut m, 0x6974c2, "6400");
+    w(&mut m, 0x6974bc, "84e5a242");
     let before0 = m.read(0x6974bc, 4);
     let got = globals::dt(&m);
     assert!(close(got, 0.10000000149011612f32), "returned {got}, original 0.10000000149011612f32");
     let mut want0 = before0.clone();
     patch(&mut want0, 0x6974bc, &[]);
-    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original: {:?} vs {:?}", m.read(0x6974bc, 4), want0);
+    assert!(mem_close(&m.read(0x6974bc, 4), &want0), "memory at 0x6974bc differs from the original:{}", report(0x6974bc, &m.read(0x6974bc, 4), &want0));
 }
