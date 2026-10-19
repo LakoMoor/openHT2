@@ -126,3 +126,21 @@ for _ in range(200):
     w.append((CAR + 0xdc8, pack('f', r.uniform(-30, 30))))
     h.case(CONST + w, lambda e: e.call(0x4f35f0, this=CAR), f'chassis::fn_004f35f0(&mut m, {T})', [(CAR, 0x4000)], dt=r.uniform(0.005, 0.05))
 h.save()
+
+# 0x4f6b70, 0x4eba10
+h = Harness('golden_recorder', ['use ht2_sim::chassis;'])
+r = h.rnd
+for _ in range(60):
+    w, _f = state(0x4f6b70, r, fill=[(0xf8, 0xf8 + 0xf8 * 7), (0x10, 0x60), (0x900, 0x930), (0xd58, 0xd64), (0x9f0, 0xa44), (0xdc0, 0xdcc), (0x2670, 0x2690), (0x29d8, 0x29e0), (0x64, 0x64 + 72), (0x1cbc, 0x1cbc + 72), (0xe9c, 0xe9c + 32), (0x1a30, 0x1a30 + 32), (0xdd8, 0xdd8 + 32)],
+                  overrides={0xdd4: lambda r: ('i', r.randint(0, 6)), 0x8cc: lambda r: ('i', 3)})
+    w.append((0x697868 + 3 * 0x970 + 0x810, pack('f', r.uniform(-2, 3))))
+    w += [(CLK + 0x18 + 8 * k, pack('d', r.uniform(-50, 50))) for k in range(3)]
+    for i in range(6):
+        w.append((CAR + 0x3cdc + 20 * i, pack('i', r.choice([0, 1, 5]))))
+        w.append((CAR + 0x19a4 + 2 * i, pack('h', r.choice([0, 1, -1]))))
+        w.append((CAR + 0x19c4 + i, pack('b', r.choice([0, 1, 255]))))
+    h.case(CONST + w, lambda e: e.call(0x4f6b70, [CLK], 'i', this=CAR), f'chassis::fn_004f6b70(&mut m, {T}, {CLK:#x})', [(CAR, 0x4000)])
+for _ in range(20):
+    w, _f = state(0x4eba10, r, fill=[(0x2700, 0x2800)])
+    h.case(CONST + w, lambda e: e.call(0x4eba10, this=CAR + 0x2700), f'chassis::fn_004eba10(&mut m, {CAR + 0x2700:#x})', [(CAR, 0x4000)], time=r.uniform(1, 100))
+h.save()

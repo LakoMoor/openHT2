@@ -498,3 +498,63 @@ pub fn fn_004f35f0(m: &mut Mem, this: u32) {
         ts::consume(m, this + 0x3f8c, r(dt as f64 * -5.0));
     }
 }
+
+/// `0x4f6b70`: copy the state of the step into the recorder block (`+0x2b40..+0x34c8`).
+pub fn fn_004f6b70(m: &mut Mem, this: u32, clock: u32) {
+    copy_words(m, this + 0x34b0, this + 0x2640, 1);
+    copy_words(m, this + 0x34b8, this + 0x1f48, 3);
+    let k = m.i16(this + 0x2740) as i32;
+    m.set_i32(this + 0x34ac, k);
+    fn_004f09f0(m, this, clock);
+    fn_004f0720(m, this);
+    fn_004f07e0(m, this);
+    copy_words(m, this + 0x3368, this + 0x1a20, 1);
+    copy_words(m, this + 0x2b40, this + 0xd0, 3);
+    for i in 0..m.i32(this + 0xdd4).max(0) as u32 {
+        copy_words(m, this + 0x336c + 4 * i, this + 0xe9c + 4 * i, 1);
+        copy_words(m, this + 0x338c + 4 * i, this + 0x1a30 + 4 * i, 1);
+        copy_words(m, this + 0x2b50 + 0xf8 * i, this + 0xf8 + 0xf8 * i, 0x3e);
+        copy_words(m, this + 0x3348 + 4 * i, this + 0xdd8 + 4 * i, 1);
+        let s = m.i16(this + 0x19a4 + 2 * i) as i32;
+        m.set_i32(this + 0x3444 + 4 * i, s);
+        let c = m.rd8(this + 0x19c4 + i) as i8 as i32;
+        m.set_i32(this + 0x346c + 4 * i, c);
+        copy_words(m, this + 0x348c + 4 * i, this + 0x19d4 + 4 * i, 1);
+    }
+    let c = m.rd8(this + 0x19ba) as i8 as i32;
+    m.set_i32(this + 0x3468, c);
+    let c = m.rd8(this + 0x19b4) as i8 as i32;
+    m.set_i32(this + 0x3464, c);
+    m.set_u32(this + 0x34c4, (0.01 < f(m, this + 0x29dc)) as u32);
+    m.set_u32(this + 0x34c8, (m.i32(this + 0x1c1c) == 0) as u32);
+}
+
+/// `0x4eba10` (`this` = vehicle + `0x2700`): reset the driver input state.
+pub fn fn_004eba10(m: &mut Mem, this: u32) {
+    m.set_u32(this + 0xc, 0);
+    m.set_f32(this + 0x10, 1.0);
+    for o in [0x18, 0x1a, 0x14, 0x16] {
+        m.set_i16(this + o, 0);
+    }
+    m.set_u32(this + 0x20, 0);
+    m.set_u32(this + 0x1c, 0);
+    m.set_i16(this + 0x48, 0);
+    m.set_i16(this + 0x46, 0);
+    m.set_f32(this + 0x2c, 1.0);
+    let t = crate::globals::time_hi(m);
+    m.set_f64(this + 0x38, t);
+    m.set_f64(this + 0x30, t);
+    m.wr8(this + 3, 0);
+    m.wr8(this + 2, 0);
+    m.wr8(this + 1, 0);
+    m.set_i16(this + 0x44, 0);
+    for i in 0..5 {
+        for k in 0..3 {
+            let w = m.u32(0x702650 + 4 * k);
+            m.set_u32(this + 0x104 + 12 * i + 4 * k, w);
+        }
+    }
+    m.set_u32(this + 0xc0, 0);
+    m.set_u32(this + 0xc4, 0);
+    m.set_u32(this + 0x7c, 0);
+}
