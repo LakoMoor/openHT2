@@ -179,3 +179,66 @@ pub fn fn_004ef7c0(m: &mut Mem, this: u32) {
     m.set_f32(this + 0xdc8, k);
     crate::matrix::vec_scale(m, this + 0xa20, this + 0xa38, k);
 }
+
+/// `0x506ae0`: move the body through the world: a sphere of radius `+0x1a0c` swept from the
+/// position `+0x34` along the last move (`+0x34 - +0x8f4`) through the room `+0x1a10` (mode 6:
+/// a sphere, solid blocks and walls). On a hit the move is turned along the surface (the
+/// part across the normal, plus a push out growing with each try) and swept again; after three
+/// hits the body goes back to `+0x8f4` and 0 is returned. Otherwise the body is moved, `+0x8f4`
+/// follows the change of the move, the inverses `+0x900` / `+0x930` are refreshed, and a
+/// portal crossed on the way makes its room the vehicle's (`+0xf4`); a portal met on the way
+/// also sets `+0x3c54`.
+pub fn fn_00506ae0(m: &mut Mem, world: &mut dyn crate::contact::World, this: u32) -> u32 {
+    let rec = SCRATCH + 0x100;
+    crate::contact::rec_init(m, rec);
+    let pos = v3(m, this + 0x34);
+    let old = v3(m, this + 0x8f4);
+    let d = [r(pos[0] - old[0]) as f64, r(pos[1] - old[1]) as f64, r(pos[2] - old[2]) as f64];
+    let mut dir = d;
+    set3(m, rec + 0x4c, pos);
+    set3(m, rec + 0x58, [r(d[0] + pos[0]) as f64, r(d[1] + pos[1]) as f64, r(d[2] + pos[2]) as f64]);
+    let radius = m.u32(this + 0x1a0c);
+    m.set_u32(rec + 0x74, 0);
+    m.set_u32(rec, radius);
+    let room = m.u32(this + 0x1a10);
+    let mut res;
+    let mut k = 0;
+    loop {
+        res = world.collide(m, room, 6, rec);
+        if res & 2 != 0 && m.u32(rec + 0x68) == 0 {
+            m.set_u32(this + 0x3c54, 1);
+            m.set_u32(rec + 0x68, room);
+        }
+        if res & 1 == 0 {
+            break;
+        }
+        let len = (dir[2] * dir[2] + dir[1] * dir[1] + dir[0] * dir[0]).sqrt();
+        let n = v3(m, rec + 0x40);
+        let a = [r(n[0] * len) as f64, r(n[1] * len) as f64, r(n[2] * len) as f64];
+        let kf = k as f64;
+        let b = [r(a[0] * kf) as f64, r(a[1] * kf) as f64, r(a[2] * kf) as f64];
+        let c = [r(b[0] * 0.25) as f64, r(b[1] * 0.25) as f64, r(b[2] * 0.25) as f64];
+        let x = [r(n[1] * dir[2] - n[2] * dir[1]) as f64, r(n[2] * dir[0] - dir[2] * n[0]) as f64, r(dir[1] * n[0] - n[1] * dir[0]) as f64];
+        // 0x4bde50: x cross n
+        let xn = [r(n[2] * x[1] - x[2] * n[1]) as f64, r(x[2] * n[0] - n[2] * x[0]) as f64, r(n[1] * x[0] - n[0] * x[1]) as f64];
+        dir = [r(xn[0] + c[0]) as f64, r(xn[1] + c[1]) as f64, r(xn[2] + c[2]) as f64];
+        set3(m, rec + 0x4c, pos);
+        set3(m, rec + 0x58, [r(pos[0] + dir[0]) as f64, r(pos[1] + dir[1]) as f64, r(pos[2] + dir[2]) as f64]);
+        k += 1;
+        if 3 <= k {
+            copy3(m, this + 0x34, this + 0x8f4);
+            crate::math::mat_inverse(m, this + 0x900, this + 0x10);
+            return 0;
+        }
+    }
+    set3(m, this + 0x34, [r(pos[0] + dir[0]) as f64, r(pos[1] + dir[1]) as f64, r(pos[2] + dir[2]) as f64]);
+    let w = [r(dir[0] - d[0]) as f64, r(dir[1] - d[1]) as f64, r(dir[2] - d[2]) as f64];
+    set3(m, this + 0x8f4, [r(old[0] + w[0]) as f64, r(old[1] + w[1]) as f64, r(old[2] + w[2]) as f64]);
+    crate::math::mat_inverse(m, this + 0x900, this + 0x10);
+    crate::math::mat_inverse(m, this + 0x930, this + 0x8d0);
+    if res & 2 != 0 {
+        let to = m.u32(rec + 0x68);
+        m.set_u32(this + 0xf4, to);
+    }
+    1
+}

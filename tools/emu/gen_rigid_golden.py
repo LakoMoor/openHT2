@@ -7,8 +7,11 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from harness import Harness, pack  # noqa: E402
 from autofuzz import state, CAR  # noqa: E402
+import world_stub  # noqa: E402
 
-h = Harness('golden_rigid', ['use ht2_sim::rigid;'])
+h = Harness('golden_rigid', ['use ht2_sim::{rigid, contact};'])
+world_stub.install(h.e)
+OBJ, VTBL = CAR + 0x5000, CAR + 0x5100
 r = h.rnd
 T = f'{CAR:#x}'
 WATCH = [(CAR, 0x4000)]
@@ -37,4 +40,20 @@ for _ in range(100):
     if r.random() < 0.2:
         w += [(CAR + 0x40, bytes(12))]
     h.case(AXES + w, lambda e: e.call(0x4ef7c0, this=CAR), f'rigid::fn_004ef7c0(&mut m, {T})', WATCH)
+# 0x506ae0: the body swept through the stub world (a floor at z0, crossed going down)
+for _ in range(120):
+    pos = [r.uniform(-50, 50), r.uniform(-50, 50), r.uniform(0, 3)]
+    d = [r.uniform(-1, 1), r.uniform(-1, 1), r.uniform(-1.5, 0.5)]
+    old = [pos[i] - d[i] for i in range(3)]
+    z0 = r.uniform(-2, 3)
+    extra = r.choice([0, 0, 2])
+    w = AXES + world_stub.make_obj(OBJ, VTBL, z0, 0, r.randint(1, 50), extra)
+    t = r.uniform(-0.3, 0.3)
+    M = [math.cos(t), math.sin(t), 0, -math.sin(t), math.cos(t), 0, 0, 0, 1] + pos
+    w += [(CAR + 0x10 + 4 * i, pack('f', v)) for i, v in enumerate(M)]
+    w += [(CAR + 0x8d0 + 4 * i, pack('f', v)) for i, v in enumerate(M)]
+    w += [(CAR + 0x8f4 + 4 * i, pack('f', v)) for i, v in enumerate(old)]
+    w += [(CAR + 0x1a0c, pack('f', r.uniform(0.5, 2))), (CAR + 0x1a10, pack('u', OBJ)), (CAR + 0x3c54, pack('i', 0)),
+          (CAR + 0xf4, pack('i', 7))]
+    h.case(w, lambda e: e.call(0x506ae0, this=CAR), f'rigid::fn_00506ae0(&mut m, &mut contact::StubWorld, {T})', WATCH, ret=True, ret_int=True)
 h.save()
