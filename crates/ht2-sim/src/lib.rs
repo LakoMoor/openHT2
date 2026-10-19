@@ -21,6 +21,7 @@ pub mod input;
 pub mod math;
 pub mod matrix;
 pub mod mem;
+pub mod rigid;
 pub mod road;
 pub mod shape;
 pub mod step;
