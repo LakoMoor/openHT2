@@ -75,4 +75,13 @@ for _ in range(40):
     sx, sy = struct.unpack('<f', pack('f', x))[0], struct.unpack('<f', pack('f', y))[0]
     h.case([], lambda e: e.call(0x5ab500, [x, y, z, C, D], 'fffii'),
            f'{{ let (a, b) = matrix::dir_to_angles(&mut m, {sx!r}f32, {sy!r}f32, {sz!r}f32); m.set_f32({T(C)}, a); m.set_f32({T(D)}, b); }}', WATCH)
+for _ in range(60):
+    p = [r.uniform(-20, 20) for _ in range(3)]
+    d = [r.uniform(-1, 1) for _ in range(3)]
+    if r.random() < 0.1:
+        d = [0.0, 0.0, 0.0]
+    ro = r.uniform(-4, 4)
+    q = [struct.unpack('<f', pack('f', v))[0] for v in p + d + [ro]]
+    h.case(IDENT, lambda e: e.call(0x5abc90, [C] + p + d + [ro], 'i' + 'f' * 7),
+           f'matrix::mat_look(&mut m, {T(C)}, [{q[0]!r}f32, {q[1]!r}f32, {q[2]!r}f32], [{q[3]!r}f32, {q[4]!r}f32, {q[5]!r}f32], {q[6]!r}f32)', WATCH)
 h.save()

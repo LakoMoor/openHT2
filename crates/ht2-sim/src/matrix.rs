@@ -256,3 +256,38 @@ pub fn dir_to_angles(m: &mut Mem, x: f32, y: f32, z: f32) -> (f32, f32) {
     }
     (azimuth, polar)
 }
+
+/// `0x5abc90`: transform that places something at `pos` looking along `dir` with a roll about
+/// its own axis: `inverse(M) * rotZ(roll) * M`, where `M` is built from the translation to `pos`
+/// and the two angles of `dir`. The identity when `dir` is (nearly) zero. `dst` receives the 12 floats.
+pub fn mat_look(m: &mut Mem, dst: u32, pos: [f32; 3], dir: [f32; 3], roll: f32) {
+    const S: u32 = 0x2ffe_0000;
+    let (a, c, b) = (S, S + 0x30, S + 0x60);
+    let ident: [f32; 12] = core::array::from_fn(|i| m.f32(crate::globals::MAT_IDENTITY + 4 * i as u32));
+    put12(m, a, &ident);
+    put12(m, b, &ident);
+    put12(m, c, &ident);
+    let (d, u) = (S + 0x100, S + 0x110);
+    m.set_f32(d, dir[0]);
+    m.set_f32(d + 4, dir[1]);
+    m.set_f32(d + 8, dir[2]);
+    vec_unit(m, d, d);
+    if !vec_near(m, d, 0x702650) {
+        vec_unit(m, u, d);
+        let (az, pol) = dir_to_angles(m, m.f32(u), m.f32(u + 4), m.f32(u + 8));
+        mat_rot_z(m, c, roll);
+        let (t, rz, ry, m2, m3) = (S + 0x200, S + 0x230, S + 0x260, S + 0x290, S + 0x2c0);
+        mat_translation(m, t, pos[0], pos[1], pos[2]);
+        mat_rot_z(m, rz, az);
+        mat_rot_y(m, ry, pol);
+        mat_mul(m, m2, ry, rz);
+        mat_mul(m, m3, m2, t);
+        let bm: [f32; 12] = core::array::from_fn(|i| m.f32(m3 + 4 * i as u32));
+        put12(m, b, &bm);
+        crate::math::mat_inverse(m, a, b);
+        mat_apply(m, a, c);
+        mat_apply(m, a, b);
+    }
+    let out: [f32; 12] = core::array::from_fn(|i| m.f32(a + 4 * i as u32));
+    put12(m, dst, &out);
+}
