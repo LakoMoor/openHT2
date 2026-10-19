@@ -344,37 +344,41 @@ impl Driver {
         self.seed
     }
 
-    /// Make the route reach `dist` metres past the place. Stand-in: at each node a random road
-    /// among those going on within 70 degrees of the way in (the straightest one when there is
-    /// none), never the one arriving (the planner of the road module is not ported).
+    /// Make the route reach `dist` metres past the place: at the end of the route, a route
+    /// (`0x484c80`, the cheapest) to another destination (`traceToArbitraryDestination`,
+    /// `0x417820`). Stand-in: the destination is a random node from the driver's own generator
+    /// (the original draws it in `0x456140` with the road module's generator, not ported).
     pub fn extend(&mut self, net: &RoadNet, dist: f64) {
         let mut p = self.place;
         let mut left = dist;
-        for _ in 0..8 {
+        for _ in 0..4 {
             net.advance_route(&mut p, &mut left, &self.route);
             let Some(node) = p.node else { return };
-            if left == 0.0 || self.route.iter().any(|s| s.node == node) {
+            if left == 0.0 {
                 return;
             }
-            let n = &net.nodes[node];
-            let roads: Vec<usize> = n.out.iter().chain(n.inc.iter()).copied().filter(|&r| r != p.road).collect();
-            let flat = |v: [f64; 3]| {
-                let l = (v[0] * v[0] + v[1] * v[1]).sqrt().max(1e-9);
-                [v[0] / l, v[1] / l]
-            };
-            let way_in = flat(net.direction(&p, false));
-            let out = |r: usize| {
-                let q = if net.roads[r].start == node { net.road_start(r) } else { net.road_end(r) };
-                let d = flat(net.direction(&Place { node: None, ..q }, false));
-                d[0] * way_in[0] + d[1] * way_in[1]
-            };
-            let ahead: Vec<usize> = roads.iter().copied().filter(|&r| 0.34 < out(r)).collect();
-            let road = if !ahead.is_empty() {
-                ahead[self.rand() as usize % ahead.len()]
-            } else {
-                roads.iter().copied().max_by(|&a, &b| out(a).total_cmp(&out(b))).unwrap_or(p.road)
-            };
-            self.route.push(RouteStep { node, road: Some(road) });
+            while self.route.last().is_some_and(|s| s.road.is_none()) {
+                self.route.pop();
+            }
+            let mut planned = false;
+            for _ in 0..16 {
+                let dst = self.rand() as usize % net.nodes.len();
+                if dst == node || net.nodes[dst].flags & 8 != 0 {
+                    continue;
+                }
+                if let Some((steps, _)) = net.route_between(node, dst, 0) {
+                    if 1 < steps.len() && steps[0].road != Some(p.road) {
+                        self.route.extend(steps);
+                        planned = true;
+                        break;
+                    }
+                }
+            }
+            if !planned {
+                let n = &net.nodes[node];
+                let road = n.out.iter().chain(n.inc.iter()).copied().find(|&r| r != p.road).unwrap_or(p.road);
+                self.route.push(RouteStep { node, road: Some(road) });
+            }
         }
     }
 

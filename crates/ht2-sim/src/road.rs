@@ -807,3 +807,77 @@ mod net_tests {
         assert!((k.abs() * 14.0 - std::f64::consts::FRAC_PI_2).abs() < 1e-9 || k == 0.0, "{k}");
     }
 }
+
+impl RoadNet {
+    /// `0x409980`: what it costs to drive a road (against its direction when `against`): the
+    /// length of each segment, half as much again on `attr2` 2 roads and double on 3, and for
+    /// `mode` other than 1 ten thousand times on segments flagged 0x40 or one-way the other way.
+    pub fn road_cost(&self, mode: u32, road: usize, against: bool) -> f64 {
+        let mut total = 0.0;
+        for &s in &self.roads[road].segments {
+            let seg = &self.segments[s];
+            let mut k = match seg.attr2 {
+                2 => 1.5,
+                3 => 2.0,
+                _ => 1.0,
+            };
+            if mode != 1 && (seg.flags & 0x40 != 0 || seg.flags & if against { 4 } else { 8 } != 0) {
+                k *= 10000.0;
+            }
+            total += seg.length() * k;
+        }
+        total
+    }
+
+    /// `0x484c80`: the cheapest route from node `src` to node `dst` (Dijkstra over the nodes:
+    /// the open node with the least cost, the first one in node order on a tie; from each, the
+    /// roads leaving it, then those arriving). The route lists, for each node on the way, the
+    /// road taken there, and ends with `dst`. `None` when `dst` cannot be reached.
+    pub fn route_between(&self, src: usize, dst: usize, mode: u32) -> Option<(Vec<RouteStep>, f64)> {
+        if src == dst {
+            return Some((vec![RouteStep { node: dst, road: None }], 0.0));
+        }
+        let n = self.nodes.len();
+        let mut cost = vec![f64::MAX; n];
+        let mut done = vec![false; n];
+        let mut path: Vec<Vec<RouteStep>> = vec![Vec::new(); n];
+        cost[src] = 0.0;
+        let mut open: Vec<usize> = (0..n).collect();
+        while !open.is_empty() {
+            let mut best = 0;
+            for k in 1..open.len() {
+                if cost[open[k]] < cost[open[best]] {
+                    best = k;
+                }
+            }
+            let cur = open[best];
+            if f64::MAX <= cost[cur] {
+                return None;
+            }
+            if cur == dst {
+                let mut route = std::mem::take(&mut path[cur]);
+                route.push(RouteStep { node: dst, road: None });
+                return Some((route, cost[cur]));
+            }
+            open.remove(best);
+            done[cur] = true;
+            for (against, roads) in [(false, &self.nodes[cur].out), (true, &self.nodes[cur].inc)] {
+                for &road in roads {
+                    let r = &self.roads[road];
+                    let other = if against { r.start } else { r.end };
+                    if done[other] {
+                        continue;
+                    }
+                    let c = self.road_cost(mode, road, against) + cost[cur];
+                    if c < cost[other] {
+                        cost[other] = c;
+                        let mut p = path[cur].clone();
+                        p.push(RouteStep { node: cur, road: Some(road) });
+                        path[other] = p;
+                    }
+                }
+            }
+        }
+        None
+    }
+}
