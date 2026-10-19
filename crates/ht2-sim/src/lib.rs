@@ -6,6 +6,7 @@
 //! until then so they can always be traced back.
 
 pub mod carv;
+pub mod chassis;
 pub mod curves;
 pub mod filter;
 pub mod gearbox;
