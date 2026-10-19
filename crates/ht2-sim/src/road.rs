@@ -522,3 +522,17 @@ impl Segment {
         (self.width[1] - self.width[0]) * s / self.length() + self.width[0]
     }
 }
+
+impl Segment {
+    /// `getRightDirection` (`0x445c90`): the direction traffic must take on the segment:
+    /// `Some(false)` along it (flag 4), `Some(true)` against it (flag 8), `None` both ways.
+    pub fn one_way(&self) -> Option<bool> {
+        if self.flags & 8 != 0 {
+            Some(true)
+        } else if self.flags & 4 != 0 {
+            Some(false)
+        } else {
+            None
+        }
+    }
+}
