@@ -1,4 +1,5 @@
 mod ground;
+mod powertrain;
 mod vehicle;
 
 use glam::{Mat4, Vec3};
@@ -163,7 +164,7 @@ fn truck_params(t: &tech::Tech, wheels: &[Vec3]) -> Result<Params, String> {
         front_y - rear_y,
         half_track * 2.0
     );
-    Ok(Params::from_tech(t, front_y, rear_y, half_track))
+    Ok(Params::from_tech(t, wheels.len(), front_y, rear_y, half_track))
 }
 
 fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, String> {
@@ -180,7 +181,8 @@ fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, Strin
     };
     let ride = truck_model.ride_height;
     println!("{truck}: ground {} triangles, spawn at {pos:?}, heading {heading:.2}, ride height {ride:.2}", ground.triangle_count());
-    let vehicle = Vehicle::new(truck_model.params.clone(), pos, heading, ride);
+    let tech_file = std::rc::Rc::new(fs::read(dir.join("vehicle.tech")).map_err(|e| format!("vehicle.tech: {e}"))?);
+    let vehicle = Vehicle::new(truck_model.params.clone(), tech_file, pos, heading, ride);
     Ok(World { ground, vehicle, world_scenes, truck: truck_model, spawn: (pos, heading, ride) })
 }
 
@@ -233,12 +235,19 @@ fn run() -> Result<(), String> {
             let (_, device, queue) = pollster::block_on(request_device(&instance, None))?;
             let mut game = Game::new(Renderer::new(device, queue, wgpu::TextureFormat::Rgba8Unorm), world);
             let mut t = 0.0;
+            let trace = std::env::var_os("HT2_TRACE").is_some();
+            let mut next_print = 0.0;
             while t < seconds {
                 game.world.vehicle.step(Input { steer: (t * 0.6).sin() * 0.25, throttle: 1.0, brake: 0.0 }, &game.world.ground, STEP);
                 t += STEP;
+                if trace && t >= next_print {
+                    let v = &game.world.vehicle;
+                    println!("t={t:5.2} speed={:5.1} gear={} tgt={} shift={} rev={:5.1} thr={:.2} F={:8.0} fuel={:.2}", v.speed, v.gear, v.last.map_or(0, |o| o.target_gear), v.last.map_or(0, |o| o.shift_code), v.engine_rev, v.last.map_or(0.0, |o| o.throttle_eff), v.last.map_or(0.0, |o| o.drive_force), v.fuel);
+                    next_print += 0.25;
+                }
             }
             let v = &game.world.vehicle;
-            println!("after {seconds}s: pos {:?}, speed {:.1} m/s, gear {}, {:.0} rpm", v.pos, v.speed, v.gear, v.rpm());
+            println!("after {seconds}s: pos {:?}, speed {:.1} m/s, gear {}, {:.0} rpm, fuel {:.2} l", v.pos, v.speed, v.gear, v.rpm(), v.fuel);
             game.place_truck();
             let v = &game.world.vehicle;
             let aspect = size.0 as f32 / size.1 as f32;
@@ -347,7 +356,8 @@ impl ApplicationHandler for App {
                         if code == KeyCode::KeyR {
                             if let Some(g) = self.gfx.as_mut() {
                                 let (p, h, r) = g.game.world.spawn;
-                                g.game.world.vehicle = Vehicle::new(g.game.world.vehicle.params.clone(), p, h, r);
+                                g.game.world.vehicle = g.game.world.vehicle.respawned(p, h);
+                                let _ = r;
                             }
                         }
                     } else {
@@ -380,7 +390,8 @@ impl ApplicationHandler for App {
                         let vp = chase_view_proj(&g.game.world.vehicle, size.0 as f32 / size.1 as f32);
                         g.game.renderer.draw(&view, size, vp);
                         let v = &g.game.world.vehicle;
-                        g.window.set_title(&format!("openHT2 - {:.0} km/h, gear {}, {:.0} rpm", v.speed * 3.6, v.gear, v.rpm()));
+                        let gear = match v.gear { 0 => "R".to_string(), 1 => "N".to_string(), g => (g - 1).to_string() };
+                        g.window.set_title(&format!("openHT2 - {:.0} km/h, gear {gear}, {:.0} rpm, fuel {:.1} l", v.speed * 3.6, v.rpm(), v.fuel));
                         g.window.pre_present_notify();
                         frame.present();
                     }

@@ -11,6 +11,8 @@ const HEADER_LEN: usize = 57;
 
 #[derive(Debug, Clone)]
 pub struct Tech {
+    /// Position of the record in the file (the game addresses vehicles by this index).
+    pub index: usize,
     /// Upper-case catalogue name, e.g. `KAMAZ`.
     pub name: String,
     /// Prefix of the model blocks in `.b3d` files, e.g. `Kamaz`.
@@ -75,6 +77,7 @@ pub fn parse(d: &[u8]) -> Result<Vec<Tech>> {
             continue;
         }
         out.push(Tech {
+            index: i,
             name,
             prefix: text(r, 2302, 20),
             mass: f32_at(r, 96),

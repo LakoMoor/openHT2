@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 ht2-formats = { path = "../ht2-formats" }
 ht2-render = { path = "../ht2-render" }
+ht2-sim = { path = "../ht2-sim" }
 wgpu = "24"
 winit = "0.30"
 pollster = "0.4"
