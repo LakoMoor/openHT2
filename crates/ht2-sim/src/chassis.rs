@@ -307,3 +307,113 @@ pub fn fn_004f2630(m: &mut Mem, this: u32, p2: u32) {
     let p7 = m.f32(this + 0xdc8);
     fn_004f2670(m, this, p2, this + 0x10, this + 0x900, this + 0x9f0, this + 0x4c, p7, this + 0xa38);
 }
+
+/// `0x4f3000`: tyre forces for the step. For every wheel that is not locked (`+0x19a4 == 0`) the
+/// friction budget `mu * load` is split into a longitudinal part (the driven wheels share the
+/// engine force by their budgets) and a lateral one; when the demand exceeds the budget the wheel
+/// slides (`+0x19c4`, `+0x19d4`) and the forces are cut back. Writes the force vectors
+/// (`+0x2094`, `+0x20f4`, `+0x2154`, `+0x21b4`) and returns the total force used.
+pub fn fn_004f3000(m: &mut Mem, this: u32) -> f32 {
+    let count = m.i32(this + 0xdd4).max(0) as u32;
+    m.set_i32(this + 0x1abc, (0.1f64 < f(m, this + 0x29dc)) as i32);
+    let mut a = [0.0f32; 8]; // load * mu per wheel
+    let mut b = [0.0f32; 8]; // longitudinal demand
+    let mut c = [0.0f32; 8]; // lateral demand
+    let mut d = [0.0f32; 8]; // friction budget
+    let mut e;
+    let mut total = 0.0f32;
+    for i in 0..count {
+        m.set_i32(this + 0x19d4 + 4 * i, 0);
+        for o in [0x2094, 0x21b4] {
+            for k in 0..3 {
+                let w = m.u32(0x702650 + 4 * k);
+                m.set_u32(this + o + 12 * i + 4 * k, w);
+            }
+        }
+    }
+    let mut share = 0.01f32;
+    for i in 0..count as usize {
+        if m.i16(this + 0x19a4 + 2 * i as u32) == 0 {
+            let force = f(m, this + 0x2670 + 4 * i as u32) * f(m, this + 0xd20 + 4 * i as u32);
+            a[i] = force as f32;
+            if m.i32(this + 0x1bb4 + 4 * i as u32) != 0 {
+                share = r(force + share as f64);
+            }
+        }
+    }
+    for i in 0..count {
+        let ii = i as usize;
+        let (v3o, f4) = (12 * i, 4 * i);
+        if m.i16(this + 0x19a4 + 2 * i) != 0 {
+            continue;
+        }
+        let ratio = f(m, this + 0x1a7c + f4);
+        if m.i32(this + 0x1bb4 + f4) != 0 {
+            b[ii] = r(a[ii] as f64 * f(m, this + 0x1c94) / share as f64);
+        }
+        let lim = r(ratio * a[ii] as f64);
+        d[ii] = lim;
+        if m.i32(this + 0x1abc) != 0 {
+            let s = f(m, this + 0x1c98 + f4);
+            let sgn = if ratio < 0.0 { -1.0 } else { 1.0 };
+            c[ii] = r(sgn * s * f(m, this + 0x29dc));
+        }
+        let g = v3(m, this + 0x1904 + v3o);
+        let mut dir = 1.0f64;
+        if f(m, this + 0x24) * g[2] + f(m, this + 0x20) * g[1] + f(m, this + 0x1c) * g[0] < 0.0 {
+            c[ii] = -c[ii];
+            dir = -1.0;
+        }
+        let ext = b[ii] as f64 - c[ii] as f64;
+        e = r(ext);
+        let _ = e;
+        let (bi, ci) = (b[ii] as f64, c[ii] as f64);
+        if (lim as f64).abs() < ext.abs() {
+            if bi.abs() < ci.abs() {
+                if f(m, this + 0xdc8).abs() > 1.0 {
+                    m.wr8(this + 0x19c4 + i, 1);
+                    m.set_i32(this + 0x19d4 + f4, -1);
+                }
+                let s = f(m, this + 0x1964 + f4);
+                let t = if s < 1.0 { -(s * a[ii] as f64) } else { -(a[ii] as f64) };
+                set3(m, this + 0x21b4 + v3o, [r(t * g[0]), r(t * g[1]), r(t * g[2])]);
+                for o in [0x20f4, 0x2154] {
+                    for k in 0..3 {
+                        let w = m.u32(0x702650 + 4 * k);
+                        m.set_u32(this + o + v3o + 4 * k, w);
+                    }
+                }
+                m.set_i32(this + 0x8bc + f4, 0);
+                total = r(d[ii].abs() as f64 + total as f64);
+            } else {
+                m.wr8(this + 0x19c4 + i, 1);
+                crate::matrix::vec_scale_in_place(m, this + 0x20f4 + v3o, SCRATCH + 0x600, r(0.1));
+                crate::matrix::vec_scale_in_place(m, this + 0x2154 + v3o, SCRATCH + 0x600, r(0.1));
+                let w = v3(m, this + 0xaa4 + v3o);
+                let (t, flag) = if bi > 0.0 { (a[ii] as f64, 1) } else { (-(a[ii] as f64), -1) };
+                set3(m, this + 0x2094 + v3o, [r(t * w[0]), r(t * w[1]), r(t * w[2])]);
+                m.set_i32(this + 0x19d4 + f4, flag);
+                total = r(total as f64 + c[ii] as f64);
+            }
+        } else {
+            if bi.abs() < ci.abs() {
+                b[ii] = 0.0;
+                c[ii] = r(-(dir * ext));
+            } else {
+                b[ii] = r(ext);
+                c[ii] = 0.0;
+            }
+            let p = v3(m, this + 0xa44 + v3o);
+            let cc = c[ii] as f64;
+            set3(m, this + 0x21b4 + v3o, [r(-p[0] * cc), r(-p[1] * cc), r(-p[2] * cc)]);
+            let ax = v3(m, this + 0xa38);
+            let dot = ax[2] * p[2] + ax[1] * p[1] + ax[0] * p[0];
+            let bb = b[ii] as f64;
+            let t = if dot > 0.0 { bb } else { -bb };
+            set3(m, this + 0x2094 + v3o, [r(t * p[0]), r(t * p[1]), r(t * p[2])]);
+            total = r(c[ii].abs() as f64 + total as f64);
+        }
+    }
+    crate::carv::fn_004f2490(m, this);
+    total
+}

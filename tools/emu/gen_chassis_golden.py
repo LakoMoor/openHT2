@@ -80,3 +80,21 @@ for name, addr in (('fn_004f0720', 0x4f0720), ('fn_004f07e0', 0x4f07e0), ('fn_00
         args = [CLK] if name == 'fn_004f09f0' else []
         h.case(CONST + w, lambda e, addr=addr, args=args: e.call(addr, args, 'i' * len(args), this=CAR), call, [(CAR, 0x4000)])
 h.save()
+
+# 0x4f3000
+h = Harness('golden_tyres', ['use ht2_sim::chassis;'])
+r = h.rnd
+for _ in range(300):
+    w, _f = state(0x4f3000, r, fill=[(0x1c, 0x28), (0xa38, 0xa44), (0xa44, 0xa44 + 72), (0xaa4, 0xaa4 + 72), (0x1904, 0x1904 + 72), (0xd20, 0xd20 + 32), (0x2670, 0x2670 + 32), (0x1964, 0x1964 + 32), (0x1a7c, 0x1a7c + 32), (0x1c94, 0x1c94 + 4), (0x1c98, 0x1c98 + 32)],
+                  overrides={0xdd4: lambda r: ('i', r.randint(0, 6)), 0x29dc: lambda r: ('f', r.choice([0.0, 0.05, 0.5, 1.0]))})
+    for i in range(6):
+        w.append((CAR + 0x19a4 + 2 * i, pack('h', r.choice([0, 0, 0, 1]))))
+        w.append((CAR + 0x1bb4 + 4 * i, pack('i', r.choice([0, 1, 1]))))
+        w.append((CAR + 0x2670 + 4 * i, pack('f', r.uniform(0.2, 1.2))))
+        w.append((CAR + 0xd20 + 4 * i, pack('f', r.uniform(500, 30000))))
+        w.append((CAR + 0x1a7c + 4 * i, pack('f', r.uniform(-1, 1))))
+        w.append((CAR + 0x1964 + 4 * i, pack('f', r.uniform(0, 2))))
+    w.append((CAR + 0x1c94, pack('f', r.uniform(-60000, 60000))))
+    w.append((CAR + 0xdc8, pack('f', r.uniform(-3, 3))))
+    h.case(CONST + w, lambda e: e.call(0x4f3000, this=CAR), f'chassis::fn_004f3000(&mut m, {T})', [(CAR, 0x4000)], ret=True)
+h.save()
