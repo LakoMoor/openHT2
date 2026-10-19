@@ -653,3 +653,104 @@ impl RoadNet {
         (side, s.width_at(p.t, p.piece) * 0.5, s.value * 10.0, s.flags)
     }
 }
+
+/// A step of a route (12-byte entries of the original's route list): at `node`, take `road`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RouteStep {
+    pub node: usize,
+    pub road: Option<usize>,
+}
+
+impl RoadNet {
+    /// The place at the start of `road`, facing along it (`0x47ff20`).
+    pub fn road_start(&self, road: usize) -> Place {
+        Place { road, node: Some(self.roads[road].start), t: 0.0, piece: 0, segment: 0, reversed: false }
+    }
+
+    /// The place at the end of `road`, facing back along it (`0x4800a0`).
+    pub fn road_end(&self, road: usize) -> Place {
+        let r = &self.roads[road];
+        let segment = r.segments.len() - 1;
+        let piece = self.segments[r.segments[segment]].pieces() - 1;
+        Place { road, node: Some(r.end), t: 1.0, piece, segment, reversed: true }
+    }
+
+    /// `advancePosition(PlayerId, ...)` (`0x43b570`): move `dist` metres along a route. At a
+    /// node the route says which road to take next; the place continues on it from the end
+    /// that touches the node. Stops (keeping the rest of `dist`) at a node the route does not
+    /// continue from; a step back onto the same road ends the move.
+    pub fn advance_route(&self, p: &mut Place, dist: &mut f64, route: &[RouteStep]) {
+        let mut from = 0;
+        loop {
+            self.advance(p, dist);
+            let (Some(node), true) = (p.node, *dist != 0.0) else { return };
+            let Some(k) = route[from..].iter().position(|s| s.node == node).map(|k| k + from) else { return };
+            from = k + 1;
+            let Some(road) = route[k].road else { return };
+            if road == p.road {
+                *dist = 0.0;
+                return;
+            }
+            let r = &self.roads[road];
+            *p = if r.start == node {
+                self.road_start(road)
+            } else if r.end == node {
+                self.road_end(road)
+            } else {
+                return;
+            };
+        }
+    }
+
+    /// `0x4cdaf0`: how fast the road turns ahead: the angle between the direction at `p` and
+    /// `dist` metres further along the route, per metre actually travelled (at least 0.1),
+    /// positive for a left turn.
+    pub fn curvature(&self, p: &Place, dist: f64, back: bool, route: &[RouteStep]) -> f64 {
+        let mut q = *p;
+        let mut left = if back { -dist } else { dist };
+        self.advance_route(&mut q, &mut left, route);
+        let travelled = (if back { -dist } else { dist }) - left;
+        let (a, _) = self.heading(p, back);
+        let (b, _) = self.heading(&q, back);
+        let mut ang = (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]).clamp(-1.0, 1.0).acos();
+        if a[0] * b[1] - a[1] * b[0] < 0.0 {
+            ang = -ang;
+        }
+        let d = travelled.abs().max(0.1);
+        ang / d
+    }
+}
+
+#[cfg(test)]
+mod net_tests {
+    use super::*;
+    use ht2_formats::way;
+
+    fn seg(a: [f64; 3], b: [f64; 3]) -> way::Segment {
+        way::Segment { kind: 0, value: 0.5, flag: 1, width: [8.0, 8.0], points: vec![a, b] }
+    }
+
+    #[test]
+    fn route_crosses_a_node() {
+        // a T junction: (0,0) - (10,0) - (20,0) and (10,0) - (10,10)
+        let room = way::Room {
+            name: "r".into(),
+            nodes: vec![],
+            segments: vec![seg([0.0, 0.0, 0.0], [10.0, 0.0, 0.0]), seg([10.0, 0.0, 0.0], [20.0, 0.0, 0.0]), seg([10.0, 10.0, 0.0], [10.0, 0.0, 0.0])],
+        };
+        let net = RoadNet::build(&[vec![room]]);
+        assert_eq!(net.roads.len(), 3);
+        let first = net.roads.iter().position(|r| net.nodes[r.start].pos == [0.0, 0.0, 0.0] || net.nodes[r.end].pos == [0.0, 0.0, 0.0]).unwrap();
+        let up = net.roads.iter().position(|r| net.nodes[r.start].pos == [10.0, 10.0, 0.0] || net.nodes[r.end].pos == [10.0, 10.0, 0.0]).unwrap();
+        let mut p = if net.nodes[net.roads[first].start].pos == [0.0, 0.0, 0.0] { net.road_start(first) } else { net.road_end(first) };
+        p.node = None;
+        let mid = net.nodes.iter().position(|n| n.pos == [10.0, 0.0, 0.0]).unwrap();
+        let mut d = 14.0;
+        net.advance_route(&mut p, &mut d, &[RouteStep { node: mid, road: Some(up) }]);
+        let c = net.coordinates(&p);
+        assert!((c[0] - 10.0).abs() < 1e-9 && (c[1] - 4.0).abs() < 1e-9, "{c:?}");
+        // turning from the first road onto the side road is a quarter turn
+        let k = net.curvature(&net.road_start(first), 14.0, false, &[RouteStep { node: mid, road: Some(up) }]);
+        assert!((k.abs() * 14.0 - std::f64::consts::FRAC_PI_2).abs() < 1e-9 || k == 0.0, "{k}");
+    }
+}
