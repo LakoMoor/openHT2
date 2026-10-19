@@ -155,8 +155,9 @@ impl SimCar {
         m.set_f32(CAR + 0x2710, 0.0);
         m.set_i16(CAR + 0x2714, (braking > 0.0) as i16);
         with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, CAR));
+        let others: Vec<u32> = std::iter::once(CAR).chain(self.traffic.iter().map(|(c, _)| *c)).collect();
         for (car, drv) in &mut self.traffic {
-            ai::drive(m, *car, &ground.roads, drv, 0, dt as f64);
+            ai::drive(m, *car, &ground.roads, drv, 0, dt as f64, &others);
             with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, *car));
         }
     }
@@ -217,6 +218,8 @@ impl SimCar {
             m.set_i16(car + 0x2706, 1);
             ht2_sim::gearbox::fn_004ff770(m, car, 1);
             ai::init_driver(m, car, next());
+            // Traffic follows the vehicle ahead (`0x4d13e1`; other roles of the original differ).
+            m.set_u32(car + 0x4078, 1);
             m.set_i16(car + 0x2746, REQUEST_DRIVE);
             self.traffic.push((car, ai::Driver::new(place, next())));
             taken.push(pos);
@@ -249,11 +252,14 @@ impl SimCar {
         let (car, d) = self.traffic.get(k)?;
         let m = &self.m;
         Some(format!(
-            "car{k}: pos={:6.1?} v={:5.1} gear={} mode={} lat={:5.2} steer={:5.2} thr={:.2} brk={:.2} road={} t={:.3}",
+            "car{k}: pos={:6.1?} v={:5.1} gear={} mode={} lane={} flags={:#x} slots={:09b} lat={:5.2} steer={:5.2} thr={:.2} brk={:.2} road={} t={:.3}",
             [m.f32(car + 0x34), m.f32(car + 0x38), m.f32(car + 0x3c)],
             m.f32(car + 0xdc8),
             m.i32(car + 0x1c1c),
             m.u32(car + ai::MODE),
+            m.i32(car + ai::LANE),
+            m.u32(car + ai::FLAGS),
+            m.u32(car + 0x4064),
             m.f64(car + ai::LATERAL),
             m.f32(car + ai::STEER_INPUT),
             m.f32(car + 0x270c),

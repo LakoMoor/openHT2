@@ -398,12 +398,15 @@ impl Driver {
     }
 }
 
-/// `SecondCar::run` (`0x4d6510`) up to the vehicle step: sets the inputs from the road ahead.
-/// `owner` are the flags of the owner (`0x43f620`), `dt` the frame time. Not ported: the
-/// obstacle search `0x4d6340` / `0x4d57c0` (other vehicles: no obstacle, the lane is the one of
-/// `0x4d4620`), so mode 3 and the checks of `0x4d3880`; the vehicle the camera follows and
-/// owners flagged 4 (full brake) are not handled.
-pub fn drive(m: &mut Mem, this: u32, net: &RoadNet, drv: &mut Driver, owner: u32, dt: f64) {
+/// `SecondCar::run` (`0x4d6510`) up to the vehicle step: sets the inputs from the road ahead
+/// and the vehicles `others` (addresses, the driver's own among them). `owner` are the flags of
+/// the owner (`0x43f620`), `dt` the frame time. Not ported: the checks of `0x4d3880` (what is
+/// right in front when stuck or turning round), the horn of `0x4d6340`, the vehicle the camera
+/// follows and owners flagged 4 (full brake).
+pub fn drive(m: &mut Mem, this: u32, net: &RoadNet, drv: &mut Driver, owner: u32, dt: f64, others: &[u32]) {
+    // The owner clears the stop distance before each run (`0x4cfb51`); stop objects (not
+    // ported) set it.
+    m.set_f64(this + OBSTACLE, -1.0);
     let brake_k = fn_004f2f60(m, this) as f64;
     let drive_k = crate::gearbox::fn_004ff660(m, this) as f64;
     let back = m.u32(this + BACK) != 0;
@@ -421,18 +424,27 @@ pub fn drive(m: &mut Mem, this: u32, net: &RoadNet, drv: &mut Driver, owner: u32
     drv.extend(net, 400.0);
     let p = drv.place;
     let route = drv.route.clone();
-    let (side, width, _, _) = net.lateral(&p, back, front);
+    let (side, width, other_half, seg_flags) = net.lateral(&p, back, front);
     m.set_f64(this + LATERAL, side);
     let (road, slope) = net.heading(&p, back);
     let lane = fn_004d4620(m, this, owner, width);
-    m.set_i32(this + LANE, lane * 2);
-    let obstacle = -1.0f64;
+    // 0x4d6340: the vehicles around pick the lane and the speed to follow.
+    let lw = m.f64(this + LANE_WIDTH);
+    m.set_i32(this + 0x4060, ((width + other_half) / (lw * 0.5)) as i32);
+    let follow = m.u32(this + 0x4078) != 0;
+    let speed = m.f32(this + SPEED) as f64;
+    let traffic = fn_004d4a90(m, this, others, net, &p, &route, speed, back, follow, width, lw, side as f32);
+    let mut flags = m.u32(this + FLAGS);
+    let chosen = fn_004d57c0(&mut flags, lane * 2, width, other_half, lw, seg_flags, m.f64(this + OBSTACLE), follow, &traffic);
+    m.set_u32(this + FLAGS, flags);
+    m.set_u32(this + 0x4064, traffic.bits);
+    m.set_i32(this + LANE, chosen);
+    let ahead_speed = traffic.follow;
     let mut base = 30.0;
-    if 0.0 < obstacle && obstacle < 30.0 && m.u32(this + 0x4078) != 0 {
-        base = obstacle;
+    if 0.0 < ahead_speed && ahead_speed < 30.0 && follow {
+        base = ahead_speed;
     }
     let curv = net.curvature(&p, 15.0, back, &route);
-    let lw = m.f64(this + LANE_WIDTH);
     let lat = (m.i32(this + LANE) + 1) as f64 * lw * 0.5 + m.f64(this + LATERAL);
     m.set_f64(this + LATERAL, lat);
     // The flat forward direction `+0x4050`; the heading error is the sine of the angle from
@@ -443,17 +455,17 @@ pub fn drive(m: &mut Mem, this: u32, net: &RoadNet, drv: &mut Driver, owner: u32
     m.set_f32(this + 0x4054, dir[1] as f32);
     m.set_f32(this + 0x4058, 0.0);
     let heading = (road[0] * dir[1] - road[1] * dir[0]).clamp(-0.9999, 0.9999).asin();
-    if 0.0 < obstacle {
-        if m.u32(this + MODE) == 1 {
-            m.set_f64(this + 0x4048, lat);
-            m.set_u32(this + MODE, 3);
+    // Facing against the way: turn round (mode 3) until facing along it again.
+    if 0.0 < road[0] * dir[0] + road[1] * dir[1] {
+        if m.u32(this + MODE) == 3 {
+            m.set_i16(this + 0x2746, 100);
+            m.set_u32(this + MODE, 1);
         }
-    } else if m.u32(this + MODE) == 3 {
-        m.set_i16(this + 0x2746, 100);
-        m.set_u32(this + MODE, 1);
+    } else if m.u32(this + MODE) == 1 {
+        m.set_f64(this + 0x4048, lat);
+        m.set_u32(this + MODE, 3);
     }
     // Stuck: slower than 2 m/s with nothing ahead for 5 s, then back off for 3 s.
-    let speed = m.f32(this + SPEED) as f64;
     if speed < 2.0 && m.u32(this + MODE) != 2 && m.u32(this + FLAGS) & 8 == 0 && m.f64(this + OBSTACLE) < 0.0 {
         if m.u32(this + 0x402c) == 0 {
             m.set_f64(this + 0x4038, 0.0);
@@ -503,7 +515,6 @@ pub fn drive(m: &mut Mem, this: u32, net: &RoadNet, drv: &mut Driver, owner: u32
             // The cosine between the up axes of the vehicle and of the world.
             let tilt = m.f32(this + 0x30) as f64;
             let top = top_speed(m, this) as f64;
-            let follow = m.u32(this + 0x4078) != 0;
             let target = target_speed(net, &p, &route, owner, follow, base, heading, tilt, lat, back, top, m.f64(this + OBSTACLE));
             fn_004d60c0(m, this, target, slope);
         }
@@ -526,6 +537,230 @@ pub fn drive(m: &mut Mem, this: u32, net: &RoadNet, drv: &mut Driver, owner: u32
                 m.set_u32(this + MODE, 1);
             }
         }
+        3 => {
+            // Full lock, left when the turn started left of the lane and `+0x3bd8` is
+            // positive or neither holds; forwards or backwards to stay within
+            // `width + value * 5` of the centre line.
+            let edge = other_half * 0.5 + width;
+            let left = 0.0 < m.f64(this + 0x4048);
+            let lock = if (0 < m.i32(this + 0x3bd8)) == left { 1.0 } else { -1.0 };
+            fn_004d74e0(m, this, lock);
+            if lat < -edge {
+                m.set_i16(this + 0x2746, if 0.0 < heading { 100 } else { 0x14 });
+            } else if edge < lat {
+                m.set_i16(this + 0x2746, if heading < 0.0 { 100 } else { 0x14 });
+            }
+            if speed < 5.0 {
+                m.set_u32(this + 0x2710, 0);
+                m.set_f32(this + 0x270c, drive_k as f32);
+            } else if 7.0 < speed {
+                m.set_u32(this + 0x270c, 0);
+                m.set_f32(this + 0x2710, brake_k as f32);
+            } else {
+                m.set_u32(this + 0x2710, 0);
+                m.set_u32(this + 0x270c, 0);
+            }
+        }
         _ => {}
     }
+}
+
+/// Length (`tech +0x554`, `0x697dbc`) and width (`tech +0x550`, `0x697db8`) of a vehicle.
+fn size(m: &Mem, car: u32) -> (f64, f64) {
+    let rec = crate::gearbox::TECH_TABLE + (m.i32(car + 0x8cc) as u32).wrapping_mul(0x970);
+    (m.f32(rec + 0x554) as f64, m.f32(rec + 0x550) as f64)
+}
+
+/// What `0x4d4a90` reads of a vehicle on the owner (game vehicle) object: the centre
+/// (`+0x50a0` matrix times `+0x5230`; here the origin of the body), the velocity (`+0x50dc`;
+/// here the forward axis times the forward speed `+0xdc8`), the forward axis, length and width.
+struct Body {
+    centre: [f64; 3],
+    vel: [f64; 3],
+    fwd: [f64; 3],
+    len: f64,
+    width: f64,
+}
+
+fn body(m: &Mem, car: u32) -> Body {
+    let fwd = f3(m, car + 0x1c);
+    let v = m.f32(car + 0xdc8) as f64;
+    let (len, width) = size(m, car);
+    Body { centre: f3(m, car + 0x34), vel: [fwd[0] * v, fwd[1] * v, fwd[2] * v], fwd, len, width }
+}
+
+fn len3(v: [f64; 3]) -> f64 {
+    (v[2] * v[2] + v[1] * v[1] + v[0] * v[0]).sqrt()
+}
+
+/// What `0x4d4a90` finds about the other vehicles.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Traffic {
+    /// Bit `k` set: half-lane slot `k` is taken ahead, slot 4 being the first half lane right
+    /// of the centre line (each slot half a lane wide, positive to the right).
+    pub bits: u32,
+    /// Speed of the vehicle to follow in the right half of the road, or -1.
+    pub follow: f64,
+    /// Distance to the nearest vehicle that takes a slot (1000 when none).
+    pub nearest: f64,
+}
+
+/// `0x4d4a90`: look at the vehicles `others` within 150 m (and not much above or below):
+/// the nearest one ahead in the right half of the road (sideways between 0 and `right` m from
+/// the centre line), moving faster than 5 m/s, sets the speed to follow (`follow` drivers
+/// only): its speed less 10 m/s when closer than `0.1 v² + lengths/2 + 10` (`v` the closing
+/// speed), its speed when within 20 m more, at least 5. Each vehicle not far behind and closer
+/// than that distance (50 m more when the driver is left of the centre `lat > 0`, or standing
+/// while it moves) marks the half-lane slots its outline covers. The place of the other
+/// vehicle on the road is found from the driver's place along the route (stand-in for the
+/// road module's own position of the vehicle, `0x43d7c0` / `0x43d910`).
+#[allow(clippy::too_many_arguments)]
+pub fn fn_004d4a90(m: &Mem, this: u32, others: &[u32], net: &RoadNet, p: &Place, route: &[RouteStep], speed: f64, back: bool, follow: bool, right: f64, lane_width: f64, lat: f32) -> Traffic {
+    let me = body(m, this);
+    let t = unit(net.direction(p, back));
+    let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    let mut out = Traffic { bits: 0, follow: -1.0, nearest: 1000.0 };
+    let mut nearest_follow = 1000.0;
+    let c0 = net.coordinates(p);
+    for &car in others {
+        if car == this {
+            continue;
+        }
+        let o = body(m, car);
+        let half = (o.len + me.len) * 0.5;
+        let d = [o.centre[0] - me.centre[0], o.centre[1] - me.centre[1], o.centre[2] - me.centre[2]];
+        let dist = len3(d);
+        if !(d[2].abs() / dist <= 0.2 && dist <= 150.0) {
+            continue;
+        }
+        let dv = [o.vel[0] - me.vel[0], o.vel[1] - me.vel[1], o.vel[2] - me.vel[2]];
+        let mut closing = len3(dv);
+        if dot(dv, t) < 0.0 {
+            closing = -closing;
+        }
+        // Its place: the driver's place moved by how far it is ahead along the road.
+        let mut q = *p;
+        let tf = net.direction(p, false);
+        let l = (tf[0] * tf[0] + tf[1] * tf[1]).sqrt().max(1e-9);
+        let mut ahead = ((o.centre[0] - c0[0]) * tf[0] + (o.centre[1] - c0[1]) * tf[1]) / l;
+        net.advance_route(&mut q, &mut ahead, route);
+        let mut n = unit(net.tangent(&q));
+        if dot(n, t) < 0.0 {
+            n = [-n[0], -n[1], -n[2]];
+        }
+        let c = net.coordinates(&q);
+        let w = [o.centre[0] - c[0], o.centre[1] - c[1]];
+        let f = w[0] * n[0] + w[1] * n[1];
+        let side_v = [w[0] - n[0] * f, w[1] - n[1] * f, -(f * n[2])];
+        let mut side = len3(side_v);
+        if 0.0 < n[0] * w[1] - n[1] * w[0] {
+            side = -side;
+        }
+        let mut reach = closing * closing * 0.1 + half + 10.0;
+        if 0.0 < side && side < right && follow {
+            let v = len3(o.vel);
+            if 5.0 < v && dist < nearest_follow && half < dist && 0.0 < dot(d, t) {
+                nearest_follow = dist;
+                if dist < reach {
+                    out.follow = v - 10.0;
+                } else if dist < reach + 20.0 {
+                    out.follow = v;
+                }
+                if out.follow < 0.0 {
+                    out.follow = 5.0;
+                }
+            }
+        }
+        let mut behind = if closing < 0.0 { closing + closing } else { 0.0 };
+        if behind < -half {
+            behind = -half;
+        }
+        if behind <= dot(d, t) && (closing <= 1.0 || speed <= 3.0) {
+            if 0.0 < lat || (speed < 3.0 && 3.0 < len3(o.vel)) {
+                reach += 50.0;
+            }
+            if dist <= reach {
+                let hl = lane_width * 0.5;
+                let s = (dot(o.fwd, [side_v[0], side_v[1], side_v[2]]) / side.abs().max(1e-9)).abs().min(1.0);
+                let extent = ((1.0 - s * s).sqrt() * o.width + s * o.len) / hl * 0.5;
+                let pos = side / hl + 4.0;
+                let lo = (pos - extent) as i32;
+                let hi = (pos + extent) as i32;
+                if -1 < hi && lo < 9 {
+                    if dist < out.nearest {
+                        out.nearest = dist;
+                    }
+                    for k in lo.max(0)..=hi.min(8) {
+                        out.bits |= 1 << k;
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+/// `0x4d57c0`: keep the lane `lane` (in half lanes) or pick another one: once the slots of
+/// the lane are taken ahead (flag 2 of `+0x4070`), a following driver behind a vehicle faster
+/// than 5 m/s (or one held to its lane, flag 0x10) stays behind (flag 8); otherwise the first
+/// free lane to the left, then to the right within `right` metres, then (two-way roads, no
+/// stop ahead) further left, then right within the whole road `right + left`; none: flag 8.
+/// Returns the lane and the slots (stored in `+0x4064`); the speed to follow goes to `follow`.
+#[allow(clippy::too_many_arguments)]
+pub fn fn_004d57c0(flags: &mut u32, lane: i32, right: f64, left: f64, lane_width: f64, seg_flags: u32, stop: f64, follow: bool, t: &Traffic) -> i32 {
+    *flags &= !8;
+    let bits = t.bits;
+    let taken = |k: i32| bits & (3u32 << ((k & 0x1f) as u32)) != 0;
+    if *flags & 2 == 0 && taken(lane + 4) {
+        *flags |= 2;
+    }
+    if *flags & 2 == 0 {
+        return lane;
+    }
+    if !taken(lane + 4) {
+        *flags &= !2;
+        return lane;
+    }
+    if (follow && 5.0 < t.follow) || *flags & 0x10 != 0 {
+        *flags |= 8;
+        return lane;
+    }
+    for k in 1..=4 {
+        if k <= lane && !taken(lane + 4 - k) {
+            return lane - k;
+        }
+    }
+    let w = |k: i32| k as f64 * lane_width * 0.5;
+    let d5 = w(lane + 3);
+    let d6 = w(lane + 4);
+    let d7 = w(lane + 5);
+    let d8 = w(lane + 6);
+    if d5 <= right && !taken(lane + 5) {
+        return lane + 1;
+    }
+    if d6 < right && !taken(lane + 6) {
+        return lane + 2;
+    }
+    if d7 < right && !taken(lane + 7) {
+        return lane + 3;
+    }
+    if d8 < right && !taken(lane + 8) {
+        return lane + 4;
+    }
+    let two_way = seg_flags & 0xc == 0;
+    if two_way && stop < 0.0 {
+        for k in 1..=4 {
+            if !taken(lane + 4 - k) {
+                return lane - k;
+            }
+        }
+    }
+    let all = right + left;
+    for (k, d) in [(1, d5), (2, d6), (3, d7), (4, d8)] {
+        if d < all && !taken(lane + 4 + k) && stop < 0.0 {
+            return lane + k;
+        }
+    }
+    *flags |= 8;
+    lane
 }
