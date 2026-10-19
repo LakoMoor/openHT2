@@ -116,3 +116,19 @@ pub fn dt_hi(m: &Mem) -> f64 {
         }
     }
 }
+
+/// Where the port keeps the state of the C library `rand()` (MSVC linear congruential generator).
+pub const RAND_SEED: u32 = 0x7f0000;
+/// When non-zero, `rand()` returns this value instead (the golden tests fix it like the emulator).
+pub const RAND_FIXED: u32 = 0x7f0004;
+
+/// `0x61edde`: `rand()` of the original C library.
+pub fn rand(m: &mut Mem) -> i32 {
+    let fixed = m.u32(RAND_FIXED);
+    if fixed != 0 {
+        return fixed as i32;
+    }
+    let s = m.u32(RAND_SEED).wrapping_mul(214013).wrapping_add(2531011);
+    m.set_u32(RAND_SEED, s);
+    ((s >> 16) & 0x7fff) as i32
+}

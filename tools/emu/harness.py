@@ -58,7 +58,8 @@ class Harness:
         e.write(CLOCK_OBJ + 0xb98, struct.pack('<d', time))
         e.write(CLOCK_OBJ + 0xb90, struct.pack('<d', dt))
 
-    def case(self, writes, call, rust, watch, ret=None, time=0.0, dt=0.016, setup_rust='', prepare=None, ret_int=False):
+    def case(self, writes, call, rust, watch, ret=None, time=0.0, dt=0.016, setup_rust='', prepare=None, ret_int=False, ignore=()):
+        """`ignore`: (addr, len) ranges whose result is not compared (uninitialised data of the original)."""
         """`writes`: initial memory. `call(emu)` runs the original and returns ST0.
         `rust` is a Rust expression/statement block evaluated with `m` in scope, returning f32 if `ret`."""
         e = self.e
@@ -92,7 +93,7 @@ class Harness:
                     i = j
                 else:
                     i += 1
-        self.cases.append(dict(writes=init, rust=rust, watch=watch, ret=r if ret else None, ret_int=ret_int, diffs=diffs,
+        self.cases.append(dict(writes=init, rust=rust, watch=watch, ret=r if ret else None, ret_int=ret_int, diffs=diffs, ignore=list(ignore),
                                time=time, dt=dt, setup=setup_rust))
 
     def save(self):
@@ -163,6 +164,9 @@ class Harness:
                 out.append(f'    let mut want{k} = before{k}.clone();')
                 body = ', '.join(f'({a:#x}, "{bytes(d).hex()}")' for a, d in mine)
                 out.append(f'    patch(&mut want{k}, {b:#x}, &[{body}]);')
+                for ia, il in c.get('ignore', []):
+                    if b <= ia and ia + il <= b + ln:
+                        out.append(f'    want{k}[{ia - b:#x}..{ia - b + il:#x}].copy_from_slice(&m.read({ia:#x}, {il}));')
                 out.append(f'    assert!(mem_close(&m.read({b:#x}, {ln}), &want{k}), "memory at {b:#x} differs from the original:{{}}", report({b:#x}, &m.read({b:#x}, {ln}), &want{k}));')
             out.append('}')
             out.append('')
