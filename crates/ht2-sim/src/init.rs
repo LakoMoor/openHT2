@@ -93,4 +93,11 @@ pub fn init_engine(m: &mut Mem, this: u32, id: i32) {
     ts::define(m, this + 0x3f24, 0, f32::from_bits(0x3f19_999a), 1.0, 30000.0);
     ts::define(m, this + 0x3f24, 1, f32::from_bits(0x3f4c_cccd), 1.0, 60000.0);
     ts::define(m, this + 0x3f24, 2, f32::from_bits(0x3f4c_cccd), 1.0, 60000.0);
+
+    // At the end of the constructor a snapshot of the block `+0x1b70..+0x1d5c` is kept at `+0x1d5c`;
+    // the per-frame code restores the number of gears and the shift times from it.
+    for i in 0..0x7b {
+        let v = m.u32(this + 0x1b70 + 4 * i);
+        m.set_u32(this + 0x1d5c + 4 * i, v);
+    }
 }

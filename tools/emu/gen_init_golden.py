@@ -37,7 +37,7 @@ def ranges(e):
     n0, n1 = (struct.unpack('<i', e.read(CAR + o + 0x1c, 4))[0] for o in (0x1b30, 0x1b50))
     t0, v0, t1, v1 = (struct.unpack('<I', e.read(CAR + o, 4))[0] for o in (0x1b30 + 8, 0x1b30 + 0xc, 0x1b50 + 8, 0x1b50 + 0xc))
     return [(CAR + 0x8cc, 4), (CAR + 0x1b30, 0x44), (CAR + 0x1b74, 0x40), (CAR + 0x1c14, 0x84), (CAR + 0x1cb8, 4), (CAR + 0x2640, 4),
-            (CAR + 0x3bdc, 4), (CAR + 0x3ebc, 0x16c), (t0, n0 * 4), (v0, n0 * 4), (t1, n1 * 4), (v1, n1 * 4)]
+            (CAR + 0x3bdc, 4), (CAR + 0x1e04, 4), (CAR + 0x1e1c, 0x10), (CAR + 0x3ebc, 0x16c), (t0, n0 * 4), (v0, n0 * 4), (t1, n1 * 4), (v1, n1 * 4)]
 
 
 def heap_start(e):
