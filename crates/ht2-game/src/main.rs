@@ -137,7 +137,8 @@ fn load_truck(dir: &Path, prefix: &str) -> Result<Truck, String> {
         wheel_groups.push(group.to_owned());
         wheels.push(Wheel {
             mount: Mat4::from_cols(axes[0].extend(0.0), axes[1].extend(0.0), axes[2].extend(0.0), Vec3::from(pos).extend(1.0)),
-            steered: t.steering_wheels[i],
+            // the original turns the first two wheels with the steering (0x547030)
+            steered: i < 2,
             spin_sign: if axes[0].x < 0.0 { -1.0 } else { 1.0 },
         });
     }
