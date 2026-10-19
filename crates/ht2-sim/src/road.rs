@@ -536,3 +536,120 @@ impl Segment {
         }
     }
 }
+
+/// A place in the road network (`PositionId` of the original, 8 words): a road, or a node
+/// when the place is at the end of a road, the segment of the road, the piece of the segment,
+/// the parameter on the piece and whether the place faces against the road.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Place {
+    pub road: usize,
+    pub node: Option<usize>,
+    pub t: f64,
+    pub piece: usize,
+    pub segment: usize,
+    pub reversed: bool,
+}
+
+fn norm(v: [f64; 3]) -> [f64; 3] {
+    let l = (v[2] * v[2] + v[1] * v[1] + v[0] * v[0]).sqrt();
+    if l < 1e-5 {
+        [0.0; 3]
+    } else {
+        [v[0] / l, v[1] / l, v[2] / l]
+    }
+}
+
+impl RoadNet {
+    fn seg(&self, p: &Place) -> &Segment {
+        &self.segments[self.roads[p.road].segments[p.segment]]
+    }
+
+    /// `getCoordinates` (`0x439580` → `0x435bf0`): the point of a place (a node's position when
+    /// the place is a node).
+    pub fn coordinates(&self, p: &Place) -> [f64; 3] {
+        match p.node {
+            Some(n) => self.nodes[n].pos,
+            None => self.seg(p).point(p.t, p.piece),
+        }
+    }
+
+    /// `getTangent` (`0x439320`): the direction of the road at a place, not normalised.
+    pub fn tangent(&self, p: &Place) -> [f64; 3] {
+        self.seg(p).tangent(p.t, p.piece)
+    }
+
+    /// `advancePosition` (`0x435d60`): move `dist` metres along the road (against it when the
+    /// place is reversed), segment by segment. At the end of the road the place becomes the
+    /// node there and `dist` keeps what is left.
+    pub fn advance(&self, p: &mut Place, dist: &mut f64) {
+        if p.reversed {
+            *dist = -*dist;
+        }
+        let road = &self.roads[p.road];
+        let mut step = 0.1;
+        if *dist > 0.0 {
+            while p.segment < road.segments.len() {
+                let s = &self.segments[road.segments[p.segment]];
+                if !s.advance(&mut p.t, dist, &mut p.piece, &mut step) || road.segments.len() - 1 <= p.segment {
+                    break;
+                }
+                p.segment += 1;
+                p.piece = 0;
+                p.t = 0.0;
+            }
+        } else if *dist < 0.0 {
+            while p.segment < road.segments.len() {
+                let s = &self.segments[road.segments[p.segment]];
+                if !s.advance(&mut p.t, dist, &mut p.piece, &mut step) || p.segment == 0 {
+                    break;
+                }
+                p.segment -= 1;
+                p.piece = self.segments[road.segments[p.segment]].pieces() - 1;
+                p.t = 1.0;
+            }
+        }
+        if *dist > 0.0 {
+            p.node = Some(road.end);
+        } else if *dist < 0.0 {
+            p.node = Some(road.start);
+        } else {
+            p.node = None;
+            return;
+        }
+        if p.reversed {
+            *dist = -*dist;
+        }
+    }
+
+    /// `0x4cda20`: the horizontal direction of the road at a place (against the road when
+    /// `back`), and the slope angle of the road there.
+    pub fn heading(&self, p: &Place, back: bool) -> ([f64; 3], f64) {
+        let mut t = self.tangent(p);
+        if back {
+            t = [-t[0], -t[1], -t[2]];
+        }
+        let slope = norm(t)[2].asin();
+        (norm([t[0], t[1], 0.0]), slope)
+    }
+
+    /// `0x4cd770`: the signed sideways distance of the point `q` from the centre line of the
+    /// road at a place (positive to the left of the direction of travel), half the road width,
+    /// the speed value of the segment (its `ATTR` real times 10) and the segment flags.
+    pub fn lateral(&self, p: &Place, back: bool, q: [f64; 3]) -> (f64, f64, f64, u32) {
+        let c = self.coordinates(p);
+        let d = [q[0] - c[0], q[1] - c[1], 0.0];
+        let mut t = self.tangent(p);
+        if back {
+            t = [-t[0], -t[1], -t[2]];
+        }
+        let u = norm([t[0], t[1], 0.0]);
+        let k = u[1] * d[1] + u[0] * d[0] + u[2] * d[2];
+        let l = [d[0] - u[0] * k, d[1] - u[1] * k, d[2] - u[2] * k];
+        let mut side = (l[0] * l[0] + l[1] * l[1] + l[2] * l[2]).sqrt();
+        if u[0] * l[1] - u[1] * l[0] < 0.0 {
+            side = -side;
+        }
+        let s = self.seg(p);
+        (side, s.width_at(p.t, p.piece) * 0.5, s.value * 10.0, s.flags)
+    }
+}
