@@ -197,3 +197,24 @@ for k in range(300):
         w.append((CAR + o, pack('b', 1 if r.random() < 0.2 else 0)))
     h.case(CONST + w, lambda e: e.call(0x4fca10, [OUT], 'i', this=CAR), f'chassis::fn_004fca10(&mut m, {T}, {OUT:#x})', [(CAR, 0x4000)], dt=r.uniform(0.005, 0.05))
 h.save()
+
+# 0x501930
+h = Harness('golden_damage', ['use ht2_sim::chassis;'])
+r = h.rnd
+SIN = [(0x696ec0 + 4 * i, pack('f', _m.sin((i * 3.1415926 + i * 3.1415926) / 360.0))) for i in range(360)]
+for _ in range(200):
+    w, _f = state(0x501930, r, fill=[(0x1d60, 0x1da0), (0xe9c, 0xebc), (0x1e84, 0x1ea4), (0x1e1c, 0x1e28)])
+    w.append((CAR + 0xdd4, pack('i', r.randint(0, 6))))
+    for i in range(6):
+        w.append((CAR + 0x3cdc + 20 * i, pack('i', r.choice([0, 1, 2]))))
+        w.append((CAR + 0x3ce0 + 20 * i, pack('i', r.choice([0, 1, 2]))))
+        w.append((CAR + 0x3e1c + 20 * i, pack('i', r.choice([0, 1]))))
+        w.append((CAR + 0xe9c + 4 * i, pack('f', r.uniform(-3.2, 3.2))))
+    w.append((CAR + 0x3cb4, pack('i', r.choice([0, 1, 2]))))
+    w.append((CAR + 0x1e04, pack('i', r.randint(0, 8))))
+    base = CAR + 0x3f58
+    for k in range(6):
+        w.append((base + 4 * k, pack('f', r.uniform(0, 5))))
+    w += [(base + 0x24, pack('f', r.uniform(0, 1))), (base + 0x28, pack('i', 0)), (base + 0x2c, pack('i', 1))]
+    h.case(CONST + SIN + w, lambda e: e.call(0x501930, this=CAR), f'chassis::fn_00501930(&mut m, {T})', [(CAR, 0x4000)])
+h.save()

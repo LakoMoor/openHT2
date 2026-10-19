@@ -71,6 +71,23 @@ pub fn install_constants(m: &mut Mem) {
     for (i, c) in crate::matrix::IDENTITY.iter().enumerate() {
         m.set_f32(MAT_IDENTITY + 4 * i as u32, *c);
     }
+    for i in 0..360u32 {
+        let x = i as f64 * 3.1415926;
+        m.set_f32(SIN_TABLE + 4 * i, ((x + x) / 360.0).sin() as f32);
+    }
+}
+
+/// Sine of whole degrees, filled in by the original at start-up (`0x4e24e8`).
+pub const SIN_TABLE: u32 = 0x696ec0;
+
+/// `0x4e27cf`: sine of an angle in radians looked up by whole degrees (0 outside `0..360`).
+pub fn sin_lookup(m: &Mem, a: f32) -> f32 {
+    let i = (a as f64 * 57.2957802f32 as f64).trunc() as i64 as i32;
+    if (0..0x168).contains(&i) {
+        m.f32(SIN_TABLE + 4 * i as u32)
+    } else {
+        0.0
+    }
 }
 
 /// The identity transform (12 floats), filled in by the original at start-up.

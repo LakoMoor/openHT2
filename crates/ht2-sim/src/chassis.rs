@@ -784,3 +784,52 @@ pub fn fn_004fca10(m: &mut Mem, this: u32, out: u32) {
     res = core::array::from_fn(|i| m.f32(S + 0x200 + 4 * i as u32));
     mx::put12(m, out, &res);
 }
+
+/// `0x501930`: wheel radii of damaged (flat) tyres, tyre grip from wear, and the gear limits of
+/// a damaged gearbox (`+0x3cb4`).
+pub fn fn_00501930(m: &mut Mem, this: u32) {
+    use crate::globals::sin_lookup;
+    for i in 0..m.i32(this + 0xdd4).max(0) as u32 {
+        let (f4, st) = (4 * i, this + 0x3cdc + 20 * i);
+        let (state, prev) = (m.i32(st), m.i32(st + 4));
+        let (a, b) = (f(m, this + 0x1d60 + f4), f(m, this + 0x1d80 + f4));
+        let rad = this + 0x1b74 + f4;
+        if state == prev {
+            copy_words(m, rad, this + 0x1d80 + f4, 1);
+        } else if state == 2 || state == 1 {
+            let w = f2pi(r(f(m, this + 0xe9c + f4) + 1.57079633));
+            let s = sin_lookup(m, r(w as f64 + 3.14159265)) as f64;
+            let v = if state == 2 { ((a - b) * s + (a + b)) * 0.5 } else { ((a - b) * s + b) * 0.25 + a * 0.75 };
+            m.set_f32(rad, r(v));
+        } else {
+            copy_words(m, rad, this + 0x1d60 + f4, 1);
+        }
+    }
+    for i in 0..m.i32(this + 0xdd4).max(0) as u32 {
+        let mut v = crate::tech_system::value(m, this + 0x3f58) as f64 * f(m, this + 0x1e84 + 4 * i);
+        if m.i32(this + 0x3e1c + 20 * i) != 0 {
+            v *= 0.2;
+        }
+        m.set_f32(this + 0x1c98 + 4 * i, r(v));
+    }
+    match m.i32(this + 0x3cb4) {
+        2 => {
+            let g = m.i32(this + 0x1e04) - 3;
+            m.set_i32(this + 0x1c18, if g < 1 { 1 } else { g });
+            for k in 0..3 {
+                m.set_f32(this + 0x1c30 + 4 * k, r(f(m, this + 0x1e1c + 4 * k) * 5.0));
+            }
+        }
+        1 => {
+            m.set_i32(this + 0x1c18, m.i32(this + 0x1e04) - 1);
+            for k in 0..3 {
+                let x = f(m, this + 0x1e1c + 4 * k);
+                m.set_f32(this + 0x1c30 + 4 * k, r(x + x));
+            }
+        }
+        _ => {
+            copy_words(m, this + 0x1c18, this + 0x1e04, 1);
+            copy_words(m, this + 0x1c30, this + 0x1e1c, 3);
+        }
+    }
+}
