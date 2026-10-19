@@ -1,5 +1,6 @@
 mod ground;
 mod powertrain;
+mod simcar;
 mod vehicle;
 
 use glam::{Mat4, Vec3};
@@ -145,11 +146,23 @@ fn load_truck(dir: &Path, prefix: &str) -> Result<Truck, String> {
         .fold(f32::MAX, f32::min);
 
     let positions: Vec<Vec3> = wheels.iter().map(|w| w.mount.w_axis.truncate()).collect();
-    let params = truck_params(t, &positions)?;
+    let node = |name: String| {
+        model.space(&name).map(|(axes, pos)| {
+            let mut v = [0.0f32; 12];
+            for (i, a) in axes.iter().enumerate() {
+                v[3 * i..3 * i + 3].copy_from_slice(&<[f32; 3]>::from(*a));
+            }
+            v[9..].copy_from_slice(&<[f32; 3]>::from(pos));
+            v
+        })
+    };
+    let wheel_nodes: simcar::WheelNodes = core::array::from_fn(|i| node(format!("{}Wheel{i}Space", t.prefix)));
+    let add_nodes: simcar::WheelNodes = core::array::from_fn(|i| node(format!("{}AddWheel{i}Space", t.prefix)));
+    let params = truck_params(t, &positions, wheel_nodes, add_nodes)?;
     Ok(Truck { params, scene, wheel_parts, wheels, ride_height: -low })
 }
 
-fn truck_params(t: &tech::Tech, wheels: &[Vec3]) -> Result<Params, String> {
+fn truck_params(t: &tech::Tech, wheels: &[Vec3], wheel_nodes: simcar::WheelNodes, add_nodes: simcar::WheelNodes) -> Result<Params, String> {
     let front_y = wheels.iter().map(|w| w.y).fold(f32::MIN, f32::max);
     let rear: Vec<f32> = wheels.iter().map(|w| w.y).filter(|y| *y < front_y - 0.3).collect();
     let rear_y = if rear.is_empty() { front_y - 3.0 } else { rear.iter().sum::<f32>() / rear.len() as f32 };
@@ -164,7 +177,7 @@ fn truck_params(t: &tech::Tech, wheels: &[Vec3]) -> Result<Params, String> {
         front_y - rear_y,
         half_track * 2.0
     );
-    Ok(Params::from_tech(t, wheels.len(), front_y, rear_y, half_track))
+    Ok(Params::from_tech(t, wheels.len(), front_y, rear_y, half_track, wheel_nodes, add_nodes))
 }
 
 fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, String> {
@@ -182,7 +195,8 @@ fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, Strin
     let ride = truck_model.ride_height;
     println!("{truck}: ground {} triangles, spawn at {pos:?}, heading {heading:.2}, ride height {ride:.2}", ground.triangle_count());
     let tech_file = std::rc::Rc::new(fs::read(dir.join("vehicle.tech")).map_err(|e| format!("vehicle.tech: {e}"))?);
-    let vehicle = Vehicle::new(truck_model.params.clone(), tech_file, pos, heading, ride);
+    let vehicle = Vehicle::new(truck_model.params.clone(), tech_file, pos, heading, ride, &ground);
+    println!("vehicle physics: {}", if vehicle.is_ported() { "ported from the original" } else { "stand-in" });
     Ok(World { ground, vehicle, world_scenes, truck: truck_model, spawn: (pos, heading, ride) })
 }
 
@@ -242,7 +256,7 @@ fn run() -> Result<(), String> {
                 t += STEP;
                 if trace && t >= next_print {
                     let v = &game.world.vehicle;
-                    println!("t={t:5.2} speed={:5.1} gear={} tgt={} shift={} rev={:5.1} thr={:.2} F={:8.0} fuel={:.2}", v.speed, v.gear, v.last.map_or(0, |o| o.target_gear), v.last.map_or(0, |o| o.shift_code), v.engine_rev, v.last.map_or(0.0, |o| o.throttle_eff), v.last.map_or(0.0, |o| o.drive_force), v.fuel);
+                    println!("t={t:5.2} pos={:6.1?} speed={:5.1} gear={} tgt={} shift={} rev={:5.1} thr={:.2} F={:8.0} fuel={:.2}", v.pos, v.speed, v.gear, v.last.map_or(0, |o| o.target_gear), v.last.map_or(0, |o| o.shift_code), v.engine_rev, v.last.map_or(0.0, |o| o.throttle_eff), v.last.map_or(0.0, |o| o.drive_force), v.fuel);
                     next_print += 0.25;
                 }
             }
@@ -292,8 +306,9 @@ impl Game {
         self.renderer.set_model(self.truck_objects[0], body);
         for (i, w) in self.world.truck.wheels.iter().enumerate() {
             let steer = if w.steered { Mat4::from_rotation_z(v.steer_angle()) } else { Mat4::IDENTITY };
-            let spin = Mat4::from_rotation_x(-v.wheel_spin * w.spin_sign);
-            self.renderer.set_model(self.truck_objects[i + 1], body * w.mount * steer * spin);
+            let spin = Mat4::from_rotation_x(-v.wheel_angle(i) * w.spin_sign);
+            let drop = Mat4::from_translation(-Vec3::Z * v.wheel_drop(i));
+            self.renderer.set_model(self.truck_objects[i + 1], body * drop * w.mount * steer * spin);
         }
     }
 }
@@ -356,7 +371,7 @@ impl ApplicationHandler for App {
                         if code == KeyCode::KeyR {
                             if let Some(g) = self.gfx.as_mut() {
                                 let (p, h, r) = g.game.world.spawn;
-                                g.game.world.vehicle = g.game.world.vehicle.respawned(p, h);
+                                g.game.world.vehicle = g.game.world.vehicle.respawned(p, h, &g.game.world.ground);
                                 let _ = r;
                             }
                         }

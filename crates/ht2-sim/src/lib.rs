@@ -15,6 +15,7 @@ pub mod gearbox;
 pub mod gearbox_update;
 pub mod globals;
 pub mod init;
+pub mod loader;
 pub mod input;
 pub mod math;
 pub mod matrix;

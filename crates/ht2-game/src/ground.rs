@@ -104,6 +104,56 @@ impl Ground {
         best
     }
 
+    /// First crossing of the segment `a`..`b` with the surface: the point and the surface normal
+    /// (facing the side `a` is on).
+    pub fn segment_hit(&self, a: Vec3, b: Vec3) -> Option<(Vec3, Vec3)> {
+        let (x0, x1) = (a.x.min(b.x), a.x.max(b.x));
+        let (y0, y1) = (a.y.min(b.y), a.y.max(b.y));
+        let cell = |v: f32, lo: f32, n: usize| (((v - lo) / self.cell).floor().max(0.0) as usize).min(n.saturating_sub(1));
+        if x1 < self.min.0 || y1 < self.min.1 || self.dims.0 == 0 {
+            return None;
+        }
+        let (cx0, cx1) = (cell(x0, self.min.0, self.dims.0), cell(x1, self.min.0, self.dims.0));
+        let (cy0, cy1) = (cell(y0, self.min.1, self.dims.1), cell(y1, self.min.1, self.dims.1));
+        if (cx1 - cx0 + 1) * (cy1 - cy0 + 1) > 4096 {
+            return None;
+        }
+        let d = b - a;
+        let mut best: Option<(f32, Vec3)> = None;
+        for cy in cy0..=cy1 {
+            for cx in cx0..=cx1 {
+                for &i in &self.cells[cy * self.dims.0 + cx] {
+                    let [p0, p1, p2] = self.tris[i as usize];
+                    let (e1, e2) = (p1 - p0, p2 - p0);
+                    let h = d.cross(e2);
+                    let det = e1.dot(h);
+                    if det.abs() < 1e-12 {
+                        continue;
+                    }
+                    let s = a - p0;
+                    let u = s.dot(h) / det;
+                    if !(0.0..=1.0).contains(&u) {
+                        continue;
+                    }
+                    let q = s.cross(e1);
+                    let v = d.dot(q) / det;
+                    if v < 0.0 || u + v > 1.0 {
+                        continue;
+                    }
+                    let t = e2.dot(q) / det;
+                    if (0.0..=1.0).contains(&t) && best.is_none_or(|(bt, _)| t < bt) {
+                        let mut n = e1.cross(e2).normalize();
+                        if n.dot(d) > 0.0 {
+                            n = -n;
+                        }
+                        best = Some((t, n));
+                    }
+                }
+            }
+        }
+        best.map(|(t, n)| (a + d * t, n))
+    }
+
     /// Heading of the road triangle closest to `pos`, or 0 when there are no roads.
     pub fn road_heading_near(scenes: &[Scene], pos: Vec3) -> f32 {
         road_triangles(scenes, "road")

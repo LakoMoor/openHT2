@@ -1,11 +1,12 @@
-//! The player's vehicle. The engine, automatic gearbox, fuel and steering input come from the
-//! code ported from the original ([`crate::powertrain`], verified against it). The chassis is
-//! still a placeholder: a kinematic bicycle model resting on the ground mesh, with simple
-//! traction, braking and drag. The original's wheel, suspension and collision code is not
-//! ported yet.
+//! The player's vehicle. Normally the whole vehicle runs on the code ported from the original
+//! ([`crate::simcar`]: constructor and step, verified against it in the emulator), colliding with
+//! the ground mesh. With `HT2_ARCADE` set (or when the ported vehicle cannot be built) the old
+//! stand-in is used: the ported engine, gearbox, fuel and steering input ([`crate::powertrain`])
+//! on a kinematic bicycle model resting on the ground mesh.
 
 use crate::ground::Ground;
 use crate::powertrain::Powertrain;
+use crate::simcar::{SimCar, WheelNodes};
 use glam::{Mat4, Vec3};
 use ht2_formats::tech::Tech;
 
@@ -39,10 +40,13 @@ pub struct Params {
     pub half_track: f32,
     pub wheels: usize,
     pub driven: Vec<bool>,
+    /// The model's `<prefix>Wheel%dSpace` and `<prefix>AddWheel%dSpace` transforms.
+    pub wheel_nodes: WheelNodes,
+    pub add_nodes: WheelNodes,
 }
 
 impl Params {
-    pub fn from_tech(t: &Tech, wheels: usize, front_y: f32, rear_y: f32, half_track: f32) -> Self {
+    pub fn from_tech(t: &Tech, wheels: usize, front_y: f32, rear_y: f32, half_track: f32, wheel_nodes: WheelNodes, add_nodes: WheelNodes) -> Self {
         Params {
             record: t.index,
             mass: t.mass,
@@ -54,6 +58,8 @@ impl Params {
             half_track,
             wheels,
             driven: t.driving_wheels[..wheels.min(8)].to_vec(),
+            wheel_nodes,
+            add_nodes,
         }
     }
 
@@ -65,6 +71,7 @@ impl Params {
 pub struct Vehicle {
     pub params: Params,
     powertrain: Powertrain,
+    sim: Option<SimCar>,
     tech_file: std::rc::Rc<Vec<u8>>,
     pub pos: Vec3,
     /// Radians; 0 faces +Y, positive turns left.
@@ -89,12 +96,24 @@ pub struct Vehicle {
 }
 
 impl Vehicle {
-    pub fn new(params: Params, tech_file: std::rc::Rc<Vec<u8>>, pos: Vec3, heading: f32, ride_height: f32) -> Self {
+    pub fn new(params: Params, tech_file: std::rc::Rc<Vec<u8>>, pos: Vec3, heading: f32, ride_height: f32, ground: &Ground) -> Self {
         let powertrain = Powertrain::new(&tech_file, params.record, params.wheels, &params.driven, params.mass)
             .expect("vehicle.tech has the expected layout");
-        Self {
+        let sim = if std::env::var_os("HT2_ARCADE").is_some() {
+            None
+        } else {
+            match SimCar::new(&tech_file, params.record, &params.wheel_nodes, &params.add_nodes, ground, pos, heading) {
+                Ok(s) => Some(s),
+                Err(e) => {
+                    eprintln!("ported vehicle not available ({e}), using the stand-in");
+                    None
+                }
+            }
+        };
+        let mut v = Self {
             params,
             powertrain,
+            sim,
             tech_file,
             pos,
             heading,
@@ -108,12 +127,43 @@ impl Vehicle {
             wheel_spin: 0.0,
             steer_angle: 0.0,
             ride_height,
-        }
+        };
+        v.sync();
+        v
     }
 
     /// A fresh vehicle of the same type (used when the player resets).
-    pub fn respawned(&self, pos: Vec3, heading: f32) -> Self {
-        Self::new(self.params.clone(), self.tech_file.clone(), pos, heading, self.ride_height)
+    pub fn respawned(&self, pos: Vec3, heading: f32, ground: &Ground) -> Self {
+        Self::new(self.params.clone(), self.tech_file.clone(), pos, heading, self.ride_height, ground)
+    }
+
+    /// Whether the vehicle runs on the ported code.
+    pub fn is_ported(&self) -> bool {
+        self.sim.is_some()
+    }
+
+    /// Copy the state of the ported vehicle into the fields the rest of the game reads.
+    fn sync(&mut self) {
+        let Some(s) = &self.sim else { return };
+        let body = s.body();
+        let fwd = body.y_axis.truncate();
+        self.pos = s.pos();
+        self.heading = (-fwd.x).atan2(fwd.y);
+        self.speed = s.speed();
+        self.gear = s.gear();
+        self.engine_rev = s.engine_rev();
+        self.fuel = s.fuel();
+        self.steer_angle = s.steer_angle();
+    }
+
+    /// Rotation of wheel `k` in radians.
+    pub fn wheel_angle(&self, k: usize) -> f32 {
+        self.sim.as_ref().map_or(self.wheel_spin, |s| s.wheel_angle(k))
+    }
+
+    /// How far wheel `k` hangs below where the model draws it (suspension travel).
+    pub fn wheel_drop(&self, k: usize) -> f32 {
+        self.sim.as_ref().map_or(0.0, |s| s.wheel_drop(k))
     }
 
     pub fn forward(&self) -> Vec3 {
@@ -126,6 +176,12 @@ impl Vehicle {
     }
 
     pub fn step(&mut self, input: Input, ground: &Ground, dt: f32) {
+        if let Some(s) = &mut self.sim {
+            let keys = if input.steer > 0.5 { 1 } else if input.steer < -0.5 { -1 } else { 0 };
+            s.step(ground, dt, input.throttle, input.brake, keys);
+            self.sync();
+            return;
+        }
         let p = &self.params;
         self.powertrain.set_steer_keys(if input.steer > 0.5 { 1 } else if input.steer < -0.5 { -1 } else { 0 });
         // In reverse the "brake" key is the gas pedal.
@@ -182,6 +238,9 @@ impl Vehicle {
 
     /// Model matrix for a model with +Y forward and +Z up.
     pub fn model(&self) -> Mat4 {
+        if let Some(s) = &self.sim {
+            return s.body();
+        }
         Mat4::from_translation(self.pos + Vec3::Z * self.ride_height)
             * Mat4::from_rotation_z(self.heading)
             * Mat4::from_rotation_x(self.pitch)
