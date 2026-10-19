@@ -417,3 +417,84 @@ pub fn fn_004f3000(m: &mut Mem, this: u32) -> f32 {
     crate::carv::fn_004f2490(m, this);
     total
 }
+
+/// `0x4e41d9`: wrap an angle into `-pi..=pi` (the original compares and steps in double precision).
+pub fn f2pi(x: f32) -> f32 {
+    const PI: f64 = 3.1415926;
+    const TAU: f64 = 6.2831852;
+    let mut x = x;
+    if 0.0 <= x {
+        while PI < x as f64 {
+            x = (x as f64 - TAU) as f32;
+        }
+    } else {
+        while (x as f64) < -PI {
+            x = (x as f64 + TAU) as f32;
+        }
+    }
+    x
+}
+
+/// `0x4f35f0`: wheel rotation for the step. Free wheels turn with the ground speed under them,
+/// locked or slipping ones follow the engine (or decay), then the tyre forces are computed
+/// ([`fn_004f3000`]) and the wheels that slip are driven by the engine. Finally the tyre wear /
+/// heat values (`+0x3f58`, `+0x3f8c`) are updated.
+pub fn fn_004f35f0(m: &mut Mem, this: u32) {
+    use crate::tech_system as ts;
+    let dt = crate::globals::dt(m);
+    let k = (0.9f64.powf(dt as f64 * 10.0)) as f32;
+    let count = m.i32(this + 0xdd4).max(0) as u32;
+    for i in 0..count {
+        let (f4, v3o) = (4 * i, 12 * i);
+        let w = this + 0xebc + f4;
+        let p = v3(m, this + 0xaa4 + v3o);
+        let v = v3(m, this + 0x18a4 + v3o);
+        let x = p[1] * v[1] + v[2] * p[2] + v[0] * p[0];
+        let wv = -(x / f(m, this + 0x1b74 + f4) * dt as f64);
+        if m.i16(this + 0x19a4 + 2 * i) != 0 {
+            let driven = m.i32(this + 0x1bb4 + f4);
+            let gear = m.i32(this + 0x1c1c);
+            let val = if driven == 0 || gear == 1 {
+                r(k as f64 * f(m, w))
+            } else {
+                r(dt as f64 * f(m, this + 0x1c84) / f(m, this + 0x1c44 + (gear as u32).wrapping_mul(4)))
+            };
+            m.set_f32(w, val);
+            m.set_f32(w, f2pi(val));
+        } else {
+            m.set_f32(w, r(wv));
+            let xv = m.f32(w);
+            if (xv as f64).abs() <= 25.1327412 {
+                m.set_f32(w, f2pi(xv));
+            } else {
+                m.set_f32(w, 25.132742);
+            }
+        }
+    }
+    let total = fn_004f3000(m, this);
+    for i in 0..count {
+        let (f4, w) = (4 * i, this + 0xebc + 4 * i);
+        if m.i32(this + 0x19d4 + f4) != 0 {
+            let sgn = if m.i32(this + 0x1c1c) != 0 { 1.0 } else { -1.0 };
+            let s = f(m, this + 0x1c84) * 6.0 / f(m, this + 0x1c88) / f(m, this + 0x1b74 + f4) * dt as f64;
+            let v = r(sgn * (-(m.f32(w) as f64).abs() - s));
+            m.set_f32(w, f2pi(v));
+        }
+        m.set_f32(w, f2pi(m.f32(w)));
+        let a = f2pi(m.f32(w - 0x20));
+        m.set_f32(w - 0x20, a);
+        let b = r(a as f64 + m.f32(w) as f64);
+        m.set_f32(w - 0x20, f2pi(b));
+    }
+    if m.i32(this + 0x1abc) != 0 {
+        let dc8 = f(m, this + 0xdc8).abs();
+        let arg = r(total as f64 / (f(m, this + 0x2640) * 10.0) * dc8 / (dc8 + 5.0) * dt as f64);
+        ts::consume(m, this + 0x3f58, arg);
+        ts::consume(m, this + 0x3f8c, arg);
+        if ts::value(m, this + 0x3f8c) <= 0.0 {
+            ts::set_fraction(m, this + 0x3f58, 0.0);
+        }
+    } else {
+        ts::consume(m, this + 0x3f8c, r(dt as f64 * -5.0));
+    }
+}

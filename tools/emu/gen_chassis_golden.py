@@ -98,3 +98,31 @@ for _ in range(300):
     w.append((CAR + 0xdc8, pack('f', r.uniform(-3, 3))))
     h.case(CONST + w, lambda e: e.call(0x4f3000, this=CAR), f'chassis::fn_004f3000(&mut m, {T})', [(CAR, 0x4000)], ret=True)
 h.save()
+
+# 0x4f35f0
+h = Harness('golden_wheel_spin', ['use ht2_sim::chassis;'])
+r = h.rnd
+for _ in range(200):
+    w, _f = state(0x4f35f0, r, fill=[(0xa38, 0xa44), (0xaa4, 0xaa4 + 72), (0x18a4, 0x18a4 + 72), (0x1904, 0x1904 + 72), (0xa44, 0xa44 + 72), (0x1b74, 0x1b74 + 32), (0xe9c, 0xe9c + 32), (0xebc, 0xebc + 32), (0x1c44, 0x1c44 + 64), (0x1c88, 0x1c8c), (0x1c84, 0x1c88), (0x1c, 0x28), (0x2640, 0x2644)],
+                  overrides={0xdd4: lambda r: ('i', r.randint(0, 6)), 0x29dc: lambda r: ('f', r.choice([0.0, 0.05, 0.5, 1.0])), 0x1c1c: lambda r: ('i', r.randint(0, 8))})
+    for i in range(6):
+        w.append((CAR + 0x19a4 + 2 * i, pack('h', r.choice([0, 0, 1]))))
+        w.append((CAR + 0x1bb4 + 4 * i, pack('i', r.choice([0, 1, 1]))))
+        w.append((CAR + 0x2670 + 4 * i, pack('f', r.uniform(0.2, 1.2))))
+        w.append((CAR + 0xd20 + 4 * i, pack('f', r.uniform(500, 30000))))
+        w.append((CAR + 0x1a7c + 4 * i, pack('f', r.uniform(-1, 1))))
+        w.append((CAR + 0x1964 + 4 * i, pack('f', r.uniform(0, 2))))
+        w.append((CAR + 0x1b74 + 4 * i, pack('f', r.uniform(0.3, 0.6))))
+        w.append((CAR + 0xebc + 4 * i, pack('f', r.uniform(-60, 60))))
+        w.append((CAR + 0xe9c + 4 * i, pack('f', r.uniform(-9, 9))))
+    for base in (0x3f58, 0x3f8c):
+        for k in range(6):
+            w.append((CAR + base + 4 * k, pack('f', r.uniform(0, 5))))
+        w.append((CAR + base + 0x18, pack('f', r.uniform(0.5, 3))))
+        w.append((CAR + base + 0x24, pack('f', r.uniform(0, 1))))
+        w.append((CAR + base + 0x28, pack('i', 0)))
+        w.append((CAR + base + 0x2c, pack('i', 1)))
+    w.append((CAR + 0x1c94, pack('f', r.uniform(-60000, 60000))))
+    w.append((CAR + 0xdc8, pack('f', r.uniform(-30, 30))))
+    h.case(CONST + w, lambda e: e.call(0x4f35f0, this=CAR), f'chassis::fn_004f35f0(&mut m, {T})', [(CAR, 0x4000)], dt=r.uniform(0.005, 0.05))
+h.save()
