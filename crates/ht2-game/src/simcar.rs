@@ -1,8 +1,8 @@
 //! The player's vehicle run entirely by the code ported from the original: the constructor
 //! `_Car_V::_Car_V` (`0x4ebd00`) and the step `_Car_V::run1` (`0x4fdc80`), on a flat memory image
-//! with the original's field offsets. The world they collide with is the scene's collision
-//! meshes with their surface records (see [`MeshWorld`]); the original's walk of the scene graph
-//! is not ported yet.
+//! with the original's field offsets. The world they collide with is the scene graph of the
+//! map's rooms ([`crate::world`]); a scene without rooms falls back to the drawn ground
+//! ([`MeshWorld`]).
 
 use crate::ground::Ground;
 use glam::{Mat4, Vec3};
@@ -18,11 +18,8 @@ const ROOM: u32 = 0x1900_0000;
 /// The surface record returned when the scene has no collision meshes and the drawn ground is
 /// used instead: type 1, kind 1 (dry asphalt), no parameters.
 const SURFACE: u32 = 0x1900_0100;
-/// Scratch memory for the collision queries.
-const SCRATCH: u32 = 0x1910_0000;
-
-/// The scene-collision query (`vtable + 0x34` of the scene nodes) answered from the collision
-/// meshes (or, without them, the drawn ground): the nearest crossing of the query segment.
+/// A stand-in for the scene collision when the map has no rooms: the nearest crossing of the
+/// query segment with the drawn ground, all of it dry asphalt.
 pub struct MeshWorld<'a> {
     pub ground: &'a Ground,
 }
@@ -30,8 +27,8 @@ pub struct MeshWorld<'a> {
 impl World for MeshWorld<'_> {
     fn collide(&mut self, m: &mut Mem, _obj: u32, mode: u32, rec: u32) -> u32 {
         let v = |a: u32| Vec3::new(m.f32(a), m.f32(a + 4), m.f32(a + 8));
-        if self.ground.collision.item_count() > 0 {
-            return self.ground.collision.query(m, mode, rec, SCRATCH);
+        if mode & 4 == 0 {
+            return 0;
         }
         let (a, b) = (v(rec + 0x4c), v(rec + 0x58));
         let Some((p, n)) = self.ground.segment_hit(a, b) else { return 0 };
@@ -53,6 +50,16 @@ pub type WheelNodes = [Option<[f32; 12]>; 8];
 pub struct SimCar {
     m: Mem,
     time: f64,
+    /// Whether the scene graph (rooms) is used; otherwise the drawn ground.
+    rooms: bool,
+}
+
+fn with_world<R>(ground: &Ground, rooms: bool, f: impl FnOnce(&mut dyn World) -> R) -> R {
+    if rooms {
+        f(&mut crate::world::SceneWorld { scene: &ground.scene })
+    } else {
+        f(&mut MeshWorld { ground })
+    }
 }
 
 /// Gear request codes the original's gearbox understands (`+0x2746`).
@@ -86,13 +93,15 @@ impl SimCar {
         for (o, v) in [(0u32, 1u32), (4, 1), (8, 0), (12, 0)] {
             m.set_u32(SURFACE + o, v);
         }
-        ground.collision.install(&mut m);
+        ground.scene.install(&mut m);
         let vid = record as i32;
         loader::init_vehicle_nodes(&mut m, vid, wheels, add);
         let (c, s) = (heading.cos(), heading.sin());
         let mat = [c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0, pos.x, pos.y, pos.z];
-        let mut world = MeshWorld { ground };
-        ctor::fn_004ebd00(&mut m, &mut world, CAR, ROOM, mat, vid);
+        let start_room = ground.scene.room_at(&mut m, pos.to_array());
+        let rooms = start_room.is_some();
+        let room = start_room.unwrap_or(ROOM);
+        with_world(ground, rooms, |w| ctor::fn_004ebd00(&mut m, w, CAR, room, mat, vid));
         // The player starts with the engine running, automatic gearbox, keyboard control.
         m.set_i32(CAR + 0x2774, 1);
         m.set_i32(CAR + 0x2760, 1);
@@ -100,7 +109,7 @@ impl SimCar {
         m.set_i16(CAR + 0x2704, 1);
         m.set_i16(CAR + 0x2706, 1);
         ht2_sim::gearbox::fn_004ff770(&mut m, CAR, 1);
-        Ok(SimCar { m, time: 0.0 })
+        Ok(SimCar { m, time: 0.0, rooms })
     }
 
     /// One step of `dt` seconds with the pedals in `0..=1` and the steering keys (-1 right, 1 left).
@@ -132,8 +141,7 @@ impl SimCar {
         m.set_f32(CAR + 0x270c, pedal.clamp(0.0, 1.0));
         m.set_f32(CAR + 0x2710, 0.0);
         m.set_i16(CAR + 0x2714, (braking > 0.0) as i16);
-        let mut world = MeshWorld { ground };
-        step::fn_004fdc80(m, &mut world, CAR);
+        with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, CAR));
     }
 
     /// The body transform (the original's matrix: rows are the body axes, then the origin).
@@ -183,6 +191,22 @@ impl SimCar {
     /// How far wheel `k` hangs below its rest position, m: `+0xdd8` is the distance from the mount
     /// down to the wheel centre (0.75 of the travel when the vehicle is built). For drawing the
     /// wheels only; the original's wheel rendering is not ported.
+    /// The id of the room the vehicle is in (`+0xf4`), 0 for none.
+    pub fn room(&self) -> u32 {
+        self.m.u32(CAR + 0xf4)
+    }
+
+    /// For diagnostics: the room whose road is right below the vehicle.
+    pub fn room_below(&mut self, ground: &Ground) -> Option<u32> {
+        let p = self.pos().to_array();
+        ground.scene.room_at(&mut self.m, p)
+    }
+
+    /// Whether the scene graph is used for collision.
+    pub fn uses_rooms(&self) -> bool {
+        self.rooms
+    }
+
     pub fn wheel_drop(&self, k: usize) -> f32 {
         self.m.f32(CAR + 0xdd8 + 4 * k as u32) - 0.75 * self.m.f32(CAR + 0x1f9c + 4 * k as u32)
     }

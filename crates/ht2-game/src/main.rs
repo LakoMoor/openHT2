@@ -1,5 +1,5 @@
-mod collision;
 mod ground;
+mod world;
 mod powertrain;
 mod simcar;
 mod vehicle;
@@ -60,8 +60,8 @@ fn read_scenario(dir: &Path) -> Scenario {
 }
 
 /// `map` is either a model path without extension (one scene) or a folder holding many.
-/// Also returns the rooms of all of them (a scene without rooms counts as one room).
-fn load_scenes(dir: &Path, map: &str) -> Result<(Vec<Scene>, PathBuf, Vec<b3d::Room>), String> {
+/// Also returns the parsed models (for their collision).
+fn load_scenes(dir: &Path, map: &str) -> Result<(Vec<Scene>, PathBuf, Vec<b3d::B3d>), String> {
     let path = dir.join(map);
     if path.is_dir() {
         let mut files: Vec<_> = fs::read_dir(&path)
@@ -76,7 +76,6 @@ fn load_scenes(dir: &Path, map: &str) -> Result<(Vec<Scene>, PathBuf, Vec<b3d::R
         for f in files {
             match scene::load_assets(&f) {
                 Ok((model, mut s)) => {
-                    coll.extend(rooms_of(&model));
                     let batches = model.triangles();
                     if batches.is_empty() {
                         eprintln!("skipping {}: model has no triangles", f.display());
@@ -84,6 +83,7 @@ fn load_scenes(dir: &Path, map: &str) -> Result<(Vec<Scene>, PathBuf, Vec<b3d::R
                     }
                     s.set_batches(batches);
                     scenes.push(s);
+                    coll.push(model);
                 }
                 Err(e) => eprintln!("skipping {}: {e}", f.display()),
             }
@@ -94,16 +94,7 @@ fn load_scenes(dir: &Path, map: &str) -> Result<(Vec<Scene>, PathBuf, Vec<b3d::R
         let (model, mut scene) = scene::load_assets(&path.with_extension("b3d"))?;
         scene.set_batches(model.triangles());
         let folder = path.parent().map(Path::to_path_buf).unwrap_or_else(|| dir.to_path_buf());
-        Ok((vec![scene], folder, rooms_of(&model)))
-    }
-}
-
-fn rooms_of(model: &b3d::B3d) -> Vec<b3d::Room> {
-    let rooms = model.rooms();
-    if rooms.is_empty() {
-        vec![b3d::Room { road: model.collision_items(), ..Default::default() }]
-    } else {
-        rooms
+        Ok((vec![scene], folder, vec![model]))
     }
 }
 
@@ -208,8 +199,8 @@ fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, Strin
     let truck = truck.map(str::to_owned).or(scenario.truck).unwrap_or_else(|| "Kamaz".into());
     let truck_model = load_truck(dir, &truck)?;
     let mut ground = Ground::new(&world_scenes);
-    ground.collision = collision::Collision::new(&coll);
-    println!("collision: {} rooms, {} blocks", coll.len(), ground.collision.item_count());
+    ground.scene = world::Scene::new(&coll);
+    println!("collision: {} rooms", ground.scene.room_count());
     // The scenario start is only usable if there is ground under it (the menu scenes have none).
     let start = scenario.start.and_then(|p| ground.height_at(p.x, p.y, p.z + 200.0, 0.0).map(|z| Vec3::new(p.x, p.y, z)));
     let (pos, heading) = match start {
@@ -279,8 +270,10 @@ fn run() -> Result<(), String> {
                 game.world.vehicle.step(Input { steer: (t * 0.6).sin() * 0.25, throttle: 1.0, brake: 0.0 }, &game.world.ground, STEP);
                 t += STEP;
                 if trace && t >= next_print {
+                    let below = game.world.vehicle.room_below(&game.world.ground);
+                    println!("  room below {below:?}");
                     let v = &game.world.vehicle;
-                    println!("t={t:5.2} pos={:6.1?} speed={:5.1} gear={} tgt={} shift={} rev={:5.1} thr={:.2} F={:8.0} fuel={:.2}", v.pos, v.speed, v.gear, v.last.map_or(0, |o| o.target_gear), v.last.map_or(0, |o| o.shift_code), v.engine_rev, v.last.map_or(0.0, |o| o.throttle_eff), v.last.map_or(0.0, |o| o.drive_force), v.fuel);
+                    println!("t={t:5.2} room={:?} pos={:6.1?} speed={:5.1} gear={} tgt={} shift={} rev={:5.1} thr={:.2} F={:8.0} fuel={:.2}", v.room(), v.pos, v.speed, v.gear, v.last.map_or(0, |o| o.target_gear), v.last.map_or(0, |o| o.shift_code), v.engine_rev, v.last.map_or(0.0, |o| o.throttle_eff), v.last.map_or(0.0, |o| o.drive_force), v.fuel);
                     next_print += 0.25;
                 }
             }

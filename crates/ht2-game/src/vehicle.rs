@@ -137,6 +137,16 @@ impl Vehicle {
         Self::new(self.params.clone(), self.tech_file.clone(), pos, heading, self.ride_height, ground)
     }
 
+    /// The room the ported vehicle is in (0 for none) and whether rooms are used at all.
+    pub fn room(&self) -> Option<(u32, bool)> {
+        self.sim.as_ref().map(|s| (s.room(), s.uses_rooms()))
+    }
+
+    /// For diagnostics: the room whose road is below the ported vehicle.
+    pub fn room_below(&mut self, ground: &Ground) -> Option<u32> {
+        self.sim.as_mut().and_then(|s| s.room_below(ground))
+    }
+
     /// Whether the vehicle runs on the ported code.
     pub fn is_ported(&self) -> bool {
         self.sim.is_some()

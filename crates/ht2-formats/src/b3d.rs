@@ -48,6 +48,10 @@ pub enum Data {
     /// Type 23: a collision mesh. `surface` and `params` are the surface record the original hands
     /// to the vehicle on contact (type, kind, then the parameter words); `polys` are its polygons.
     Collision { surface: [u32; 2], params: Vec<u32>, polys: Vec<Vec<Vec3>> },
+    /// Types 9 and 22: a node splitting its two child lists by the plane `n.x + d = 0`.
+    Split { plane: [f32; 4] },
+    /// Type 30: a portal into the room named in `names[0]`, the rectangle with opposite corners `a`, `b`.
+    Portal { a: Vec3, b: Vec3 },
     /// Type 12: a collision plane `(n, d)` with its bounding sphere and surface record.
     CollisionPlane { sphere: [f32; 4], plane: [f32; 4], surface: [u32; 2], params: Vec<u32> },
     /// Every other type; its data was consumed but is not retained.
@@ -62,6 +66,9 @@ pub struct Node {
     pub names: Vec<String>,
     pub data: Data,
     pub children: Vec<Node>,
+    /// Which child list of its parent the block is in (lists are separated by the word 444;
+    /// the split blocks, type 9, have two).
+    pub list: u32,
 }
 
 #[derive(Debug)]
@@ -112,7 +119,21 @@ impl R<'_> {
     }
     fn children(&mut self, depth: usize) -> Result<Vec<Node>> {
         let n = self.u32()? as usize;
-        (0..n).map(|_| self.block(depth + 1)).collect()
+        let mut out = Vec::with_capacity(n);
+        let mut list = 0;
+        for _ in 0..n {
+            loop {
+                match self.u32()? {
+                    333 => break,
+                    444 => list += 1,
+                    _ => {}
+                }
+            }
+            let mut node = self.block_after_marker(depth + 1)?;
+            node.list = list;
+            out.push(node);
+        }
+        Ok(out)
     }
 
     fn polygons(&mut self, sprites: bool) -> Result<(Vec<Poly>, Vec<(u32, Vec<Vertex>)>)> {
@@ -189,6 +210,13 @@ impl R<'_> {
             return Err(Error::Other("block nesting too deep".into()));
         }
         while self.u32()? != 333 {}
+        self.block_after_marker(depth)
+    }
+
+    fn block_after_marker(&mut self, depth: usize) -> Result<Node> {
+        if depth > 64 {
+            return Err(Error::Other("block nesting too deep".into()));
+        }
         let start = self.o;
         let name = self.name()?;
         let kind = self.u32()?;
@@ -206,7 +234,10 @@ impl R<'_> {
             0 => self.skip(11)?,
             1 => names = self.names(2)?,
             2 | 9 | 10 | 11 | 22 => {
-                self.skip(8)?;
+                let w: Vec<f32> = (0..8).map(|_| self.f32()).collect::<Result<_>>()?;
+                if kind == 9 || kind == 22 {
+                    data = Data::Split { plane: [w[4], w[5], w[6], w[7]] };
+                }
                 children = self.children(depth)?;
             }
             3 | 19 => {
@@ -307,7 +338,8 @@ impl R<'_> {
             30 => {
                 self.skip(4)?;
                 names = self.names(1)?;
-                self.skip(6)?;
+                let (a, b) = (self.vec3()?, self.vec3()?);
+                data = Data::Portal { a, b };
             }
             31 => {
                 self.skip(4)?;
@@ -348,7 +380,7 @@ impl R<'_> {
             k => return Err(Error::Other(format!("unknown b3d block type {k} at offset {}", self.o))),
         }
         while self.u32()? != 555 {}
-        Ok(Node { name, kind, names, data, children })
+        Ok(Node { name, kind, names, data, children, list: 0 })
     }
 }
 
