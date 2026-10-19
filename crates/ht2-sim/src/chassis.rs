@@ -607,3 +607,180 @@ pub fn fn_005de950(m: &mut Mem, mat: [f32; 12], p13: u32, p14: u32, p15: u32, p1
         }
     }
 }
+
+/// `0x4fca10`: the new body transform for this step, written to `out` (12 floats).
+///
+/// In the air (or with too little suspension load) the body keeps its position on the plane of
+/// the contact normal and its pitch and roll are eased towards the values the forces ask for. On
+/// the ground the body is placed over the average of the wheel contacts and tilted about the axis
+/// given by the wheels that touch the ground (`+0x19b5..+0x19b8`, `+0x19a4..`).
+pub fn fn_004fca10(m: &mut Mem, this: u32, out: u32) {
+    use crate::matrix as mx;
+    const S: u32 = 0x2ffb_0000;
+    let mtx = this + 0x10;
+    let mut res: [f32; 12] = core::array::from_fn(|i| m.f32(mtx + 4 * i as u32));
+    let dt = crate::globals::dt(m);
+    let dt64 = dt as f64;
+    if m.rd8(this + 0x19b4) != 0 {
+        mx::put12(m, out, &res);
+        return;
+    }
+    let (a, pv) = (S, S + 0x10);
+    copy3(m, a, this + 0xd0);
+    copy3(m, pv, this + 0x2214);
+    if m.rd8(this + 0x19ba) == 0 || m.f32(this + 0xe38) < 1.0 {
+        // in the air
+        let mass = m.f32(this + 0x2640);
+        mx::vec_add(m, S + 0x20, this + 0xc6c, this + 0xc78);
+        mx::vec_div_scalar(m, S + 0x30, S + 0x20, mass);
+        let s = m.f32(this + 0xd48);
+        mx::vec_scale(m, S + 0x40, a, s);
+        mx::vec_sub(m, S + 0x50, this + 0xd40, S + 0x40);
+        mx::vec_sub(m, S + 0x60, S + 0x50, S + 0x30);
+        mx::vec_cross(m, S + 0x50, a, S + 0x60);
+        let t6 = S + 0x70;
+        mx::vec_cross(m, t6, S + 0x50, a);
+        let t7 = S + 0x80;
+        copy3(m, t7, this + 0xa38);
+        let len = vec_len(m, t6);
+        let kx = len * 0.0109;
+        let k = if kx > 0.0435 { 0.0435f32 } else { kx as f32 };
+        if len > 0.01 {
+            mx::vec_div_scalar(m, S + 0x90, t6, len as f32);
+            copy3(m, t7, S + 0x90);
+        }
+        let g = r(vec_dot(m, this + 0xa38, t7) * k as f64 * 0.2);
+        mx::rotate(m, S + 0xa0, 0x702640, mtx);
+        mx::vec_cross(m, S + 0xb0, a, S + 0xa0);
+        mx::vec_cross(m, S + 0xc0, S + 0xb0, a);
+        let h = r(vec_dot(m, S + 0xc0, t7) * k as f64);
+        let pitch = r(-f(m, this + 0xa40).asin());
+        mx::vec_cross(m, S + 0xd0, this + 0xa38, a);
+        let roll = r(-f(m, S + 0xd8).asin());
+        let q = r(-f(m, this + 0xa2c).atan2(f(m, this + 0xa30)));
+        let d = S + 0x100; // six doubles
+        fn_005de950(m, res, d, d + 8, d + 16, d + 24, d + 32, d + 40);
+        let decay = 0.5f64.powf(dt64 * 10.0);
+        let p17 = decay * m.f64(d + 32) + (pitch as f64 + g as f64) * (1.0 - decay);
+        let p18 = decay * m.f64(d + 40) + (roll as f64 + h as f64) * (1.0 - decay);
+        mx::point_to_plane(m, pv, this + 0x2214, a, this + 0x34);
+        let s = m.f32(this + 0x2220);
+        mx::vec_scale(m, S + 0x140, a, s);
+        mx::vec_add_in_place(m, pv, S + 0x150, S + 0x140);
+        let p = v3(m, pv);
+        mx::mat_from_euler(m, S + 0x200, p[0], p[1], p[2], q as f64, p17, p18);
+    } else {
+        // on the ground
+        let (u, v) = (S + 0x20, a);
+        copy3(m, u, 0x702650);
+        copy3(m, pv, 0x702650);
+        let (mut lo, mut hi, mut avg) = (0.0f32, 0.0f32, 0.0f32);
+        let up = v3(m, 0x702630);
+        for i in 0..m.i32(this + 0xdd4).max(0) as u32 {
+            let rad = f(m, this + 0x1b74 + 4 * i);
+            let c = v3(m, this + 0x1cbc + 12 * i);
+            let tx = r(rad * up[0]) as f64;
+            let ty = r(rad * up[1]) as f64;
+            set3(m, S + 0x30, [r(c[0] - tx), r(c[1] - ty), r(c[2] - rad * up[2])]);
+            mx::vec_add_in_place(m, pv, S + 0x40, S + 0x30);
+            avg = r(avg as f64 + f(m, this + 0x1f7c + 4 * i));
+        }
+        avg = r(avg as f64 * 0.25);
+        mx::vec_scale_in_place(m, pv, S + 0x40, 0.25);
+        let e = |m: &Mem, k: u32| m.f32(this + 0xe18 + 4 * k);
+        let wpos = |m: &Mem, k: u32| v3(m, this + 0x104 + 0xf8 * k);
+        let rr = v3(m, this + 0xa38);
+        let mid = |m: &Mem, i: u32, j: u32| {
+            let (p, q) = (wpos(m, i), wpos(m, j));
+            [r((p[0] + q[0]) * 0.5), r((p[1] + q[1]) * 0.5), r((p[2] + q[2]) * 0.5)]
+        };
+        // a third of three wheel positions: ((wi + wj) + wk) * 0.33
+        let third = |m: &Mem, i: u32, j: u32, k: u32| {
+            let (p, q, w) = (wpos(m, i), wpos(m, j), wpos(m, k));
+            let s: [f64; 3] = core::array::from_fn(|c| r(r(p[c] + q[c]) as f64 + w[c]) as f64);
+            let t = 0.33f32 as f64;
+            [r(s[0] * t), r(s[1] * t), r(s[2] * t)]
+        };
+        // the X axis of the body in world space
+        let xaxis = |m: &Mem| {
+            let k = v3(m, 0x702640);
+            let q: [f64; 9] = core::array::from_fn(|i| f(m, mtx + 4 * i as u32));
+            [
+                r(k[2] * q[6] + k[1] * q[3] + k[0] * q[0]) as f64,
+                r(k[2] * q[7] + k[1] * q[4] + k[0] * q[1]) as f64,
+                r(k[2] * q[8] + k[1] * q[5] + k[0] * q[2]) as f64,
+            ]
+        };
+        let neg_r = [r(-rr[0]) as f64, r(-rr[1]) as f64, r(-rr[2]) as f64];
+        let shorts: Vec<i16> = (0..4).map(|k| m.i16(this + 0x19a4 + 2 * k)).collect();
+        let min_max = |x: f32, y: f32| (if x < y { x } else { y }, if y < x { x } else { y });
+        if m.rd8(this + 0x19b5) != 0 {
+            (lo, hi) = (if e(m, 1) < e(m, 0) { e(m, 1) } else { e(m, 0) }, if e(m, 0) < e(m, 1) { e(m, 1) } else { e(m, 0) });
+            copy3(m, u, this + 0xa38);
+            let vv = mid(m, 2, 3);
+            set3(m, v, vv);
+        } else if m.rd8(this + 0x19b6) != 0 {
+            (lo, hi) = (if e(m, 2) < e(m, 0) { e(m, 2) } else { e(m, 0) }, if e(m, 0) < e(m, 2) { e(m, 2) } else { e(m, 0) });
+            let vv = mid(m, 1, 3);
+            set3(m, v, vv);
+            let w = [vv[0] as f64, vv[1] as f64, vv[2] as f64];
+            set3(m, u, [r(w[1] * rr[2] - w[2] * rr[1]), r(w[2] * rr[0] - w[0] * rr[2]), r(w[0] * rr[1] - w[1] * rr[0])]);
+        } else if m.rd8(this + 0x19b8) != 0 {
+            (lo, hi) = (if e(m, 3) < e(m, 1) { e(m, 3) } else { e(m, 1) }, if e(m, 3) < e(m, 1) { e(m, 1) } else { e(m, 3) });
+            let vv = mid(m, 0, 2);
+            set3(m, v, vv);
+            let w = [vv[0] as f64, vv[1] as f64, vv[2] as f64];
+            set3(m, u, [r(w[2] * rr[1] - w[1] * rr[2]), r(w[0] * rr[2] - w[2] * rr[0]), r(w[1] * rr[0] - w[0] * rr[1])]);
+        } else if m.rd8(this + 0x19b7) != 0 {
+            (lo, hi) = (if e(m, 3) < e(m, 2) { e(m, 3) } else { e(m, 2) }, if e(m, 2) < e(m, 3) { e(m, 3) } else { e(m, 2) });
+            set3(m, u, [neg_r[0] as f32, neg_r[1] as f32, neg_r[2] as f32]);
+            let vv = mid(m, 0, 1);
+            set3(m, v, vv);
+        } else if let Some(j) = (0..4u32).find(|&j| shorts[j as usize] != 0) {
+            lo = e(m, j);
+            hi = lo;
+            let x = xaxis(m);
+            let (uu, vv) = match j {
+                0 => ([r(rr[0] - x[0]), r(rr[1] - x[1]), r(rr[2] - x[2])], third(m, 1, 2, 3)),
+                1 => ([r(x[0] + rr[0]), r(x[1] + rr[1]), r(x[2] + rr[2])], third(m, 0, 2, 3)),
+                2 => ([r(neg_r[0] - x[0]), r(neg_r[1] - x[1]), r(neg_r[2] - x[2])], third(m, 1, 0, 3)),
+                _ => ([r(neg_r[0] - x[0]), r(neg_r[1] - x[1]), r(neg_r[2] - x[2])], third(m, 1, 2, 0)),
+            };
+            set3(m, u, uu);
+            set3(m, v, vv);
+        }
+        let _ = min_max;
+        lo = r(lo as f64 - avg as f64);
+        lo = if lo < 0.0 { 0.0 } else if lo > 1.0 { 1.0 } else { lo };
+        hi = if hi < 0.0 { 0.0 } else if hi > 1.0 { 1.0 } else { hi };
+        let (c1, c2) = (S + 0x50, S + 0x60);
+        mx::vec_cross(m, c1, v, u);
+        mx::rotate(m, c2, c1, this + 0x900);
+        copy3(m, c1, c2);
+        mx::vec_scale_in_place(m, u, c2, r(lo as f64 * dt64 * 10.0));
+        let g = r(dt64 * 0.6);
+        mx::vec_scale(m, S + 0x70, v, g);
+        mx::vec_sub_in_place(m, u, S + 0x80, S + 0x70);
+        if m.f32(u + 8) > 0.0 {
+            m.set_f32(u + 8, 0.0);
+        }
+        if m.f32(this + 0xdc0) < 10.0 {
+            mx::vec_add(m, S + 0x90, this + 0xa08, u);
+            copy3(m, this + 0x40, S + 0x90);
+        }
+        mx::vec_scale(m, S + 0x70, v, g);
+        mx::vec_sub_in_place(m, u, S + 0x80, S + 0x70);
+        let k = if m.f32(this + 0xe38) < 3.0 { r(0.2f32 as f64 * 3.0) } else { 0.2f32 };
+        mx::vec_scale(m, S + 0xa0, u, dt);
+        let t = v3(m, S + 0xa0);
+        mx::mat_translation(m, S + 0x100, t[0] as f32, t[1] as f32, t[2] as f32);
+        let roll = r(k as f64 * hi as f64 * dt64 * 3.1415926);
+        let pp = v3(m, pv);
+        let dir = v3(m, c1);
+        mx::mat_look(m, S + 0x140, [pp[0] as f32, pp[1] as f32, pp[2] as f32], [dir[0] as f32, dir[1] as f32, dir[2] as f32], roll);
+        mx::mat_mul(m, S + 0x180, S + 0x140, mtx);
+        mx::mat_mul(m, S + 0x200, S + 0x180, S + 0x100);
+    }
+    res = core::array::from_fn(|i| m.f32(S + 0x200 + 4 * i as u32));
+    mx::put12(m, out, &res);
+}

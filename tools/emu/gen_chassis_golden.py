@@ -144,3 +144,56 @@ for _ in range(20):
     w, _f = state(0x4eba10, r, fill=[(0x2700, 0x2800)])
     h.case(CONST + w, lambda e: e.call(0x4eba10, this=CAR + 0x2700), f'chassis::fn_004eba10(&mut m, {CAR + 0x2700:#x})', [(CAR, 0x4000)], time=r.uniform(1, 100))
 h.save()
+
+# 0x4fca10
+import math as _m
+h = Harness('golden_body', ['use ht2_sim::chassis;'])
+r = h.rnd
+
+
+def rot_matrix(r):
+    ax, ay, az = r.uniform(-0.4, 0.4), r.uniform(-0.4, 0.4), r.uniform(-3, 3)
+    cz, sz, cx, sx, cy, sy = _m.cos(az), _m.sin(az), _m.cos(ax), _m.sin(ax), _m.cos(ay), _m.sin(ay)
+    Rz = [[cz, sz, 0], [-sz, cz, 0], [0, 0, 1]]
+    Rx = [[1, 0, 0], [0, cx, sx], [0, -sx, cx]]
+    Ry = [[cy, 0, -sy], [0, 1, 0], [sy, 0, cy]]
+    mm = lambda a, b: [[sum(a[i][k] * b[k][j] for k in range(3)) for j in range(3)] for i in range(3)]
+    return mm(mm(Ry, Rx), Rz)
+
+
+OUT = CAR + 0x3a00
+for k in range(300):
+    w, _f = state(0x4fca10, r, fill=[(0xc6c, 0xc84), (0xd40, 0xd4c), (0x1cbc, 0x1cbc + 48), (0x1f7c, 0x1f8c), (0xa08, 0xa14)],
+                  overrides={0xdd4: lambda r: ('i', 4), 0x2640: lambda r: ('f', r.uniform(2000, 12000)), 0xdc0: lambda r: ('f', r.uniform(0, 30))})
+    M = rot_matrix(r)
+    pos = [r.uniform(-100, 100) for _ in range(3)]
+    mat = [M[i][j] for i in range(3) for j in range(3)] + pos
+    inv = [M[j][i] for i in range(3) for j in range(3)]
+    tinv = [-sum(pos[k] * M[j][k] for k in range(3)) for j in range(3)]
+    w += [(CAR + 0x10 + 4 * i, pack('f', v)) for i, v in enumerate(mat)]
+    w += [(CAR + 0x900 + 4 * i, pack('f', v)) for i, v in enumerate(inv + tinv)]
+    nz = [M[2][j] for j in range(3)]
+    w += [(CAR + 0xd0 + 4 * i, pack('f', nz[i] + r.uniform(-0.05, 0.05))) for i in range(3)]
+    ry = [M[1][j] for j in range(3)]
+    w += [(CAR + 0xa38 + 4 * i, pack('f', ry[i])) for i in range(3)]
+    w += [(CAR + 0xa2c + 4 * i, pack('f', ry[i] + r.uniform(-0.1, 0.1))) for i in range(3)]
+    w += [(CAR + 0x2214 + 4 * i, pack('f', pos[i] + r.uniform(-1, 1))) for i in range(3)]
+    w.append((CAR + 0x2220, pack('f', r.uniform(-1, 1))))
+    w.append((CAR + 0x2640, pack('f', r.uniform(2000, 12000))))
+    w.append((CAR + 0xdc0, pack('f', r.uniform(0, 30))))
+    w.append((CAR + 0xdd4, pack('i', 4)))
+    for o in list(range(0xc6c, 0xc84, 4)) + list(range(0xd40, 0xd4c, 4)) + list(range(0xa08, 0xa14, 4)):
+        w.append((CAR + o, pack('f', r.uniform(-2000, 2000) if o < 0xc84 else r.uniform(-5, 5))))
+    for wh in range(4):
+        wp = [r.uniform(-2, 2), r.uniform(-3, 3), r.uniform(-1, 0)]
+        w += [(CAR + 0x104 + 0xf8 * wh + 4 * i, pack('f', wp[i])) for i in range(3)]
+        w.append((CAR + 0xe18 + 4 * wh, pack('f', r.uniform(-0.3, 1.5))))
+        w.append((CAR + 0x1b74 + 4 * wh, pack('f', r.uniform(0.3, 0.6))))
+        w.append((CAR + 0x19a4 + 2 * wh, pack('h', r.choice([0, 0, 0, 1]))))
+    w.append((CAR + 0x19b4, pack('b', 1 if r.random() < 0.05 else 0)))
+    w.append((CAR + 0x19ba, pack('b', r.choice([0, 1, 1, 1]))))
+    w.append((CAR + 0xe38, pack('f', r.uniform(0, 4))))
+    for o in (0x19b5, 0x19b6, 0x19b7, 0x19b8):
+        w.append((CAR + o, pack('b', 1 if r.random() < 0.2 else 0)))
+    h.case(CONST + w, lambda e: e.call(0x4fca10, [OUT], 'i', this=CAR), f'chassis::fn_004fca10(&mut m, {T}, {OUT:#x})', [(CAR, 0x4000)], dt=r.uniform(0.005, 0.05))
+h.save()
