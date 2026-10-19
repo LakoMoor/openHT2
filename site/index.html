@@ -52,14 +52,17 @@
       <li class="done"><span class="tag">готово</span><span>Блоки столкновений комнат (многоугольники, плоскости) с типами покрытий; проверка отрезка перенесена из оригинала</span></li>
       <li class="done"><span class="tag">готово</span><span>Обход графа сцены как в оригинале: комнаты, порталы, делящие узлы</span></li>
       <li><span class="tag">в работе</span><span>Стены комнат и столкновения кузова, отрисовка колёс как в оригинале</span></li>
-      <li><span class="tag">план</span><span>Дороги по графам <code>.way</code>, интерфейс, звук</span></li>
-      <li><span class="tag">план</span><span>Физика грузовиков, задания, торговля, ИИ</span></li>
+      <li class="done"><span class="tag">готово</span><span>Дорожная сеть из <code>.way</code> как в оригинале: кривые Безье, длина дуги, узлы, движение по маршруту (сверено с оригиналом на эмуляторе)</span></li>
+      <li class="done"><span class="tag">готово</span><span>Водитель машин ИИ: руль, удержание полосы, скорость перед поворотами, торможение, выезд задним ходом</span></li>
+      <li><span class="tag">в работе</span><span>Поток машин ИИ: объезд препятствий, смена полос, выбор маршрута и машин как в оригинале</span></li>
+      <li><span class="tag">план</span><span>Интерфейс, звук, задания, торговля</span></li>
     </ul>
   </div>
 
   <h2>Скриншоты</h2>
   <p>Это работа самого движка openHT2 на данных установленной копии игры: открытый мир, гоночная трасса, грузовик, комбинат и арена.</p>
   <div class="shots">
+    <figure><img src="img/traffic.jpg" alt="Машина ИИ едет по своей полосе" loading="lazy"><figcaption>Машина ИИ ведёт себя по перенесённому коду водителя <code>SecondCar</code></figcaption></figure>
     <figure><img src="img/ported.jpg" alt="КамАЗ у аэропорта на перенесённой физике" loading="lazy"><figcaption>КамАЗ на перенесённой физике оригинала (конструктор и шаг <code>_Car_V</code>)</figcaption></figure>
     <figure><img src="img/airport.jpg" alt="Старт в аэропорту: ЗИЛ с тентом" loading="lazy"><figcaption>Старт из <code>GAME.CNF</code>: аэропорт, ЗИЛ</figcaption></figure>
     <figure><img src="img/track.jpg" alt="Грузовик едет по трассе" loading="lazy"><figcaption>Езда по трассе, физика по числам <code>vehicle.tech</code></figcaption></figure>

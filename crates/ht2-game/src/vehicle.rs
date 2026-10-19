@@ -6,7 +6,7 @@
 
 use crate::ground::Ground;
 use crate::powertrain::Powertrain;
-use crate::simcar::{SimCar, WheelNodes};
+use crate::simcar::{Pose, SimCar, WheelNodes};
 use glam::{Mat4, Vec3};
 use ht2_formats::tech::Tech;
 
@@ -145,6 +145,23 @@ impl Vehicle {
     /// For diagnostics: the room whose road is below the ported vehicle.
     pub fn room_below(&mut self, ground: &Ground) -> Option<u32> {
         self.sim.as_mut().and_then(|s| s.room_below(ground))
+    }
+
+    /// Put `count` computer vehicles on the roads around (ported physics only).
+    pub fn add_traffic(&mut self, ground: &Ground, count: usize, seed: u32) {
+        if let Some(s) = &mut self.sim {
+            s.add_traffic(ground, count, seed);
+        }
+    }
+
+    /// The computer vehicles, for drawing.
+    pub fn traffic(&self) -> Vec<Pose> {
+        self.sim.as_ref().map_or_else(Vec::new, |s| s.traffic())
+    }
+
+    /// For diagnostics: the state of computer vehicle `k`.
+    pub fn traffic_state(&self, k: usize) -> Option<String> {
+        self.sim.as_ref().and_then(|s| s.traffic_state(k))
     }
 
     /// Whether the vehicle runs on the ported code.

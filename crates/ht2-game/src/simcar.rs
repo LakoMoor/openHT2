@@ -9,9 +9,11 @@ use glam::{Mat4, Vec3};
 use ht2_sim::contact::World;
 use ht2_sim::gearbox::TECH_TABLE;
 use ht2_sim::mem::Mem;
-use ht2_sim::{contact, ctor, globals, loader, step, tech_rec::RECORD_LEN, tech_system as ts};
+use ht2_sim::{ai, contact, ctor, globals, loader, step, tech_rec::RECORD_LEN, tech_system as ts};
 
 const CAR: u32 = 0x1000_0000;
+/// The computer vehicles follow the player's in memory, this far apart.
+const CAR_STRIDE: u32 = 0x10000;
 const CLOCK: u32 = 0x1800_0000;
 /// Stands for the room the vehicle is in (the mesh world has only one).
 const ROOM: u32 = 0x1900_0000;
@@ -52,6 +54,17 @@ pub struct SimCar {
     time: f64,
     /// Whether the scene graph (rooms) is used; otherwise the drawn ground.
     rooms: bool,
+    /// Computer vehicles: their address and their driver.
+    traffic: Vec<(u32, ai::Driver)>,
+    vid: i32,
+}
+
+/// What is needed to draw a vehicle.
+pub struct Pose {
+    pub body: Mat4,
+    pub steer: f32,
+    pub wheel_angle: [f32; 8],
+    pub wheel_drop: [f32; 8],
 }
 
 fn with_world<R>(ground: &Ground, rooms: bool, f: impl FnOnce(&mut dyn World) -> R) -> R {
@@ -109,7 +122,7 @@ impl SimCar {
         m.set_i16(CAR + 0x2704, 1);
         m.set_i16(CAR + 0x2706, 1);
         ht2_sim::gearbox::fn_004ff770(&mut m, CAR, 1);
-        Ok(SimCar { m, time: 0.0, rooms })
+        Ok(SimCar { m, time: 0.0, rooms, traffic: Vec::new(), vid })
     }
 
     /// One step of `dt` seconds with the pedals in `0..=1` and the steering keys (-1 right, 1 left).
@@ -142,6 +155,112 @@ impl SimCar {
         m.set_f32(CAR + 0x2710, 0.0);
         m.set_i16(CAR + 0x2714, (braking > 0.0) as i16);
         with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, CAR));
+        for (car, drv) in &mut self.traffic {
+            ai::drive(m, *car, &ground.roads, drv, 0, dt as f64);
+            with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, *car));
+        }
+    }
+
+    /// Put `count` computer vehicles of the player's type on the roads 60 to 400 m from the
+    /// player, in the right-hand lane. Stand-in: the original places traffic from the road
+    /// module's own rules (not ported) and with its own vehicle types.
+    pub fn add_traffic(&mut self, ground: &Ground, count: usize, seed: u32) {
+        let net = &ground.roads;
+        let me = self.pos();
+        let mut taken: Vec<Vec3> = vec![me];
+        let mut rng = seed | 1;
+        let mut next = move || {
+            rng ^= rng << 13;
+            rng ^= rng >> 17;
+            rng ^= rng << 5;
+            rng
+        };
+        for _ in 0..count * 200 {
+            if self.traffic.len() >= count || net.roads.is_empty() {
+                break;
+            }
+            let road = next() as usize % net.roads.len();
+            let mut place = net.road_start(road);
+            let mut d = (next() % 1000) as f64 * 0.001 * net.roads[road].length;
+            net.advance(&mut place, &mut d);
+            place.node = None;
+            if next() & 1 == 1 {
+                place.reversed = true;
+            }
+            let c = net.coordinates(&place);
+            let t = net.direction(&place, false);
+            let l = (t[0] * t[0] + t[1] * t[1]).sqrt();
+            if l < 1e-6 {
+                continue;
+            }
+            let (fx, fy) = ((t[0] / l) as f32, (t[1] / l) as f32);
+            let at = Vec3::new(c[0] as f32 + fy * 1.75, c[1] as f32 - fx * 1.75, c[2] as f32);
+            let dist = (at - me).truncate().length();
+            if !(60.0..=400.0).contains(&dist) || taken.iter().any(|p| (*p - at).length() < 20.0) {
+                continue;
+            }
+            let Some(z) = ground.height_at(at.x, at.y, at.z + 3.0, 0.0) else { continue };
+            let pos = Vec3::new(at.x, at.y, z + 1.0);
+            let car = CAR + CAR_STRIDE * (self.traffic.len() as u32 + 1);
+            let Some(room) = ground.scene.room_at(&mut self.m, pos.to_array()).or((!self.rooms).then_some(ROOM)) else { continue };
+            let heading = (-fx).atan2(fy);
+            let (c, s) = (heading.cos(), heading.sin());
+            let mat = [c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0, pos.x, pos.y, pos.z];
+            let m = &mut self.m;
+            let vid = self.vid;
+            with_world(ground, self.rooms, |w| ctor::fn_004ebd00(m, w, car, room, mat, vid));
+            // Engine running, automatic gearbox, pedals and steering set by the driver.
+            m.set_i32(car + 0x2774, 1);
+            m.set_i32(car + 0x2760, 1);
+            m.set_i32(car + 0x1b24, 2);
+            m.set_i16(car + 0x2704, 1);
+            m.set_i16(car + 0x2706, 1);
+            ht2_sim::gearbox::fn_004ff770(m, car, 1);
+            ai::init_driver(m, car, next());
+            m.set_i16(car + 0x2746, REQUEST_DRIVE);
+            self.traffic.push((car, ai::Driver::new(place, next())));
+            taken.push(pos);
+        }
+    }
+
+    /// The computer vehicles, for drawing.
+    pub fn traffic(&self) -> Vec<Pose> {
+        self.traffic.iter().map(|(car, _)| self.pose(*car)).collect()
+    }
+
+    fn pose(&self, car: u32) -> Pose {
+        let m = &self.m;
+        let g = |i: u32| m.f32(car + 0x10 + 4 * i);
+        Pose {
+            body: Mat4::from_cols(
+                Vec3::new(g(0), g(1), g(2)).extend(0.0),
+                Vec3::new(g(3), g(4), g(5)).extend(0.0),
+                Vec3::new(g(6), g(7), g(8)).extend(0.0),
+                Vec3::new(g(9), g(10), g(11)).extend(1.0),
+            ),
+            steer: m.f32(car + 0x1a20),
+            wheel_angle: core::array::from_fn(|k| m.f32(car + 0xe9c + 4 * k as u32)),
+            wheel_drop: core::array::from_fn(|k| m.f32(car + 0xdd8 + 4 * k as u32) - 0.75 * m.f32(car + 0x1f9c + 4 * k as u32)),
+        }
+    }
+
+    /// For diagnostics: speed, mode, lane offset and inputs of computer vehicle `k`.
+    pub fn traffic_state(&self, k: usize) -> Option<String> {
+        let (car, d) = self.traffic.get(k)?;
+        let m = &self.m;
+        Some(format!(
+            "car{k}: pos={:6.1?} v={:5.1} gear={} mode={} lat={:5.2} steer={:5.2} thr={:.2} brk={:.2} road={} t={:.3}",
+            [m.f32(car + 0x34), m.f32(car + 0x38), m.f32(car + 0x3c)],
+            m.f32(car + 0xdc8),
+            m.i32(car + 0x1c1c),
+            m.u32(car + ai::MODE),
+            m.f64(car + ai::LATERAL),
+            m.f32(car + ai::STEER_INPUT),
+            m.f32(car + 0x270c),
+            m.f32(car + 0x2710),
+            d.place.road,
+            d.place.t
+        ))
     }
 
     /// The body transform (the original's matrix: rows are the body axes, then the origin).

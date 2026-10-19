@@ -98,6 +98,30 @@ fn load_scenes(dir: &Path, map: &str) -> Result<(Vec<Scene>, PathBuf, Vec<b3d::B
     }
 }
 
+/// The road network of the `.way` files next to the models: all of them when `all`, else the
+/// one of the model `map`.
+fn load_roads(folder: &Path, map: &str, all: bool) -> ht2_sim::road::RoadNet {
+    let one = Path::new(map).file_name().map(|n| n.to_string_lossy().to_lowercase());
+    let mut files: Vec<_> = fs::read_dir(folder)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("way")))
+        .filter(|p| all || p.file_stem().map(|n| n.to_string_lossy().to_lowercase()) == one)
+        .collect();
+    files.sort();
+    let mut ways = Vec::new();
+    for f in files {
+        let Ok(data) = fs::read(&f) else { continue };
+        match ht2_formats::way::parse(&data) {
+            Ok(chunks) => ways.push(ht2_formats::way::rooms(&chunks)),
+            Err(e) => eprintln!("skipping {}: {e}", f.display()),
+        }
+    }
+    ht2_sim::road::RoadNet::build(&ways)
+}
+
 /// One wheel: where it sits on the body and whether the steering turns it.
 struct Wheel {
     /// Space of the wheel in body coordinates (axes are the columns).
@@ -202,6 +226,8 @@ fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, Strin
     let mut ground = Ground::new(&world_scenes);
     ground.scene = world::Scene::new(&coll);
     println!("collision: {} rooms", ground.scene.room_count());
+    ground.roads = load_roads(&folder, map, dir.join(map).is_dir());
+    println!("roads: {} nodes, {} roads", ground.roads.nodes.len(), ground.roads.roads.len());
     // The scenario start is only usable if there is ground under it (the menu scenes have none).
     let start = scenario.start.and_then(|p| ground.height_at(p.x, p.y, p.z + 200.0, 0.0).map(|z| Vec3::new(p.x, p.y, z)));
     let (pos, heading) = match start {
@@ -213,13 +239,21 @@ fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, Strin
     let tech_file = std::rc::Rc::new(fs::read(dir.join("vehicle.tech")).map_err(|e| format!("vehicle.tech: {e}"))?);
     let vehicle = Vehicle::new(truck_model.params.clone(), tech_file, pos, heading, ride, &ground);
     println!("vehicle physics: {}", if vehicle.is_ported() { "ported from the original" } else { "stand-in" });
+    let mut vehicle = vehicle;
+    let traffic = std::env::var("HT2_TRAFFIC").ok().and_then(|v| v.parse().ok()).unwrap_or(8);
+    vehicle.add_traffic(&ground, traffic, 0x2545_f491);
+    println!("traffic: {} vehicles", vehicle.traffic().len());
     Ok(World { ground, vehicle, world_scenes, truck: truck_model, spawn: (pos, heading, ride) })
 }
 
 fn chase_view_proj(v: &Vehicle, aspect: f32) -> Mat4 {
-    let fwd = v.forward();
-    let eye = v.pos - fwd * 16.0 + Vec3::Z * 6.5;
-    let target = v.pos + fwd * 10.0 + Vec3::Z * 1.5;
+    chase_from(v.pos, v.forward(), aspect)
+}
+
+fn chase_from(pos: Vec3, fwd: Vec3, aspect: f32) -> Mat4 {
+    let fwd = fwd.with_z(0.0).normalize_or(Vec3::Y);
+    let eye = pos - fwd * 16.0 + Vec3::Z * 6.5;
+    let target = pos + fwd * 10.0 + Vec3::Z * 1.5;
     Mat4::perspective_rh(60f32.to_radians(), aspect, 0.3, 6000.0) * Mat4::look_at_rh(eye, target, Vec3::Z)
 }
 
@@ -275,6 +309,10 @@ fn run() -> Result<(), String> {
                     println!("  room below {below:?}");
                     let v = &game.world.vehicle;
                     println!("t={t:5.2} room={:?} pos={:6.1?} speed={:5.1} gear={} tgt={} shift={} rev={:5.1} thr={:.2} F={:8.0} fuel={:.2}", v.room(), v.pos, v.speed, v.gear, v.last.map_or(0, |o| o.target_gear), v.last.map_or(0, |o| o.shift_code), v.engine_rev, v.last.map_or(0.0, |o| o.throttle_eff), v.last.map_or(0.0, |o| o.drive_force), v.fuel);
+                    for k in 0.. {
+                        let Some(st) = game.world.vehicle.traffic_state(k) else { break };
+                        println!("  {st}");
+                    }
                     next_print += 0.25;
                 }
             }
@@ -283,7 +321,13 @@ fn run() -> Result<(), String> {
             game.place_truck();
             let v = &game.world.vehicle;
             let aspect = size.0 as f32 / size.1 as f32;
-            let vp = if overview { overview_view_proj(v, aspect, 1500.0) } else { chase_view_proj(v, aspect) };
+            // HT2_FOLLOW=k looks at computer vehicle k instead.
+            let follow = std::env::var("HT2_FOLLOW").ok().and_then(|k| k.parse::<usize>().ok()).and_then(|k| v.traffic().into_iter().nth(k));
+            let vp = match follow {
+                Some(p) => chase_from(p.body.w_axis.truncate(), p.body.y_axis.truncate(), aspect),
+                None if overview => overview_view_proj(v, aspect, 1500.0),
+                None => chase_view_proj(v, aspect),
+            };
             let rgba = game.renderer.screenshot(size, vp);
             save_png(&path, size, &rgba)?;
             println!("wrote {}", path.display());
@@ -301,6 +345,8 @@ struct Game {
     renderer: Renderer,
     /// Body first, then one object per wheel.
     truck_objects: Vec<ObjectId>,
+    /// The same for each computer vehicle.
+    traffic_objects: Vec<Vec<ObjectId>>,
     world: World,
 }
 
@@ -312,7 +358,8 @@ impl Game {
         let t = &world.truck;
         let parts: Vec<&[b3d::Batch]> = std::iter::once(&t.scene.batches[..]).chain(t.wheel_parts.iter().map(|p| &p[..])).collect();
         let truck_objects = renderer.add_many(&t.scene, &parts);
-        let mut game = Game { renderer, truck_objects, world };
+        let traffic_objects = world.vehicle.traffic().iter().map(|_| renderer.add_many(&t.scene, &parts)).collect();
+        let mut game = Game { renderer, truck_objects, traffic_objects, world };
         game.place_truck();
         game
     }
@@ -327,6 +374,15 @@ impl Game {
             let spin = Mat4::from_rotation_x(-v.wheel_angle(i) * w.spin_sign);
             let drop = Mat4::from_translation(-Vec3::Z * v.wheel_drop(i));
             self.renderer.set_model(self.truck_objects[i + 1], body * drop * w.mount * steer * spin);
+        }
+        for (ids, p) in self.traffic_objects.iter().zip(self.world.vehicle.traffic()) {
+            self.renderer.set_model(ids[0], p.body);
+            for (i, w) in self.world.truck.wheels.iter().enumerate() {
+                let steer = if w.steered { Mat4::from_rotation_z(p.steer) } else { Mat4::IDENTITY };
+                let spin = Mat4::from_rotation_x(-p.wheel_angle[i] * w.spin_sign);
+                let drop = Mat4::from_translation(-Vec3::Z * p.wheel_drop[i]);
+                self.renderer.set_model(ids[i + 1], p.body * drop * w.mount * steer * spin);
+            }
         }
     }
 }

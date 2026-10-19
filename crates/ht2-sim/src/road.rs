@@ -578,6 +578,17 @@ impl RoadNet {
         self.seg(p).tangent(p.t, p.piece)
     }
 
+    /// The tangent the way a place faces: against the road when the place is reversed, and
+    /// turned round again when `back`.
+    pub fn direction(&self, p: &Place, back: bool) -> [f64; 3] {
+        let t = self.tangent(p);
+        if back != p.reversed {
+            [-t[0], -t[1], -t[2]]
+        } else {
+            t
+        }
+    }
+
     /// `advancePosition` (`0x435d60`): move `dist` metres along the road (against it when the
     /// place is reversed), segment by segment. At the end of the road the place becomes the
     /// node there and `dist` keeps what is left.
@@ -624,10 +635,7 @@ impl RoadNet {
     /// `0x4cda20`: the horizontal direction of the road at a place (against the road when
     /// `back`), and the slope angle of the road there.
     pub fn heading(&self, p: &Place, back: bool) -> ([f64; 3], f64) {
-        let mut t = self.tangent(p);
-        if back {
-            t = [-t[0], -t[1], -t[2]];
-        }
+        let t = self.direction(p, back);
         let slope = norm(t)[2].asin();
         (norm([t[0], t[1], 0.0]), slope)
     }
@@ -638,10 +646,7 @@ impl RoadNet {
     pub fn lateral(&self, p: &Place, back: bool, q: [f64; 3]) -> (f64, f64, f64, u32) {
         let c = self.coordinates(p);
         let d = [q[0] - c[0], q[1] - c[1], 0.0];
-        let mut t = self.tangent(p);
-        if back {
-            t = [-t[0], -t[1], -t[2]];
-        }
+        let t = self.direction(p, back);
         let u = norm([t[0], t[1], 0.0]);
         let k = u[1] * d[1] + u[0] * d[0] + u[2] * d[2];
         let l = [d[0] - u[0] * k, d[1] - u[1] * k, d[2] - u[2] * k];
@@ -692,6 +697,8 @@ impl RoadNet {
                 return;
             }
             let r = &self.roads[road];
+            // The new place faces the way the move goes on: away from the node.
+            let back = *dist < 0.0;
             *p = if r.start == node {
                 self.road_start(road)
             } else if r.end == node {
@@ -699,6 +706,7 @@ impl RoadNet {
             } else {
                 return;
             };
+            p.reversed ^= back;
         }
     }
 
