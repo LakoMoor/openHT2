@@ -479,7 +479,11 @@ pub fn install_surface_tables(m: &mut Mem) {
     m.set_u32(DEFAULT_SURFACE + 8, 0);
     m.set_u32(DEFAULT_SURFACE + 12, 0);
     m.set_f32(GRIP_SCALE, 1.4);
+    m.set_f32(SAME_PLANE, 0.044680428);
 }
+
+/// `0x6749f0`: tolerance factor for wheels standing on one plane (`0x506750`).
+pub const SAME_PLANE: u32 = 0x6749f0;
 
 /// Random bumps of the road under a wheel: the vertical speed `+0xe5c` and offset `+0xe3c`.
 /// `lim` bounds the speed, `amp` the shape of the noise, `z` its strength and `clamp` the offset.
@@ -841,4 +845,85 @@ pub fn fn_00502270(m: &mut Mem, zone: u32, p2: u32, p3: u32) -> u32 {
         any |= ok;
     }
     any as u32
+}
+
+/// `0x506750`: do the two wheels of side / axle `pair` stand on the same plane (normals within
+/// 0.999 and contact points within `0.0447 * +0x1f64[pair]` of each other's plane)? Always true
+/// for vehicles with fewer than four wheels.
+pub fn fn_00506750(m: &Mem, this: u32, pair: u32) -> u32 {
+    if m.i32(this + 0xdd4) < 4 {
+        return 1;
+    }
+    let w = |i: u32| this + 0xf8 * (i + 1);
+    let (a, b, n) = match pair {
+        0 => (0, 2, 2),
+        1 => (0, 1, 0),
+        2 => (1, 3, 1),
+        3 => (2, 3, 2),
+        _ => return 0,
+    };
+    if m.i16(w(a) + 0x18) == 0 || m.i16(w(b) + 0x18) == 0 {
+        return 0;
+    }
+    let (na, nb) = (v3(m, w(a) + 0xc), v3(m, w(b) + 0xc));
+    if na[2] * nb[2] + na[1] * nb[1] + na[0] * nb[0] <= 0.999 {
+        return 0;
+    }
+    let (pa, pb) = (v3(m, w(a)), v3(m, w(b)));
+    let nn = v3(m, w(n) + 0xc);
+    let d = [r(pa[0] - pb[0]) as f64, r(pa[1] - pb[1]) as f64, r(pa[2] - pb[2]) as f64];
+    let dist = (d[0] * nn[0] + d[1] * nn[1] + d[2] * nn[2]).abs();
+    let limit = f(m, SAME_PLANE) * f(m, this + 0x1f64 + 4 * pair);
+    (dist < limit) as u32
+}
+
+/// `0x506210`: the ground normal `+0xd0` from the planes through each three of the four wheel
+/// contacts (or the default normal `+0xc4`).
+pub fn fn_00506210(m: &mut Mem, this: u32, flag: u32) {
+    let fallback = |m: &mut Mem| copy_words(m, this + 0xd0, this + 0xc4, 3);
+    if m.i32(this + 0xdd4) != 4 {
+        fallback(m);
+        return;
+    }
+    let use_wheels = (m.rd8(this + 0x19b9) == 0 || (flag != 0 && m.f32(this + 0xe38) < 1.0)) && m.u32(this + 0x8b8) == 0;
+    if !use_wheels {
+        fallback(m);
+        return;
+    }
+    let p = |m: &Mem, i: u32| v3(m, this + 0xf8 * (i + 1));
+    let on = |m: &Mem, i: u32| m.i16(this + 0xf8 * (i + 1) + 0x18) != 0;
+    let sub = |x: [f64; 3], y: [f64; 3]| [r(x[0] - y[0]) as f64, r(x[1] - y[1]) as f64, r(x[2] - y[2]) as f64];
+    // normal of the plane through `o`, `o + a`, `o + b` the way the original writes it
+    let tri = |a: [f64; 3], b: [f64; 3]| [r(a[2] * b[1] - a[1] * b[2]), r(b[2] * a[0] - a[2] * b[0]), r(a[1] * b[0] - b[1] * a[0])];
+    let mut normals: [Option<[f32; 3]>; 4] = [None; 4];
+    if on(m, 0) && on(m, 1) && on(m, 2) {
+        normals[0] = Some(tri(sub(p(m, 1), p(m, 0)), sub(p(m, 2), p(m, 0))));
+    }
+    if on(m, 0) && on(m, 1) && on(m, 3) {
+        normals[1] = Some(tri(sub(p(m, 3), p(m, 1)), sub(p(m, 0), p(m, 1))));
+    }
+    if on(m, 0) && on(m, 2) && on(m, 3) {
+        let a = sub(p(m, 0), p(m, 2));
+        let b = sub(p(m, 3), p(m, 2));
+        normals[2] = Some([r(b[1] * a[2] - b[2] * a[1]), r(b[2] * a[0] - b[0] * a[2]), r(b[0] * a[1] - b[1] * a[0])]);
+    }
+    if on(m, 1) && on(m, 2) && on(m, 3) {
+        let b = sub(p(m, 2), p(m, 3));
+        let a = sub(p(m, 1), p(m, 3));
+        normals[3] = Some([r(b[2] * a[1] - a[2] * b[1]), r(a[2] * b[0] - b[2] * a[0]), r(b[1] * a[0] - b[0] * a[1])]);
+    }
+    let (sum, tmp, u) = (SCRATCH + 0x700, SCRATCH + 0x710, SCRATCH + 0x720);
+    copy_words(m, sum, 0x702650, 3);
+    let mut count = 0;
+    for n in normals.iter().flatten() {
+        set3(m, tmp, *n);
+        crate::matrix::vec_unit(m, u, tmp);
+        crate::matrix::vec_add_in_place(m, sum, SCRATCH + 0x730, u);
+        count += 1;
+    }
+    if flag != 0 && count == 0 {
+        fallback(m);
+        return;
+    }
+    crate::matrix::vec_unit(m, this + 0xd0, sum);
 }

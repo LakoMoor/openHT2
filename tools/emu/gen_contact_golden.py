@@ -157,3 +157,30 @@ for k in range(300):
             ret=True, ret_int=True, dt=r.uniform(0.005, 0.05),
             ignore=[(base + o, n) for base in (wb + 0x20, CAR + 0x3510 + 0xd0 * wheel) for o, n in ((0x70, 4), (0x7c, 0x44))])
 e1.save()
+
+# --- ground plane from the wheels ----------------------------------------------
+e2 = Harness('golden_ground_plane', ['use ht2_sim::contact;'])
+CONST2 = CONST + [(0x6749f0, bytes(e2.e.read(0x6749f0, 4)))]
+r = e2.rnd
+for k in range(300):
+    w = []
+    z0 = r.uniform(-1, 1)
+    tilt = r.choice([0.0, 0.0, r.uniform(-0.3, 0.3)])
+    for i in range(6):
+        wb = CAR + 0xf8 * (i + 1)
+        x, y = (i % 2) * 2.0 - 1.0, (i // 2) * -3.0 + 1.5
+        z = z0 + tilt * x + (r.uniform(-0.05, 0.05) if r.random() < 0.5 else 0.0)
+        w += [(wb + 4 * c, pack('f', v)) for c, v in enumerate((x + r.uniform(-0.1, 0.1), y, z))]
+        nz = [r.uniform(-0.05, 0.05), r.uniform(-0.05, 0.05), 1.0]
+        n = sum(v * v for v in nz) ** 0.5
+        w += [(wb + 0xc + 4 * c, pack('f', v / n)) for c, v in enumerate(nz)]
+        w.append((wb + 0x18, pack('h', r.choice([1, 1, 1, 0]))))
+    w += [(CAR + 0x1f64 + 4 * i, pack('f', r.uniform(0.5, 3))) for i in range(4)]
+    w += [(CAR + 0xc4 + 4 * i, pack('f', v)) for i, v in enumerate((0.0, 0.1, 0.99))]
+    w += [(CAR + 0xdd4, pack('i', r.choice([4, 4, 4, 6, 2]))), (CAR + 0x19b9, pack('b', r.choice([0, 0, 1]))), (CAR + 0xe38, pack('f', r.uniform(0, 2))),
+          (CAR + 0x8b8, pack('i', r.choice([0, 0, 0, 1])))]
+    pair = r.randint(0, 3)
+    e2.case(CONST2 + w, lambda e, pair=pair: e.call(0x506750, [pair], 'i', this=CAR), f'contact::fn_00506750(&m, {T}, {pair})', [(CAR, 0x6000)], ret=True, ret_int=True)
+    flag = r.choice([0, 1])
+    e2.case(CONST2 + w, lambda e, flag=flag: e.call(0x506210, [flag], 'i', this=CAR), f'contact::fn_00506210(&mut m, {T}, {flag})', [(CAR, 0x6000)])
+e2.save()
