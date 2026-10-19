@@ -55,6 +55,16 @@ for k in range(40):
     e.call(0x48dbb0, [SRC], 'i', this=PIECE, max_insn=50_000_000)
     n = struct.unpack('<I', e.read(PIECE + 0x630, 4))[0]
     arc = struct.unpack('<%dd' % n, e.read(PIECE + 0x570, 8 * n))
+    # movement along the piece (0x48df80): t, distance and parameter step by reference
+    moves = []
+    for _ in range(4):
+        t0, d0 = r.random(), r.choice([1, -1]) * r.uniform(0.1, 2 * scale)
+        V = OBJ_BASE + 0x9000
+        e.write(V, struct.pack('<3d', t0, d0, 0.1))
+        ret = e.call(0x48df80, [V, V + 8, V + 16], 'iii', this=PIECE)
+        res = e.eax
+        t1, d1, s1 = struct.unpack('<3d', e.read(V, 24))
+        moves.append((t0, d0, t1, d1, s1, res))
     out += ['#[test]', f'fn case_{k}() {{',
             f'    let p = [{", ".join("[" + ", ".join(repr(x) for x in q) + "]" for q in pts)}];',
             '    let s = Segment::new(1, 0.0, 1, [8.0, 8.0], &p).unwrap();',
@@ -66,6 +76,15 @@ for k in range(40):
             '    for t in [0.1, 0.37, 0.5, 0.81, 1.0] {',
             '        let ev = |c: &[f64]| c.iter().fold(0.0, |r, k| r * t + k);',
             '        assert!((ev(got) - ev(&want)).abs() <= 1e-9 * ev(&want).abs().max(1.0), "t={t}: {} vs {}", ev(got), ev(&want));',
-            '    }', '}', '']
+            '    }']
+    for t0, d0, t1, d1, s1, res in moves:
+        out += ['    {', f'        let (mut t, mut d, mut k, mut step) = ({t0!r}, {d0!r}, 0usize, 0.1);',
+                '        let end = s.advance(&mut t, &mut d, &mut k, &mut step);',
+                f'        assert_eq!(end, {"true" if res else "false"});',
+                # the original's six secant steps can wander far before they settle, so the last
+                # digits of the arc polynomial (x87 against f64) show up in t
+                f'        assert!((t - {t1!r}).abs() <= 1e-4 && (d - {d1!r}).abs() <= 1e-9 * {abs(d1)!r}f64.max(1.0), "t {{t}} d {{d}}");',
+                '    }']
+    out += ['}', '']
 open(os.path.join(TESTS, 'golden_road.rs'), 'w', encoding='utf-8').write('\n'.join(out))
 print('wrote golden_road.rs')
