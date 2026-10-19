@@ -5,12 +5,15 @@
 //! Where the meaning of a function is known it is documented; the names stay address-based
 //! until then so they can always be traced back.
 
+pub mod carv;
 pub mod curves;
 pub mod filter;
 pub mod gearbox;
 pub mod gearbox_update;
 pub mod globals;
+pub mod math;
 pub mod mem;
+pub mod motion;
 pub mod tech_system;
 pub mod tech_rec;
 

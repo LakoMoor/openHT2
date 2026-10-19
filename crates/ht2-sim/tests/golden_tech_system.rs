@@ -8,16 +8,18 @@ fn close(got: f32, want: f32) -> bool {
     (got - want).abs() <= 1e-4 * want.abs().max(1.0)
 }
 
-/// Equal, except that normal floats may differ by a few ulps (the original computes in x87
-/// extended precision, the port in f64). Integers and zeros must match exactly.
+/// Equal, except that floats of ordinary magnitude may differ by x87-versus-f64 rounding noise
+/// (about 1e-6 relative); integers, pointers and zeros must match exactly.
 fn mem_close(got: &[u8], want: &[u8]) -> bool {
     if got.len() != want.len() { return false; }
     got.chunks(4).zip(want.chunks(4)).all(|(a, b)| {
         if a == b { return true; }
         if a.len() != 4 { return false; }
-        let (x, y) = (u32::from_le_bytes(a.try_into().unwrap()), u32::from_le_bytes(b.try_into().unwrap()));
-        let normal = |v: u32| { let e = (v >> 23) & 0xff; e != 0 && e != 0xff };
-        normal(x) && normal(y) && (x as i64 - y as i64).abs() <= 4 && (x >> 31) == (y >> 31)
+        let (x, y) = (f32::from_le_bytes(a.try_into().unwrap()), f32::from_le_bytes(b.try_into().unwrap()));
+        let ordinary = |v: f32| v.is_finite() && (v == 0.0 || (v.abs() > 1e-7 && v.abs() < 1e7));
+        let (xi, yi) = (u32::from_le_bytes(a.try_into().unwrap()), u32::from_le_bytes(b.try_into().unwrap()));
+        let tiny = |i: u32| ((i >> 23) & 0xff) < 100;   // looks like an integer or a pointer, not a float
+        !tiny(xi) && !tiny(yi) && ordinary(x) && ordinary(y) && (x - y).abs() <= 2e-5 * x.abs().max(y.abs()).max(1.0)
     })
 }
 

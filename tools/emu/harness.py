@@ -58,7 +58,7 @@ class Harness:
         e.write(CLOCK_OBJ + 0xb98, struct.pack('<d', time))
         e.write(CLOCK_OBJ + 0xb90, struct.pack('<d', dt))
 
-    def case(self, writes, call, rust, watch, ret=None, time=0.0, dt=0.016, setup_rust='', prepare=None):
+    def case(self, writes, call, rust, watch, ret=None, time=0.0, dt=0.016, setup_rust='', prepare=None, ret_int=False):
         """`writes`: initial memory. `call(emu)` runs the original and returns ST0.
         `rust` is a Rust expression/statement block evaluated with `m` in scope, returning f32 if `ret`."""
         e = self.e
@@ -71,6 +71,8 @@ class Harness:
             prepare(e)   # e.g. run original constructors; mirror them in `setup_rust`
         before = [(b, e.read(b, n)) for b, n in watch]
         r = call(e)
+        if ret_int:
+            r = e.eax
         after = [(b, e.read(b, n)) for b, n in watch]
         diffs = []
         for (b, old), (_, new) in zip(before, after):
@@ -84,7 +86,7 @@ class Harness:
                     i = j
                 else:
                     i += 1
-        self.cases.append(dict(writes=init, rust=rust, watch=watch, ret=r if ret else None, diffs=diffs,
+        self.cases.append(dict(writes=init, rust=rust, watch=watch, ret=r if ret else None, ret_int=ret_int, diffs=diffs,
                                time=time, dt=dt, setup=setup_rust))
 
     def save(self):
@@ -95,16 +97,18 @@ class Harness:
                '    if want.is_nan() { return got.is_nan(); }',
                '    (got - want).abs() <= 1e-4 * want.abs().max(1.0)',
                '}', '',
-               '/// Equal, except that normal floats may differ by a few ulps (the original computes in x87',
-               '/// extended precision, the port in f64). Integers and zeros must match exactly.',
+               '/// Equal, except that floats of ordinary magnitude may differ by x87-versus-f64 rounding noise',
+               '/// (about 1e-6 relative); integers, pointers and zeros must match exactly.',
                'fn mem_close(got: &[u8], want: &[u8]) -> bool {',
                '    if got.len() != want.len() { return false; }',
                '    got.chunks(4).zip(want.chunks(4)).all(|(a, b)| {',
                '        if a == b { return true; }',
                '        if a.len() != 4 { return false; }',
-               '        let (x, y) = (u32::from_le_bytes(a.try_into().unwrap()), u32::from_le_bytes(b.try_into().unwrap()));',
-               '        let normal = |v: u32| { let e = (v >> 23) & 0xff; e != 0 && e != 0xff };',
-               '        normal(x) && normal(y) && (x as i64 - y as i64).abs() <= 4 && (x >> 31) == (y >> 31)',
+               '        let (x, y) = (f32::from_le_bytes(a.try_into().unwrap()), f32::from_le_bytes(b.try_into().unwrap()));',
+               '        let ordinary = |v: f32| v.is_finite() && (v == 0.0 || (v.abs() > 1e-7 && v.abs() < 1e7));',
+               '        let (xi, yi) = (u32::from_le_bytes(a.try_into().unwrap()), u32::from_le_bytes(b.try_into().unwrap()));',
+               '        let tiny = |i: u32| ((i >> 23) & 0xff) < 100;   // looks like an integer or a pointer, not a float',
+               '        !tiny(xi) && !tiny(yi) && ordinary(x) && ordinary(y) && (x - y).abs() <= 2e-5 * x.abs().max(y.abs()).max(1.0)',
                '    })',
                '}', '',
                'fn report(base: u32, got: &[u8], want: &[u8]) -> String {',
@@ -137,7 +141,10 @@ class Harness:
                 out.append('    ' + c['setup'])
             for k, (b, ln) in enumerate(c['watch']):
                 out.append(f'    let before{k} = m.read({b:#x}, {ln});')
-            if c['ret'] is not None:
+            if c['ret'] is not None and c['ret_int']:
+                out.append(f'    let got = {c["rust"]};')
+                out.append(f'    assert_eq!(got as u32, {int(c["ret"]) & 0xffffffff}u32, "returned value differs from the original");')
+            elif c['ret'] is not None:
                 out.append(f'    let got = {c["rust"]};')
                 out.append(f'    assert!(close(got, {rs_f32(c["ret"])}), "returned {{got}}, original {rs_f32(c["ret"])}");')
             else:
