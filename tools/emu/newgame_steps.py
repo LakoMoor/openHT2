@@ -10,7 +10,7 @@ import os
 from dump_ai_world import load
 
 STEPS = [0x403940, 0x409310, 0x4140f0, 0x4305f0, 0x4143c0, 0x414670, 0x433f90, 0x4340f0, 0x434270, 0x434070,
-         0x4095c0]
+         0x4095c0, 0x42fa90]   # (0x5e48f0 and 0x4279a0 in between are the game scene's: no AI state)
 
 
 def run(folder, until, distances=False):

@@ -3,7 +3,7 @@
 //!
 //!     cargo run -p ht2-sim --example world_dump -- "<game>" ENV
 use ht2_sim::road::{read_map_scripts, AiRng, Parking};
-use ht2_sim::world::{market_offers, Vehicle};
+use ht2_sim::world::{market_offers, sort_vehicles, Vehicle};
 
 fn main() {
     let game = std::path::PathBuf::from(std::env::args().nth(1).expect("game folder"));
@@ -17,6 +17,10 @@ fn main() {
         for (s, o) in lot.iter().enumerate() {
             println!("{k} {s} {:?} {}", lots[k].level, o.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(" "));
         }
+    }
+    let cats = sort_vehicles(&vehicles, &mut rng, 1.0);
+    for k in [2, 7, 8, 9] {
+        println!("category {k} {}", cats.lists[k].iter().map(|v| v.to_string()).collect::<Vec<_>>().join(" "));
     }
     println!("rng {rng:?}");
 }

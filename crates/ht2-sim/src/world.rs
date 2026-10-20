@@ -130,3 +130,56 @@ pub fn market_offers(lots: &[Parking], vehicles: &[Vehicle], rng: &mut AiRng) ->
         })
         .collect()
 }
+
+/// The vehicle lists the AI draws from (`0x68cbf8`, twelve lists); `0x42fa90` (new game) fills
+/// four of them.
+#[derive(Debug, Clone, Default)]
+pub struct Categories {
+    pub lists: [Vec<usize>; 12],
+}
+
+/// `0x42fa90`: sort the catalogue into the lists. 8: four rounds over the vehicles with role dumb,
+/// 8 or trucker, cars three times, then shuffled; 2: the trucker vehicles, even numbers first;
+/// 7: cars and other vehicles of those roles taken in turn so that cars are `car_share` · 20/21
+/// of the others (`0x66c6f0`, 1 unless the new game is given another), as many as the two counts
+/// multiplied; 9: list 7 shuffled.
+pub fn sort_vehicles(vehicles: &[Vehicle], rng: &mut AiRng, car_share: f64) -> Categories {
+    let has = |k: usize, r: u32| vehicles[k].roles.contains(&r);
+    let n = vehicles.len();
+    let mut c = Categories::default();
+    for _ in 0..4 {
+        for k in 0..n {
+            if has(k, 7) || has(k, 8) || has(k, 2) {
+                c.lists[8].push(k);
+                if vehicles[k].kind == 1 {
+                    c.lists[8].push(k);
+                    c.lists[8].push(k);
+                }
+            }
+        }
+    }
+    crate::stl::random_shuffle(&mut c.lists[8], |m| rng.next() % m);
+    for start in [0, 1] {
+        c.lists[2].extend((start..n).step_by(2).filter(|&k| has(k, 2)));
+    }
+    let road = |k: usize| has(k, 7) || has(k, 2);
+    let cars: Vec<usize> = (0..n).filter(|&k| road(k) && vehicles[k].kind == 1).collect();
+    let others: Vec<usize> = [1, 0].iter().flat_map(|&s| (s..n).step_by(2)).filter(|&k| road(k) && vehicles[k].kind != 1).collect();
+    let ratio = car_share * 0.9523809523809523;
+    let (mut ncars, mut nothers) = (0.0, 0.0);
+    let (mut ic, mut io) = (0usize, 0usize);
+    for _ in 0..cars.len() * others.len() {
+        if ncars < nothers * ratio {
+            c.lists[7].push(cars[ic % cars.len()]);
+            ncars += 1.0;
+            ic += 1;
+        } else {
+            c.lists[7].push(others[io % others.len()]);
+            nothers += 1.0;
+            io += 1;
+        }
+    }
+    c.lists[9] = c.lists[7].clone();
+    crate::stl::random_shuffle(&mut c.lists[9], |m| rng.next() % m);
+    c
+}

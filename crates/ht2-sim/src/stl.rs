@@ -4,6 +4,15 @@
 
 const THRESHOLD: usize = 16;
 
+/// `std::random_shuffle(v.begin(), v.end(), rand)`: every element from the second on is swapped
+/// with one at or before it, `rand(n)` giving a number below `n`.
+pub fn random_shuffle<T>(v: &mut [T], mut rand: impl FnMut(u32) -> u32) {
+    for i in 1..v.len() {
+        let j = rand(i as u32 + 1) as usize;
+        v.swap(i, j);
+    }
+}
+
 /// `std::sort(v.begin(), v.end(), less)`.
 pub fn sort<T: Clone>(v: &mut [T], less: impl Fn(&T, &T) -> bool + Copy) {
     if v.is_empty() {
