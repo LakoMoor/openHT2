@@ -32,13 +32,14 @@ fn main() {
     net.mark_towns(&ht2_sim::road::Town::from_scripts(&scripts));
     net.mark_parkings(&lots);
     let names = DriverName::read(&game);
-    let mut world = World::new(&net, &vehicles, &cats, &names, rng, 0);
+    let mut world = World::new(&net, &lots, &vehicles, &cats, &names, rng, 0);
     let mut counts = [0usize; 12];
     counts[2] = 50;
     counts[5] = 15;
     counts[6] = 8;
     let live = vehicles.iter().position(|v| v.model == "ZilR" && v.colour == 1);
     world.create_players_regular(&counts, live);
+    world.create_dealers([25, 5, 5]);
     for (k, p) in world.players.iter().enumerate() {
         let pl = match p.place {
             None => "-".to_string(),

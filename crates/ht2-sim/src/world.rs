@@ -232,11 +232,19 @@ pub struct AiPlayer {
     pub place: Option<Spot>,
     /// `+0x10`: the route.
     pub route: Vec<RouteStep>,
+    /// For a vehicle standing at a parking place: the place and the slot (`+0x78`, `+0x7c`;
+    /// such players have the state 0x100, `+0x64`).
+    pub parked: Option<(usize, usize)>,
 }
 
 /// What the start of a new game keeps between its steps.
 pub struct World<'a> {
     pub net: &'a RoadNet,
+    pub lots: &'a [Parking],
+    /// Per parking place and slot, the player standing there (`slot + 8`), and how many do
+    /// (`+0x28`).
+    pub slots: Vec<Vec<Option<usize>>>,
+    pub lot_used: Vec<usize>,
     pub vehicles: &'a [Vehicle],
     pub lists: &'a Categories,
     pub names: &'a [DriverName],
@@ -252,8 +260,9 @@ pub struct World<'a> {
 }
 
 impl<'a> World<'a> {
-    pub fn new(net: &'a RoadNet, vehicles: &'a [Vehicle], lists: &'a Categories, names: &'a [DriverName], rng: AiRng, time: u32) -> Self {
-        World { net, vehicles, lists, names, name_use: vec![[0, 0]; names.len()], cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new() }
+    pub fn new(net: &'a RoadNet, lots: &'a [Parking], vehicles: &'a [Vehicle], lists: &'a Categories, names: &'a [DriverName], rng: AiRng, time: u32) -> Self {
+        let slots = lots.iter().map(|l| vec![None; l.nodes.len()]).collect();
+        World { net, lots, slots, lot_used: vec![0; lots.len()], vehicles, lists, names, name_use: vec![[0, 0]; names.len()], cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new() }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -298,6 +307,19 @@ impl<'a> World<'a> {
                     trailer = self.vehicles.iter().position(|x| &x.id == t);
                 }
             }
+            9 => {
+                // along list 9 until a vehicle with role 9 or 2 (or 7 when 0x68d1a0 is set)
+                let list = &self.lists.lists[9];
+                let v = loop {
+                    let v = list[self.cursor[9] % list.len()];
+                    if has(v, 9) || has(v, 2) {
+                        break v;
+                    }
+                    self.cursor[9] += 1;
+                };
+                self.cursor[9] += 1;
+                vehicle = Some(v);
+            }
             5 | 6 => {
                 // along the catalogue until a vehicle with the role of the type
                 let mut v = self.cursor[kind as usize];
@@ -310,7 +332,7 @@ impl<'a> World<'a> {
             _ => {}
         }
         let name = if kind == 1 { None } else { self.pick_name(kind) };
-        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new() }
+        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None }
     }
 
     /// `traceToArbitraryDestination` (`0x417820`): random destinations (`0x456140`) until there
@@ -336,6 +358,92 @@ impl<'a> World<'a> {
             p.route = r;
             let q = self.net.spot_coordinates(&from);
             p.place = Some(self.net.locate(&p.route, q, &from));
+        }
+    }
+
+    /// The node of a parking slot.
+    fn slot_node(&self, lot: usize, slot: usize) -> Option<usize> {
+        let name = &self.lots[lot].nodes[slot].0;
+        self.net.nodes.iter().position(|n| &n.name == name)
+    }
+
+    /// `0x456460`: the free slots of a parking place for vehicles of `kind` (0 for sale: slots
+    /// without the bits 0x2c, 1 stolen: bit 0x20, 2 used: bit 8).
+    fn free_slots(&self, lot: usize, kind: u32) -> Vec<usize> {
+        (0..self.lots[lot].nodes.len())
+            .filter(|&k| {
+                let bits = self.lots[lot].nodes[k].1;
+                let fits = match kind {
+                    0 => bits & 0x2c == 0,
+                    1 => bits & 0x20 != 0,
+                    _ => bits & 8 != 0,
+                };
+                fits && self.slots[lot][k].is_none()
+            })
+            .collect()
+    }
+
+    /// `findAppropriateParkingPlace` (`0x418c10`): of the parking places with free slots of the
+    /// kind, the least used one (the first of those); there the free slot farthest from the
+    /// taken ones (a stable sort by the distance to the nearest taken slot, the last one).
+    fn parking_place(&self, kind: u32) -> Option<(usize, usize)> {
+        let mut best: Option<usize> = None;
+        let mut used = 1000;
+        for lot in 0..self.lots.len() {
+            if !self.free_slots(lot, kind).is_empty() && self.lot_used[lot] < used && self.lot_used[lot] < self.lots[lot].nodes.len() {
+                best = Some(lot);
+                used = self.lot_used[lot];
+            }
+        }
+        let lot = best?;
+        let pos = |k: usize| self.slot_node(lot, k).map_or([0.0; 3], |n| self.net.nodes[n].pos);
+        // 0x418890: the distance to the nearest taken slot, (y² + z²) + x²
+        let key = |k: usize| {
+            let a = pos(k);
+            let mut d = 1_000_000.0;
+            for (j, taken) in self.slots[lot].iter().enumerate() {
+                if taken.is_some() {
+                    let b = pos(j);
+                    let (dx, dy, dz) = (a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+                    let l = (dy * dy + dz * dz + dx * dx).sqrt();
+                    if l < d {
+                        d = l;
+                    }
+                }
+            }
+            d
+        };
+        let mut free = self.free_slots(lot, kind);
+        free.sort_by(|&a, &b| key(a).partial_cmp(&key(b)).unwrap_or(std::cmp::Ordering::Equal));
+        Some((lot, *free.last()?))
+    }
+
+    /// `createDealerForSale` (`0x4221d0`, `0x421d90`): vehicles standing for sale at the
+    /// markets: `wants[kind]` of each kind (`forsale`, `forsale_stolen`, `forsale_used` of
+    /// `GAME.CNF`), players of type 9 put on a slot (`0x421a20`), at its node on the first road
+    /// leaving it (else arriving, `0x421690`), turned when that road's first segment is one-way
+    /// against it (`0x421880`).
+    pub fn create_dealers(&mut self, wants: [usize; 3]) {
+        for (kind, &want) in wants.iter().enumerate() {
+            for _ in 0..want.min(100) {
+                let Some((lot, slot)) = self.parking_place(kind as u32) else { break };
+                let mut p = self.new_player(9);
+                if let Some(n) = self.slot_node(lot, slot) {
+                    let node = &self.net.nodes[n];
+                    let road = node.out.first().or(node.inc.first()).copied();
+                    p.place = Some(match road {
+                        Some(road) => {
+                            let first = &self.net.segments[self.net.roads[road].segments[0]];
+                            Spot::Road(crate::road::Place { road, node: Some(n), t: 0.0, piece: 0, segment: 0, reversed: first.flags & 8 != 0 })
+                        }
+                        None => Spot::Node(n),
+                    });
+                }
+                p.parked = Some((lot, slot));
+                self.slots[lot][slot] = Some(self.players.len());
+                self.lot_used[lot] += 1;
+                self.players.push(p);
+            }
         }
     }
 
