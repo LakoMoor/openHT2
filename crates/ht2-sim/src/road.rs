@@ -728,6 +728,129 @@ impl Segment {
         }
     }
 
+    /// The bounding sphere of the segment (`0x490a20`): the middle of the box around its points
+    /// and the largest distance from there; for a curve the points at t = 0, 0.01 .. 0.99
+    /// (`0x48dbb0`).
+    pub fn bounds(&self) -> ([f64; 3], f64) {
+        let pts: Vec<[f64; 3]> = match &self.shape {
+            Shape::Polyline(p) => p.clone(),
+            Shape::Curve { pos, .. } => (0..100).map(|i| horner(pos, i as f64 * 0.01)).collect(),
+        };
+        let (mut lo, mut hi) = (pts[0], pts[0]);
+        for p in &pts[1..] {
+            for c in 0..3 {
+                if p[c] < lo[c] {
+                    lo[c] = p[c];
+                }
+                if hi[c] < p[c] {
+                    hi[c] = p[c];
+                }
+            }
+        }
+        let centre: [f64; 3] = core::array::from_fn(|c| (lo[c] + hi[c]) * 0.5);
+        let mut r = 0.0;
+        for p in &pts {
+            let d = [centre[0] - p[0], centre[1] - p[1], centre[2] - p[2]];
+            let l = (d[2] * d[2] + d[1] * d[1] + d[0] * d[0]).sqrt();
+            if r < l {
+                r = l;
+            }
+        }
+        (centre, r)
+    }
+
+    /// `vtable + 0xc` (`0x48ce40` for polylines, `0x48dd50` for curves): the point of the segment
+    /// nearest to `q` if its squared distance is below `best` (then `best`, `t` and the piece `k`
+    /// are set and `true` returned). Segments whose bounding sphere is too far are skipped.
+    pub fn project(&self, q: [f64; 3], best: &mut f64, t: &mut f64, k: &mut usize) -> bool {
+        let (c, r) = self.bounds();
+        let v = [q[0] - c[0], q[1] - c[1], q[2] - c[2]];
+        match &self.shape {
+            Shape::Polyline(p) => {
+                if (v[0] * v[0] + v[2] * v[2] + v[1] * v[1]).sqrt() > r + *best {
+                    return false;
+                }
+                // the sums of squares as (y + z) + x and the dot product as (z + y) + x (0x48cf68)
+                let mut found = false;
+                let mut d0 = [q[0] - p[0][0], q[1] - p[0][1], q[2] - p[0][2]];
+                let mut dd0 = d0[1] * d0[1] + d0[2] * d0[2] + d0[0] * d0[0];
+                for i in 0..p.len() - 1 {
+                    let d1 = [q[0] - p[i + 1][0], q[1] - p[i + 1][1], q[2] - p[i + 1][2]];
+                    let dd1 = d1[1] * d1[1] + d1[2] * d1[2] + d1[0] * d1[0];
+                    let e = [p[i + 1][0] - p[i][0], p[i + 1][1] - p[i][1], p[i + 1][2] - p[i][2]];
+                    let ee = e[1] * e[1] + e[2] * e[2] + e[0] * e[0];
+                    if dd1 < ee + dd0 {
+                        if dd0 < ee + dd1 {
+                            let pr = e[2] * d0[2] + e[1] * d0[1] + e[0] * d0[0];
+                            let pp = pr * pr / ee;
+                            let dist = dd0 - pp;
+                            if dist < *best {
+                                *best = dist;
+                                found = true;
+                                *k = i;
+                                *t = (pp / ee).sqrt();
+                            }
+                        } else if dd1 < *best {
+                            found = true;
+                            *best = dd1;
+                            *k = i;
+                            *t = 1.0;
+                        }
+                    } else if dd0 < *best {
+                        *best = dd0;
+                        found = true;
+                        *k = i;
+                        *t = 0.0;
+                    }
+                    d0 = d1;
+                    dd0 = dd1;
+                }
+                found
+            }
+            Shape::Curve { pos, .. } => {
+                let dy = c[1] - q[1];
+                if ((c[0] - q[0]) * (c[0] - q[0]) + (c[2] - q[2]) * (c[2] - q[2]) + dy * dy).sqrt() > r + *best {
+                    return false;
+                }
+                // 0x48e470: |P(t) - q|^2, the squares of the coordinates added (z + y) + x
+                let comp = |i: usize| -> Vec<f64> {
+                    let mut d: Vec<f64> = pos.iter().map(|c| c[i]).collect();
+                    d[3] = d[3] + -q[i];
+                    mul(&d, &d)
+                };
+                let (x, y, z) = (comp(0), comp(1), comp(2));
+                let f: Vec<f64> = (0..x.len()).map(|n| z[n] + y[n] + x[n]).collect();
+                let deriv = |c: &[f64]| -> Vec<f64> { (0..c.len() - 1).map(|i| (c.len() - 1 - i) as f64 * c[i]).collect() };
+                let f1 = deriv(&f);
+                let f2 = deriv(&f1);
+                // 0x48e700: from t = 0, 0.5 and 1, three Newton steps on f'
+                let mut found = false;
+                for i in 0..3 {
+                    let mut tt = (i as f64 * (1.0 - 0.0)) / 2.0 + 0.0;
+                    let v = eval(&f, tt);
+                    if v < *best {
+                        *best = v;
+                        found = true;
+                        *t = tt;
+                    }
+                    for _ in 0..3 {
+                        tt = tt - eval(&f1, tt) / eval(&f2, tt);
+                        let v = eval(&f, tt);
+                        if v < *best && tt <= 1.0 && 0.0 <= tt {
+                            *best = v;
+                            found = true;
+                            *t = tt;
+                        }
+                    }
+                }
+                if found {
+                    *k = 0;
+                }
+                found
+            }
+        }
+    }
+
     /// The road width at `(t, k)` (`0x438d70`, `getRoadParameters`): the widths at the two ends,
     /// interpolated by the distance along the segment.
     pub fn width_at(&self, t: f64, k: usize) -> f64 {
@@ -884,6 +1007,72 @@ impl RoadNet {
         }
         if p.reversed {
             *dist = -*dist;
+        }
+    }
+
+    /// `setPlayerPosition` (`0x43dc60`): the place of the point `q` on a route: the nearest point
+    /// on the roads of the route (on the road of the current place first, its distance counting
+    /// 1.5 times plus 10 so that the vehicle keeps to it), facing the way the route takes that
+    /// road; the destination node when within 0.1 of it. A route of one step puts the player on
+    /// its node.
+    pub fn locate(&self, route: &[RouteStep], q: [f64; 3], current: &Spot) -> Spot {
+        if route.len() == 1 {
+            return Spot::Node(route[0].node);
+        }
+        let (mut best, mut t, mut k) = (f64::MAX, 0.0, 0usize);
+        let mut result: Option<Place> = None;
+        if let Spot::Road(cur) = current {
+            if route.iter().any(|s| s.road == Some(cur.road)) {
+                let mut seg = 0;
+                for (i, &si) in self.roads[cur.road].segments.iter().enumerate() {
+                    if self.segments[si].project(q, &mut best, &mut t, &mut k) {
+                        seg = i;
+                    }
+                }
+                result = Some(Place { road: cur.road, node: None, t, piece: k, segment: seg, reversed: false });
+                best = best * 1.5 + 10.0;
+            }
+        }
+        loop {
+            let mut found = false;
+            for step in route {
+                let Some(road) = step.road else { continue };
+                let mut seg = None;
+                for (i, &si) in self.roads[road].segments.iter().enumerate() {
+                    if self.segments[si].project(q, &mut best, &mut t, &mut k) {
+                        seg = Some(i);
+                    }
+                }
+                if let Some(seg) = seg {
+                    let reversed = step.node == self.roads[road].end;
+                    result = Some(Place { road, node: None, t, piece: k, segment: seg, reversed });
+                    found = true;
+                }
+            }
+            if found || route.is_empty() {
+                break;
+            }
+            best = f64::MAX;
+            t = 0.0;
+            k = 0;
+        }
+        let Some(mut place) = result.or_else(|| self.nearest(q)) else { return current.clone() };
+        if let Some(last) = route.last() {
+            let c = self.coordinates(&place);
+            let n = self.nodes[last.node].pos;
+            let d = [c[0] - n[0], c[1] - n[1], c[2] - n[2]];
+            if (d[2] * d[2] + d[1] * d[1] + d[0] * d[0]).sqrt() < 0.1 {
+                place.node = Some(last.node);
+            }
+        }
+        Spot::Road(place)
+    }
+
+    /// The coordinates of a spot (`0x435bf0`).
+    pub fn spot_coordinates(&self, s: &Spot) -> [f64; 3] {
+        match s {
+            Spot::Node(n) => self.nodes[*n].pos,
+            Spot::Road(p) => self.coordinates(p),
         }
     }
 

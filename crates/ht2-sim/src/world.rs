@@ -1,7 +1,7 @@
 //! The AI world of the original (`Ai_main.cpp`): the vehicle catalogue and what the start of a
 //! new game (`0x434780`) sets up from it.
 
-use crate::road::{AiRng, Parking};
+use crate::road::{AiRng, Parking, RoadNet, RouteStep, Spot};
 use ht2_formats::sexpr::Sexp;
 
 /// A vehicle of the catalogue (`evehicles.sch`):
@@ -183,4 +183,194 @@ pub fn sort_vehicles(vehicles: &[Vehicle], rng: &mut AiRng, car_share: f64) -> C
     c.lists[9] = c.lists[7].clone();
     crate::stl::random_shuffle(&mut c.lists[9], |m| rng.next() % m);
     c
+}
+
+/// A driver name of `names.sch`: `( "NAME" gender role number ... )`.
+#[derive(Debug, Clone)]
+pub struct DriverName {
+    pub name: String,
+    /// `+0x18`: 1 trucker, 2 mafia, 3 police.
+    pub role: u32,
+}
+
+impl DriverName {
+    pub fn parse(forms: &[Sexp]) -> Vec<DriverName> {
+        let tops: Vec<&Sexp> = forms.iter().flat_map(|f| f.as_list().map_or(vec![f], |l| l.iter().collect())).collect();
+        tops.into_iter()
+            .filter_map(|f| f.as_list())
+            .filter(|l| matches!(l.first(), Some(Sexp::Str(_))))
+            .map(|l| DriverName {
+                name: l[0].as_text().unwrap_or_default().to_string(),
+                role: match l.get(2).and_then(|s| s.as_text()) {
+                    Some("police") => 3,
+                    Some("mafia") => 2,
+                    _ => 1,
+                },
+            })
+            .collect()
+    }
+
+    /// The names of the game folder (`names.sch`).
+    pub fn read(game_dir: &std::path::Path) -> Vec<DriverName> {
+        let Ok(data) = std::fs::read(game_dir.join("names.sch")) else { return Vec::new() };
+        let Ok(plain) = ht2_formats::sdte::decrypt(&data) else { return Vec::new() };
+        ht2_formats::sexpr::parse(&ht2_formats::sdte::cp1251_to_string(&plain)).map_or(Vec::new(), |f| DriverName::parse(&f))
+    }
+}
+
+/// A player of the AI world (`createNewPlayer`, `0x415940`; the list `0x68b990`).
+#[derive(Debug, Clone)]
+pub struct AiPlayer {
+    /// `+0x54`: 1 the human, 2 trucker, 5 police, 6 mafia, 7..9 traffic.
+    pub kind: u32,
+    /// `+0x1fc`: the vehicle (catalogue number) and, for a tractor, its semitrailer.
+    pub vehicle: Option<usize>,
+    pub trailer: Option<usize>,
+    /// `+0x3d8`: the driver name.
+    pub name: Option<usize>,
+    /// `+0x20` (`PositionId`).
+    pub place: Option<Spot>,
+    /// `+0x10`: the route.
+    pub route: Vec<RouteStep>,
+}
+
+/// What the start of a new game keeps between its steps.
+pub struct World<'a> {
+    pub net: &'a RoadNet,
+    pub vehicles: &'a [Vehicle],
+    pub lists: &'a Categories,
+    pub names: &'a [DriverName],
+    /// `+0x1c` / `+0x20` of the names: how many players of the regular types (1, 2, 5, 6) and of
+    /// the others use each name.
+    pub name_use: Vec<[u32; 2]>,
+    /// `0x68a830`: per player type, where its vehicle search goes on.
+    pub cursor: [usize; 12],
+    pub rng: AiRng,
+    /// The second generator (`0x68a870`).
+    pub rng2: AiRng,
+    pub players: Vec<AiPlayer>,
+}
+
+impl<'a> World<'a> {
+    pub fn new(net: &'a RoadNet, vehicles: &'a [Vehicle], lists: &'a Categories, names: &'a [DriverName], rng: AiRng, time: u32) -> Self {
+        World { net, vehicles, lists, names, name_use: vec![[0, 0]; names.len()], cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new() }
+    }
+
+    /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
+    /// 2 and 7..9, mafia for 6, police for 5) the least used one, the first in the file of those
+    /// (a stable sort by the count, `0x45c8d0`); the count of the regular types for 1, 2, 5, 6, the
+    /// other one for the rest (`0x474160`).
+    fn pick_name(&mut self, kind: u32) -> Option<usize> {
+        let role = match kind {
+            5 => 3,
+            6 => 2,
+            _ => 1,
+        };
+        let which = if matches!(kind, 1 | 2 | 5 | 6) { 0 } else { 1 };
+        let k = (0..self.names.len()).filter(|&k| self.names[k].role == role).min_by_key(|&k| self.name_use[k][which])?;
+        self.name_use[k][which] += 1;
+        Some(k)
+    }
+
+    /// `createNewPlayer` (`0x415940`) for the types placed on the roads: the vehicle, a tractor's
+    /// semitrailer and the driver name.
+    fn new_player(&mut self, kind: u32) -> AiPlayer {
+        let n = self.vehicles.len();
+        let has = |v: usize, r: u32| self.vehicles[v].roles.contains(&r);
+        let mut vehicle = None;
+        let mut trailer = None;
+        match kind {
+            2 => {
+                // along list 2 until a trucker vehicle
+                let list = &self.lists.lists[2];
+                let v = loop {
+                    let v = list[self.cursor[2] % list.len()];
+                    if has(v, 2) {
+                        break v;
+                    }
+                    self.cursor[2] += 1;
+                };
+                self.cursor[2] += 1;
+                vehicle = Some(v);
+                let trailers = &self.vehicles[v].trailers;
+                if !trailers.is_empty() {
+                    let t = &trailers[(self.rng.next() % trailers.len() as u32) as usize];
+                    trailer = self.vehicles.iter().position(|x| &x.id == t);
+                }
+            }
+            5 | 6 => {
+                // along the catalogue until a vehicle with the role of the type
+                let mut v = self.cursor[kind as usize];
+                while !has(v % n, kind) {
+                    v = (v + 1) % n;
+                }
+                vehicle = Some(v % n);
+                self.cursor[kind as usize] = (v + 1) % n;
+            }
+            _ => {}
+        }
+        let name = if kind == 1 { None } else { self.pick_name(kind) };
+        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new() }
+    }
+
+    /// `traceToArbitraryDestination` (`0x417820`): random destinations (`0x456140`) until there
+    /// is a route to one from the player's place (`0x478260`, mode 0).
+    fn trace_to_random(&mut self, p: &mut AiPlayer) {
+        let place = p.place.expect("placed");
+        let which = match place {
+            Spot::Node(n) => self.net.nodes[n].flags,
+            Spot::Road(q) => q.node.map_or(0, |n| self.net.nodes[n].flags),
+        };
+        p.route.clear();
+        while p.route.is_empty() {
+            let Some(dst) = self.net.random_destination(&mut self.rng, which, p.kind) else { return };
+            self.set_route(p, &Spot::Node(dst));
+        }
+    }
+
+    /// `0x478260` / `0x4872f0`: the route (mode 0) from the player's place to `to`; when there is
+    /// one, the player's place is set again from its coordinates on it (`0x43dc60`).
+    fn set_route(&self, p: &mut AiPlayer, to: &Spot) {
+        let Some(from) = p.place else { return };
+        if let Some((r, _)) = self.net.route_from(&from, to, 0) {
+            p.route = r;
+            let q = self.net.spot_coordinates(&from);
+            p.place = Some(self.net.locate(&p.route, q, &from));
+        }
+    }
+
+    /// `createPlayersRegular` (`0x422f20`) for the human player and the types placed at random on
+    /// the roads: `counts[type]` players of types 2..7 (`playertypes` of `GAME.CNF`). Each gets a
+    /// random place (`0x422d60`; the first one drawn is not used) from which there is a route to
+    /// `node_store_0000` (`0x478260`); a trucker looks for an order in its town (`0x4185d0`: up
+    /// to 100 draws of the second generator, `0x418400`; at the start of a game no town has orders
+    /// yet, so all are drawn) and then, like the others, drives to a random destination.
+    pub fn create_players_regular(&mut self, counts: &[usize; 12], live_vehicle: Option<usize>) {
+        let mut human = self.new_player(1);
+        human.vehicle = live_vehicle;
+        self.players.push(human);
+        let store = self.net.nodes.iter().position(|n| n.name == "node_store_0000");
+        for kind in [2u32, 3, 4, 5, 6, 7] {
+            for _ in 0..counts[kind as usize] {
+                let mut p = self.new_player(kind);
+                let _ = self.net.random_start(&mut self.rng);
+                loop {
+                    let Some(place) = self.net.random_start(&mut self.rng) else { break };
+                    p.place = Some(Spot::Road(place));
+                    let Some(store) = store else { break };
+                    self.set_route(&mut p, &Spot::Node(store));
+                    if !p.route.is_empty() {
+                        break;
+                    }
+                }
+                if kind == 2 {
+                    for _ in 0..100 {
+                        self.rng2.next();
+                    }
+                }
+                self.trace_to_random(&mut p);
+                self.players.push(p);
+            }
+        }
+    }
 }

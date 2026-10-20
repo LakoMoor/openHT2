@@ -131,7 +131,7 @@ fn main() {
             let p = net.random_start(&mut rng).unwrap();
             let ours = format!("{} {} {} {} {} {}", p.road, p.node.map_or(-1, |n| n as i64), p.t, p.piece, p.segment, p.reversed as u32);
             let t: f64 = w[2].parse().unwrap();
-            if w[0] == p.road.to_string() && w[1] == p.node.map_or(-1, |n| n as i64).to_string() && (t - p.t).abs() < 1e-9 && w[3] == p.piece.to_string() && w[4] == p.segment.to_string() && w[5] == (p.reversed as u32).to_string() {
+            if w[0] == p.road.to_string() && w[1] == p.node.map_or(-1, |n| n as i64).to_string() && t.to_bits() == p.t.to_bits() && w[3] == p.piece.to_string() && w[4] == p.segment.to_string() && w[5] == (p.reversed as u32).to_string() {
                 same += 1;
             } else {
                 differ += 1;
