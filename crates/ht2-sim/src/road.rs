@@ -327,16 +327,21 @@ fn control_points(pos: &[[f64; 3]; 4]) -> [[f64; 3]; 4] {
 pub struct Node {
     pub name: String,
     pub pos: [f64; 3],
-    /// `+0xc`: 8 for nodes roads do not snap to (`FLAG` bit 0), 0x40 for `FLAG` bit 1.
+    /// `+0xc`: 8 for nodes roads do not snap to (`FLAG` bit 0), 0x40 for `FLAG` bit 1, 0x80 for
+    /// nodes with a placement matrix; towns add 1 and 2 ([`RoadNet::mark_towns`]).
     pub flags: u32,
     /// The `FLAG` of the `.way` node (0 for automatic nodes).
     pub flag_raw: u32,
+    /// `+0x48`: the `ORTN` placement matrix of the `.way` node.
+    pub orientation: Option<[f64; 12]>,
     /// Roads leaving (`+0x18`) and entering (`+0x24`) the node.
     pub out: Vec<usize>,
     pub inc: Vec<usize>,
     /// `+0xa8`, `+0xb4`: the town this node belongs to and its place in the town's node list
     /// (set by [`RoadNet::mark_towns`]).
     pub town: Option<(usize, usize)>,
+    /// `+0xac`, `+0xb4`: the parking place and slot (set by [`RoadNet::mark_parkings`]).
+    pub parking: Option<(usize, usize)>,
 }
 
 /// A town of the map scripts (`mod_*.sch`): `( town ID "name" ... ( ( node "name" attrs... ) ... ) ...)`,
@@ -350,67 +355,109 @@ pub struct Town {
     pub nodes: Vec<(String, u32)>,
 }
 
-impl Town {
-    /// The towns of all map scripts (`mod_*.sch`) of a map folder, in file name order.
-    pub fn read_folder(dir: &std::path::Path) -> Vec<Town> {
-        let mut scripts: Vec<_> = std::fs::read_dir(dir)
-            .into_iter()
-            .flatten()
-            .flatten()
-            .map(|e| e.path())
-            .filter(|p| {
-                let n = p.file_name().map_or(String::new(), |n| n.to_string_lossy().to_ascii_lowercase());
-                n.starts_with("mod_") && n.ends_with(".sch")
+/// The top-level forms of all map scripts (`mod_*.sch`) of a map folder, in file name order.
+pub fn read_map_scripts(dir: &std::path::Path) -> Vec<ht2_formats::sexpr::Sexp> {
+    let mut scripts: Vec<_> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            let n = p.file_name().map_or(String::new(), |n| n.to_string_lossy().to_ascii_lowercase());
+            n.starts_with("mod_") && n.ends_with(".sch")
+        })
+        .collect();
+    scripts.sort();
+    let mut forms = Vec::new();
+    for f in scripts {
+        let Ok(data) = std::fs::read(&f) else { continue };
+        let Ok(plain) = ht2_formats::sdte::decrypt(&data) else { continue };
+        if let Ok(fs) = ht2_formats::sexpr::parse(&ht2_formats::sdte::cp1251_to_string(&plain)) {
+            forms.extend(fs);
+        }
+    }
+    forms
+}
+
+/// The forms called `name` among `forms` (and the lists they are wrapped in).
+fn forms_named<'a>(forms: &'a [ht2_formats::sexpr::Sexp], name: &'a str) -> impl Iterator<Item = &'a [ht2_formats::sexpr::Sexp]> + 'a {
+    forms.iter().flat_map(|f| f.as_list().map_or(vec![f], |l| l.iter().collect())).filter_map(move |f| f.form(name))
+}
+
+/// The `( node "name" ... )` entries of the first list of `rest` that has any.
+fn node_entries(rest: &[ht2_formats::sexpr::Sexp]) -> Vec<&[ht2_formats::sexpr::Sexp]> {
+    rest.iter().filter_map(|s| s.as_list()).find(|l| l.iter().any(|e| e.form("node").is_some())).map_or(Vec::new(), |l| l.iter().filter_map(|e| e.form("node")).collect())
+}
+
+/// A parking place of the map scripts: `( parking ID "name" number () ( ( node "name" [kind] ["town"] ) ... ) ... )`.
+#[derive(Debug, Clone)]
+pub struct Parking {
+    pub id: String,
+    /// `+0x18`; the parking places are sorted by it (`0x4143c0`).
+    pub number: i32,
+    /// The nodes: name, the number after it (0 when none) and the town named after that.
+    pub nodes: Vec<(String, i32, Option<String>)>,
+}
+
+impl Parking {
+    /// The parking places of the map scripts, in the order of the original.
+    pub fn from_scripts(forms: &[ht2_formats::sexpr::Sexp]) -> Vec<Parking> {
+        let mut lots: Vec<Parking> = forms_named(forms, "parking")
+            .map(|rest| Parking {
+                id: rest.first().and_then(|s| s.as_text()).unwrap_or_default().to_string(),
+                number: rest.get(2).and_then(|s| s.as_text()).and_then(|t| t.parse().ok()).unwrap_or(0),
+                nodes: node_entries(rest)
+                    .into_iter()
+                    .map(|n| {
+                        let name = n.first().and_then(|s| s.as_text()).unwrap_or_default().to_string();
+                        let kind = n.get(1).and_then(|s| s.as_text()).and_then(|t| t.parse().ok()).unwrap_or(0);
+                        (name, kind, n.get(2).and_then(|s| s.as_text()).map(str::to_string))
+                    })
+                    .collect(),
             })
             .collect();
-        scripts.sort();
-        let mut towns = Vec::new();
-        for f in scripts {
-            let Ok(data) = std::fs::read(&f) else { continue };
-            let Ok(plain) = ht2_formats::sdte::decrypt(&data) else { continue };
-            if let Ok(forms) = ht2_formats::sexpr::parse(&ht2_formats::sdte::cp1251_to_string(&plain)) {
-                towns.extend(Town::parse(&forms));
-            }
-        }
-        towns.sort_by_key(|t| t.number);
+        crate::stl::sort(&mut lots, |a, b| a.number < b.number);
+        lots
+    }
+}
+
+impl Town {
+    /// The towns of all map scripts of a map folder, in the order of the original.
+    pub fn read_folder(dir: &std::path::Path) -> Vec<Town> {
+        Town::from_scripts(&read_map_scripts(dir))
+    }
+
+    /// The towns of the map scripts, sorted by number (`0x4143c0`).
+    pub fn from_scripts(forms: &[ht2_formats::sexpr::Sexp]) -> Vec<Town> {
+        let mut towns = Town::parse(forms);
+        crate::stl::sort(&mut towns, |a, b| a.number < b.number);
         towns
     }
 
-    /// The towns of a decrypted map script.
+    /// The towns of decrypted map scripts, in the order they are written.
     pub fn parse(forms: &[ht2_formats::sexpr::Sexp]) -> Vec<Town> {
-        use ht2_formats::sexpr::Sexp;
-        let mut towns = Vec::new();
-        let tops: Vec<&Sexp> = forms.iter().flat_map(|f| f.as_list().map_or(vec![f], |l| l.iter().collect())).collect();
-        for f in tops {
-            let Some(rest) = f.form("town") else { continue };
-            let id = rest.first().and_then(|s| s.as_text()).unwrap_or_default().to_string();
-            let nodes = rest
-                .iter()
-                .filter_map(|s| s.as_list())
-                .find(|l| l.iter().any(|e| e.form("node").is_some()))
-                .map(|l| {
-                    l.iter()
-                        .filter_map(|e| e.form("node"))
-                        .map(|n| {
-                            let name = n.first().and_then(|s| s.as_text()).unwrap_or_default().to_string();
-                            let flags = n[1..].iter().filter_map(|a| a.as_text()).fold(0, |f, a| {
-                                f | match a {
-                                    "unload" => 1,
-                                    "hidden" => 2,
-                                    "fuel" => 4,
-                                    "dummy" => 8,
-                                    _ => 0,
-                                }
-                            });
-                            (name, flags)
-                        })
-                        .collect()
-                })
-                .unwrap_or_default();
-            let number = rest.get(2).and_then(|s| s.as_text()).and_then(|t| t.parse().ok()).unwrap_or(0);
-            towns.push(Town { id, number, nodes });
-        }
-        towns
+        forms_named(forms, "town")
+            .map(|rest| Town {
+                id: rest.first().and_then(|s| s.as_text()).unwrap_or_default().to_string(),
+                number: rest.get(2).and_then(|s| s.as_text()).and_then(|t| t.parse().ok()).unwrap_or(0),
+                nodes: node_entries(rest)
+                    .into_iter()
+                    .map(|n| {
+                        let name = n.first().and_then(|s| s.as_text()).unwrap_or_default().to_string();
+                        let flags = n[1..].iter().filter_map(|a| a.as_text()).fold(0, |f, a| {
+                            f | match a {
+                                "unload" => 1,
+                                "hidden" => 2,
+                                "fuel" => 4,
+                                "dummy" => 8,
+                                _ => 0,
+                            }
+                        });
+                        (name, flags)
+                    })
+                    .collect(),
+            })
+            .collect()
     }
 }
 
@@ -484,8 +531,8 @@ impl RoadNet {
                     if net.nodes.iter().any(|x| x.name == n.name) {
                         continue;
                     }
-                    let flags = if n.flag & 1 != 0 { 8 } else { 0 } | if n.flag & 2 != 0 { 0x40 } else { 0 };
-                    net.nodes.push(Node { name: n.name.clone(), pos: n.pos, flags, flag_raw: n.flag, out: Vec::new(), inc: Vec::new(), town: None });
+                    let flags = if n.flag & 1 != 0 { 8 } else { 0 } | if n.flag & 2 != 0 { 0x40 } else { 0 } | if n.orientation.is_some() { 0x80 } else { 0 };
+                    net.nodes.push(Node { name: n.name.clone(), pos: n.pos, flags, flag_raw: n.flag, orientation: n.orientation, out: Vec::new(), inc: Vec::new(), town: None, parking: None });
                 }
             }
         }
@@ -496,7 +543,7 @@ impl RoadNet {
             e.node = match named {
                 Some(i) => Some(i),
                 None if e.ends.len() != 2 => {
-                    net.nodes.push(Node { name: "anode".into(), pos: e.pos, flags: 0, flag_raw: 0, out: Vec::new(), inc: Vec::new(), town: None });
+                    net.nodes.push(Node { name: "anode".into(), pos: e.pos, flags: 0, flag_raw: 0, orientation: None, out: Vec::new(), inc: Vec::new(), town: None, parking: None });
                     Some(net.nodes.len() - 1)
                 }
                 None => None,
@@ -1028,11 +1075,26 @@ impl RoadNet {
         }
     }
 
-    /// `0x404e90`: the node a town is reached at: its first `unload` node (`+0x40`), else its
-    /// first node that is on the network.
+    /// `0x404e90`: the node a town is reached at: its last `unload` node (`+0x40`, set by
+    /// `0x4305f0`), else its first node that is on the network.
     pub fn town_node(&self, town: &Town) -> Option<usize> {
         let find = |name: &String| self.nodes.iter().position(|n| &n.name == name);
-        town.nodes.iter().filter(|(_, a)| a & 1 != 0).find_map(|(n, _)| find(n)).or_else(|| town.nodes.iter().find_map(|(n, _)| find(n)))
+        match town.nodes.iter().rev().find(|(_, a)| a & 1 != 0) {
+            Some((n, _)) => find(n),
+            None => town.nodes.iter().find_map(|(n, _)| find(n)),
+        }
+    }
+
+    /// `0x4340f0` (new game): mark the nodes of the parking places: flag 4, the parking place
+    /// (`+0xac`) and the slot (`+0xb4`).
+    pub fn mark_parkings(&mut self, lots: &[Parking]) {
+        for (li, lot) in lots.iter().enumerate() {
+            for (k, (name, _, _)) in lot.nodes.iter().enumerate() {
+                let Some(n) = self.nodes.iter().position(|n| &n.name == name) else { continue };
+                self.nodes[n].flags |= 4;
+                self.nodes[n].parking = Some((li, k));
+            }
+        }
     }
 
     /// `0x487590` with mode 0: the cost of the way from `a` to `b`: the cheapest route, or the

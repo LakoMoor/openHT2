@@ -11,8 +11,18 @@ fn main() {
     let ways: Vec<_> = files.iter().map(|f| ht2_formats::way::rooms(&ht2_formats::way::parse(&std::fs::read(f).unwrap()).unwrap())).collect();
     let mut net = RoadNet::build(&ways);
     // the towns of the map scripts mark their nodes at the start of a game (0x433f90)
-    let towns = ht2_sim::road::Town::read_folder(std::path::Path::new(&dir));
+    let scripts = ht2_sim::road::read_map_scripts(std::path::Path::new(&dir));
+    let towns = ht2_sim::road::Town::from_scripts(&scripts);
     net.mark_towns(&towns);
+    let lots = ht2_sim::road::Parking::from_scripts(&scripts);
+    net.mark_parkings(&lots);
+    if std::env::var_os("PARKING").is_some() {
+        for (i, l) in lots.iter().enumerate() {
+            let nodes: Vec<i64> = l.nodes.iter().map(|(n, _, _)| net.nodes.iter().position(|x| &x.name == n).map_or(-1, |k| k as i64)).collect();
+            println!("{i} id {} nodes {nodes:?}", l.number);
+        }
+        return;
+    }
     if std::env::var_os("TOWNS").is_some() {
         for (i, t) in towns.iter().enumerate() {
             let nodes: Vec<_> = t.nodes.iter().map(|(n, f)| (net.nodes.iter().position(|x| &x.name == n).map_or(-1, |k| k as i64), *f)).collect();

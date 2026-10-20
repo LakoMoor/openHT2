@@ -48,6 +48,9 @@ pub struct Node {
     pub name: String,
     pub pos: [f64; 3],
     pub flag: u32,
+    /// `ORTN`: a placement matrix (three axes, then a position), for nodes where vehicles are
+    /// put down facing a given way.
+    pub orientation: Option<[f64; 12]>,
 }
 
 /// A road segment (`RSEG`): a polyline (`ATTR` bit 0 clear) or a cubic curve through four
@@ -101,12 +104,19 @@ fn segment(rseg: &Chunk) -> Option<Segment> {
 }
 
 fn node(rnod: &Chunk) -> Option<Node> {
-    let mut n = Node { name: String::new(), pos: [0.0; 3], flag: 0 };
+    let mut n = Node { name: String::new(), pos: [0.0; 3], flag: 0, orientation: None };
     for c in &rnod.children {
         match &c.tag {
             b"NNAM" => n.name = c.as_cstr()?.to_owned(),
             b"POSN" => n.pos = [f64_at(c.data, 0)?, f64_at(c.data, 8)?, f64_at(c.data, 16)?],
             b"FLAG" => n.flag = u32_at(c.data, 0)?,
+            b"ORTN" => {
+                let mut m = [0.0; 12];
+                for (k, v) in m.iter_mut().enumerate() {
+                    *v = f64_at(c.data, 8 * k)?;
+                }
+                n.orientation = Some(m);
+            }
             _ => {}
         }
     }

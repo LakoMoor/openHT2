@@ -25,6 +25,7 @@ pub mod rigid;
 pub mod road;
 pub mod shape;
 pub mod step;
+pub mod stl;
 pub mod motion;
 pub mod tech_system;
 pub mod tech_rec;

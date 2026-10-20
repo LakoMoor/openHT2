@@ -120,7 +120,9 @@ fn load_roads(folder: &Path, map: &str, all: bool) -> ht2_sim::road::RoadNet {
         }
     }
     let mut net = ht2_sim::road::RoadNet::build(&ways);
-    net.mark_towns(&ht2_sim::road::Town::read_folder(folder));
+    let scripts = ht2_sim::road::read_map_scripts(folder);
+    net.mark_towns(&ht2_sim::road::Town::from_scripts(&scripts));
+    net.mark_parkings(&ht2_sim::road::Parking::from_scripts(&scripts));
     net
 }
 
