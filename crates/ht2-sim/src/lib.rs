@@ -29,5 +29,6 @@ pub mod stl;
 pub mod motion;
 pub mod tech_system;
 pub mod tech_rec;
+pub mod world;
 
 pub use tech_rec::TechRec;

@@ -397,6 +397,9 @@ pub struct Parking {
     pub number: i32,
     /// The nodes: name, the number after it (0 when none) and the town named after that.
     pub nodes: Vec<(String, i32, Option<String>)>,
+    /// `+0x30`: the number after the node list (4 when none): for a market, how many vehicle
+    /// models each place offers and their price level ([`crate::world::market_offers`]).
+    pub level: f64,
 }
 
 impl Parking {
@@ -414,6 +417,13 @@ impl Parking {
                         (name, kind, n.get(2).and_then(|s| s.as_text()).map(str::to_string))
                     })
                     .collect(),
+                level: rest
+                    .iter()
+                    .position(|s| s.as_list().is_some_and(|l| l.iter().any(|e| e.form("node").is_some())))
+                    .and_then(|k| rest.get(k + 1))
+                    .and_then(|s| s.as_text())
+                    .and_then(|t| t.parse().ok())
+                    .unwrap_or(4.0),
             })
             .collect();
         crate::stl::sort(&mut lots, |a, b| a.number < b.number);
