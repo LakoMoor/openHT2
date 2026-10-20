@@ -879,6 +879,13 @@ pub struct RouteStep {
     pub road: Option<usize>,
 }
 
+/// Where a route starts or ends (`PositionId`): a node, or a place on a road.
+#[derive(Debug, Clone, Copy)]
+pub enum Spot {
+    Node(usize),
+    Road(Place),
+}
+
 impl RoadNet {
     /// The place at the start of `road`, facing along it (`0x47ff20`).
     pub fn road_start(&self, road: usize) -> Place {
@@ -1163,6 +1170,171 @@ impl RoadNet {
                     .collect()
             })
             .collect()
+    }
+
+    /// The factor of a segment in route costs (`0x409f10`): 1.5 for `attr2` 2, 2 for 3, else 1;
+    /// for modes other than 1, times 10 000 on segments with flag 0x40 and on one-way segments
+    /// driven the other way (flag 8 along the road, flag 4 against it).
+    fn segment_factor(seg: &Segment, mode: u32, against: bool) -> f64 {
+        let k = match seg.attr2 {
+            2 => 1.5,
+            3 => 2.0,
+            _ => 1.0,
+        };
+        if mode != 1 && (seg.flags & 0x40 != 0 || seg.flags & if against { 4 } else { 8 } != 0) {
+            k * 10000.0
+        } else {
+            k
+        }
+    }
+
+    /// A spot as a place on `road`: (segment, piece, t, node). A node at either end of the road
+    /// becomes its start (`0x47fcf0`) or its end (`0x47fe20`: one segment past the last).
+    fn on_road(&self, road: usize, spot: &Spot) -> Option<(usize, usize, f64, Option<usize>)> {
+        let r = &self.roads[road];
+        match spot {
+            Spot::Road(p) => Some((p.segment, p.piece, p.t, p.node)),
+            Spot::Node(n) if *n == r.start => Some((0, 0, 0.0, Some(*n))),
+            Spot::Node(n) if *n == r.end => Some((r.segments.len(), 0, 0.0, Some(*n))),
+            Spot::Node(_) => None,
+        }
+    }
+
+    /// `0x402740`: whether the spot `a` comes before `b` on `road` (a spot at the end node is
+    /// last, at the start node first).
+    fn before(&self, road: usize, a: &Spot, b: &Spot) -> bool {
+        let r = &self.roads[road];
+        let (Some(pa), Some(pb)) = (self.on_road(road, a), self.on_road(road, b)) else { return false };
+        if pa == pb {
+            return false;
+        }
+        if pb.3 == Some(r.end) {
+            return true;
+        }
+        if pb.3 == Some(r.start) {
+            return false;
+        }
+        if pa.3 == Some(r.start) {
+            return true;
+        }
+        if pa.3 == Some(r.end) {
+            return false;
+        }
+        (pa.0, pa.1) < (pb.0, pb.1) || (pa.0, pa.1) == (pb.0, pb.1) && pa.2 < pb.2
+    }
+
+    /// `0x409aa0`: the cost of driving along `road` from `a` to `b` (against the road when `b`
+    /// comes first): the distance on each segment times its factor.
+    pub fn partial_cost(&self, mode: u32, road: usize, a: &Spot, b: &Spot) -> f64 {
+        let forward = self.before(road, a, b);
+        let (Some(pa), Some(pb)) = (self.on_road(road, a), self.on_road(road, b)) else { return 0.0 };
+        let (from, to) = if forward { (pa, pb) } else { (pb, pa) };
+        let r = &self.roads[road];
+        let seg = |i: usize| &self.segments[r.segments[i]];
+        // a place one segment past the last is the end of the last one
+        let (mut s2, mut k2, mut t2) = (to.0, to.1, to.2);
+        if s2 == r.segments.len() {
+            s2 -= 1;
+            k2 = seg(s2).pieces();
+            t2 = 0.0;
+        }
+        if from.0 == s2 {
+            return Self::segment_factor(seg(s2), mode, !forward) * seg(s2).distance(from.2, from.1, t2, k2);
+        }
+        let first = seg(from.0);
+        let mut sum = first.distance(from.2, from.1, 0.0, first.pieces()) * Self::segment_factor(first, mode, !forward);
+        for i in from.0 + 1..s2 {
+            sum += Self::segment_factor(seg(i), mode, !forward) * seg(i).length();
+        }
+        Self::segment_factor(seg(s2), mode, !forward) * seg(s2).distance(0.0, 0, t2, k2) + sum
+    }
+
+    /// `0x409660`: the distance along `road` between two spots on it.
+    fn along(&self, road: usize, a: &Spot, b: &Spot) -> f64 {
+        self.partial_cost(1, road, a, b)
+    }
+
+    /// `0x4858b0` (`ai_trce.cpp`): the cheapest route between two spots, each a node or a place on
+    /// a road. From a place, both ends of its road are tried, with the cost of getting there along
+    /// the road (a place within 0.1 of an end counts as that node); the same for a place to reach.
+    /// When both are on one road, driving straight along it is tried first. A route from a place
+    /// starts with the far end of its road (the way it is driven along it), one to a place ends
+    /// with the far end of the road it is on.
+    pub fn route_from(&self, from: &Spot, to: &Spot, mode: u32) -> Option<(Vec<RouteStep>, f64)> {
+        if let (Spot::Node(a), Spot::Node(b)) = (from, to) {
+            return self.route_between(*a, *b, mode);
+        }
+        // the ends a route may leave from / arrive at, with their costs and the step before /
+        // after the part on the network
+        let mut starts: Vec<(usize, f64, Option<RouteStep>)> = Vec::new();
+        match from {
+            Spot::Node(n) => starts.push((*n, 0.0, None)),
+            Spot::Road(p) => {
+                let r = &self.roads[p.road];
+                let c = self.partial_cost(mode, p.road, from, &Spot::Node(r.start));
+                if c < 0.1 {
+                    return self.route_from(&Spot::Node(r.start), to, mode);
+                }
+                starts.push((r.start, c, Some(RouteStep { node: r.end, road: Some(p.road) })));
+                let c = self.partial_cost(mode, p.road, from, &Spot::Node(r.end));
+                if c < 0.1 {
+                    return self.route_from(&Spot::Node(r.end), to, mode);
+                }
+                starts.push((r.end, c, Some(RouteStep { node: r.start, road: Some(p.road) })));
+            }
+        }
+        let mut ends: Vec<(usize, f64, Option<RouteStep>)> = Vec::new();
+        let mut last_road = None;
+        match to {
+            Spot::Node(n) => ends.push((*n, 0.0, None)),
+            Spot::Road(p) => {
+                let r = &self.roads[p.road];
+                last_road = Some(p.road);
+                let c = self.partial_cost(mode, p.road, &Spot::Node(r.start), to);
+                if c < 0.1 {
+                    return self.route_from(from, &Spot::Node(r.start), mode);
+                }
+                ends.push((r.start, c, Some(RouteStep { node: r.end, road: None })));
+                let c = self.partial_cost(mode, p.road, &Spot::Node(r.end), to);
+                if c < 0.1 {
+                    return self.route_from(from, &Spot::Node(r.end), mode);
+                }
+                ends.push((r.end, c, Some(RouteStep { node: r.start, road: None })));
+            }
+        }
+        let mut best = f64::MAX;
+        let mut route = Vec::new();
+        if let (Spot::Road(a), Spot::Road(b)) = (from, to) {
+            if a.road == b.road {
+                let r = &self.roads[a.road];
+                best = self.partial_cost(mode, a.road, from, to);
+                let end = Spot::Node(r.end);
+                route = if self.along(a.road, &end, from) <= self.along(a.road, &end, to) {
+                    vec![RouteStep { node: r.end, road: Some(a.road) }, RouteStep { node: r.start, road: None }]
+                } else {
+                    vec![RouteStep { node: r.start, road: Some(a.road) }, RouteStep { node: r.end, road: None }]
+                };
+            }
+        }
+        for (s, cs, before) in &starts {
+            for (e, ce, after) in &ends {
+                let Some((steps, c)) = self.route_between(*s, *e, mode) else { continue };
+                let total = c + cs + ce;
+                if total < best {
+                    best = total;
+                    route.clear();
+                    route.extend(*before);
+                    route.extend(steps);
+                    if let Some(after) = after {
+                        if let Some(l) = route.last_mut() {
+                            l.road = last_road;
+                        }
+                        route.push(*after);
+                    }
+                }
+            }
+        }
+        (!route.is_empty()).then_some((route, best))
     }
 
     /// `0x456140` / `0x45cdc0`: a random destination node: among the nodes that are not hidden

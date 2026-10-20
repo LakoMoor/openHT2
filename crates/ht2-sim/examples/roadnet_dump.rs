@@ -49,6 +49,51 @@ fn main() {
     }
     // with a file of routes found by the original (tools/emu/route_check.py): compare
     // with the generator table and draws of the original (tools/emu/rng_check.py): compare
+    // with routes between places by the original (tools/emu/route_from_check.py): compare
+    if let Some(file) = std::env::args().nth(2).filter(|f| f.contains("routes_from")) {
+        let spot = |w: &[&str]| {
+            let road: i64 = w[0].parse().unwrap();
+            let node: i64 = w[1].parse().unwrap();
+            if road < 0 {
+                ht2_sim::road::Spot::Node(node as usize)
+            } else {
+                ht2_sim::road::Spot::Road(ht2_sim::road::Place {
+                    road: road as usize,
+                    node: (node >= 0).then_some(node as usize),
+                    t: w[2].parse().unwrap(),
+                    piece: w[3].parse().unwrap(),
+                    segment: w[4].parse().unwrap(),
+                    reversed: w[5].parse::<u32>().unwrap() & 1 != 0,
+                })
+            }
+        };
+        let (mut same, mut differ) = (0, 0);
+        for line in std::fs::read_to_string(file).unwrap().lines() {
+            let parts: Vec<&str> = line.split('|').map(str::trim).collect();
+            if parts.len() < 5 {
+                continue;
+            }
+            let mode: u32 = parts[0].parse().unwrap();
+            let a: Vec<&str> = parts[1].split_whitespace().collect();
+            let b: Vec<&str> = parts[2].split_whitespace().collect();
+            let cost: f64 = parts[3].parse().unwrap();
+            let theirs: Vec<&str> = parts[4].split_whitespace().collect();
+            let (ours, oc) = match net.route_from(&spot(&a), &spot(&b), mode) {
+                Some((r, c)) => (r.iter().map(|s| format!("{}:{}", s.node, s.road.map_or(-1, |r| r as i64))).collect::<Vec<_>>(), c),
+                None => (Vec::new(), f64::MAX),
+            };
+            if ours == theirs && (oc - cost).abs() <= 1e-6 * cost.abs().max(1.0) {
+                same += 1;
+            } else {
+                differ += 1;
+                if differ <= 6 {
+                    println!("{line}\n    ours {oc} {}", ours.join(" "));
+                }
+            }
+        }
+        println!("routes from places: {same} same, {differ} differ");
+        return;
+    }
     // with random start places of the original (tools/emu/place_check.py): compare
     if let Some(file) = std::env::args().nth(2).filter(|f| f.contains("places")) {
         let mut rng = ht2_sim::road::AiRng::default();
