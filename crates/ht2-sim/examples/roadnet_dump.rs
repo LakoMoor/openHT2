@@ -49,6 +49,28 @@ fn main() {
     }
     // with a file of routes found by the original (tools/emu/route_check.py): compare
     // with the generator table and draws of the original (tools/emu/rng_check.py): compare
+    // with random start places of the original (tools/emu/place_check.py): compare
+    if let Some(file) = std::env::args().nth(2).filter(|f| f.contains("places")) {
+        let mut rng = ht2_sim::road::AiRng::default();
+        let (mut same, mut differ) = (0, 0);
+        for line in std::fs::read_to_string(file).unwrap().lines() {
+            let w: Vec<&str> = line.split_whitespace().collect();
+            let p = net.random_start(&mut rng).unwrap();
+            let ours = format!("{} {} {} {} {} {}", p.road, p.node.map_or(-1, |n| n as i64), p.t, p.piece, p.segment, p.reversed as u32);
+            let t: f64 = w[2].parse().unwrap();
+            if w[0] == p.road.to_string() && w[1] == p.node.map_or(-1, |n| n as i64).to_string() && (t - p.t).abs() < 1e-9 && w[3] == p.piece.to_string() && w[4] == p.segment.to_string() && w[5] == (p.reversed as u32).to_string() {
+                same += 1;
+            } else {
+                differ += 1;
+                if differ <= 5 {
+                    println!("original {line}
+    ours {ours}");
+                }
+            }
+        }
+        println!("places: {same} same, {differ} differ");
+        return;
+    }
     if let Some(draws) = std::env::args().nth(2).filter(|f| f.contains("draws")) {
         let text = std::fs::read_to_string(draws).unwrap();
         let mut rng = ht2_sim::road::AiRng::default();

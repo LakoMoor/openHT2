@@ -141,7 +141,8 @@ pub struct Categories {
 /// `0x42fa90`: sort the catalogue into the lists. 8: four rounds over the vehicles with role dumb,
 /// 8 or trucker, cars three times, then shuffled; 2: the trucker vehicles, even numbers first;
 /// 7: cars and other vehicles of those roles taken in turn so that cars are `car_share` · 20/21
-/// of the others (`0x66c6f0`, 1 unless the new game is given another), as many as the two counts
+/// of the others (`0x66c6f0`: the traffic setting of the options, `trafs`, in percent × 0.01, which
+/// the game passes to the new game, `0x572653`), as many as the two counts
 /// multiplied; 9: list 7 shuffled.
 pub fn sort_vehicles(vehicles: &[Vehicle], rng: &mut AiRng, car_share: f64) -> Categories {
     let has = |k: usize, r: u32| vehicles[k].roles.contains(&r);

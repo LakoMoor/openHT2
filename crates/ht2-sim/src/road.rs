@@ -814,6 +814,37 @@ impl RoadNet {
         }
     }
 
+    /// `0x4801f0`: a random place on the network: a distance along all roads drawn in
+    /// centimetres (less one metre, not below 0), on the road it falls in, reversed when that
+    /// segment is one-way against the road (flag 8, `0x438d70`).
+    pub fn random_place(&self, rng: &mut AiRng) -> Option<Place> {
+        let last = self.roads.last()?;
+        let total = (last.cumulative * 100.0) as u32;
+        let d = ((rng.next() % total) as f64 * 0.01 - 1.0).max(0.0);
+        let road = self.roads.iter().position(|r| d < r.cumulative)?;
+        let r = &self.roads[road];
+        let mut off = d - r.cumulative + r.length;
+        let mut p = Place { road, node: Some(r.start), t: 0.0, piece: 0, segment: 0, reversed: false };
+        if 0.0 <= off {
+            self.advance(&mut p, &mut off);
+            if self.seg(&p).flags & 8 != 0 {
+                p.reversed = true;
+            }
+        }
+        Some(p)
+    }
+
+    /// `0x422d60`: a random place to put a vehicle: [`RoadNet::random_place`] again while the
+    /// segment there has flag 0x20 or 0x40.
+    pub fn random_start(&self, rng: &mut AiRng) -> Option<Place> {
+        loop {
+            let p = self.random_place(rng)?;
+            if self.seg(&p).flags & 0x60 == 0 {
+                return Some(p);
+            }
+        }
+    }
+
     /// `0x4cda20`: the horizontal direction of the road at a place (against the road when
     /// `back`), and the slope angle of the road there.
     pub fn heading(&self, p: &Place, back: bool) -> ([f64; 3], f64) {
