@@ -10,7 +10,7 @@ pub struct Ground {
     /// The collision of the world's scene graph, used by the ported vehicle.
     pub scene: crate::world::Scene,
     /// The road network of the `.way` files, which the computer drivers follow.
-    pub roads: ht2_sim::road::RoadNet,
+    pub roads: std::rc::Rc<ht2_sim::road::RoadNet>,
     cell: f32,
     min: (f32, f32),
     dims: (usize, usize),

@@ -32,7 +32,7 @@ fn main() {
     net.mark_towns(&ht2_sim::road::Town::from_scripts(&scripts));
     net.mark_parkings(&lots);
     let names = DriverName::read(&game);
-    let mut world = World::new(&net, &lots, &vehicles, &cats, &names, rng, 0);
+    let mut world = World::new(std::rc::Rc::new(net), lots.clone(), vehicles.clone(), cats.clone(), names.clone(), rng, 0);
     let mut counts = [0usize; 12];
     counts[2] = 50;
     counts[5] = 15;

@@ -237,7 +237,7 @@ fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, Strin
             }
         }
     }
-    ground.roads = load_roads(&folder, map, dir.join(map).is_dir());
+    ground.roads = std::rc::Rc::new(load_roads(&folder, map, dir.join(map).is_dir()));
     println!("roads: {} nodes, {} roads", ground.roads.nodes.len(), ground.roads.roads.len());
     // The scenario start is only usable if there is ground under it (the menu scenes have none).
     let start = scenario.start.and_then(|p| ground.height_at(p.x, p.y, p.z + 200.0, 0.0).map(|z| Vec3::new(p.x, p.y, z)));
@@ -252,8 +252,18 @@ fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, Strin
     println!("vehicle physics: {}", if vehicle.is_ported() { "ported from the original" } else { "stand-in" });
     let mut vehicle = vehicle;
     let traffic = std::env::var("HT2_TRAFFIC").ok().and_then(|v| v.parse().ok()).unwrap_or(8);
-    vehicle.add_traffic(&ground, traffic, 0x2545_f491);
-    println!("traffic: {} vehicles", vehicle.traffic().len());
+    let map_dir = dir.join(map);
+    if map_dir.join("GAME.CNF").is_file() && std::env::var_os("HT2_OLD_TRAFFIC").is_none() {
+        // the AI world of the map: its players drive on the road network, and those near the
+        // player get vehicles
+        let human = ground.roads.nearest([pos.x as f64, pos.y as f64, pos.z as f64]).map(ht2_sim::road::Spot::Road);
+        let ai = ht2_sim::world::World::new_game(dir, &map_dir, ground.roads.clone(), 1.0, human);
+        println!("AI world: {} players", ai.players.len());
+        vehicle.set_ai_world(ai, traffic.max(12));
+    } else {
+        vehicle.add_traffic(&ground, traffic, 0x2545_f491);
+    }
+    println!("traffic: {} vehicle slots", vehicle.traffic().len());
     Ok(World { ground, vehicle, world_scenes, truck: truck_model, spawn: (pos, heading, ride) })
 }
 

@@ -161,6 +161,13 @@ impl Vehicle {
         }
     }
 
+    /// Let the AI world `w` place the computer vehicles (`pool` of them at most).
+    pub fn set_ai_world(&mut self, w: ht2_sim::world::World, pool: usize) {
+        if let Some(s) = &mut self.sim {
+            s.set_ai_world(w, pool);
+        }
+    }
+
     /// The computer vehicles, for drawing.
     pub fn traffic(&self) -> Vec<Pose> {
         self.sim.as_ref().map_or_else(Vec::new, |s| s.traffic())

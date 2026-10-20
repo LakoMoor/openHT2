@@ -61,7 +61,15 @@ pub struct SimCar {
     autopilot: Option<ai::Driver>,
     /// The road module's random generator (`0x68b9c8`), shared by all drivers.
     rng: ht2_sim::road::AiRng,
+    /// The AI world of the map (players on the road network); with it, the computer vehicles
+    /// are a pool of slots taken by the players whose rooms the AI has loaded.
+    ai_world: Option<ht2_sim::world::World>,
+    slot_player: Vec<Option<usize>>,
 }
+
+/// How many rooms the AI may have loaded at once. Stand-in for the game's memory budget of the
+/// scene (`0x4d8a90`, `0x67b738`).
+const ROOM_BUDGET: usize = 16;
 
 /// What is needed to draw a vehicle.
 pub struct Pose {
@@ -129,7 +137,7 @@ impl SimCar {
         m.set_i16(CAR + 0x2704, 1);
         m.set_i16(CAR + 0x2706, 1);
         ht2_sim::gearbox::fn_004ff770(&mut m, CAR, 1);
-        Ok(SimCar { m, time: 0.0, rooms, traffic: Vec::new(), vid, autopilot: None, rng: Default::default() })
+        Ok(SimCar { m, time: 0.0, rooms, traffic: Vec::new(), vid, autopilot: None, rng: Default::default(), ai_world: None, slot_player: Vec::new() })
     }
 
     /// One step of `dt` seconds with the pedals in `0..=1` and the steering keys (-1 right, 1 left).
@@ -193,11 +201,119 @@ impl SimCar {
 
     fn step_traffic(&mut self, ground: &Ground, dt: f32) {
         let m = &mut self.m;
-        let others: Vec<u32> = std::iter::once(CAR).chain(self.traffic.iter().map(|(c, _)| *c)).collect();
-        for (car, drv) in &mut self.traffic {
+        let active: Vec<bool> = (0..self.traffic.len()).map(|k| self.ai_world.is_none() || self.slot_player.get(k).copied().flatten().is_some()).collect();
+        let others: Vec<u32> = std::iter::once(CAR).chain(self.traffic.iter().zip(&active).filter(|(_, a)| **a).map(|((c, _), _)| *c)).collect();
+        for ((car, drv), on) in self.traffic.iter_mut().zip(&active) {
+            if !on {
+                continue;
+            }
             ai::drive(m, *car, &ground.roads, &mut self.rng, drv, 0, dt as f64, &others);
             with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, *car));
         }
+        self.sync_ai(ground);
+    }
+
+    /// Run the AI world with the time and the player's place, and put its players into the
+    /// scene or take them out as the AI loads and unloads their rooms (`xLoadEntities`): a player
+    /// in a loaded room gets a free slot of the pool, at its place, driving its route; the
+    /// slot's vehicle reports its place back to the AI world.
+    fn sync_ai(&mut self, ground: &Ground) {
+        let Some(mut w) = self.ai_world.take() else { return };
+        let net = &ground.roads;
+        let me = self.pos();
+        if let Some(p) = net.nearest([me.x as f64, me.y as f64, me.z as f64]) {
+            if let Some(h) = w.players.iter().position(|p| p.kind == 1) {
+                w.players[h].place = Some(ht2_sim::road::Spot::Road(p));
+            }
+        }
+        for (k, slot) in self.slot_player.iter().enumerate() {
+            if let Some(pl) = slot {
+                w.players[*pl].place = Some(ht2_sim::road::Spot::Road(self.traffic[k].1.place));
+            }
+        }
+        w.tick(self.time);
+        let changes = w.load_entities(&mut |rooms| rooms.len() < ROOM_BUDGET);
+        if !changes.is_empty() && std::env::var_os("HT2_AI_LOG").is_some() {
+            let ghosts = w.players.iter().filter(|p| p.kind == 8).count();
+            let active = self.slot_player.iter().filter(|s| s.is_some()).count();
+            eprintln!("t={:.1} ghosts {ghosts} in scene {active} rooms {} changes {:?}", self.time, w.loaded_rooms.len(), changes);
+        }
+        // out of the scene: players whose rooms are no longer loaded
+        for k in 0..self.slot_player.len() {
+            if let Some(pl) = self.slot_player[k] {
+                let room = w.room_of(&w.players[pl]);
+                if !room.is_some_and(|r| w.loaded_rooms.contains(&r)) {
+                    self.slot_player[k] = None;
+                    w.players[pl].driven = false;
+                }
+            }
+        }
+        // into the scene: moving players in loaded rooms
+        for pl in 0..w.players.len() {
+            let p = &w.players[pl];
+            if p.kind == 1 || p.driven || p.state != 0 || p.route.is_empty() {
+                continue;
+            }
+            let Some(ht2_sim::road::Spot::Road(place)) = p.place else { continue };
+            if !w.room_of(p).is_some_and(|r| w.loaded_rooms.contains(&r)) {
+                continue;
+            }
+            let Some(k) = self.slot_player.iter().position(|s| s.is_none()) else { break };
+            let route = p.route.clone();
+            if self.place_car(ground, self.traffic[k].0, place) {
+                let mut d = ai::Driver::new(place);
+                d.route = route;
+                self.traffic[k].1 = d;
+                self.slot_player[k] = Some(pl);
+                w.players[pl].driven = true;
+            }
+        }
+        self.ai_world = Some(w);
+    }
+
+    /// Give the vehicles to the AI world `w`: `pool` slots for its players.
+    pub fn set_ai_world(&mut self, w: ht2_sim::world::World, pool: usize) {
+        self.traffic.clear();
+        for k in 0..pool {
+            let car = CAR + CAR_STRIDE * (k as u32 + 1);
+            self.traffic.push((car, ai::Driver::new(ht2_sim::road::Place { road: 0, node: None, t: 0.0, piece: 0, segment: 0, reversed: false })));
+        }
+        self.slot_player = vec![None; pool];
+        self.ai_world = Some(w);
+    }
+
+    /// Build the computer vehicle at `car` at a road place, in the right-hand lane, with its
+    /// driver set up (as `add_traffic` does). False when there is no ground there.
+    fn place_car(&mut self, ground: &Ground, car: u32, place: ht2_sim::road::Place) -> bool {
+        let net = &ground.roads;
+        let c = net.coordinates(&place);
+        let t = net.direction(&place, false);
+        let l = (t[0] * t[0] + t[1] * t[1]).sqrt();
+        if l < 1e-6 {
+            return false;
+        }
+        let (fx, fy) = ((t[0] / l) as f32, (t[1] / l) as f32);
+        let at = Vec3::new(c[0] as f32 + fy * 1.75, c[1] as f32 - fx * 1.75, c[2] as f32);
+        let Some(z) = ground.height_at(at.x, at.y, at.z + 3.0, 0.0) else { return false };
+        let pos = Vec3::new(at.x, at.y, z + 1.0);
+        let named = ground.scene.room_named(net.room_of(&place));
+        let Some(room) = named.or_else(|| ground.scene.room_at(&mut self.m, pos.to_array())).or((!self.rooms).then_some(ROOM)) else { return false };
+        let heading = (-fx).atan2(fy);
+        let (c, s) = (heading.cos(), heading.sin());
+        let mat = [c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0, pos.x, pos.y, pos.z];
+        let m = &mut self.m;
+        let vid = self.vid;
+        with_world(ground, self.rooms, |w| ctor::fn_004ebd00(m, w, car, room, mat, vid));
+        m.set_i32(car + 0x2774, 1);
+        m.set_i32(car + 0x2760, 1);
+        m.set_i32(car + 0x1b24, 2);
+        m.set_i16(car + 0x2704, 1);
+        m.set_i16(car + 0x2706, 1);
+        ht2_sim::gearbox::fn_004ff770(m, car, 1);
+        ai::init_driver(m, car, true);
+        m.set_u32(car + 0x4078, 1);
+        m.set_i16(car + 0x2746, REQUEST_DRIVE);
+        true
     }
 
     /// Put `count` computer vehicles of the player's type on the roads 60 to 400 m from the
@@ -267,7 +383,18 @@ impl SimCar {
 
     /// The computer vehicles, for drawing.
     pub fn traffic(&self) -> Vec<Pose> {
-        self.traffic.iter().map(|(car, _)| self.pose(*car)).collect()
+        self.traffic
+            .iter()
+            .enumerate()
+            .map(|(k, (car, _))| {
+                if self.ai_world.is_some() && self.slot_player.get(k).copied().flatten().is_none() {
+                    // a free slot of the pool: out of sight
+                    Pose { body: Mat4::from_translation(Vec3::new(0.0, 0.0, -1.0e5)), steer: 0.0, wheel_angle: [0.0; 8], wheel_drop: [0.0; 8] }
+                } else {
+                    self.pose(*car)
+                }
+            })
+            .collect()
     }
 
     fn pose(&self, car: u32) -> Pose {
