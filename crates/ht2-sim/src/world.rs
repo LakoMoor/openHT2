@@ -218,6 +218,43 @@ impl DriverName {
     }
 }
 
+/// A second-order low-pass filter of the AI (`0x4881f0` builds it for a frequency `w` times the
+/// step, by the bilinear transform; `0x4881b0` steps it).
+#[derive(Debug, Clone, Copy)]
+pub struct SpeedFilter {
+    a: f64,
+    c: f64,
+    b: f64,
+    y1: f64,
+    y2: f64,
+}
+
+impl SpeedFilter {
+    pub fn new(w: f64) -> Self {
+        let k = 0.7353265585246408;
+        let d1 = w * -1.5 * k;
+        let d2 = w * 0.866 * k;
+        let d3 = 1.0 - d1;
+        let d5 = -d2;
+        let d1b = d1 + 1.0;
+        let d4 = d3 * d3 + d5 * d5;
+        let re = (d1b * d3 + d5 * d2) / d4;
+        let im = (d2 * d3 - d5 * d1b) / d4;
+        // 0x488120
+        let c = re + re;
+        let b = -re * re - -im * -im;
+        let a = (1.0 - (re + re)) - b;
+        SpeedFilter { a, c, b, y1: 0.0, y2: 0.0 }
+    }
+
+    pub fn step(&mut self, x: f64) -> f64 {
+        let y2 = self.y2;
+        self.y2 = self.y1;
+        self.y1 = x * self.a + y2 * self.b + self.y1 * self.c;
+        self.y1
+    }
+}
+
 /// A player of the AI world (`createNewPlayer`, `0x415940`; the list `0x68b990`).
 #[derive(Debug, Clone)]
 pub struct AiPlayer {
@@ -237,6 +274,11 @@ pub struct AiPlayer {
     pub parked: Option<(usize, usize)>,
     /// `+0x5c`: 0x100 for sale, 0x101 hired out.
     pub state: u32,
+    /// `+0x118`: the coordinates at the last tick; `+0x148`: the speed, `+0x170` and `+0x198`
+    /// its filters (`0x473420`: 1e-4 and 1e-3 of the step).
+    pub last_pos: [f64; 3],
+    pub speed: f64,
+    pub filters: [SpeedFilter; 2],
 }
 
 /// What the start of a new game keeps between its steps.
@@ -259,12 +301,17 @@ pub struct World<'a> {
     /// The second generator (`0x68a870`).
     pub rng2: AiRng,
     pub players: Vec<AiPlayer>,
+    /// `0x68d0f0`: the AI time of the last tick.
+    pub last_tick: f64,
+    /// `0x66c6a0`: the speed the players move at while their rooms are not loaded: that of the
+    /// human player (20 m/s at the start).
+    pub travel_speed: f64,
 }
 
 impl<'a> World<'a> {
     pub fn new(net: &'a RoadNet, lots: &'a [Parking], vehicles: &'a [Vehicle], lists: &'a Categories, names: &'a [DriverName], rng: AiRng, time: u32) -> Self {
         let slots = lots.iter().map(|l| vec![None; l.nodes.len()]).collect();
-        World { net, lots, slots, lot_used: vec![0; lots.len()], vehicles, lists, names, name_use: vec![[0, 0]; names.len()], cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new() }
+        World { net, lots, slots, lot_used: vec![0; lots.len()], vehicles, lists, names, name_use: vec![[0, 0]; names.len()], cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0 }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -334,7 +381,7 @@ impl<'a> World<'a> {
             _ => {}
         }
         let name = if kind == 1 { None } else { self.pick_name(kind) };
-        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0 }
+        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)] }
     }
 
     /// `traceToArbitraryDestination` (`0x417820`): random destinations (`0x456140`) until there
@@ -494,6 +541,67 @@ impl<'a> World<'a> {
             }
             self.players[k] = p;
         }
+    }
+
+    /// The move of the players in a tick while their rooms are not loaded (`processMove`,
+    /// `0x41ae60`; `prescribeAdvance`, `0x41a9d0`; `advancePlayer`, `0x435a90`): 20 m/s (police
+    /// 1.3 times that) times the time since the last tick along the route. The human player, the
+    /// vehicles standing for sale and those hired out do not move.
+    pub fn tick_move(&mut self, now: f64) {
+        let dt = now - self.last_tick;
+        for p in &mut self.players {
+            if p.kind == 1 || p.state == 0x100 || p.state == 0x101 {
+                continue;
+            }
+            let Some(Spot::Road(mut place)) = p.place else { continue };
+            // 0x41a9d0: the speed of the human player, at least 50 km/h
+            let mut v = 13.88888888888889;
+            if v < self.travel_speed {
+                v = self.travel_speed;
+            }
+            if p.kind == 5 {
+                v *= 1.3;
+            }
+            let mut dist = dt * v;
+            self.net.advance_route(&mut place, &mut dist, &p.route);
+            p.place = Some(Spot::Road(place));
+        }
+    }
+
+    /// `calculatePlayerSpeedsAndFares` (`0x423f40`, end of a tick): each player's speed from how
+    /// far it moved since the last tick, through its filters, run once per hundredth of a
+    /// second (moves over 100 m/s are left out); the human player's sets the travel speed.
+    pub fn update_speeds(&mut self, now: f64) {
+        let dt = now - self.last_tick;
+        if dt < 1e-6 {
+            return;
+        }
+        let steps = (dt * 100.0) as i32;
+        for p in &mut self.players {
+            let Some(place) = p.place else { continue };
+            let q = self.net.spot_coordinates(&place);
+            let d = [q[0] - p.last_pos[0], q[1] - p.last_pos[1], q[2] - p.last_pos[2]];
+            p.last_pos = q;
+            let raw = (d[2] * d[2] + d[1] * d[1] + d[0] * d[0]).sqrt() / dt;
+            if raw < 100.0 {
+                for _ in 0..steps - 1 {
+                    p.filters[0].step(raw);
+                    p.filters[1].step(raw);
+                }
+                p.speed = p.filters[0].step(raw);
+                p.filters[1].step(raw);
+            }
+            if p.kind == 1 {
+                self.travel_speed = p.speed;
+            }
+        }
+    }
+
+    /// A tick of the AI world as far as ported: the moves, the speeds, the time (`0x42d6e0`).
+    pub fn tick(&mut self, now: f64) {
+        self.tick_move(now);
+        self.update_speeds(now);
+        self.last_tick = now;
     }
 
     /// `createPlayersRegular` (`0x422f20`) for the human player and the types placed at random on

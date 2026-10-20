@@ -230,10 +230,15 @@ impl Segment {
                     }
                     true
                 } else if *dist < 0.0 {
+                    // backwards the squares add as (x² + y²) + z² (0x48d435, 0x48d4e7)
+                    let len_back = |a: [f64; 3], b: [f64; 3]| {
+                        let d = sub(a, b);
+                        (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt()
+                    };
                     loop {
-                        let rem = len(p[*k], self.point(*t, *k));
+                        let rem = len_back(p[*k], self.point(*t, *k));
                         if -*dist <= rem {
-                            *t += *dist / len(p[*k + 1], p[*k]);
+                            *t += *dist / len_back(p[*k + 1], p[*k]);
                             *dist = 0.0;
                             if *t < 0.0 {
                                 *t = 0.0;

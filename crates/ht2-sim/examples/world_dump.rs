@@ -39,8 +39,18 @@ fn main() {
     counts[6] = 8;
     let live = vehicles.iter().position(|v| v.model == "ZilR" && v.colour == 1);
     world.create_players_regular(&counts, live);
+    // the human player at the start position of GAME.CNF, as the original finds it (0x436900)
+    world.players[0].place = Some(ht2_sim::road::Spot::Road(ht2_sim::road::Place { road: 31, node: None, t: 0.8333333333333334, piece: 0, segment: 0, reversed: true }));
     world.create_dealers([25, 5, 5]);
     world.hire_out(20);
+    for tick in 1..=std::env::var("TICKS").ok().and_then(|t| t.parse().ok()).unwrap_or(0u32) {
+        world.tick(tick as f64);
+        for (k, p) in world.players.iter().enumerate() {
+            if let Some(ht2_sim::road::Spot::Road(q)) = p.place {
+                println!("tick {tick} player {k} place {} {} {:?} {} {} {}", q.road, q.node.map_or(-1, |n| n as i64), q.t, q.piece, q.segment, q.reversed as u32);
+            }
+        }
+    }
     for (k, p) in world.players.iter().enumerate() {
         let pl = match p.place {
             None => "-".to_string(),
