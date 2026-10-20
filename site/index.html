@@ -56,6 +56,7 @@
       <li class="done"><span class="tag">готово</span><span>Водитель машин ИИ: руль, удержание полосы, скорость перед поворотами, торможение, выезд задним ходом</span></li>
       <li class="done"><span class="tag">готово</span><span>Поток машин ИИ видит соседей: держит дистанцию, перестраивается, разворачивается</span></li>
       <li class="done"><span class="tag">готово</span><span>Модуль дорог оригинала запущен в эмуляторе на настоящих картах: сеть дорог, поиск маршрута и генератор случайных чисел перенесены и совпадают с оригиналом</span></li>
+      <li class="done"><span class="tag">готово</span><span>Города из скриптов районов <code>mod_*.sch</code>: узлы складов и разгрузки размечаются, как при начале новой игры в оригинале</span></li>
       <li><span class="tag">в работе</span><span>Расстановка и типы машин ИИ как в оригинале</span></li>
       <li><span class="tag">план</span><span>Интерфейс, звук, задания, торговля</span></li>
     </ul>
@@ -64,6 +65,8 @@
   <h2>Скриншоты</h2>
   <p>Это работа самого движка openHT2 на данных установленной копии игры: открытый мир, гоночная трасса, грузовик, комбинат и арена.</p>
   <div class="shots">
+    <figure><img src="img/ai_follow.jpg" alt="Камера за машиной потока ИИ на серпантине" loading="lazy"><figcaption>Камера за одной из машин потока: маршрут к случайному узлу назначения — перенесённые генератор, выбор назначения и поиск пути модуля дорог</figcaption></figure>
+    <figure><img src="img/env_overview.jpg" alt="Вид сверху на район старта" loading="lazy"><figcaption>Район старта сверху: аэропорт и дороги к городам; узлы городов размечаются по <code>mod_*.sch</code>, как в оригинале</figcaption></figure>
     <figure><img src="img/traffic.jpg" alt="Машина ИИ едет по своей полосе" loading="lazy"><figcaption>Машина ИИ ведёт себя по перенесённому коду водителя <code>SecondCar</code></figcaption></figure>
     <figure><img src="img/ported.jpg" alt="ЗИЛ едет по дороге у аэропорта" loading="lazy"><figcaption>ЗИЛ на перенесённой физике оригинала (<code>_Car_V</code>), за рулём — перенесённый водитель ИИ; полосы треугольников (бит 0x80 формата) рисуются как в оригинале</figcaption></figure>
     <figure><img src="img/airport.jpg" alt="Старт в аэропорту: ЗИЛ с тентом" loading="lazy"><figcaption>Старт из <code>GAME.CNF</code>: аэропорт, ЗИЛ</figcaption></figure>

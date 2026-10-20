@@ -149,7 +149,7 @@ impl SimCar {
         m.set_i16(CAR + 0x2704, 1);
         m.set_i16(CAR + 0x2706, 1);
         m.set_i16(CAR + 0x2746, REQUEST_DRIVE);
-        self.autopilot = Some(ai::Driver::new(place, 0x9e37_79b9));
+        self.autopilot = Some(ai::Driver::new(place));
     }
 
     pub fn step(&mut self, ground: &Ground, dt: f32, throttle: f32, brake: f32, steer: i32) {
@@ -260,7 +260,7 @@ impl SimCar {
             // Traffic follows the vehicle ahead (`0x4d13e1`; other roles of the original differ).
             m.set_u32(car + 0x4078, 1);
             m.set_i16(car + 0x2746, REQUEST_DRIVE);
-            self.traffic.push((car, ai::Driver::new(place, next())));
+            self.traffic.push((car, ai::Driver::new(place)));
             taken.push(pos);
         }
     }

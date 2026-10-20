@@ -165,6 +165,9 @@ class Emu:
         mu.reg_write(UC_X86_REG_FPCW, 0x27f)
         mu.mem_write(SCRATCH, b'\0' * 8)
         mu.emu_start(addr, self.stub_end, count=max_insn)
+        eip = mu.reg_read(UC_X86_REG_EIP)
+        if eip != self.stub_end:
+            raise RuntimeError(f'stopped at {eip:#x} before returning (instruction limit {max_insn})')
         return struct.unpack('<d', mu.mem_read(SCRATCH, 8))[0]
 
     @property

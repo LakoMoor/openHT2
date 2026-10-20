@@ -323,7 +323,6 @@ pub fn init_driver(m: &mut Mem, this: u32, clear_game_flag: bool) {
 pub struct Driver {
     pub place: Place,
     pub route: Vec<RouteStep>,
-    seed: u32,
 }
 
 fn f3(m: &Mem, a: u32) -> [f64; 3] {
@@ -331,17 +330,10 @@ fn f3(m: &Mem, a: u32) -> [f64; 3] {
 }
 
 impl Driver {
-    pub fn new(place: Place, seed: u32) -> Self {
-        let mut d = Driver { place, route: Vec::new(), seed: seed | 1 };
+    pub fn new(place: Place) -> Self {
+        let mut d = Driver { place, route: Vec::new() };
         d.place.node = None;
         d
-    }
-
-    fn rand(&mut self) -> u32 {
-        self.seed ^= self.seed << 13;
-        self.seed ^= self.seed >> 17;
-        self.seed ^= self.seed << 5;
-        self.seed
     }
 
     /// Make the route reach `dist` metres past the place: at the end of the route, a route

@@ -119,7 +119,9 @@ fn load_roads(folder: &Path, map: &str, all: bool) -> ht2_sim::road::RoadNet {
             Err(e) => eprintln!("skipping {}: {e}", f.display()),
         }
     }
-    ht2_sim::road::RoadNet::build(&ways)
+    let mut net = ht2_sim::road::RoadNet::build(&ways);
+    net.mark_towns(&ht2_sim::road::Town::read_folder(folder));
+    net
 }
 
 /// One wheel: where it sits on the body and whether the steering turns it.

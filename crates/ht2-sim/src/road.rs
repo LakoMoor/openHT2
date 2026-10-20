@@ -329,9 +329,85 @@ pub struct Node {
     pub pos: [f64; 3],
     /// `+0xc`: 8 for nodes roads do not snap to (`FLAG` bit 0), 0x40 for `FLAG` bit 1.
     pub flags: u32,
+    /// The `FLAG` of the `.way` node (0 for automatic nodes).
+    pub flag_raw: u32,
     /// Roads leaving (`+0x18`) and entering (`+0x24`) the node.
     pub out: Vec<usize>,
     pub inc: Vec<usize>,
+    /// `+0xa8`, `+0xb4`: the town this node belongs to and its place in the town's node list
+    /// (set by [`RoadNet::mark_towns`]).
+    pub town: Option<(usize, usize)>,
+}
+
+/// A town of the map scripts (`mod_*.sch`): `( town ID "name" ... ( ( node "name" attrs... ) ... ) ...)`,
+/// read by `0x40e8e0`.
+#[derive(Debug, Clone)]
+pub struct Town {
+    pub id: String,
+    /// The town's nodes and their attribute flags: `unload` 1, `hidden` 2, `fuel` 4, `dummy` 8.
+    pub nodes: Vec<(String, u32)>,
+}
+
+impl Town {
+    /// The towns of all map scripts (`mod_*.sch`) of a map folder, in file name order.
+    pub fn read_folder(dir: &std::path::Path) -> Vec<Town> {
+        let mut scripts: Vec<_> = std::fs::read_dir(dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| {
+                let n = p.file_name().map_or(String::new(), |n| n.to_string_lossy().to_ascii_lowercase());
+                n.starts_with("mod_") && n.ends_with(".sch")
+            })
+            .collect();
+        scripts.sort();
+        let mut towns = Vec::new();
+        for f in scripts {
+            let Ok(data) = std::fs::read(&f) else { continue };
+            let Ok(plain) = ht2_formats::sdte::decrypt(&data) else { continue };
+            if let Ok(forms) = ht2_formats::sexpr::parse(&ht2_formats::sdte::cp1251_to_string(&plain)) {
+                towns.extend(Town::parse(&forms));
+            }
+        }
+        towns
+    }
+
+    /// The towns of a decrypted map script.
+    pub fn parse(forms: &[ht2_formats::sexpr::Sexp]) -> Vec<Town> {
+        use ht2_formats::sexpr::Sexp;
+        let mut towns = Vec::new();
+        let tops: Vec<&Sexp> = forms.iter().flat_map(|f| f.as_list().map_or(vec![f], |l| l.iter().collect())).collect();
+        for f in tops {
+            let Some(rest) = f.form("town") else { continue };
+            let id = rest.first().and_then(|s| s.as_text()).unwrap_or_default().to_string();
+            let nodes = rest
+                .iter()
+                .filter_map(|s| s.as_list())
+                .find(|l| l.iter().any(|e| e.form("node").is_some()))
+                .map(|l| {
+                    l.iter()
+                        .filter_map(|e| e.form("node"))
+                        .map(|n| {
+                            let name = n.first().and_then(|s| s.as_text()).unwrap_or_default().to_string();
+                            let flags = n[1..].iter().filter_map(|a| a.as_text()).fold(0, |f, a| {
+                                f | match a {
+                                    "unload" => 1,
+                                    "hidden" => 2,
+                                    "fuel" => 4,
+                                    "dummy" => 8,
+                                    _ => 0,
+                                }
+                            });
+                            (name, flags)
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            towns.push(Town { id, nodes });
+        }
+        towns
+    }
 }
 
 /// A road: segments chained from one node to another (`0x405c00`).
@@ -405,7 +481,7 @@ impl RoadNet {
                         continue;
                     }
                     let flags = if n.flag & 1 != 0 { 8 } else { 0 } | if n.flag & 2 != 0 { 0x40 } else { 0 };
-                    net.nodes.push(Node { name: n.name.clone(), pos: n.pos, flags, out: Vec::new(), inc: Vec::new() });
+                    net.nodes.push(Node { name: n.name.clone(), pos: n.pos, flags, flag_raw: n.flag, out: Vec::new(), inc: Vec::new(), town: None });
                 }
             }
         }
@@ -416,7 +492,7 @@ impl RoadNet {
             e.node = match named {
                 Some(i) => Some(i),
                 None if e.ends.len() != 2 => {
-                    net.nodes.push(Node { name: "anode".into(), pos: e.pos, flags: 0, out: Vec::new(), inc: Vec::new() });
+                    net.nodes.push(Node { name: "anode".into(), pos: e.pos, flags: 0, flag_raw: 0, out: Vec::new(), inc: Vec::new(), town: None });
                     Some(net.nodes.len() - 1)
                 }
                 None => None,
@@ -930,6 +1006,24 @@ impl AiRng {
 }
 
 impl RoadNet {
+    /// `0x433f90` (new game): mark the nodes of the towns: the town and slot, and flag 2 for the
+    /// unloading node of a town (`unload`), flag 1 for its other nodes except `dummy` ones. Town
+    /// nodes are found by name (`0x436510`); names that are not nodes are skipped.
+    pub fn mark_towns(&mut self, towns: &[Town]) {
+        for (ti, town) in towns.iter().enumerate() {
+            for (k, (name, attrs)) in town.nodes.iter().enumerate() {
+                let Some(n) = self.nodes.iter().position(|n| &n.name == name) else { continue };
+                let node = &mut self.nodes[n];
+                node.town = Some((ti, k));
+                if attrs & 1 != 0 {
+                    node.flags |= 2;
+                } else if attrs & 8 == 0 {
+                    node.flags |= 1;
+                }
+            }
+        }
+    }
+
     /// `0x456140` / `0x45cdc0`: a random destination node: among the nodes that are not hidden
     /// (flag 8), those marked as destinations (`FLAG` bit 1, flag 0x40) for players of type other
     /// than 2; for type 2 those with flag 2 (when `which` bit 0) or flag 1. `None` when there are

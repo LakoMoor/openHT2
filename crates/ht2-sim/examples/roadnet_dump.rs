@@ -9,7 +9,9 @@ fn main() {
     let mut files: Vec<_> = std::fs::read_dir(&dir).unwrap().flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("way"))).collect();
     files.sort_by_key(|p| p.file_name().unwrap().to_string_lossy().to_string());
     let ways: Vec<_> = files.iter().map(|f| ht2_formats::way::rooms(&ht2_formats::way::parse(&std::fs::read(f).unwrap()).unwrap())).collect();
-    let net = RoadNet::build(&ways);
+    let mut net = RoadNet::build(&ways);
+    // the towns of the map scripts mark their nodes at the start of a game (0x433f90)
+    net.mark_towns(&ht2_sim::road::Town::read_folder(std::path::Path::new(&dir)));
     // with a file of routes found by the original (tools/emu/route_check.py): compare
     // with the generator table and draws of the original (tools/emu/rng_check.py): compare
     if let Some(draws) = std::env::args().nth(2).filter(|f| f.contains("draws")) {
@@ -59,6 +61,12 @@ fn main() {
         return;
     }
     println!("{} nodes {} roads", net.nodes.len(), net.roads.len());
+    if std::env::var_os("NODE_FLAGS").is_some() {
+        for (i, n) in net.nodes.iter().enumerate() {
+            println!("node {i} raw {} flags {} {}", n.flag_raw, n.flags, n.name);
+        }
+        return;
+    }
     for (i, r) in net.roads.iter().enumerate() {
         println!("road {i} start {} end {} segments {} length {:.6} cumulative {:.6}", r.start, r.end, r.segments.len(), r.length, r.cumulative);
     }

@@ -242,7 +242,7 @@ def load(folder, full=False, events=None, snapshot=None):
         if not fn:
             continue
         try:
-            e.call(fn, max_insn=2_000_000)
+            e.call(fn, max_insn=200_000_000)
             ok += 1
         except Exception as ex:
             bad += 1
