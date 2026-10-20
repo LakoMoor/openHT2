@@ -11,7 +11,32 @@ fn main() {
     let ways: Vec<_> = files.iter().map(|f| ht2_formats::way::rooms(&ht2_formats::way::parse(&std::fs::read(f).unwrap()).unwrap())).collect();
     let mut net = RoadNet::build(&ways);
     // the towns of the map scripts mark their nodes at the start of a game (0x433f90)
-    net.mark_towns(&ht2_sim::road::Town::read_folder(std::path::Path::new(&dir)));
+    let towns = ht2_sim::road::Town::read_folder(std::path::Path::new(&dir));
+    net.mark_towns(&towns);
+    if std::env::var_os("TOWNS").is_some() {
+        for (i, t) in towns.iter().enumerate() {
+            let nodes: Vec<_> = t.nodes.iter().map(|(n, f)| (net.nodes.iter().position(|x| &x.name == n).map_or(-1, |k| k as i64), *f)).collect();
+            println!("{i} {} {nodes:?}", t.id);
+        }
+        // with the tables of the original (town index, then the costs to every town): compare
+        if let Some(file) = std::env::args().nth(2) {
+            let ours = net.town_distances(&towns);
+            let (mut same, mut differ) = (0, 0);
+            for line in std::fs::read_to_string(file).unwrap().lines() {
+                let w: Vec<&str> = line.split_whitespace().collect();
+                let i: usize = w[0].parse().unwrap();
+                for (j, v) in w[1..].iter().enumerate() {
+                    let want: f64 = v.parse().unwrap();
+                    if (ours[i][j] - want).abs() <= 1e-9 * want.abs().max(1.0) { same += 1 } else {
+                        differ += 1;
+                        if differ <= 8 { println!("{i}->{j}: original {want} ours {}", ours[i][j]); }
+                    }
+                }
+            }
+            println!("town distances: {same} same, {differ} differ");
+        }
+        return;
+    }
     // with a file of routes found by the original (tools/emu/route_check.py): compare
     // with the generator table and draws of the original (tools/emu/rng_check.py): compare
     if let Some(draws) = std::env::args().nth(2).filter(|f| f.contains("draws")) {

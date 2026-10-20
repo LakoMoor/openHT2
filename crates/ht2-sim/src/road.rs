@@ -344,6 +344,8 @@ pub struct Node {
 #[derive(Debug, Clone)]
 pub struct Town {
     pub id: String,
+    /// The number after the name (`+0x18`); the towns are kept in its order.
+    pub number: i32,
     /// The town's nodes and their attribute flags: `unload` 1, `hidden` 2, `fuel` 4, `dummy` 8.
     pub nodes: Vec<(String, u32)>,
 }
@@ -370,6 +372,7 @@ impl Town {
                 towns.extend(Town::parse(&forms));
             }
         }
+        towns.sort_by_key(|t| t.number);
         towns
     }
 
@@ -404,7 +407,8 @@ impl Town {
                         .collect()
                 })
                 .unwrap_or_default();
-            towns.push(Town { id, nodes });
+            let number = rest.get(2).and_then(|s| s.as_text()).and_then(|t| t.parse().ok()).unwrap_or(0);
+            towns.push(Town { id, number, nodes });
         }
         towns
     }
@@ -1022,6 +1026,40 @@ impl RoadNet {
                 }
             }
         }
+    }
+
+    /// `0x404e90`: the node a town is reached at: its first `unload` node (`+0x40`), else its
+    /// first node that is on the network.
+    pub fn town_node(&self, town: &Town) -> Option<usize> {
+        let find = |name: &String| self.nodes.iter().position(|n| &n.name == name);
+        town.nodes.iter().filter(|(_, a)| a & 1 != 0).find_map(|(n, _)| find(n)).or_else(|| town.nodes.iter().find_map(|(n, _)| find(n)))
+    }
+
+    /// `0x487590` with mode 0: the cost of the way from `a` to `b`: the cheapest route, or the
+    /// cheapest by mode 1 (which ignores the one-way and 0x40 penalties) when that is under a
+    /// tenth of it.
+    pub fn trip_cost(&self, a: usize, b: usize) -> f64 {
+        let cost = |mode| self.route_between(a, b, mode).map_or(0.0, |(_, c)| c);
+        let (c0, c1) = (cost(0), cost(1));
+        if c1 * 10.0 < c0 { c1 } else { c0 }
+    }
+
+    /// `0x414670` (new game): the cost of the way between every two towns (`town + 0x64`), 0 for
+    /// a town to itself or when either has no node.
+    pub fn town_distances(&self, towns: &[Town]) -> Vec<Vec<f64>> {
+        let nodes: Vec<Option<usize>> = towns.iter().map(|t| self.town_node(t)).collect();
+        nodes
+            .iter()
+            .map(|&a| {
+                nodes
+                    .iter()
+                    .map(|&b| match (a, b) {
+                        (Some(a), Some(b)) if a != b => self.trip_cost(a, b),
+                        _ => 0.0,
+                    })
+                    .collect()
+            })
+            .collect()
     }
 
     /// `0x456140` / `0x45cdc0`: a random destination node: among the nodes that are not hidden
