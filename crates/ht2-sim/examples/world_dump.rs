@@ -40,6 +40,7 @@ fn main() {
     let live = vehicles.iter().position(|v| v.model == "ZilR" && v.colour == 1);
     world.create_players_regular(&counts, live);
     world.create_dealers([25, 5, 5]);
+    world.hire_out(20);
     for (k, p) in world.players.iter().enumerate() {
         let pl = match p.place {
             None => "-".to_string(),

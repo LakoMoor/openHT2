@@ -235,6 +235,8 @@ pub struct AiPlayer {
     /// For a vehicle standing at a parking place: the place and the slot (`+0x78`, `+0x7c`;
     /// such players have the state 0x100, `+0x64`).
     pub parked: Option<(usize, usize)>,
+    /// `+0x5c`: 0x100 for sale, 0x101 hired out.
+    pub state: u32,
 }
 
 /// What the start of a new game keeps between its steps.
@@ -332,7 +334,7 @@ impl<'a> World<'a> {
             _ => {}
         }
         let name = if kind == 1 { None } else { self.pick_name(kind) };
-        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None }
+        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0 }
     }
 
     /// `traceToArbitraryDestination` (`0x417820`): random destinations (`0x456140`) until there
@@ -440,10 +442,57 @@ impl<'a> World<'a> {
                     });
                 }
                 p.parked = Some((lot, slot));
+                p.state = 0x100;
                 self.slots[lot][slot] = Some(self.players.len());
                 self.lot_used[lot] += 1;
                 self.players.push(p);
             }
+        }
+    }
+
+    /// `0x423ad0` (new game): `want` truckers hired out (`forhire` of `GAME.CNF`): each time one
+    /// of the truckers not standing anywhere yet is drawn (`0x45e0a0`) and sent to a slot of a
+    /// parking place for sale (`goHireIt`, `0x419030`: the route to it, the slot taken), and at
+    /// the start of a game put right at its end (`0x43e610`).
+    pub fn hire_out(&mut self, want: usize) {
+        let mut have = 0;
+        for _ in 0..100 {
+            if want <= have {
+                return;
+            }
+            let cands: Vec<usize> = (0..self.players.len())
+                .filter(|&k| {
+                    let p = &self.players[k];
+                    p.kind == 2 && p.state != 0x100 && p.state != 0x101 && p.vehicle.is_some()
+                })
+                .collect();
+            if cands.is_empty() {
+                return;
+            }
+            let k = cands[(self.rng.next() % cands.len() as u32) as usize];
+            let mut p = self.players[k].clone();
+            // 0x4786a0: the route given up; goHireIt
+            p.route.clear();
+            p.state = 0x101;
+            have += 1;
+            let mut taken = None;
+            while p.route.is_empty() {
+                let Some((lot, slot)) = self.parking_place(0) else { break };
+                let Some(n) = self.slot_node(lot, slot) else { break };
+                self.set_route(&mut p, &Spot::Node(n));
+                taken = Some((lot, slot));
+            }
+            if let Some((lot, slot)) = taken {
+                self.slots[lot][slot] = Some(k);
+                self.lot_used[lot] += 1;
+                p.parked = Some((lot, slot));
+            }
+            // 0x43e610: put at the end of the route
+            if let (Some(last), Some(place)) = (p.route.last(), p.place) {
+                let q = self.net.nodes[last.node].pos;
+                p.place = Some(self.net.locate(&p.route, q, &place));
+            }
+            self.players[k] = p;
         }
     }
 
