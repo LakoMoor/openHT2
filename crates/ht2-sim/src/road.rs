@@ -33,29 +33,31 @@ fn eval(c: &[f64], t: f64) -> f64 {
     c.iter().skip(1).fold(c[0], |r, k| r * t + k)
 }
 
-/// Product of two scalar polynomials.
+/// Product of two scalar polynomials (`0x48eae0`): each coefficient sums `a[u - i] * b[i]` for
+/// `i` rising, from 0 (the order fixes the rounding).
 fn mul(a: &[f64], b: &[f64]) -> Vec<f64> {
-    let mut r = vec![0.0; a.len() + b.len() - 1];
-    for (i, x) in a.iter().enumerate() {
-        for (j, y) in b.iter().enumerate() {
-            r[i + j] += x * y;
-        }
-    }
-    r
+    let (la, lb) = (a.len(), b.len());
+    (0..la + lb - 1)
+        .map(|u| {
+            let i0 = (u + 1).saturating_sub(la);
+            let i1 = (u + 1).min(lb);
+            (i0..i1).fold(0.0, |acc, i| a[u - i] * b[i] + acc)
+        })
+        .collect()
 }
 
 /// The arc length along a curve as a polynomial in `t` (`0x48dbb0`): the speed `|P'(t)|` is
 /// interpolated at the nine Chebyshev nodes of `0..1` (`0x48fe80`, degree 8) and integrated
 /// (`0x48ea30`, zero at `t = 0`).
 fn arc_length_poly(tangent: &[[f64; 3]; 3]) -> Vec<f64> {
-    // |P'|^2 = sum over the coordinates of the squared derivative polynomials (0x48e600)
-    let mut sq = vec![0.0; 5];
-    for i in 0..3 {
+    // |P'|^2: the squared derivative polynomials of the coordinates (0x48f000), added z + x + y
+    // (0x48e600)
+    let sq_of = |i: usize| {
         let d: Vec<f64> = tangent.iter().map(|c| c[i]).collect();
-        for (k, v) in mul(&d, &d).iter().enumerate() {
-            sq[k] += v;
-        }
-    }
+        mul(&d, &d)
+    };
+    let (x, y, z) = (sq_of(0), sq_of(1), sq_of(2));
+    let sq: Vec<f64> = (0..x.len()).map(|k| z[k] + x[k] + y[k]).collect();
     let n = 8usize;
     let nodes: Vec<f64> = (0..=n).map(|j| (((2 * j) as f64 + 1.0) * std::f64::consts::PI / ((n as f64 + 1.0) * 2.0)).cos() * 0.5 + 0.5).collect();
     let mut poly = vec![0.0; n + 1];
@@ -76,6 +78,66 @@ fn arc_length_poly(tangent: &[[f64; 3]; 3]) -> Vec<f64> {
     let mut s: Vec<f64> = poly.iter().enumerate().map(|(i, c)| c / (m - i) as f64).collect();
     s.push(0.0);
     s
+}
+
+/// The B-spline basis polynomial `N(i, order)` on the knot span `span` (`0x48fa90`, Cox-de Boor):
+/// order 1 is 1 on its own span and nothing elsewhere; above, `N(i, k - 1)` times
+/// `(u - knot[i]) / (knot[i + k - 1] - knot[i])` plus `N(i + 1, k - 1)` times
+/// `(knot[i + k] - u) / (knot[i + k] - knot[i + 1])`, the linear factors as their coefficients
+/// times `1 / d` (`0x4903a0`).
+fn bspline_basis(knots: &[f64], i: usize, order: usize, span: usize) -> Vec<f64> {
+    if order == 1 {
+        return if i == span { vec![1.0] } else { Vec::new() };
+    }
+    let left = bspline_basis(knots, i, order - 1, span);
+    let right = bspline_basis(knots, i + 1, order - 1, span);
+    let mut terms = Vec::new();
+    if !right.is_empty() {
+        let d = knots[i + order] - knots[i + 1];
+        terms.push(mul(&right, &[-1.0 * (1.0 / d), knots[i + order] * (1.0 / d)]));
+    }
+    if !left.is_empty() {
+        let d = knots[i + order - 1] - knots[i];
+        terms.push(mul(&left, &[1.0 * (1.0 / d), -knots[i] * (1.0 / d)]));
+    }
+    terms.into_iter().reduce(|a, b| add(&a, &b)).unwrap_or_default()
+}
+
+/// The sum of two polynomials (highest power first), lined up at the constant terms (`0x4901b0`).
+fn add(a: &[f64], b: &[f64]) -> Vec<f64> {
+    let (long, short) = if a.len() >= b.len() { (a, b) } else { (b, a) };
+    let off = long.len() - short.len();
+    long.iter().enumerate().map(|(k, v)| if k < off { *v } else { *v + short[k - off] }).collect()
+}
+
+/// A curve segment as a cubic in its parameter (`0x4904e0`, `0x48d8f0`): the `.way` points are the
+/// control points of a cubic B-spline with the knots 0, 0, 0, 0, 1, 1, 1, 1; the polynomial is
+/// the sum of the basis polynomials times the control points, in their order.
+fn bspline_piece(ctrl: &[[f64; 3]; 4]) -> [[f64; 3]; 4] {
+    let knots = [0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0];
+    let mut acc: [Vec<f64>; 3] = Default::default();
+    for (k, p) in ctrl.iter().enumerate() {
+        let n = bspline_basis(&knots, k, 4, 3);
+        for c in 0..3 {
+            let term: Vec<f64> = n.iter().map(|b| b * p[c]).collect();
+            acc[c] = if acc[c].is_empty() { term } else { add(&acc[c], &term) };
+        }
+    }
+    let at = |c: usize, k: usize| {
+        let v = &acc[c];
+        let off = 4 - v.len();
+        if k < off { 0.0 } else { v[k - off] }
+    };
+    core::array::from_fn(|k| [at(0, k), at(1, k), at(2, k)])
+}
+
+/// A curve from its position polynomial (`0x48dbb0`): the derivative (`0x48ef00`: each coefficient
+/// times its power) and the arc-length polynomial.
+fn curve_shape(pos: [[f64; 3]; 4]) -> Shape {
+    let c = |f: &dyn Fn(usize) -> f64| -> [f64; 3] { [f(0), f(1), f(2)] };
+    let tangent = [c(&|i| pos[0][i] * 3.0), c(&|i| pos[1][i] * 2.0), c(&|i| pos[2][i] * 1.0)];
+    let arc = arc_length_poly(&tangent);
+    Shape::Curve { pos, tangent, arc }
 }
 
 fn sub(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
@@ -110,15 +172,8 @@ impl Segment {
             }
             Shape::Polyline(pts)
         } else {
-            let [p0, p1, p2, p3]: [[f64; 3]; 4] = points.try_into().ok()?;
-            let c = |f: &dyn Fn(usize) -> f64| -> [f64; 3] { [f(0), f(1), f(2)] };
-            let a = c(&|i| -p0[i] + 3.0 * p1[i] - 3.0 * p2[i] + p3[i]);
-            let b = c(&|i| 3.0 * p0[i] - 6.0 * p1[i] + 3.0 * p2[i]);
-            let d = c(&|i| -3.0 * p0[i] + 3.0 * p1[i]);
-            let pos = [a, b, d, p0];
-            let tangent = [c(&|i| 3.0 * a[i]), c(&|i| 2.0 * b[i]), d];
-            let arc = arc_length_poly(&tangent);
-            Shape::Curve { pos, tangent, arc }
+            let ctrl: [[f64; 3]; 4] = points.try_into().ok()?;
+            curve_shape(bspline_piece(&ctrl))
         };
         Some(Segment { shape, width, flags, value, attr2 })
     }
@@ -304,21 +359,34 @@ impl Segment {
         match &mut self.shape {
             Shape::Polyline(p) => p.reverse(),
             Shape::Curve { pos, .. } => {
-                let c = control_points(pos);
-                let rebuilt = Segment::new(1, self.value, self.attr2, self.width, &[c[3], c[2], c[1], c[0]]).expect("four points");
-                self.shape = rebuilt.shape;
+                // 0x48e190: the polynomial in 1 - t, by Horner's rule over polynomials (0x48eda0):
+                // the sum so far times (1 - t), plus the next coefficient
+                let mut acc: Vec<[f64; 3]> = vec![pos[0]];
+                for next in &pos[1..] {
+                    let m = acc.len();
+                    let mut out: Vec<[f64; 3]> = (0..=m)
+                        .map(|u| {
+                            core::array::from_fn(|c| {
+                                let mut v = 0.0;
+                                if u < m {
+                                    v = acc[u][c] * -1.0 + v;
+                                }
+                                if u >= 1 {
+                                    v = acc[u - 1][c] * 1.0 + v;
+                                }
+                                v
+                            })
+                        })
+                        .collect();
+                    let last = out.last_mut().unwrap();
+                    *last = core::array::from_fn(|c| last[c] + next[c]);
+                    acc = out;
+                }
+                let pos: [[f64; 3]; 4] = core::array::from_fn(|k| acc[k]);
+                self.shape = curve_shape(pos);
             }
         }
     }
-}
-
-/// The control points back from the power coefficients of a curve.
-fn control_points(pos: &[[f64; 3]; 4]) -> [[f64; 3]; 4] {
-    let [a, b, d, p0] = *pos;
-    let p1: [f64; 3] = core::array::from_fn(|i| p0[i] + d[i] / 3.0);
-    let p2: [f64; 3] = core::array::from_fn(|i| b[i] / 3.0 + 2.0 * p1[i] - p0[i]);
-    let p3: [f64; 3] = core::array::from_fn(|i| a[i] + p0[i] - 3.0 * p1[i] + 3.0 * p2[i]);
-    [p0, p1, p2, p3]
 }
 
 /// A node of the road graph: a named place of a `.way` file or an automatic one (`anode`)
@@ -490,6 +558,11 @@ pub struct RoadNet {
     pub roads: Vec<Road>,
     /// The `.way` room each segment comes from (`RNAM`).
     pub segment_rooms: Vec<String>,
+    /// `node + 0xc4 + mode * 4`: what the route searches so far found, per mode, node and
+    /// destination: the road to take there (`direction << 7 | its place in the node's list of
+    /// leaving (0) or arriving (1) roads`), 0x7f for no route, 0xff not known yet. Later searches
+    /// follow it, so which of two routes of equal cost is taken depends on the searches before.
+    pub next_step: std::cell::RefCell<Vec<Vec<Vec<u8>>>>,
 }
 
 struct Endpoint {
@@ -1008,14 +1081,77 @@ impl RoadNet {
     /// the open node with the least cost, the first one in node order on a tie; from each, the
     /// roads leaving it, then those arriving). The route lists, for each node on the way, the
     /// road taken there, and ends with `dst`. `None` when `dst` cannot be reached.
+    /// The next-step entry of `node` toward `dst` for `mode`.
+    fn step_entry(&self, mode: u32, node: usize, dst: usize) -> u8 {
+        let t = self.next_step.borrow();
+        t.get(mode as usize).and_then(|m| m.get(node)).map_or(0xff, |r| r[dst])
+    }
+
+    fn set_step_entry(&self, mode: u32, node: usize, dst: usize, v: u8) {
+        let mut t = self.next_step.borrow_mut();
+        let n = self.nodes.len();
+        while t.len() <= mode as usize {
+            t.push(Vec::new());
+        }
+        let m = &mut t[mode as usize];
+        if m.is_empty() {
+            *m = vec![vec![0xff; n]; n];
+        }
+        m[node][dst] = v;
+    }
+
+    /// The road a next-step entry stands for, and whether it is driven against its direction.
+    fn entry_road(&self, node: usize, e: u8) -> (usize, bool) {
+        let against = e & 0x80 != 0;
+        let list = if against { &self.nodes[node].inc } else { &self.nodes[node].out };
+        (list[(e & 0x7f) as usize], against)
+    }
+
+    /// `0x484be0`: remember along a found path that from each node on it the next road leads to
+    /// every later node of it.
+    fn remember(&self, mode: u32, path: &[(usize, u8)]) {
+        for j in 1..path.len() {
+            for i in 0..j {
+                self.set_step_entry(mode, path[i].0, path[j].0, path[i].1);
+            }
+        }
+    }
+
+    /// `0x484c80` (`ai_trce.cpp`): the cheapest route between two nodes. A route known from
+    /// earlier searches is followed (`0x484810`); otherwise Dijkstra: the open nodes kept in order of
+    /// number, the first cheapest taken, from it the leaving roads, then the arriving ones (cost
+    /// `0x409980`); the paths to the nodes taken, and to the destination, are remembered.
     pub fn route_between(&self, src: usize, dst: usize, mode: u32) -> Option<(Vec<RouteStep>, f64)> {
         if src == dst {
             return Some((vec![RouteStep { node: dst, road: None }], 0.0));
         }
+        if self.step_entry(mode, src, dst) != 0xff {
+            // 0x484810
+            let mut route = Vec::new();
+            let mut cost = 0.0;
+            let mut node = src;
+            loop {
+                let e = self.step_entry(mode, node, dst);
+                if e == 0x7f || e == 0xff {
+                    return None;
+                }
+                let (road, against) = self.entry_road(node, e);
+                route.push(RouteStep { node, road: Some(road) });
+                cost = self.road_cost(mode, road, against) + cost;
+                let r = &self.roads[road];
+                node = if against { r.start } else { r.end };
+                if node == dst {
+                    break;
+                }
+            }
+            route.push(RouteStep { node: dst, road: None });
+            return Some((route, cost));
+        }
         let n = self.nodes.len();
         let mut cost = vec![f64::MAX; n];
         let mut done = vec![false; n];
-        let mut path: Vec<Vec<RouteStep>> = vec![Vec::new(); n];
+        let mut path: Vec<Vec<(usize, u8)>> = vec![Vec::new(); n];
+        let mut via: Vec<Vec<RouteStep>> = vec![Vec::new(); n];
         cost[src] = 0.0;
         let mut open: Vec<usize> = (0..n).collect();
         while !open.is_empty() {
@@ -1027,17 +1163,22 @@ impl RoadNet {
             }
             let cur = open[best];
             if f64::MAX <= cost[cur] {
+                self.set_step_entry(mode, src, dst, 0x7f);
                 return None;
             }
             if cur == dst {
-                let mut route = std::mem::take(&mut path[cur]);
+                let mut route = std::mem::take(&mut via[cur]);
                 route.push(RouteStep { node: dst, road: None });
+                let mut p = std::mem::take(&mut path[cur]);
+                p.push((dst, 0xff));
+                self.remember(mode, &p);
                 return Some((route, cost[cur]));
             }
             open.remove(best);
             done[cur] = true;
+            self.remember(mode, &path[cur]);
             for (against, roads) in [(false, &self.nodes[cur].out), (true, &self.nodes[cur].inc)] {
-                for &road in roads {
+                for (k, &road) in roads.iter().enumerate() {
                     let r = &self.roads[road];
                     let other = if against { r.start } else { r.end };
                     if done[other] {
@@ -1047,12 +1188,16 @@ impl RoadNet {
                     if c < cost[other] {
                         cost[other] = c;
                         let mut p = path[cur].clone();
-                        p.push(RouteStep { node: cur, road: Some(road) });
+                        p.push((cur, (against as u8) << 7 | k as u8));
                         path[other] = p;
+                        let mut v = via[cur].clone();
+                        v.push(RouteStep { node: cur, road: Some(road) });
+                        via[other] = v;
                     }
                 }
             }
         }
+        self.set_step_entry(mode, src, dst, 0x7f);
         None
     }
 }

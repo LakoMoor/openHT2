@@ -49,6 +49,34 @@ fn main() {
     }
     // with a file of routes found by the original (tools/emu/route_check.py): compare
     // with the generator table and draws of the original (tools/emu/rng_check.py): compare
+    if let Some(road) = std::env::var("ARC").ok().and_then(|r| r.parse::<usize>().ok()) {
+        for (k, &s) in net.roads[road].segments.iter().enumerate() {
+            let seg = &net.segments[s];
+            println!("segment {k} {:?} length {:?}", seg.shape, seg.length());
+        }
+        return;
+    }
+    // with the road costs of the original (tools/emu/road_cost_check.py): compare bit for bit
+    if let Some(file) = std::env::args().nth(2).filter(|f| f.contains("road_costs")) {
+        let (mut same, mut differ, mut worst) = (0, 0, 0.0f64);
+        for line in std::fs::read_to_string(file).unwrap().lines() {
+            let w: Vec<&str> = line.split_whitespace().collect();
+            let (road, mode, against): (usize, u32, u32) = (w[0].parse().unwrap(), w[1].parse().unwrap(), w[2].parse().unwrap());
+            let want: f64 = w[3].parse().unwrap();
+            let got = net.road_cost(mode, road, against != 0);
+            if got.to_bits() == want.to_bits() {
+                same += 1;
+            } else {
+                differ += 1;
+                worst = worst.max(((got - want) / want).abs());
+                if differ <= 5 {
+                    println!("road {road} mode {mode} against {against}: original {want:?} ours {got:?} ({} segments)", net.roads[road].segments.len());
+                }
+            }
+        }
+        println!("road costs: {same} same bit for bit, {differ} differ (worst relative {worst:e})");
+        return;
+    }
     // with routes between places by the original (tools/emu/route_from_check.py): compare
     if let Some(file) = std::env::args().nth(2).filter(|f| f.contains("routes_from")) {
         let spot = |w: &[&str]| {
