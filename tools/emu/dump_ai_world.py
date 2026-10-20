@@ -31,21 +31,38 @@ def load(folder, full=False, events=None, snapshot=None):
     e.heap_next = BIG
 
 
+    # a heap with free lists by rounded size: the route searches of a new game allocate and
+    # free far more than fits in the region
+    e.heap_sizes, e.heap_free = {}, {}
+
     def alloc(emu, who=0):
         n = emu.arg(0)
         if n > 0x100000:
             print('big alloc', hex(who), hex(n), 'game', [hex(x) for x in game] if 'game' in globals() else '')
-        a = emu.heap_next
-        emu.heap_next += (n + 15) & ~15
-        assert emu.heap_next < BIG + BIG_LEN
+        size = max(16, (n + 15) & ~15)
+        pool = emu.heap_free.get(size)
+        if pool:
+            a = pool.pop()
+        else:
+            a = emu.heap_next
+            emu.heap_next += size
+            if emu.heap_next >= BIG + BIG_LEN:
+                raise MemoryError('emulated heap is full')
+        emu.heap_sizes[a] = size
         return a
 
+    def free(emu):
+        a = emu.arg(0)
+        size = emu.heap_sizes.pop(a, None)
+        if size is not None:
+            emu.heap_free.setdefault(size, []).append(a)
+        return 0
 
     e.hook_ret(0x632643, lambda emu: alloc(emu, 0x632643))               # operator new / malloc
     e.hook_ret(0x44b740, lambda emu: alloc(emu, 0x44b740))               # pooled allocator of the containers
-    e.hook_ret(0x44b4a0, lambda emu: 0)
-    e.hook_ret(0x61d1c8, lambda emu: 0)       # free
-    e.hook_ret(0x63266c, lambda emu: 0)       # operator delete
+    e.hook_ret(0x44b4a0, free)                # pooled deallocator (pointer, size)
+    e.hook_ret(0x61d1c8, free)                # free
+    e.hook_ret(0x63266c, free)                # operator delete
     e.hook_ret(0x61d857, lambda emu: alloc(emu, 0x61d857))               # malloc (CRT heap)
     e.hook_ret(0x401010, lambda emu: 0)       # error report
     e.write(STUB + 0x200, bytes([0xc2, 0x04, 0x00]))
@@ -309,7 +326,7 @@ def save(e, path):
     import pickle
     regions = [(b, bytes(e.mu.mem_read(b, en - b + 1))) for b, en, _ in e.mu.mem_regions()]
     with open(path, 'wb') as f:
-        pickle.dump({'heap_next': e.heap_next, 'regions': regions}, f)
+        pickle.dump({'heap_next': e.heap_next, 'heap_sizes': e.heap_sizes, 'heap_free': e.heap_free, 'regions': regions}, f)
 
 
 def restore(e, path):
@@ -322,6 +339,7 @@ def restore(e, path):
             e.mu.mem_map(b, len(data))
         e.mu.mem_write(b, data)
     e.heap_next = st['heap_next']
+    e.heap_sizes, e.heap_free = st.get('heap_sizes', {}), st.get('heap_free', {})
 
 
 if __name__ == "__main__":

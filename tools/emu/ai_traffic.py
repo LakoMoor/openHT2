@@ -13,10 +13,15 @@ import os
 
 folder, seconds = sys.argv[1], float(sys.argv[2])
 SNAP = os.path.join(os.environ.get('TEMP', '.'), 'ht2_ai_' + os.path.basename(os.path.normpath(folder)) + '.snap')
+SNAP0 = SNAP.replace('.snap', '_start.snap')   # after the start-up, before the new game
 events = []
 fresh = not os.path.exists(SNAP)
-e = load(folder, full=True, events=events, snapshot=None if fresh else SNAP)
-if not fresh:
+started = fresh and not os.path.exists(SNAP0)
+e = load(folder, full=True, events=events, snapshot=None if started else SNAP if not fresh else SNAP0)
+if started:
+    import dump_ai_world
+    dump_ai_world.save(e, SNAP0)
+else:
     for which, addr in (('player', 0x4d76b0), ('other', 0x4d8b60)):
         e.hook_ret(addr, lambda emu, which=which: (events.append((which, [emu.arg(k) for k in range(4)])), 0)[1])
 print('# after start-up:', len(events), 'callbacks')
@@ -38,6 +43,13 @@ def set_time(t, dt):
 set_time(0.0, 0.0)
 # the 3D scene is not there: its module look-up (scene keys of the districts) finds nothing
 e.hook_thiscall(0x5d9290, lambda emu: 0, 1)
+# the AI asks the game about the rooms of its scene (0x4d8a40, 0x4d8a90, 0x4d8ae0, 0x569150:
+# room id -> scene room through the table at [0x696ca0] + 0x2c0, 0x5e5370). An empty scene: no
+# room is loaded.
+SCENE = e.heap_next
+e.heap_next += 0x2000
+e.write(SCENE, bytes(0x2000))
+e.set_u32(0x696ca0, SCENE)
 from collections import deque
 from unicorn import UC_HOOK_BLOCK
 trail = deque(maxlen=16)
@@ -88,6 +100,14 @@ for a in (0x403940, 0x409310, 0x4140f0, 0x4305f0, 0x4143c0, 0x414670, 0x433f90, 
           0x4279a0, 0x42fa90, 0x423c00, 0x41d340, 0x41cff0, 0x42cd70, 0x42cb20, 0x477b60):
     e.mu.hook_add(UC_HOOK_CODE, lambda uc, addr, size, u: print('# start step', hex(addr), flush=True), begin=a, end=a)
 if fresh:
+    import time
+    _searches = [0, time.time()]
+
+    def _progress(uc, addr, size, user):
+        _searches[0] += 1
+        if _searches[0] % 100 == 0:
+            print(f'# town distance searches: {_searches[0]} ({time.time() - _searches[1]:.0f} s)', flush=True)
+    e.mu.hook_add(UC_HOOK_CODE, _progress, begin=0x487590, end=0x487590)
     call(0x434780, [0, 0, 0], 'iii')
     import dump_ai_world
     dump_ai_world.save(e, SNAP)
