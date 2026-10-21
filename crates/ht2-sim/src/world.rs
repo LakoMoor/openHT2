@@ -23,6 +23,8 @@ pub struct Vehicle {
     pub power: f64,
     /// The trailers a tractor can pull.
     pub trailers: Vec<String>,
+    /// `+4`: the number after the trailers (1 for the tank semitrailers: they carry liquids).
+    pub liquid: bool,
 }
 
 fn kind_code(s: &str) -> u32 {
@@ -67,6 +69,7 @@ impl Vehicle {
                     price: text(5).parse().unwrap_or(0.0),
                     power: text(6).parse().unwrap_or(0.0),
                     trailers: r.get(7).and_then(|s| s.as_list()).map_or(Vec::new(), |l| l.iter().filter_map(|s| s.as_text()).map(str::to_string).collect()),
+                    liquid: text(8) == "1",
                 }
             })
             .collect()
@@ -378,6 +381,16 @@ pub struct World {
     pub loads_done: bool,
     /// The tasks of the game clock (`0x68b99c`), in their order.
     pub tasks: Vec<Task>,
+    /// The towns (`0x68cec0`), the objects (`0x68cf6c`) and what they can be
+    /// (`etrashboxes.sch`), how many are wanted and made, the weight of each vehicle as a
+    /// semitrailer at a base (`+0x70`), and the nodes that have an object (flag 0x10).
+    pub towns: Vec<crate::road::Town>,
+    pub objects: Vec<crate::objects::WorldObject>,
+    pub presents: Vec<crate::objects::Present>,
+    pub object_want: crate::objects::ObjectCounts,
+    pub object_made: crate::objects::ObjectCounts,
+    pub vehicle_weight: Vec<f64>,
+    pub taken: Vec<bool>,
 }
 
 impl World {
@@ -385,7 +398,9 @@ impl World {
         let slots: Vec<Vec<Option<usize>>> = lots.iter().map(|l| vec![None; l.nodes.len()]).collect();
         let lot_used = vec![0; lots.len()];
         let name_use = vec![[0, 0]; names.len()];
-        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, ghost_want: 0, loads_done: false, tasks: Vec::new() }
+        let vehicle_weight = vec![1.0; vehicles.len()];
+        let taken = vec![false; net.nodes.len()];
+        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,

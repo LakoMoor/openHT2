@@ -426,6 +426,11 @@ pub struct Town {
     pub number: i32,
     /// The town's nodes and their attribute flags: `unload` 1, `hidden` 2, `fuel` 4, `dummy` 8.
     pub nodes: Vec<(String, u32)>,
+    /// `+0x60`: the number after the town's number (2 for a filling station; `()` is 0); bit 0
+    /// is added by `0x434070` for towns that deal in a liquid (`fuel`) merchandise.
+    pub flags: u32,
+    /// The merchandise of the town (`( NAME amount )` list), by name.
+    pub goods: Vec<String>,
 }
 
 /// The top-level forms of all map scripts (`mod_*.sch`) of a map folder, in file name order.
@@ -523,6 +528,11 @@ impl Town {
             .map(|rest| Town {
                 id: rest.first().and_then(|s| s.as_text()).unwrap_or_default().to_string(),
                 number: rest.get(2).and_then(|s| s.as_text()).and_then(|t| t.parse().ok()).unwrap_or(0),
+                flags: rest.get(3).and_then(|s| s.as_text()).and_then(|t| t.parse().ok()).unwrap_or(0),
+                goods: rest
+                    .get(6)
+                    .and_then(|s| s.as_list())
+                    .map_or(Vec::new(), |l| l.iter().filter_map(|g| g.as_list().and_then(|g| g.first()).and_then(|n| n.as_text()).map(str::to_string)).collect()),
                 nodes: node_entries(rest)
                     .into_iter()
                     .map(|n| {
@@ -950,41 +960,19 @@ impl RoadNet {
         found.map(|(road, segment)| Place { road, node: None, t, piece: k, segment, reversed: false })
     }
 
-    /// The place on the roads nearest to `q` (horizontally; stand-in for the road module's
-    /// `findPlayerPosition(vector)`): each piece sampled, then the best sample refined.
+    /// `getPositionId` (`0x436900`): the place nearest to `q` on all the roads (each segment's
+    /// `project` in turn, the last one that came nearer wins).
     pub fn nearest(&self, q: [f64; 3]) -> Option<Place> {
-        let d2 = |a: [f64; 3]| (a[0] - q[0]).powi(2) + (a[1] - q[1]).powi(2) + 0.01 * (a[2] - q[2]).powi(2);
-        let mut best: Option<(f64, Place)> = None;
+        let (mut best, mut t, mut k) = (f64::MAX, 0.0, 0usize);
+        let mut found = None;
         for (road, r) in self.roads.iter().enumerate() {
-            for (segment, &s) in r.segments.iter().enumerate() {
-                let seg = &self.segments[s];
-                for piece in 0..seg.pieces() {
-                    for k in 0..=16 {
-                        let t = k as f64 / 16.0;
-                        let d = d2(seg.point(t, piece));
-                        if best.as_ref().is_none_or(|(b, _)| d < *b) {
-                            best = Some((d, Place { road, node: None, t, piece, segment, reversed: false }));
-                        }
-                    }
+            for (i, &s) in r.segments.iter().enumerate() {
+                if self.segments[s].project(q, &mut best, &mut t, &mut k) {
+                    found = Some((road, i));
                 }
             }
         }
-        let (_, mut p) = best?;
-        let seg = &self.segments[self.roads[p.road].segments[p.segment]];
-        let mut step = 1.0 / 32.0;
-        for _ in 0..20 {
-            let here = d2(seg.point(p.t, p.piece));
-            let lo = (p.t - step).max(0.0);
-            let hi = (p.t + step).min(1.0);
-            if d2(seg.point(lo, p.piece)) < here {
-                p.t = lo;
-            } else if d2(seg.point(hi, p.piece)) < here {
-                p.t = hi;
-            } else {
-                step *= 0.5;
-            }
-        }
-        Some(p)
+        found.map(|(road, segment)| Place { road, node: None, t, piece: k, segment, reversed: false })
     }
 
     /// `getCoordinates` (`0x439580` → `0x435bf0`): the point of a place (a node's position when

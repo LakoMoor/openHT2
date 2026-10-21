@@ -43,6 +43,26 @@ fn main() {
     world.players[0].place = Some(ht2_sim::road::Spot::Road(ht2_sim::road::Place { road: 31, node: None, t: 0.8333333333333334, piece: 0, segment: 0, reversed: true }));
     world.create_dealers([25, 5, 5]);
     world.hire_out(20);
+    if let Ok(path) = std::env::var("OBJECTS") {
+        // compare the objects of the new game with tools/emu/objects_check.py
+        let text = std::fs::read_to_string(path).unwrap();
+        let line = text.lines().find(|l| l.starts_with("rng ")).expect("rng line");
+        let v: Vec<u32> = line.split_whitespace().skip(1).map(|x| x.parse().unwrap()).collect();
+        let theirs = AiRng::from_state(v[..55].try_into().unwrap(), v[55] as usize, v[56] as usize);
+        println!("rng same as the original's after the players: {}", format!("{:?}", world.rng) == format!("{theirs:?}"));
+        world.rng = theirs;
+        world.human_pos = Some([-3020.0, -4625.0, 20.0]);
+        world.towns = ht2_sim::road::Town::from_scripts(&scripts);
+        world.mark_liquid_towns(&ht2_sim::objects::liquid_goods(&game));
+        world.presents = ht2_sim::objects::Present::read(&game);
+        world.object_want = ht2_sim::objects::ObjectCounts { fuel: 10, semitrailers: 28, missions: 10, containers: 10, parkings: 40 };
+        world.create_objects(0.0);
+        for (k, o) in world.objects.iter().enumerate() {
+            let pl = o.place.map_or("-".to_string(), |q| format!("{} -1 {:?} {} {} 0", q.road, q.t, q.piece, q.segment));
+            println!("object {k} flags {:#x} node {} pos {:?} {:?} {:?} place {pl} veh {} x6c {}", o.flags, o.node, o.pos[0], o.pos[1], o.pos[2], o.vehicle.map_or(-1, |v| v as i64), o.present.map_or(-1, |v| v as i64));
+        }
+        return;
+    }
     if let Ok(path) = std::env::var("XLOAD") {
         // compare the scene loads and the ghosts with tools/emu/xload_check.py: start from the
         // AI generator it prints, the human player where the original has him, ticks of 0.1 s
