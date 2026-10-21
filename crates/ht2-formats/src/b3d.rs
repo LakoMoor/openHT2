@@ -666,7 +666,12 @@ fn collect(n: &Node, xf: &Xf, pool: &[Vertex], ctx: &Ctx, emit: bool, depth: u32
         }
         _ => {}
     }
-    for c in &n.children {
+    // A switch (type 21, e.g. `refer_GeometryKey`: intact or damaged, lights on or off) draws
+    // the child list its key selects, a level-of-detail block (type 10) the near list or the
+    // far one; drawn here: list 0, the default state and the near detail (stand-in for the
+    // keys and the distance test).
+    let one_list = matches!(n.kind, 10 | 21);
+    for c in n.children.iter().filter(|c| !one_list || c.list == 0) {
         collect(c, xf, pool, ctx, emit, depth, false, out);
     }
 }

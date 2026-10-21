@@ -7,9 +7,9 @@ mod vehicle;
 use glam::{Mat4, Vec3};
 use ground::Ground;
 use ht2_formats::{b3d, sdte, sexpr, tech};
-use ht2_render::{request_device, save_png, scene, ObjectId, Renderer, Scene};
+use ht2_render::{request_device, save_png, scene, ObjectId, Renderer, Scene, TexturesId};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
     process::ExitCode,
@@ -32,6 +32,7 @@ struct World {
     ground: Ground,
     vehicle: Vehicle,
     world_scenes: Vec<Scene>,
+    models: Models,
     truck: Truck,
     spawn: (Vec3, f32, f32),
 }
@@ -135,73 +136,103 @@ struct Wheel {
     spin_sign: f32,
 }
 
-/// The truck model split into the body and one part per wheel.
+/// A vehicle model split into the body and one part per wheel.
 struct Truck {
     params: Params,
-    scene: Scene,
+    body: Vec<b3d::Batch>,
     wheel_parts: Vec<Vec<b3d::Batch>>,
     wheels: Vec<Wheel>,
     ride_height: f32,
 }
 
-fn load_truck(dir: &Path, prefix: &str) -> Result<Truck, String> {
-    let techs = tech::parse(&fs::read(dir.join("vehicle.tech")).map_err(|e| format!("vehicle.tech: {e}"))?)
-        .map_err(|e| e.to_string())?;
-    let t = techs
-        .iter()
-        .find(|t| t.prefix.eq_ignore_ascii_case(prefix))
-        .ok_or_else(|| format!("no vehicle with model prefix {prefix:?} in vehicle.tech"))?;
-    let (model, mut scene) = scene::load_assets(&dir.join("COMMON/TRUCKS.B3D"))?;
+/// The vehicle models (`COMMON/TRUCKS.B3D`, all of them in one file with their textures) and
+/// the records of `vehicle.tech`, whose model prefixes name the blocks of each vehicle.
+struct Models {
+    b3d: b3d::B3d,
+    /// The textures and materials, no geometry.
+    assets: Scene,
+    techs: Vec<tech::Tech>,
+}
 
-    // Wheels are separate groups placed by `<prefix>Wheel<N>Space` links.
-    let mut wheels = Vec::new();
-    let mut wheel_groups = Vec::new();
-    let mut wheel_parts = Vec::new();
-    for i in 0..8 {
-        let space = format!("{}Wheel{i}Space", t.prefix);
-        let (Some((axes, pos)), Some(group)) = (model.space(&space), model.linked_group(&space)) else { break };
-        let axes = axes.map(Vec3::from);
-        wheel_parts.push(model.group_triangles(group));
-        wheel_groups.push(group.to_owned());
-        wheels.push(Wheel {
-            mount: Mat4::from_cols(axes[0].extend(0.0), axes[1].extend(0.0), axes[2].extend(0.0), Vec3::from(pos).extend(1.0)),
-            // the original turns the first two wheels with the steering (0x547030)
-            steered: i < 2,
-            spin_sign: if axes[0].x < 0.0 { -1.0 } else { 1.0 },
-        });
-    }
-    if wheels.len() < 2 {
-        return Err(format!("could not find the wheels of {prefix:?}"));
-    }
-    let skip: Vec<&str> = wheel_groups.iter().map(String::as_str).collect();
-    let body = model.triangles_skipping(Some(&t.prefix), &skip);
-    if body.is_empty() {
-        return Err(format!("no model blocks named {:?}", t.prefix));
-    }
-    scene.set_batches(body);
+fn load_models(dir: &Path) -> Result<Models, String> {
+    let techs = tech::parse(&fs::read(dir.join("vehicle.tech")).map_err(|e| format!("vehicle.tech: {e}"))?).map_err(|e| e.to_string())?;
+    let (b3d, assets) = scene::load_assets(&dir.join("COMMON/TRUCKS.B3D"))?;
+    Ok(Models { b3d, assets, techs })
+}
 
-    // The lowest point of a wheel in body coordinates sets the ride height.
-    let low = wheel_parts
-        .iter()
-        .zip(&wheels)
-        .flat_map(|(p, w)| p.iter().flat_map(|b| &b.verts).map(|v| w.mount.transform_point3(Vec3::from(v.pos)).z))
-        .fold(f32::MAX, f32::min);
+impl Models {
+    fn tech(&self, prefix: &str) -> Result<&tech::Tech, String> {
+        self.techs.iter().find(|t| t.prefix.eq_ignore_ascii_case(prefix)).ok_or_else(|| format!("no vehicle with model prefix {prefix:?} in vehicle.tech"))
+    }
 
-    let positions: Vec<Vec3> = wheels.iter().map(|w| w.mount.w_axis.truncate()).collect();
-    let node = |name: String| {
-        model.space(&name).map(|(axes, pos)| {
-            let mut v = [0.0f32; 12];
-            for (i, a) in axes.iter().enumerate() {
-                v[3 * i..3 * i + 3].copy_from_slice(&<[f32; 3]>::from(*a));
-            }
-            v[9..].copy_from_slice(&<[f32; 3]>::from(pos));
-            v
-        })
-    };
-    let wheel_nodes: simcar::WheelNodes = core::array::from_fn(|i| node(format!("{}Wheel{i}Space", t.prefix)));
-    let add_nodes: simcar::WheelNodes = core::array::from_fn(|i| node(format!("{}AddWheel{i}Space", t.prefix)));
-    let params = truck_params(t, &positions, wheel_nodes, add_nodes)?;
-    Ok(Truck { params, scene, wheel_parts, wheels, ride_height: -low })
+    /// The transforms of the `<prefix>Wheel<k>Space` and `<prefix>AddWheel<k>Space` nodes.
+    fn nodes(&self, prefix: &str) -> (simcar::WheelNodes, simcar::WheelNodes) {
+        let node = |name: String| {
+            self.b3d.space(&name).map(|(axes, pos)| {
+                let mut v = [0.0f32; 12];
+                for (i, a) in axes.iter().enumerate() {
+                    v[3 * i..3 * i + 3].copy_from_slice(&<[f32; 3]>::from(*a));
+                }
+                v[9..].copy_from_slice(&<[f32; 3]>::from(pos));
+                v
+            })
+        };
+        (core::array::from_fn(|i| node(format!("{prefix}Wheel{i}Space"))), core::array::from_fn(|i| node(format!("{prefix}AddWheel{i}Space"))))
+    }
+
+    /// The wheel nodes of every record of `vehicle.tech` that has a model, by record.
+    fn all_nodes(&self) -> Vec<(usize, String, simcar::WheelNodes, simcar::WheelNodes)> {
+        self.techs
+            .iter()
+            .filter(|t| self.b3d.space(&format!("{}Wheel0Space", t.prefix)).is_some())
+            .map(|t| {
+                let (w, a) = self.nodes(&t.prefix);
+                (t.index, t.prefix.clone(), w, a)
+            })
+            .collect()
+    }
+
+    fn truck(&self, prefix: &str) -> Result<Truck, String> {
+        let t = self.tech(prefix)?;
+        let model = &self.b3d;
+        // Wheels are separate groups placed by `<prefix>Wheel<N>Space` links.
+        let mut wheels = Vec::new();
+        let mut wheel_groups = Vec::new();
+        let mut wheel_parts = Vec::new();
+        for i in 0..8 {
+            let space = format!("{}Wheel{i}Space", t.prefix);
+            let (Some((axes, pos)), Some(group)) = (model.space(&space), model.linked_group(&space)) else { break };
+            let axes = axes.map(Vec3::from);
+            wheel_parts.push(model.group_triangles(group));
+            wheel_groups.push(group.to_owned());
+            wheels.push(Wheel {
+                mount: Mat4::from_cols(axes[0].extend(0.0), axes[1].extend(0.0), axes[2].extend(0.0), Vec3::from(pos).extend(1.0)),
+                // the original turns the first two wheels with the steering (0x547030)
+                steered: i < 2,
+                spin_sign: if axes[0].x < 0.0 { -1.0 } else { 1.0 },
+            });
+        }
+        if wheels.len() < 2 {
+            return Err(format!("could not find the wheels of {prefix:?}"));
+        }
+        let skip: Vec<&str> = wheel_groups.iter().map(String::as_str).collect();
+        let body = model.triangles_skipping(Some(&t.prefix), &skip);
+        if body.is_empty() {
+            return Err(format!("no model blocks named {:?}", t.prefix));
+        }
+
+        // The lowest point of a wheel in body coordinates sets the ride height.
+        let low = wheel_parts
+            .iter()
+            .zip(&wheels)
+            .flat_map(|(p, w)| p.iter().flat_map(|b| &b.verts).map(|v| w.mount.transform_point3(Vec3::from(v.pos)).z))
+            .fold(f32::MAX, f32::min);
+
+        let positions: Vec<Vec3> = wheels.iter().map(|w| w.mount.w_axis.truncate()).collect();
+        let (wheel_nodes, add_nodes) = self.nodes(&t.prefix);
+        let params = truck_params(t, &positions, wheel_nodes, add_nodes)?;
+        Ok(Truck { params, body, wheel_parts, wheels, ride_height: -low })
+    }
 }
 
 fn truck_params(t: &tech::Tech, wheels: &[Vec3], wheel_nodes: simcar::WheelNodes, add_nodes: simcar::WheelNodes) -> Result<Params, String> {
@@ -226,7 +257,8 @@ fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, Strin
     let (world_scenes, folder, coll) = load_scenes(dir, map)?;
     let scenario = read_scenario(&folder);
     let truck = truck.map(str::to_owned).or(scenario.truck).unwrap_or_else(|| "Kamaz".into());
-    let truck_model = load_truck(dir, &truck)?;
+    let models = load_models(dir)?;
+    let truck_model = models.truck(&truck)?;
     let mut ground = Ground::new(&world_scenes);
     ground.scene = world::Scene::new(&coll);
     println!("collision: {} rooms", ground.scene.room_count());
@@ -259,12 +291,12 @@ fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, Strin
         let human = ground.roads.nearest([pos.x as f64, pos.y as f64, pos.z as f64]).map(ht2_sim::road::Spot::Road);
         let ai = ht2_sim::world::World::new_game(dir, &map_dir, ground.roads.clone(), 1.0, human);
         println!("AI world: {} players", ai.players.len());
-        vehicle.set_ai_world(ai, traffic.max(12));
+        vehicle.set_ai_world(ai, traffic.max(12), &models.all_nodes());
     } else {
         vehicle.add_traffic(&ground, traffic, 0x2545_f491);
     }
     println!("traffic: {} vehicle slots", vehicle.traffic().len());
-    Ok(World { ground, vehicle, world_scenes, truck: truck_model, spawn: (pos, heading, ride) })
+    Ok(World { ground, vehicle, world_scenes, models, truck: truck_model, spawn: (pos, heading, ride) })
 }
 
 fn chase_view_proj(v: &Vehicle, aspect: f32) -> Mat4 {
@@ -348,8 +380,8 @@ fn run() -> Result<(), String> {
             game.place_truck();
             let v = &game.world.vehicle;
             let aspect = size.0 as f32 / size.1 as f32;
-            // HT2_FOLLOW=k looks at computer vehicle k instead.
-            let follow = std::env::var("HT2_FOLLOW").ok().and_then(|k| k.parse::<usize>().ok()).and_then(|k| v.traffic().into_iter().nth(k));
+            // HT2_FOLLOW=k looks at the k-th computer vehicle in the scene instead.
+            let follow = std::env::var("HT2_FOLLOW").ok().and_then(|k| k.parse::<usize>().ok()).and_then(|k| v.traffic().into_iter().filter(|p| !p.hidden).nth(k));
             let vp = match follow {
                 Some(p) => chase_from(p.body.w_axis.truncate(), p.body.y_axis.truncate(), aspect),
                 None if overview => overview_view_proj(v, aspect, 1500.0),
@@ -370,11 +402,29 @@ fn run() -> Result<(), String> {
 
 struct Game {
     renderer: Renderer,
+    textures: TexturesId,
     /// Body first, then one object per wheel.
     truck_objects: Vec<ObjectId>,
-    /// The same for each computer vehicle.
-    traffic_objects: Vec<Vec<ObjectId>>,
+    /// The models of the computer vehicles, made when first needed (`None`: not in the file).
+    trucks: HashMap<String, Option<Truck>>,
+    /// The same objects for each computer vehicle, per model it has had.
+    traffic_objects: Vec<HashMap<String, Vec<ObjectId>>>,
     world: World,
+}
+
+fn truck_parts(t: &Truck) -> Vec<&[b3d::Batch]> {
+    std::iter::once(&t.body[..]).chain(t.wheel_parts.iter().map(|p| &p[..])).collect()
+}
+
+/// Place the body and wheels of `t` at pose `p`.
+fn place_parts(renderer: &mut Renderer, ids: &[ObjectId], t: &Truck, p: &simcar::Pose) {
+    renderer.set_model(ids[0], p.body);
+    for (i, w) in t.wheels.iter().enumerate() {
+        let steer = if w.steered { Mat4::from_rotation_z(p.steer) } else { Mat4::IDENTITY };
+        let spin = Mat4::from_rotation_x(-p.wheel_angle[i] * w.spin_sign);
+        let drop = Mat4::from_translation(-Vec3::Z * p.wheel_drop[i]);
+        renderer.set_model(ids[i + 1], p.body * drop * w.mount * steer * spin);
+    }
 }
 
 impl Game {
@@ -382,11 +432,10 @@ impl Game {
         for scene in &world.world_scenes {
             renderer.add(scene);
         }
-        let t = &world.truck;
-        let parts: Vec<&[b3d::Batch]> = std::iter::once(&t.scene.batches[..]).chain(t.wheel_parts.iter().map(|p| &p[..])).collect();
-        let truck_objects = renderer.add_many(&t.scene, &parts);
-        let traffic_objects = world.vehicle.traffic().iter().map(|_| renderer.add_many(&t.scene, &parts)).collect();
-        let mut game = Game { renderer, truck_objects, traffic_objects, world };
+        let textures = renderer.upload_textures(&world.models.assets);
+        let truck_objects = renderer.add_parts(textures, &world.models.assets, &truck_parts(&world.truck));
+        let traffic_objects = world.vehicle.traffic().iter().map(|_| HashMap::new()).collect();
+        let mut game = Game { renderer, textures, truck_objects, trucks: HashMap::new(), traffic_objects, world };
         game.place_truck();
         game
     }
@@ -394,22 +443,30 @@ impl Game {
     /// Move the body and wheels to where the vehicle currently is.
     fn place_truck(&mut self) {
         let v = &self.world.vehicle;
-        let body = v.model();
-        self.renderer.set_model(self.truck_objects[0], body);
-        for (i, w) in self.world.truck.wheels.iter().enumerate() {
-            let steer = if w.steered { Mat4::from_rotation_z(v.steer_angle()) } else { Mat4::IDENTITY };
-            let spin = Mat4::from_rotation_x(-v.wheel_angle(i) * w.spin_sign);
-            let drop = Mat4::from_translation(-Vec3::Z * v.wheel_drop(i));
-            self.renderer.set_model(self.truck_objects[i + 1], body * drop * w.mount * steer * spin);
-        }
-        for (ids, p) in self.traffic_objects.iter().zip(self.world.vehicle.traffic()) {
-            self.renderer.set_model(ids[0], p.body);
-            for (i, w) in self.world.truck.wheels.iter().enumerate() {
-                let steer = if w.steered { Mat4::from_rotation_z(p.steer) } else { Mat4::IDENTITY };
-                let spin = Mat4::from_rotation_x(-p.wheel_angle[i] * w.spin_sign);
-                let drop = Mat4::from_translation(-Vec3::Z * p.wheel_drop[i]);
-                self.renderer.set_model(ids[i + 1], p.body * drop * w.mount * steer * spin);
+        let me = simcar::Pose { body: v.model(), steer: v.steer_angle(), wheel_angle: core::array::from_fn(|i| v.wheel_angle(i)), wheel_drop: core::array::from_fn(|i| v.wheel_drop(i)), model: None, hidden: false };
+        place_parts(&mut self.renderer, &self.truck_objects, &self.world.truck, &me);
+        for (k, p) in self.world.vehicle.traffic().into_iter().enumerate() {
+            let objects = &mut self.traffic_objects[k];
+            for ids in objects.values() {
+                for id in ids {
+                    self.renderer.set_visible(*id, false);
+                }
             }
+            if p.hidden {
+                continue;
+            }
+            let Some(model) = &p.model else {
+                // the vehicles of the stand-in traffic are the player's model
+                let ids = objects.entry(String::new()).or_insert_with(|| self.renderer.add_parts(self.textures, &self.world.models.assets, &truck_parts(&self.world.truck)));
+                ids.iter().for_each(|id| self.renderer.set_visible(*id, true));
+                place_parts(&mut self.renderer, ids, &self.world.truck, &p);
+                continue;
+            };
+            let models = &self.world.models;
+            let Some(t) = self.trucks.entry(model.clone()).or_insert_with(|| models.truck(model).map_err(|e| eprintln!("{model}: {e}")).ok()) else { continue };
+            let ids = objects.entry(model.clone()).or_insert_with(|| self.renderer.add_parts(self.textures, &models.assets, &truck_parts(t)));
+            ids.iter().for_each(|id| self.renderer.set_visible(*id, true));
+            place_parts(&mut self.renderer, ids, t, &p);
         }
     }
 }

@@ -162,9 +162,9 @@ impl Vehicle {
     }
 
     /// Let the AI world `w` place the computer vehicles (`pool` of them at most).
-    pub fn set_ai_world(&mut self, w: ht2_sim::world::World, pool: usize) {
+    pub fn set_ai_world(&mut self, w: ht2_sim::world::World, pool: usize, models: &[(usize, String, crate::simcar::WheelNodes, crate::simcar::WheelNodes)]) {
         if let Some(s) = &mut self.sim {
-            s.set_ai_world(w, pool);
+            s.set_ai_world(w, pool, models);
         }
     }
 

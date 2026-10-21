@@ -56,10 +56,15 @@ struct Object {
     mvp: wgpu::Buffer,
     bind: wgpu::BindGroup,
     model: Mat4,
+    visible: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ObjectId(usize);
+
+/// The textures of a scene uploaded once, for objects made later with [`Renderer::add_parts`].
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct TexturesId(usize);
 
 pub struct Renderer {
     pub device: wgpu::Device,
@@ -71,6 +76,7 @@ pub struct Renderer {
     sampler: wgpu::Sampler,
     white: wgpu::TextureView,
     objects: Vec<Object>,
+    texture_sets: Vec<Vec<wgpu::TextureView>>,
     depth: Option<(wgpu::TextureView, (u32, u32))>,
 }
 
@@ -163,7 +169,7 @@ impl Renderer {
             ..Default::default()
         });
         let white = upload(&device, &queue, 1, 1, &[255; 4]);
-        Self { device, queue, pipeline, pipeline_blend, obj_layout, mat_layout, sampler, white, objects: Vec::new(), depth: None }
+        Self { device, queue, pipeline, pipeline_blend, obj_layout, mat_layout, sampler, white, objects: Vec::new(), texture_sets: Vec::new(), depth: None }
     }
 
     /// Upload a scene's geometry and textures and return a handle to place it with [`set_model`](Self::set_model).
@@ -176,6 +182,27 @@ impl Renderer {
     pub fn add_many(&mut self, scene: &Scene, parts: &[&[Batch]]) -> Vec<ObjectId> {
         let tex_views: Vec<_> = scene.textures.iter().map(|t| upload(&self.device, &self.queue, t.width, t.height, &t.rgba)).collect();
         parts.iter().map(|part| self.build_object(scene, &tex_views, part)).collect()
+    }
+
+    /// Upload the textures of `scene` for [`add_parts`](Self::add_parts).
+    pub fn upload_textures(&mut self, scene: &Scene) -> TexturesId {
+        let views = scene.textures.iter().map(|t| upload(&self.device, &self.queue, t.width, t.height, &t.rgba)).collect();
+        self.texture_sets.push(views);
+        TexturesId(self.texture_sets.len() - 1)
+    }
+
+    /// Like [`add_many`](Self::add_many) with textures uploaded before (`scene` gives the
+    /// materials).
+    pub fn add_parts(&mut self, textures: TexturesId, scene: &Scene, parts: &[&[Batch]]) -> Vec<ObjectId> {
+        let views = std::mem::take(&mut self.texture_sets[textures.0]);
+        let ids = parts.iter().map(|part| self.build_object(scene, &views, part)).collect();
+        self.texture_sets[textures.0] = views;
+        ids
+    }
+
+    /// Draw the object or not.
+    pub fn set_visible(&mut self, id: ObjectId, visible: bool) {
+        self.objects[id.0].visible = visible;
     }
 
     fn build_object(&mut self, scene: &Scene, tex_views: &[wgpu::TextureView], part: &[Batch]) -> ObjectId {
@@ -230,7 +257,7 @@ impl Renderer {
             layout: &self.obj_layout,
             entries: &[wgpu::BindGroupEntry { binding: 0, resource: mvp.as_entire_binding() }],
         });
-        self.objects.push(Object { batches, mvp, bind, model: Mat4::IDENTITY });
+        self.objects.push(Object { batches, mvp, bind, model: Mat4::IDENTITY, visible: true });
         ObjectId(self.objects.len() - 1)
     }
 
@@ -284,7 +311,7 @@ impl Renderer {
             });
             for blended in [false, true] {
                 pass.set_pipeline(if blended { &self.pipeline_blend } else { &self.pipeline });
-                for o in &self.objects {
+                for o in self.objects.iter().filter(|o| o.visible) {
                     pass.set_bind_group(0, &o.bind, &[]);
                     for b in o.batches.iter().filter(|b| b.blend == blended) {
                         pass.set_bind_group(1, &b.bind, &[]);

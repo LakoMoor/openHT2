@@ -5,6 +5,7 @@
 //! ([`MeshWorld`]).
 
 use crate::ground::Ground;
+use std::collections::HashMap;
 use glam::{Mat4, Vec3};
 use ht2_sim::contact::World;
 use ht2_sim::gearbox::TECH_TABLE;
@@ -65,6 +66,11 @@ pub struct SimCar {
     /// are a pool of slots taken by the players whose rooms the AI has loaded.
     ai_world: Option<ht2_sim::world::World>,
     slot_player: Vec<Option<usize>>,
+    /// The model prefix of the vehicle in each slot, and the `vehicle.tech` record of each
+    /// model prefix (set up with its wheel nodes, as the game does for every vehicle type when
+    /// it loads them).
+    slot_model: Vec<Option<String>>,
+    records: HashMap<String, i32>,
 }
 
 /// How many rooms the AI may have loaded at once. Stand-in for the game's memory budget of the
@@ -77,6 +83,10 @@ pub struct Pose {
     pub steer: f32,
     pub wheel_angle: [f32; 8],
     pub wheel_drop: [f32; 8],
+    /// The model prefix of the vehicle (`None`: the player's).
+    pub model: Option<String>,
+    /// Not in the scene (a free slot of the pool).
+    pub hidden: bool,
 }
 
 fn with_world<R>(ground: &Ground, rooms: bool, f: impl FnOnce(&mut dyn World) -> R) -> R {
@@ -137,7 +147,7 @@ impl SimCar {
         m.set_i16(CAR + 0x2704, 1);
         m.set_i16(CAR + 0x2706, 1);
         ht2_sim::gearbox::fn_004ff770(&mut m, CAR, 1);
-        Ok(SimCar { m, time: 0.0, rooms, traffic: Vec::new(), vid, autopilot: None, rng: Default::default(), ai_world: None, slot_player: Vec::new() })
+        Ok(SimCar { m, time: 0.0, rooms, traffic: Vec::new(), vid, autopilot: None, rng: Default::default(), ai_world: None, slot_player: Vec::new(), slot_model: Vec::new(), records: HashMap::new() })
     }
 
     /// One step of `dt` seconds with the pedals in `0..=1` and the steering keys (-1 right, 1 left).
@@ -260,19 +270,32 @@ impl SimCar {
             }
             let Some(k) = self.slot_player.iter().position(|s| s.is_none()) else { break };
             let route = p.route.clone();
-            if self.place_car(ground, self.traffic[k].0, place) {
+            // the vehicle's own model when it has one, else the player's
+            let model = p.vehicle.map(|v| w.vehicles[v].model.clone()).filter(|m| self.records.contains_key(m));
+            let vid = model.as_ref().map_or(self.vid, |m| self.records[m]);
+            if self.place_car(ground, self.traffic[k].0, place, vid) {
                 let mut d = ai::Driver::new(place);
                 d.route = route;
                 self.traffic[k].1 = d;
                 self.slot_player[k] = Some(pl);
+                self.slot_model[k] = model;
                 w.players[pl].driven = true;
             }
         }
         self.ai_world = Some(w);
     }
 
-    /// Give the vehicles to the AI world `w`: `pool` slots for its players.
-    pub fn set_ai_world(&mut self, w: ht2_sim::world::World, pool: usize) {
+    /// Give the vehicles to the AI world `w`: `pool` slots for its players. `models` are the
+    /// `vehicle.tech` records with a model: record, model prefix and wheel nodes.
+    pub fn set_ai_world(&mut self, w: ht2_sim::world::World, pool: usize, models: &[(usize, String, WheelNodes, WheelNodes)]) {
+        for (record, prefix, wheels, add) in models {
+            let vid = *record as i32;
+            if vid != self.vid {
+                loader::init_vehicle_nodes(&mut self.m, vid, wheels, add);
+            }
+            self.records.insert(prefix.clone(), vid);
+        }
+        self.slot_model = vec![None; pool];
         self.traffic.clear();
         for k in 0..pool {
             let car = CAR + CAR_STRIDE * (k as u32 + 1);
@@ -284,7 +307,7 @@ impl SimCar {
 
     /// Build the computer vehicle at `car` at a road place, in the right-hand lane, with its
     /// driver set up (as `add_traffic` does). False when there is no ground there.
-    fn place_car(&mut self, ground: &Ground, car: u32, place: ht2_sim::road::Place) -> bool {
+    fn place_car(&mut self, ground: &Ground, car: u32, place: ht2_sim::road::Place, vid: i32) -> bool {
         let net = &ground.roads;
         let c = net.coordinates(&place);
         let t = net.direction(&place, false);
@@ -302,8 +325,7 @@ impl SimCar {
         let (c, s) = (heading.cos(), heading.sin());
         let mat = [c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0, pos.x, pos.y, pos.z];
         let m = &mut self.m;
-        let vid = self.vid;
-        with_world(ground, self.rooms, |w| ctor::fn_004ebd00(m, w, car, room, mat, vid));
+                with_world(ground, self.rooms, |w| ctor::fn_004ebd00(m, w, car, room, mat, vid));
         m.set_i32(car + 0x2774, 1);
         m.set_i32(car + 0x2760, 1);
         m.set_i32(car + 0x1b24, 2);
@@ -389,9 +411,9 @@ impl SimCar {
             .map(|(k, (car, _))| {
                 if self.ai_world.is_some() && self.slot_player.get(k).copied().flatten().is_none() {
                     // a free slot of the pool: out of sight
-                    Pose { body: Mat4::from_translation(Vec3::new(0.0, 0.0, -1.0e5)), steer: 0.0, wheel_angle: [0.0; 8], wheel_drop: [0.0; 8] }
+                    Pose { body: Mat4::IDENTITY, steer: 0.0, wheel_angle: [0.0; 8], wheel_drop: [0.0; 8], model: None, hidden: true }
                 } else {
-                    self.pose(*car)
+                    Pose { model: self.slot_model.get(k).cloned().flatten(), ..self.pose(*car) }
                 }
             })
             .collect()
@@ -410,6 +432,8 @@ impl SimCar {
             steer: m.f32(car + 0x1a20),
             wheel_angle: core::array::from_fn(|k| m.f32(car + 0xe9c + 4 * k as u32)),
             wheel_drop: core::array::from_fn(|k| m.f32(car + 0xdd8 + 4 * k as u32) - 0.75 * m.f32(car + 0x1f9c + 4 * k as u32)),
+            model: None,
+            hidden: false,
         }
     }
 

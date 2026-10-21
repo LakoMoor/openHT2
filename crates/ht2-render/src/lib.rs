@@ -3,7 +3,7 @@
 pub mod render;
 pub mod scene;
 
-pub use render::{ObjectId, Renderer};
+pub use render::{ObjectId, Renderer, TexturesId};
 pub use scene::Scene;
 
 /// Pick a GPU and open a device. `surface` is `None` for offscreen rendering.
