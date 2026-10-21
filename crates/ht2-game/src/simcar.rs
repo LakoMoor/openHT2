@@ -73,9 +73,6 @@ pub struct SimCar {
     records: HashMap<String, i32>,
 }
 
-/// How many rooms the AI may have loaded at once. Stand-in for the game's memory budget of the
-/// scene (`0x4d8a90`, `0x67b738`).
-const ROOM_BUDGET: usize = 16;
 
 /// What is needed to draw a vehicle.
 pub struct Pose {
@@ -224,13 +221,14 @@ impl SimCar {
     }
 
     /// Run the AI world with the time and the player's place, and put its players into the
-    /// scene or take them out as the AI loads and unloads their rooms (`xLoadEntities`): a player
-    /// in a loaded room gets a free slot of the pool, at its place, driving its route; the
-    /// slot's vehicle reports its place back to the AI world.
+    /// scene or take them out as the AI loads and unloads their objects (`xLoadEntities`): a
+    /// moving player whose object is loaded gets a free slot of the pool, at its place, driving
+    /// its route; the slot's vehicle reports its place back to the AI world.
     fn sync_ai(&mut self, ground: &Ground) {
         let Some(mut w) = self.ai_world.take() else { return };
         let net = &ground.roads;
         let me = self.pos();
+        w.human_pos = Some([me.x as f64, me.y as f64, me.z as f64]);
         if let Some(p) = net.nearest([me.x as f64, me.y as f64, me.z as f64]) {
             if let Some(h) = w.players.iter().position(|p| p.kind == 1) {
                 w.players[h].place = Some(ht2_sim::road::Spot::Road(p));
@@ -241,33 +239,30 @@ impl SimCar {
                 w.players[*pl].place = Some(ht2_sim::road::Spot::Road(self.traffic[k].1.place));
             }
         }
-        w.tick(self.time);
-        let changes = w.load_entities(&mut |rooms| rooms.len() < ROOM_BUDGET);
+        let pool = self.slot_player.len();
+        let changes = w.tick(self.time, &mut |loaded, _| loaded.len() < pool);
         if !changes.is_empty() && std::env::var_os("HT2_AI_LOG").is_some() {
             let ghosts = w.players.iter().filter(|p| p.kind == 8).count();
             let active = self.slot_player.iter().filter(|s| s.is_some()).count();
-            eprintln!("t={:.1} ghosts {ghosts} in scene {active} rooms {} changes {:?}", self.time, w.loaded_rooms.len(), changes);
+            eprintln!("t={:.1} ghosts {ghosts} driven {active} loaded {} changes {:?}", self.time, w.loaded.len(), changes);
         }
-        // out of the scene: players whose rooms are no longer loaded
+        // out of the scene: players whose objects are no longer loaded, or who are gone
         for k in 0..self.slot_player.len() {
             if let Some(pl) = self.slot_player[k] {
-                let room = w.room_of(&w.players[pl]);
-                if !room.is_some_and(|r| w.loaded_rooms.contains(&r)) {
+                if w.players[pl].kind == 0 || !w.in_scene(&w.players[pl]) {
                     self.slot_player[k] = None;
                     w.players[pl].driven = false;
                 }
             }
         }
-        // into the scene: moving players in loaded rooms
+        // into the scene: moving players whose objects are loaded (standing ones are not shown
+        // yet)
         for pl in 0..w.players.len() {
             let p = &w.players[pl];
-            if p.kind == 1 || p.driven || p.state != 0 || p.route.is_empty() {
+            if p.kind == 0 || p.kind == 1 || p.driven || p.state != 0 || p.route.is_empty() || !w.in_scene(p) {
                 continue;
             }
             let Some(ht2_sim::road::Spot::Road(place)) = p.place else { continue };
-            if !w.room_of(p).is_some_and(|r| w.loaded_rooms.contains(&r)) {
-                continue;
-            }
             let Some(k) = self.slot_player.iter().position(|s| s.is_none()) else { break };
             let route = p.route.clone();
             // the vehicle's own model when it has one, else the player's

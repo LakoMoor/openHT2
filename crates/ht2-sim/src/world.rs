@@ -247,10 +247,18 @@ impl SpeedFilter {
         SpeedFilter { a, c, b, y1: 0.0, y2: 0.0 }
     }
 
+    /// The filter at rest at `y` (both outputs).
+    pub fn at(mut self, y: f64) -> Self {
+        self.y1 = y;
+        self.y2 = y;
+        self
+    }
+
     pub fn step(&mut self, x: f64) -> f64 {
         let y2 = self.y2;
         self.y2 = self.y1;
-        self.y1 = x * self.a + y2 * self.b + self.y1 * self.c;
+        // (y1·c + y2·b) + x·a, in this order (0x4881b0)
+        self.y1 = (self.y1 * self.c + y2 * self.b) + x * self.a;
         self.y1
     }
 }
@@ -287,17 +295,39 @@ pub struct AiPlayer {
     pub driven: bool,
     /// `+0x3b0`: when the player was made (ghosts go after 72 s out of sight).
     pub born: f64,
+    /// `+0x58`: 1 the human player, 4 standing (the vehicles for sale have 0x44), 0x80000
+    /// (wanted more in the scene).
+    pub flags: u32,
+    /// `+0x4c`: the id of the player's object in the game's scene (`-1`: none). The game gives
+    /// it when the player is made (event 1 of `0x4d76b0`: 100000 + a counter modulo 500).
+    pub object: Option<u32>,
+    /// `+0x1f0`: in the list `0x68a980` (`0x4175c0`), wanted more in the scene.
+    pub tracked: bool,
+    /// For a player in the scene (`0x41a9d0`): `+0x1c0` the filter its speed goes through (at
+    /// rest at 1), `+0x3c8` whether it is at full speed, `+0x3d0` how hard it slows down (its
+    /// speed may not exceed the one it has, less v²/2/(this + 0.1) a second).
+    pub ramp: SpeedFilter,
+    pub full_speed: bool,
+    pub drag: f64,
 }
 
 /// What the AI world asks the game to do with its scene (`xLoadEntities`, `0x424550`): the
-/// scene is loaded room by room (`+0x4c` of a player is the room it is in); the vehicles of the
-/// players in a loaded room are driven in the scene, the others only on the road network.
-#[derive(Debug, Clone, PartialEq)]
+/// vehicle of a player is put into the scene as an object (`+0x4c`), then the game drives it;
+/// the others move only on the road network.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SceneChange {
-    /// Load the room (`0x4d8b20`).
-    Load(String),
+    /// Load the object of the player (`0x4d8b20`).
+    Load(usize),
     /// Unload it (`0x4d8ae0`).
-    Unload(String),
+    Unload(usize),
+}
+
+/// A task of the game clock: what it does, when it runs next and how often.
+#[derive(Debug, Clone)]
+pub struct Task {
+    pub name: &'static str,
+    pub time: f64,
+    pub period: f64,
 }
 
 /// What the start of a new game keeps between its steps.
@@ -329,15 +359,25 @@ pub struct World {
     /// to be to be put into the scene (0 the first time, then 150 m).
     pub load_counter: u32,
     pub load_distance: f64,
-    /// The rooms the game has loaded (`0x4d8a40`).
-    pub loaded_rooms: std::collections::BTreeSet<String>,
-    /// `updateGhosts` (`0x420ed0`): how many ghosts (type 8) to keep around the human player,
-    /// how often the task runs (15^(1 − 0.7·traffic) × 2.667 s, `0x434e0e`) and when next; it
-    /// runs only after `xLoadEntities` ran once (`0x68d130`).
+    /// `0x66c60a`: the first tick runs `xLoadEntities` before all else.
+    pub first_load: bool,
+    /// The objects the game has in its scene (`0x4d8a40`), and the counter of the ids it gives.
+    pub loaded: std::collections::BTreeSet<u32>,
+    pub object_counter: u32,
+    /// `+0x268` of the human player: where the game has its vehicle (else: its road place).
+    pub human_pos: Option<[f64; 3]>,
+    /// For comparing with the original: when set, the vectors each player was weighed by in
+    /// the last `xLoadEntities`.
+    pub debug_wants: Option<Vec<(usize, [f64; 3], [f64; 3])>>,
+    /// For comparing with the original while the tasks that draw from the generator are not
+    /// ported: the generator to go on with when the moves of the next tick start.
+    pub debug_rng_at_moves: Option<AiRng>,
+    /// `updateGhosts` (`0x420ed0`): how many ghosts (type 8) to keep around the human player; it
+    /// does something only after `xLoadEntities` ran once (`0x68d130`).
     pub ghost_want: usize,
-    pub ghost_period: f64,
-    pub ghost_next: f64,
     pub loads_done: bool,
+    /// The tasks of the game clock (`0x68b99c`), in their order.
+    pub tasks: Vec<Task>,
 }
 
 impl World {
@@ -345,7 +385,7 @@ impl World {
         let slots: Vec<Vec<Option<usize>>> = lots.iter().map(|l| vec![None; l.nodes.len()]).collect();
         let lot_used = vec![0; lots.len()];
         let name_use = vec![[0, 0]; names.len()];
-        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, loaded_rooms: Default::default(), ghost_want: 0, ghost_period: 6.0, ghost_next: 0.0, loads_done: false }
+        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, ghost_want: 0, loads_done: false, tasks: Vec::new() }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -428,7 +468,7 @@ impl World {
             _ => {}
         }
         let name = if kind == 1 { None } else { self.pick_name(kind) };
-        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0 }
+        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
     }
 
     /// `traceToArbitraryDestination` (`0x417820`): random destinations (`0x456140`) until there
@@ -442,6 +482,48 @@ impl World {
         p.route.clear();
         while p.route.is_empty() {
             let Some(dst) = self.net.random_destination(&mut self.rng, which, p.kind) else { return };
+            self.set_route(p, &Spot::Node(dst));
+        }
+    }
+
+    /// `0x40a2a0`: a new route to a random destination other than the node nearest to the player
+    /// (`0x405a60`, `0x4558e0` → `0x45b8b0`), drawn again until there is a route.
+    fn trace_away(&mut self, p: &mut AiPlayer) {
+        let Some(place) = p.place else { return };
+        let c = self.net.spot_coordinates(&place);
+        let mut near = 0;
+        let mut best = 1e36;
+        for (k, n) in self.net.nodes.iter().enumerate() {
+            let d = [c[0] - n.pos[0], c[1] - n.pos[1], c[2] - n.pos[2]];
+            let l = (d[0] * d[0] + d[2] * d[2] + d[1] * d[1]).sqrt();
+            if l < best {
+                best = l;
+                near = k;
+            }
+        }
+        let net = self.net.clone();
+        let picks: Vec<usize> = (0..net.nodes.len())
+            .filter(|&k| {
+                let f = net.nodes[k].flags;
+                if f & 8 != 0 || k == near {
+                    return false;
+                }
+                if p.kind == 2 {
+                    // trucks: other towns' nodes (flag 2 from a node with flag 1, else flag 1)
+                    let from = net.nodes[near].flags & 1 != 0;
+                    let other = net.nodes[near].town.map(|t| t.0) != net.nodes[k].town.map(|t| t.0);
+                    other && if from { f & 2 != 0 } else { f & 1 != 0 }
+                } else {
+                    f & 0x40 != 0
+                }
+            })
+            .collect();
+        p.route.clear();
+        while p.route.is_empty() {
+            if picks.is_empty() {
+                return;
+            }
+            let dst = picks[self.rng.next() as usize % picks.len()];
             self.set_route(p, &Spot::Node(dst));
         }
     }
@@ -537,6 +619,7 @@ impl World {
                 }
                 p.parked = Some((lot, slot));
                 p.state = 0x100;
+                p.flags = 0x44;
                 self.slots[lot][slot] = Some(self.players.len());
                 self.lot_used[lot] += 1;
                 self.players.push(p);
@@ -596,18 +679,45 @@ impl World {
     /// vehicles standing for sale and those hired out do not move.
     pub fn tick_move(&mut self, now: f64) {
         let dt = now - self.last_tick;
-        for p in &mut self.players {
-            if p.kind == 1 || p.state == 0x100 || p.state == 0x101 || p.driven {
+        for k in 0..self.players.len() {
+            let in_scene = self.in_scene(&self.players[k]);
+            let p = &mut self.players[k];
+            if p.kind == 0 || p.kind == 1 || p.state == 0x100 || p.state == 0x101 || p.driven {
                 continue;
             }
             let Some(Spot::Road(mut place)) = p.place else { continue };
-            // 0x41a9d0: the speed of the human player, at least 50 km/h
+            // 0x41a9d0: the speed of the human player, at least 50 km/h (the game's speed of
+            // the vehicle when it drives one, 0x4d5c50, is not asked here)
             let mut v = 13.88888888888889;
             if v < self.travel_speed {
                 v = self.travel_speed;
             }
             if p.kind == 5 {
                 v *= 1.3;
+            }
+            if in_scene && 1e-6 < dt {
+                // in the scene: through the filter, and not faster than it goes now less what
+                // it loses slowing down
+                let mut u = 1.0;
+                if !p.full_speed {
+                    let x = p.drag + 5.0;
+                    if 0.0 < x && x < 35.0 {
+                        u = p.drag * 0.02857142857142857;
+                    }
+                }
+                let n = (dt * 100.0) as i64;
+                for _ in 1..n {
+                    p.ramp.step(u);
+                }
+                v *= p.ramp.step(u);
+                if 0.0 < p.drag {
+                    let w = p.velocity;
+                    let s = (w[0] * w[0] + w[1] * w[1] + w[2] * w[2]).sqrt();
+                    let cap = s * s * -0.5 / (p.drag + 0.1) * dt + s;
+                    if cap < v {
+                        v = cap;
+                    }
+                }
             }
             let mut dist = dt * v;
             self.net.advance_route(&mut place, &mut dist, &p.route);
@@ -651,7 +761,7 @@ impl World {
     fn closeness(now: [f64; 3], soon: [f64; 3]) -> f64 {
         let mut best = 0.0;
         for d in [now, soon] {
-            let l = (d[1] * d[1] + d[2] * d[2] + d[0] * d[0]).sqrt();
+            let l = (d[0] * d[0] + d[2] * d[2] + d[1] * d[1]).sqrt();
             let mut c = 1.0;
             if 1.0 <= l {
                 c = l;
@@ -666,110 +776,150 @@ impl World {
         best
     }
 
-    /// The room a player is in (`+0x4c`): that of the road segment under it.
-    pub fn room_of(&self, p: &AiPlayer) -> Option<String> {
-        match p.place? {
-            Spot::Road(q) => Some(self.net.room_of(&q).to_string()),
-            Spot::Node(n) => {
-                let node = &self.net.nodes[n];
-                let road = node.out.first().or(node.inc.first())?;
-                Some(self.net.segment_rooms[self.net.roads[*road].segments[0]].clone())
-            }
-        }
+    /// The id the game gives the next player's object (event 1 of `0x4d76b0`).
+    fn next_object(&mut self) -> u32 {
+        let id = 100_000 + self.object_counter;
+        self.object_counter = (self.object_counter + 1) % 500;
+        id
     }
 
-    /// `xLoadEntities` (`0x424550`, every ninth tick): which rooms the game should have loaded.
-    /// Each player gets the closeness of where it is and will be in a quarter of a second
-    /// (moving players: their route ahead at the speed of the second filter) to the human
-    /// player and where he will be (×1.2 when its room is loaded, ×0.7 for type 8); in that
-    /// order, highest first (the STL sort), rooms not loaded are loaded when the player is
-    /// farther than the load distance, as long as `fits` says there is room for one more, else
-    /// rooms of the least wanted players beyond that distance are unloaded first; rooms of
-    /// players not wanted at all (1e-8) are unloaded. `fits` stands in for the game's memory
-    /// budget (`0x4d8a90`).
-    pub fn load_entities(&mut self, fits: &mut dyn FnMut(&std::collections::BTreeSet<String>) -> bool) -> Vec<SceneChange> {
-        self.load_counter += 1;
-        if self.load_counter < 9 {
-            if self.load_counter != 0 {
-                return Vec::new();
+    /// Whether the game has the player's object in its scene (`0x4d8a40`).
+    pub fn in_scene(&self, p: &AiPlayer) -> bool {
+        p.object.is_some_and(|id| self.loaded.contains(&id))
+    }
+
+    /// `0x40b0d0`: where a player is: for the human player where the game has its vehicle
+    /// (`+0x268`), else its place on the roads (`+0x130`).
+    pub fn position(&self, p: &AiPlayer) -> Option<[f64; 3]> {
+        if p.flags & 1 != 0 {
+            if let Some(h) = self.human_pos {
+                return Some(h);
             }
-        } else {
+        }
+        p.place.map(|q| self.net.spot_coordinates(&q))
+    }
+
+    /// `xLoadEntities` (`0x424550`, every ninth tick): which players' vehicles the game should
+    /// have in its scene. Each player but the human one gets a want (`0x4244c0`) of where it is
+    /// now relative to the human player and of where it will be in a quarter of a second
+    /// relative to where he will be: the human and standing players (flags 1, 4) go on at
+    /// their velocity; moving players run their route ahead at the speed of the second filter,
+    /// and for them the original takes only a quarter of his velocity off, not his place, so
+    /// their second point is far from him unless he is near the world's origin. ×1.2 when in
+    /// the scene, ×1.25 when tracked, ×0.7 for ghosts (type 8), ×1.05 for flag 0x80000. In that
+    /// order, highest first (the STL sort), the objects of players not wanted at all (1e-8) are
+    /// unloaded, then those not in the scene and farther than the load distance (0 the first
+    /// time, then 150 m) are loaded as long as `fits` says there is memory for one more, else
+    /// the least wanted ones in the scene beyond that distance are unloaded first. `fits`
+    /// stands in for the game's memory budget (`0x4d8a90`); the hidden objects (`0x68cf6c`) and
+    /// the game's own (`0x67b2b8`) are not weighed yet.
+    pub fn load_entities(&mut self, fits: &mut dyn FnMut(&std::collections::BTreeSet<u32>, Option<u32>) -> bool) -> Vec<SceneChange> {
+        self.load_counter += 1;
+        if 8 < self.load_counter {
             self.load_counter = 0;
+        } else if self.load_counter != 0 {
+            return Vec::new();
         }
         let Some(human) = self.players.iter().position(|p| p.kind == 1) else { return Vec::new() };
-        let Some(hplace) = self.players[human].place else { return Vec::new() };
-        let hpos = self.net.spot_coordinates(&hplace);
+        let Some(hpos) = self.position(&self.players[human]) else { return Vec::new() };
         let hv = self.players[human].velocity;
-        let hsoon = [hpos[0] + hv[0] * 0.25, hpos[1] + hv[1] * 0.25, hpos[2] + hv[2] * 0.25];
-        // (room, closeness, distance)
-        let mut list: Vec<(String, f64, f64)> = Vec::new();
-        for p in &self.players {
-            let (Some(place), Some(room)) = (p.place, self.room_of(p)) else { continue };
-            let pos = self.net.spot_coordinates(&place);
-            let now = [pos[0] - hpos[0], pos[1] - hpos[1], pos[2] - hpos[2]];
-            let soon = match place {
-                Spot::Road(mut q) if p.kind != 1 && p.state != 0x100 && p.state != 0x101 => {
-                    let mut d = p.speed2 * 0.25;
-                    self.net.advance_route(&mut q, &mut d, &p.route);
-                    let c = self.net.coordinates(&q);
-                    [c[0] - hsoon[0], c[1] - hsoon[1], c[2] - hsoon[2]]
-                }
-                _ => {
-                    let v = p.velocity;
-                    let c = [pos[0] + v[0] * 0.25, pos[1] + v[1] * 0.25, pos[2] + v[2] * 0.25];
-                    [c[0] - hsoon[0], c[1] - hsoon[1], c[2] - hsoon[2]]
-                }
+        let hv4 = [hv[0] * 0.25, hv[1] * 0.25, hv[2] * 0.25];
+        // (player, want, distance)
+        let mut list: Vec<(usize, f64, f64)> = Vec::new();
+        let mut wants = self.debug_wants.as_ref().map(|_| Vec::new());
+        for (k, p) in self.players.iter().enumerate() {
+            // 0x417660: not the human player (unless flag 0x100)
+            if p.kind == 0 || (p.kind == 1 && p.flags & 0x100 == 0) {
+                continue;
+            }
+            let (Some(place), Some(pos)) = (p.place, self.position(p)) else { continue };
+            let (now, soon) = if p.flags & 5 == 0 {
+                let c = self.net.spot_coordinates(&place);
+                let ahead = match place {
+                    Spot::Road(mut q) => {
+                        let mut d = p.speed2 * 0.25;
+                        self.net.advance_route(&mut q, &mut d, &p.route);
+                        self.net.coordinates(&q)
+                    }
+                    Spot::Node(_) => c,
+                };
+                ([c[0] - hpos[0], c[1] - hpos[1], c[2] - hpos[2]], [ahead[0] - hv4[0], ahead[1] - hv4[1], ahead[2] - hv4[2]])
+            } else {
+                let v = p.velocity;
+                let ahead = [pos[0] + v[0] * 0.25, pos[1] + v[1] * 0.25, pos[2] + v[2] * 0.25];
+                let hsoon = [hpos[0] + hv4[0], hpos[1] + hv4[1], hpos[2] + hv4[2]];
+                ([pos[0] - hpos[0], pos[1] - hpos[1], pos[2] - hpos[2]], [ahead[0] - hsoon[0], ahead[1] - hsoon[1], ahead[2] - hsoon[2]])
             };
+            if let Some(w) = &mut wants {
+                w.push((k, now, soon));
+            }
             let mut want = Self::closeness(now, soon);
-            let dist = (now[2] * now[2] + now[1] * now[1] + now[0] * now[0]).sqrt();
-            if self.loaded_rooms.contains(&room) {
+            let d = [pos[0] - hpos[0], pos[1] - hpos[1], pos[2] - hpos[2]];
+            let dist = (d[1] * d[1] + d[2] * d[2] + d[0] * d[0]).sqrt();
+            if self.in_scene(p) {
                 want *= 1.2;
+            }
+            if p.tracked {
+                want *= 1.25;
             }
             if p.kind == 8 {
                 want *= 0.7;
             }
-            list.push((room, want, dist));
+            if p.flags & 0x80000 != 0 {
+                want *= 1.05;
+            }
+            list.push((k, want, dist));
+        }
+        if wants.is_some() {
+            self.debug_wants = wants;
         }
         crate::stl::sort(&mut list, |a, b| a.1 > b.1);
         let mut changes = Vec::new();
-        // the rooms of players not wanted at all: out
-        while let Some((room, want, _)) = list.last() {
-            if 1e-8 < *want {
+        // the players not wanted at all: out
+        while let Some(&(k, want, _)) = list.last() {
+            if 1e-8 < want {
                 break;
             }
-            if self.loaded_rooms.remove(room) {
-                changes.push(SceneChange::Unload(room.clone()));
+            if self.unload(k) {
+                changes.push(SceneChange::Unload(k));
             }
             list.pop();
         }
         let mut back = list.len();
         let mut i = 0;
-        'next: while i < list.len() && i < back {
-            let (room, _, dist) = list[i].clone();
-            if !self.loaded_rooms.contains(&room) && self.load_distance < dist {
-                while !fits(&self.loaded_rooms) {
-                    // make room: unload the room of the least wanted player beyond the load
+        'next: while i < list.len() {
+            let (k, _, dist) = list[i];
+            if !self.in_scene(&self.players[k]) && self.load_distance < dist {
+                while !fits(&self.loaded, self.players[k].object) {
+                    // make room: out with the least wanted player in the scene beyond the load
                     // distance; when there is none behind this one, stop
                     loop {
                         if back <= i + 1 {
                             break 'next;
                         }
                         back -= 1;
-                        let (r, _, d) = &list[back];
-                        if self.load_distance < *d && self.loaded_rooms.remove(r) {
-                            changes.push(SceneChange::Unload(r.clone()));
+                        let (j, _, d) = list[back];
+                        if self.load_distance < d && self.unload(j) {
+                            changes.push(SceneChange::Unload(j));
                             break;
                         }
                     }
                 }
-                self.loaded_rooms.insert(room.clone());
-                changes.push(SceneChange::Load(room));
+                if let Some(id) = self.players[k].object {
+                    self.loaded.insert(id);
+                    changes.push(SceneChange::Load(k));
+                }
             }
             i += 1;
         }
         self.load_distance = 150.0;
         self.loads_done = true;
         changes
+    }
+
+    /// Take the player's object out of the scene; false when it was not in it.
+    fn unload(&mut self, k: usize) -> bool {
+        self.players[k].object.is_some_and(|id| self.loaded.remove(&id))
     }
 
     /// `0x4842f0`: how sharply a route turns where its roads meet: the smallest cosine between
@@ -823,55 +973,85 @@ impl World {
         }
     }
 
-    /// `updateGhosts` (`0x420ed0`, a task of the game clock): the ghosts (type 8) are the traffic
-    /// around the human player. Those out of the scene, or more than 330 m away in it, go when
-    /// older than 72 s or farther than 700 m. While there are fewer than wanted, one may come:
-    /// (half the time while the scene has memory to spare) up to eight times a direction is
-    /// drawn, the road place nearest to the point 320 m that way (stand-in for `0x4365d0`), and
-    /// if that is at least 160 m away, on a road without flags 0x10 and 0x40, a ghost is put
-    /// there with the chance √(road width / 14) (half that for `attr2` 2, a quarter for 3), and
-    /// sent to a random destination.
-    pub fn update_ghosts(&mut self, now: f64) {
-        let Some(human) = self.players.iter().position(|p| p.kind == 1) else { return };
-        let Some(hplace) = self.players[human].place else { return };
-        let h = self.net.spot_coordinates(&hplace);
-        let dist = |q: [f64; 3]| ((q[0] - h[0]) * (q[0] - h[0]) + (q[1] - h[1]) * (q[1] - h[1]) + (q[2] - h[2]) * (q[2] - h[2])).sqrt();
-        for k in 0..self.players.len() {
-            let p = &self.players[k];
+    /// `updateGhosts` (`0x420ed0`, a task of the game clock, after `xLoadEntities` ran once): the
+    /// ghosts (type 8) are the traffic around the human player. A ghost goes when it is out of
+    /// the scene and within 100 m of him (it could not appear unseen), or when it is not in the
+    /// scene within 330 m and is older than 72 s or farther than 700 m. While there are fewer
+    /// than wanted (and the human player is not in state 5) one may come: when the scene has no
+    /// memory to spare only half the time; up to eight times a direction is drawn and the place
+    /// nearest to the point 320 m that way on the roads of his room (`0x4365d0`); if that is on a
+    /// segment without flags 0x10 and 0x40 and at least 160 m away, a ghost is put there with
+    /// the chance √(road width / 14) (half that for `attr2` 2, a quarter for 3) and sent to a
+    /// random destination (`0x420cb0`).
+    pub fn update_ghosts(&mut self, now: f64, fits: &mut dyn FnMut(&std::collections::BTreeSet<u32>, Option<u32>) -> bool) -> Vec<SceneChange> {
+        let mut changes = Vec::new();
+        let Some(human) = self.players.iter().position(|p| p.kind == 1) else { return changes };
+        let Some(h) = self.position(&self.players[human]) else { return changes };
+        // the count of ghosts the spawning compares (0x68cca8 + 0x20) is the one before this
+        // task deletes any
+        let ghosts = self.players.iter().filter(|p| p.kind == 8).count();
+        let mut gone = Vec::new();
+        for (k, p) in self.players.iter().enumerate() {
             if p.kind != 8 {
                 continue;
             }
-            let Some(place) = p.place else { continue };
-            let d = dist(self.net.spot_coordinates(&place));
-            let loaded = self.room_of(p).is_some_and(|r| self.loaded_rooms.contains(&r));
-            let keep = (loaded && d <= 330.0) || (now - p.born <= 72.0 && d <= 700.0);
-            if !keep {
-                // 0x4466a0: the player is deleted
-                let p = &mut self.players[k];
-                p.kind = 0;
-                p.place = None;
-                p.route.clear();
+            let Some(q) = self.position(p) else { continue };
+            let d = [q[0] - h[0], q[1] - h[1], q[2] - h[2]];
+            let in_scene = self.in_scene(p);
+            if !in_scene && ((d[0] * d[0] + d[1] * d[1]) + d[2] * d[2]).sqrt() < 100.0 {
+                gone.push(k);
+                continue;
             }
+            if in_scene && ((d[1] * d[1] + d[2] * d[2]) + d[0] * d[0]).sqrt() <= 330.0 {
+                continue;
+            }
+            if now - p.born <= 72.0 && ((d[1] * d[1] + d[2] * d[2]) + d[0] * d[0]).sqrt() <= 700.0 {
+                continue;
+            }
+            gone.push(k);
         }
-        let ghosts = self.players.iter().filter(|p| p.kind == 8).count();
-        if self.ghost_want <= ghosts {
-            return;
+        for k in gone {
+            // 0x4466a0: the player is deleted (and its object with it); before, selling or hiring
+            // out is cancelled (0x419760), which sends it on to a random destination
+            let mut p = self.players[k].clone();
+            self.trace_away(&mut p);
+            if self.unload(k) {
+                changes.push(SceneChange::Unload(k));
+            }
+            let p = &mut self.players[k];
+            p.kind = 0;
+            p.place = None;
+            p.route.clear();
         }
-        // 0x4d8a90 with no room: the scene's memory is not used up (stand-in: always)
-        if self.rng.next() & 1 == 0 {
-            return;
+        if self.ghost_want <= ghosts || self.players[human].state == 5 {
+            return changes;
         }
+        if !fits(&self.loaded, None) && self.rng.next() & 1 == 0 {
+            return changes;
+        }
+        // 0x438d70: the room of the human player's place
+        let room = match self.players[human].place {
+            Some(Spot::Road(q)) => Some(self.net.room_of(&q).to_string()),
+            _ => None,
+        };
         for _ in 0..8 {
             let a = (self.rng.next() % 0x9965e) as f64 * 1e-5;
             let x = a.cos() * 160.0;
             let y = a.sin() * 160.0;
             let q = [x + x + h[0], y + y + h[1], h[2] + 0.0];
-            let Some(place) = self.net.nearest(q) else { continue };
+            // 0x4365d0 (without a room 0x436900, here the stand-in `nearest`)
+            let found = match &room {
+                Some(r) => self.net.nearest_in_room(r, q),
+                None => self.net.nearest(q),
+            };
+            let Some(place) = found else { continue };
             let seg = &self.net.segments[self.net.roads[place.road].segments[place.segment]];
             if seg.flags & 0x50 != 0 {
                 continue;
             }
-            if dist(self.net.coordinates(&place)) < 160.0 {
+            let c = self.net.coordinates(&place);
+            let d = [c[0] - h[0], c[1] - h[1], c[2] - h[2]];
+            if ((d[0] * d[0] + d[1] * d[1]) + d[2] * d[2]).sqrt() < 160.0 {
                 continue;
             }
             let mut chance = (seg.width_at(place.t, place.piece) * 0.07142857142857142).sqrt();
@@ -881,29 +1061,80 @@ impl World {
                 chance *= 0.25;
             }
             if chance * 1000.0 <= (self.rng.next() % 1000) as f64 {
-                return;
+                return changes;
             }
             // 0x420cb0
             let mut p = self.new_player(8);
             p.place = Some(Spot::Road(place));
             p.born = now;
-            p.last_pos = self.net.coordinates(&place);
+            // +0x118 stays 0: the first speed of the ghost is over 100 m/s and left out
             self.trace_without_turns(&mut p);
             self.players.push(p);
-            return;
+            return changes;
         }
+        changes
+    }
+
+    /// The tasks of the game clock a new game starts (`0x434780`), at the time 0. Ported of them:
+    /// `updateGhosts` (every 15^(1 − 0.7·traffic) × 2.667 s); the others only take their turns.
+    pub fn create_tasks(&mut self, car_share: f64) {
+        let ghosts = 15f64.powf(1.0 - car_share * 0.7) * 2.66666666666;
+        self.tasks = [
+            ("formOrders", 0.0, 10.0),
+            ("updateRating", 0.0, 8.0),
+            ("updatePresents", 0.0, 7.0),
+            ("updateGhosts", 0.0, ghosts),
+            ("updateDealers", 0.0, 27.5),
+            ("ObstaclesTask", 600.0, 895.0),
+            ("updateAmbushes", 0.0, 1.0),
+            ("provideRacesRegular", 0.0, 30.0),
+            ("provideCompetitionRegular", 0.0, 30.0),
+            ("updateCompanies", 0.0, 30.0),
+            ("expirePlayerOrders", 0.0, 1.0),
+            ("expirePresentOrders", 0.0, 1.0),
+            ("destroyStraySemitrailers", 0.0, 10.0),
+            ("expireParkedCars", 0.0, 19.0),
+            ("updateChasedCars", 0.0, 3.0),
+            ("markAmbushes", 0.0, 300.0),
+            ("detectJams", 0.0, 9.2),
+            ("recoverServices", 0.0, 27.1),
+            ("changeLanes", 0.0, 7.3),
+            ("damageCargo", 0.0, 5.1),
+        ]
+        .into_iter()
+        .map(|(name, time, period)| Task { name, time, period })
+        .collect();
     }
 
     /// A tick of the AI world as far as ported: the moves, the speeds, the time (`0x42d6e0`).
-    pub fn tick(&mut self, now: f64) {
-        // the game clock's tasks (0x42d960)
-        if self.loads_done && self.ghost_next < now {
-            self.ghost_next = now + self.ghost_period;
-            self.update_ghosts(now);
+    pub fn tick(&mut self, now: f64, fits: &mut dyn FnMut(&std::collections::BTreeSet<u32>, Option<u32>) -> bool) -> Vec<SceneChange> {
+        let mut changes = Vec::new();
+        if self.first_load {
+            self.first_load = false;
+            self.load_counter = 200;
+            changes.extend(self.load_entities(fits));
+        }
+        // the game clock (0x42d960): the first task in the list that is due, then it goes to the
+        // end of the list
+        if let Some(i) = self.tasks.iter().position(|t| t.time < now) {
+            let mut t = self.tasks.remove(i);
+            if t.name == "updateGhosts" && self.loads_done {
+                changes.extend(self.update_ghosts(now, fits));
+            }
+            t.time += t.period;
+            if t.time + t.period * 8.0 < now {
+                t.time = now + t.period;
+            }
+            self.tasks.push(t);
+        }
+        if let Some(r) = self.debug_rng_at_moves.take() {
+            self.rng = r;
         }
         self.tick_move(now);
         self.update_speeds(now);
+        changes.extend(self.load_entities(fits));
         self.last_tick = now;
+        changes
     }
 
     /// `createPlayersRegular` (`0x422f20`) for the human player and the types placed at random on
@@ -1024,7 +1255,7 @@ impl World {
         w.create_dealers(cnf.dealers);
         w.hire_out(cnf.forhire);
         w.ghost_want = cnf.counts[8];
-        w.ghost_period = 15f64.powf(1.0 - car_share * 0.7) * 2.66666666666;
+        w.create_tasks(car_share);
         w
     }
 }

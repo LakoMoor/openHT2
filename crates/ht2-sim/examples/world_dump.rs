@@ -43,8 +43,87 @@ fn main() {
     world.players[0].place = Some(ht2_sim::road::Spot::Road(ht2_sim::road::Place { road: 31, node: None, t: 0.8333333333333334, piece: 0, segment: 0, reversed: true }));
     world.create_dealers([25, 5, 5]);
     world.hire_out(20);
+    if let Ok(path) = std::env::var("XLOAD") {
+        // compare the scene loads and the ghosts with tools/emu/xload_check.py: start from the
+        // AI generator it prints, the human player where the original has him, ticks of 0.1 s
+        let text = std::fs::read_to_string(path).unwrap();
+        let line = text.lines().find(|l| l.starts_with("rng ")).expect("rng line");
+        let v: Vec<u32> = line.split_whitespace().skip(1).map(|x| x.parse().unwrap()).collect();
+        world.rng = AiRng::from_state(v[..55].try_into().unwrap(), v[55] as usize, v[56] as usize);
+        world.human_pos = Some([-3020.0, -4625.0, 20.0]);
+        world.ghost_want = 25;
+        world.create_tasks(1.0);
+        let budget: usize = std::env::var("BUDGET").ok().and_then(|b| b.parse().ok()).unwrap_or(8);
+        let ticks: u32 = std::env::var("TICKS").ok().and_then(|t| t.parse().ok()).unwrap_or(400);
+        // the generator at the ghost task of each tick (tasks not ported draw from it too)
+        let mut at_ghosts = std::collections::HashMap::new();
+        let mut at_moves = std::collections::HashMap::new();
+        let mut tick = 0u32;
+        for l in text.lines() {
+            if let Some(t) = l.strip_prefix("tick ") {
+                tick = t.parse().unwrap();
+            } else if let Some(r) = l.strip_prefix("moves ") {
+                let v: Vec<u32> = r.split_whitespace().map(|x| x.parse().unwrap()).collect();
+                at_moves.insert(tick, AiRng::from_state(v[..55].try_into().unwrap(), v[55] as usize, v[56] as usize));
+            } else if let Some(r) = l.strip_prefix("ghosts ") {
+                let v: Vec<u32> = r.split_whitespace().map(|x| x.parse().unwrap()).collect();
+                at_ghosts.insert(tick, AiRng::from_state(v[..55].try_into().unwrap(), v[55] as usize, v[56] as usize));
+            }
+        }
+        let live = |w: &World, k: usize| w.players[..k].iter().filter(|p| p.kind != 0).count();
+        println!("players {}", world.players.len());
+        let mut time = 0.0;
+        for tick in 1..=ticks {
+            time += 0.1;
+            println!("tick {tick}");
+            if let Some(r) = at_ghosts.get(&tick) {
+                world.rng = r.clone();
+            }
+            world.debug_rng_at_moves = at_moves.get(&tick).cloned();
+            let before: Vec<u32> = world.players.iter().map(|p| p.kind).collect();
+            if std::env::var_os("XLOAD_VEC").is_some() {
+                world.debug_wants = Some(Vec::new());
+            }
+            let changes = world.tick(time, &mut |loaded, _| loaded.len() < budget);
+            if let Some(w) = world.debug_wants.take() {
+                for (k, a, b) in w {
+                    println!("want {} {:?} {:?} {:?} {:?} {:?} {:?}", live(&world, k), a[0], a[1], a[2], b[0], b[1], b[2]);
+                }
+            }
+            let mut gone = 0;
+            for k in 0..before.len() {
+                if before[k] != 0 && world.players[k].kind == 0 {
+                    println!("delete {}", world.players[..k].iter().zip(&before).filter(|(_, b)| **b != 0).count() - gone);
+                    gone += 1;
+                }
+            }
+            for c in changes {
+                match c {
+                    ht2_sim::world::SceneChange::Load(k) => println!("load {}", live(&world, k)),
+                    ht2_sim::world::SceneChange::Unload(k) if world.players[k].kind != 0 => println!("unload {}", live(&world, k)),
+                    _ => {}
+                }
+            }
+            for k in before.len()..world.players.len() {
+                if let Some(ht2_sim::road::Spot::Road(q)) = world.players[k].place {
+                    println!("ghost {} {} {} {:?} {} {} {}", live(&world, k), q.road, q.node.map_or(-1, |n| n as i64), q.t, q.piece, q.segment, q.reversed as u32);
+                }
+            }
+        }
+        if std::env::var_os("XLOAD_SPEED").is_some() {
+            let only: Option<usize> = std::env::var("XLOAD_SPEED").ok().and_then(|v| v.parse().ok());
+            for (k, p) in world.players.iter().enumerate().filter(|(k, _)| only.is_none_or(|o| o == *k)).take(6) {
+                let t = match p.place {
+                    Some(ht2_sim::road::Spot::Road(q)) => q.t,
+                    _ => 1.0,
+                };
+                println!("speed {k} {:?} {:?} {:?} last {:?} vel {:?}", p.speed, p.speed2, t, p.last_pos, p.velocity);
+            }
+        }
+        return;
+    }
     for tick in 1..=std::env::var("TICKS").ok().and_then(|t| t.parse().ok()).unwrap_or(0u32) {
-        world.tick(tick as f64);
+        world.tick(tick as f64, &mut |_, _| true);
         for (k, p) in world.players.iter().enumerate() {
             if let Some(ht2_sim::road::Spot::Road(q)) = p.place {
                 println!("tick {tick} player {k} place {} {} {:?} {} {} {}", q.road, q.node.map_or(-1, |n| n as i64), q.t, q.piece, q.segment, q.reversed as u32);

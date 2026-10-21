@@ -910,6 +910,46 @@ impl RoadNet {
         &self.segment_rooms[self.roads[p.road].segments[p.segment]]
     }
 
+    /// `0x406370`: the roads of a room: those with a segment in it and those at the nodes where
+    /// these start or end. The original sorts them by the addresses of the road objects; here by
+    /// number (stand-in), which matters only between equally near places.
+    pub fn room_roads(&self, room: &str) -> Vec<usize> {
+        let mut list: Vec<usize> = Vec::new();
+        for (r, road) in self.roads.iter().enumerate() {
+            for &s in &road.segments {
+                if self.segment_rooms[s] == room {
+                    list.push(r);
+                }
+            }
+        }
+        let mut more: Vec<usize> = Vec::new();
+        for &r in &list {
+            for n in [self.roads[r].start, self.roads[r].end] {
+                more.extend(&self.nodes[n].out);
+                more.extend(&self.nodes[n].inc);
+            }
+        }
+        list.extend(more);
+        list.sort_unstable();
+        list.dedup();
+        list
+    }
+
+    /// `getPositionIdEx` (`0x4365d0`): the place nearest to `q` on the roads of a room (each
+    /// segment's `project` in turn, the last one that came nearer wins).
+    pub fn nearest_in_room(&self, room: &str, q: [f64; 3]) -> Option<Place> {
+        let (mut best, mut t, mut k) = (f64::MAX, 0.0, 0usize);
+        let mut found = None;
+        for road in self.room_roads(room) {
+            for (i, &s) in self.roads[road].segments.iter().enumerate() {
+                if self.segments[s].project(q, &mut best, &mut t, &mut k) {
+                    found = Some((road, i));
+                }
+            }
+        }
+        found.map(|(road, segment)| Place { road, node: None, t, piece: k, segment, reversed: false })
+    }
+
     /// The place on the roads nearest to `q` (horizontally; stand-in for the road module's
     /// `findPlayerPosition(vector)`): each piece sampled, then the best sample refined.
     pub fn nearest(&self, q: [f64; 3]) -> Option<Place> {
@@ -1432,6 +1472,11 @@ impl AiRng {
             }
         }
         AiRng { table, i: 0, j: 31 }
+    }
+
+    /// A generator in a given state: the table and the two indices (`0x68baa4`, `0x68baa8`).
+    pub fn from_state(table: [u32; 55], i: usize, j: usize) -> Self {
+        AiRng { table, i, j }
     }
 
     /// The next number.
