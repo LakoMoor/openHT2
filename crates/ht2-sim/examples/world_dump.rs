@@ -55,11 +55,22 @@ fn main() {
         world.towns = ht2_sim::road::Town::from_scripts(&scripts);
         world.mark_liquid_towns(&ht2_sim::objects::liquid_goods(&game));
         world.presents = ht2_sim::objects::Present::read(&game);
+        world.merchandise = ht2_sim::objects::Merchandise::read(&game);
         world.object_want = ht2_sim::objects::ObjectCounts { fuel: 10, semitrailers: 28, missions: 10, containers: 10, parkings: 40 };
         world.create_objects(0.0);
+        let line = text.lines().filter(|l| l.starts_with("rng ")).last().expect("rng line");
+        let v: Vec<u32> = line.split_whitespace().skip(1).map(|x| x.parse().unwrap()).collect();
+        let after = AiRng::from_state(v[..55].try_into().unwrap(), v[55] as usize, v[56] as usize);
+        println!("rng same as the original's after the objects: {}", format!("{:?}", world.rng) == format!("{after:?}"));
         for (k, o) in world.objects.iter().enumerate() {
             let pl = o.place.map_or("-".to_string(), |q| format!("{} -1 {:?} {} {} 0", q.road, q.t, q.piece, q.segment));
             println!("object {k} flags {:#x} node {} pos {:?} {:?} {:?} place {pl} veh {} x6c {}", o.flags, o.node, o.pos[0], o.pos[1], o.pos[2], o.vehicle.map_or(-1, |v| v as i64), o.present.map_or(-1, |v| v as i64));
+            if let Some(c) = &o.cargo {
+                println!("  cargo {} {} {:?}", c.merchandise, c.to.map_or(-1, |t| t as i64), c.fee);
+            }
+            for r in &o.orders {
+                println!("  order merch {} to {} fee {:?} distance {:?}", r.merchandise, r.to, r.fee, r.distance);
+            }
         }
         return;
     }

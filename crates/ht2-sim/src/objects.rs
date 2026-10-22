@@ -49,23 +49,67 @@ impl Present {
     }
 }
 
-/// The merchandise (`merchandise.sch`) that is liquid (flag `fuel`, bit 4 of `+0x30`).
-pub fn liquid_goods(game_dir: &std::path::Path) -> Vec<String> {
-    let Ok(data) = std::fs::read(game_dir.join("merchandise.sch")) else { return Vec::new() };
-    let Ok(plain) = ht2_formats::sdte::decrypt(&data) else { return Vec::new() };
-    let Ok(forms) = ht2_formats::sexpr::parse(&ht2_formats::sdte::cp1251_to_string(&plain)) else { return Vec::new() };
-    let tops: Vec<&Sexp> = forms.iter().flat_map(|f| f.as_list().map_or(vec![f], |l| l.iter().collect())).collect();
-    let mut out = Vec::new();
-    for t in tops {
-        let Some(l) = t.as_list() else { continue };
-        let Some(name) = l.first().and_then(|s| s.as_text()) else { continue };
-        // ( NAME pack n n ( price price share ( flags ) ) ... )
-        let flags = l.iter().filter_map(|s| s.as_list()).flat_map(|s| s.iter().filter_map(|x| x.as_list())).flat_map(|x| x.iter().filter_map(|w| w.as_text()));
-        if flags.into_iter().any(|w| w == "fuel") {
-            out.push(name.to_string());
+/// A merchandise of `merchandise.sch` (`0x68ccb8`, 0x68 bytes; its number is its place in the
+/// file): `( NAME pack n n ( price price share ( flags ) ) ... )`.
+#[derive(Debug, Clone)]
+pub struct Merchandise {
+    pub name: String,
+    /// `+0x30` (`0x40b4a0`): `illegal` 1, `formafia` 2, `fuel` 4 (liquid), `cars` 8,
+    /// `trucks` 0x10.
+    pub flags: u32,
+}
+
+impl Merchandise {
+    pub fn read(game_dir: &std::path::Path) -> Vec<Merchandise> {
+        let Ok(data) = std::fs::read(game_dir.join("merchandise.sch")) else { return Vec::new() };
+        let Ok(plain) = ht2_formats::sdte::decrypt(&data) else { return Vec::new() };
+        let Ok(forms) = ht2_formats::sexpr::parse(&ht2_formats::sdte::cp1251_to_string(&plain)) else { return Vec::new() };
+        let tops: Vec<&Sexp> = forms.iter().flat_map(|f| f.as_list().map_or(vec![f], |l| l.iter().collect())).collect();
+        let mut out = Vec::new();
+        for t in tops {
+            let Some(l) = t.as_list() else { continue };
+            let Some(name) = l.first().and_then(|s| s.as_text()) else { continue };
+            let words = l.iter().filter_map(|s| s.as_list()).flat_map(|s| s.iter().filter_map(|x| x.as_list())).flat_map(|x| x.iter().filter_map(|w| w.as_text()));
+            let flags = words.fold(0, |f, w| {
+                f | match w {
+                    "illegal" => 1,
+                    "formafia" => 2,
+                    "fuel" => 4,
+                    "cars" => 8,
+                    "trucks" => 0x10,
+                    _ => 0,
+                }
+            });
+            out.push(Merchandise { name: name.to_string(), flags });
         }
+        out
     }
-    out
+}
+
+/// The merchandise that is liquid (flag `fuel`).
+pub fn liquid_goods(game_dir: &std::path::Path) -> Vec<String> {
+    Merchandise::read(game_dir).into_iter().filter(|m| m.flags & 4 != 0).map(|m| m.name).collect()
+}
+
+/// An order (`0x470d80`, 0x90 bytes): carry `merchandise` from `from` to the unloading node of
+/// town `to` by `deadline`.
+#[derive(Debug, Clone)]
+pub struct Order {
+    /// `+0`, `+0xc`.
+    pub merchandise: usize,
+    pub to: usize,
+    /// `+0x18`: where the load is.
+    pub from: Place,
+    /// `+0x38`: how much, `+0x40` the pay; `+0x48` the deadline (900 s after `+0x50`, when it
+    /// was made); `+0x58` the fee for the distance (0.13 per unit of route cost); `+0x68` its
+    /// kind (2 here); `+0x70` the route cost to the destination (`0x487500`).
+    pub amount: f64,
+    pub pay: f64,
+    pub deadline: f64,
+    pub made: f64,
+    pub fee: f64,
+    pub kind: u32,
+    pub distance: f64,
 }
 
 /// An object of the AI world (`0x70` bytes).
@@ -83,6 +127,22 @@ pub struct WorldObject {
     pub vehicle: Option<usize>,
     /// `+0x6c`: what it is (`etrashboxes.sch`).
     pub present: Option<usize>,
+    /// `+0x14` → `+0x1c`: the orders of a semitrailer on the road.
+    pub orders: Vec<Order>,
+    /// `+0x58`: what a container holds (`0x20` bytes): the merchandise, the town that takes it,
+    /// the amount (`+0x10`) and the fee for the distance there (`+0x18`, 0.1 per unit of route
+    /// cost).
+    pub cargo: Option<Cargo>,
+    /// `+0x60`: when a parked car was put.
+    pub made: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct Cargo {
+    pub merchandise: usize,
+    pub to: Option<usize>,
+    pub amount: f64,
+    pub fee: f64,
 }
 
 impl World {
@@ -140,7 +200,7 @@ impl World {
     fn new_object(&mut self, flags: u32, node: usize) -> WorldObject {
         let pos = self.net.nodes[node].pos;
         self.taken[node] = true;
-        WorldObject { flags, node, pos, place: self.net.nearest(pos), vehicle: None, present: None }
+        WorldObject { flags, node, pos, place: self.net.nearest(pos), vehicle: None, present: None, orders: Vec::new(), cargo: None, made: 0.0 }
     }
 
     /// `0x405030`: the town nearest to `q` that is not a filling station (flag 2), by its node.
@@ -187,6 +247,72 @@ impl World {
         }
     }
 
+    /// `0x404f80`: the town nearest to `q`; `0x4051b0` with `but`: the one nearest to that town
+    /// other than it.
+    fn nearest_town_any(&self, q: [f64; 3], but: Option<usize>) -> Option<usize> {
+        let mut best = f64::MAX;
+        let mut found = None;
+        for (k, t) in self.towns.iter().enumerate() {
+            if Some(k) == but {
+                continue;
+            }
+            let Some(n) = self.net.town_node(t) else { continue };
+            let p = self.net.nodes[n].pos;
+            let d = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
+            let l = ((d[1] * d[1] + d[2] * d[2]) + d[0] * d[0]).sqrt();
+            if l < best {
+                best = l;
+                found = Some(k);
+            }
+        }
+        found
+    }
+
+    /// `0x456a10`: a merchandise of the town (its list, with repeats) that is legal and whose
+    /// liquid flag is `liquid`, weighted 1 (×0.25 for each time a node of the town has it,
+    /// which none has at the start).
+    fn town_merchandise(&mut self, town: usize, liquid: bool) -> Option<usize> {
+        let goods: Vec<usize> = self.towns[town].goods.iter().filter_map(|g| self.merchandise.iter().position(|m| &m.name == g)).collect();
+        let weights: Vec<(usize, f64)> = goods
+            .into_iter()
+            .map(|m| {
+                let f = self.merchandise[m].flags;
+                (m, if f & 1 == 0 && (f & 4 != 0) == liquid { 1.0 } else { 0.0 })
+            })
+            .collect();
+        self.weighted(weights.into_iter())
+    }
+
+    /// `0x4566e0`: any legal merchandise whose liquid flag is `liquid`, drawn evenly.
+    fn any_merchandise(&mut self, liquid: bool) -> Option<usize> {
+        let picks: Vec<usize> = (0..self.merchandise.len()).filter(|&m| self.merchandise[m].flags & 1 == 0 && (self.merchandise[m].flags & 4 != 0) == liquid).collect();
+        if picks.is_empty() {
+            return None;
+        }
+        Some(picks[self.rng.next() as usize % picks.len()])
+    }
+
+    /// `0x404cf0`: whether town `t` takes merchandise `m`: at its first unloading node, liquids
+    /// when that is a fuel node, else the others.
+    fn takes(&self, t: usize, m: usize) -> bool {
+        let Some(&(_, f)) = self.towns[t].nodes.iter().find(|(_, f)| f & 1 != 0) else { return false };
+        (self.merchandise[m].flags & 4 != 0) == (f & 4 != 0)
+    }
+
+    /// `0x487500`: the route cost from `from` to node `to` (mode 0, or mode 1 when that costs
+    /// less than a tenth).
+    fn route_cost(&self, from: &Place, to: usize) -> f64 {
+        let from = crate::road::Spot::Road(*from);
+        let to = crate::road::Spot::Node(to);
+        let mut d = self.net.route_from(&from, &to, 0).map_or(0.0, |(_, c)| c);
+        if let Some((_, c)) = self.net.route_from(&from, &to, 1) {
+            if c * 10.0 < d {
+                d = c;
+            }
+        }
+        d
+    }
+
     /// `0x434070` (new game): towns that deal in a liquid merchandise get flag 1.
     pub fn mark_liquid_towns(&mut self, liquid: &[String]) {
         for t in &mut self.towns {
@@ -196,8 +322,11 @@ impl World {
         }
     }
 
-    /// `0x41d340` as far as ported: the fuel barrels at hidden places (`fuel` of `GAME.CNF`) and
-    /// the semitrailers at bases (`semitrailers`), at least `min` from the human player.
+    /// `0x41d340`: the objects of a new game (`min` 0) or the ones missing later
+    /// (`updatePresents`, `min` 700): fuel barrels at hidden places (`fuel` of `GAME.CNF`),
+    /// semitrailers at bases (`semitrailers`), semitrailers with an order on the roads
+    /// (`missions`), containers at hidden places (`containers`) and parked cars (`parkings`),
+    /// each at least `min` from the human player.
     pub fn create_objects(&mut self, min: f64) {
         // fuel: at "pos_hidden" nodes, the present of kind 2 that was put least (0.75^count)
         for _ in 0..1000 {
@@ -226,6 +355,95 @@ impl World {
             let mut o = self.new_object(0x20, node);
             self.object_made.semitrailers += 1;
             o.vehicle = Some(v);
+            self.objects.push(o);
+        }
+        // semitrailers with an order at "pos_road" nodes (missions): a merchandise of the nearest
+        // town (else of the town nearest to it, else any; liquids for tanks) for a town that
+        // takes it
+        for _ in 0..1000 {
+            if self.object_want.missions <= self.object_made.missions {
+                break;
+            }
+            let Some(node) = self.pick_node("pos_road", min) else { break };
+            // weighed without a node (the town does not count here)
+            let weights: Vec<(usize, f64)> = (0..self.vehicles.len()).map(|v| (v, self.semitrailer_weight(v, None))).collect();
+            let Some(v) = self.weighted(weights.into_iter()) else { break };
+            self.vehicle_weight[v] *= 0.75;
+            let mut o = self.new_object(0x60, node);
+            o.vehicle = Some(v);
+            self.object_made.missions += 1;
+            let Some(mut town) = self.nearest_town_any(o.pos, None) else {
+                self.objects.push(o);
+                continue;
+            };
+            let merchandise = if !self.vehicles[v].liquid {
+                match self.town_merchandise(town, false) {
+                    Some(m) => Some(m),
+                    None => {
+                        let at = self.net.town_node(&self.towns[town]).map_or([0.0; 3], |n| self.net.nodes[n].pos);
+                        town = self.nearest_town_any(at, Some(town)).unwrap_or(town);
+                        match self.town_merchandise(town, false) {
+                            Some(m) => Some(m),
+                            None => self.any_merchandise(false),
+                        }
+                    }
+                }
+            } else {
+                self.any_merchandise(true)
+            };
+            // 0x404d90: a town other than the source that takes it, drawn evenly
+            let dest = merchandise.and_then(|m| {
+                let picks: Vec<usize> = (0..self.towns.len()).filter(|&t| t != town && self.takes(t, m)).collect();
+                (!picks.is_empty()).then(|| picks[self.rng.next() as usize % picks.len()])
+            });
+            if let (Some(m), Some(to), Some(from)) = (merchandise, dest, o.place) {
+                let unload = self.net.town_node(&self.towns[to]).unwrap_or(0);
+                // 0x471780 and 0x471200 each find the route cost
+                let fee = 0.1 * self.route_cost(&from, unload) * 1.3;
+                let distance = self.route_cost(&from, unload);
+                o.orders.push(Order { merchandise: m, to, from, amount: 0.0, pay: 0.0, deadline: self.last_tick + 900.0, made: self.last_tick, fee, kind: 2, distance });
+            }
+            self.objects.push(o);
+        }
+        // containers at "pos_hidden" nodes: a legal merchandise that is not liquid, drawn evenly
+        // (0x41b120), for a town that takes it (0x404d40), and the present of kind 3
+        for _ in 0..1000 {
+            if self.object_want.containers <= self.object_made.containers {
+                break;
+            }
+            let Some(node) = self.pick_node("pos_hidden", min) else { break };
+            let mut o = self.new_object(0x40, node);
+            self.object_made.containers += 1;
+            if let Some(m) = self.any_merchandise(false) {
+                let picks: Vec<usize> = (0..self.towns.len()).filter(|&t| self.takes(t, m)).collect();
+                let to = (!picks.is_empty()).then(|| picks[self.rng.next() as usize % picks.len()]);
+                let fee = match (to, o.place) {
+                    (Some(t), Some(from)) => 0.1 * self.route_cost(&from, self.net.town_node(&self.towns[t]).unwrap_or(0)),
+                    _ => 0.0,
+                };
+                o.cargo = Some(Cargo { merchandise: m, to, amount: 0.0, fee });
+            }
+            let weights: Vec<(usize, f64)> = self.presents.iter().enumerate().map(|(i, p)| (i, if p.kind == 3 { 0.75f64.powf(p.count as f64) } else { 0.0 })).collect();
+            if let Some(i) = self.weighted(weights.into_iter()) {
+                o.present = Some(i);
+                self.presents[i].count += 1;
+            }
+            self.objects.push(o);
+        }
+        // parked cars at "pos_parking" nodes: the present of kind 1 put least
+        for _ in 0..1000 {
+            if self.object_want.parkings <= self.object_made.parkings {
+                break;
+            }
+            let Some(node) = self.pick_node("pos_parking", min) else { break };
+            let mut o = self.new_object(0x80, node);
+            self.object_made.parkings += 1;
+            let weights: Vec<(usize, f64)> = self.presents.iter().enumerate().map(|(i, p)| (i, if p.kind == 1 { 0.75f64.powf(p.count as f64) } else { 0.0 })).collect();
+            if let Some(i) = self.weighted(weights.into_iter()) {
+                o.present = Some(i);
+                self.presents[i].count += 1;
+            }
+            o.made = self.last_tick;
             self.objects.push(o);
         }
     }

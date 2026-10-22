@@ -69,6 +69,15 @@ pub fn parse(text: &str) -> Result<Vec<Sexp>> {
                 loop {
                     match chars.next() {
                         Some((_, '"')) => break,
+                        // \" and \\ stand for a quote and a backslash ("Телевизор 14\"" in
+                        // merchandise.sch); other backslashes are kept
+                        Some((_, '\\')) => match chars.peek() {
+                            Some(&(_, q @ ('"' | '\\'))) => {
+                                s.push(q);
+                                chars.next();
+                            }
+                            _ => s.push('\\'),
+                        },
                         Some((_, c)) => s.push(c),
                         None => return Err(Error::Other(format!("unterminated string at {at}"))),
                     }

@@ -387,6 +387,7 @@ pub struct World {
     pub towns: Vec<crate::road::Town>,
     pub objects: Vec<crate::objects::WorldObject>,
     pub presents: Vec<crate::objects::Present>,
+    pub merchandise: Vec<crate::objects::Merchandise>,
     pub object_want: crate::objects::ObjectCounts,
     pub object_made: crate::objects::ObjectCounts,
     pub vehicle_weight: Vec<f64>,
@@ -400,7 +401,7 @@ impl World {
         let name_use = vec![[0, 0]; names.len()];
         let vehicle_weight = vec![1.0; vehicles.len()];
         let taken = vec![false; net.nodes.len()];
-        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken }
+        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -1199,6 +1200,8 @@ pub struct GameCnf {
     /// `forsale`, `forsale_stolen`, `forsale_used`, `forhire`.
     pub dealers: [usize; 3],
     pub forhire: usize,
+    /// `fuel`, `semitrailers`, `missions`, `containers`, `parkings`: the objects (`0x408080`).
+    pub objects: crate::objects::ObjectCounts,
 }
 
 impl GameCnf {
@@ -1237,6 +1240,11 @@ impl GameCnf {
                 "forsale_stolen" => c.dealers[1] = num(l.get(1)).unwrap_or(0.0) as usize,
                 "forsale_used" => c.dealers[2] = num(l.get(1)).unwrap_or(0.0) as usize,
                 "forhire" => c.forhire = num(l.get(1)).unwrap_or(0.0) as usize,
+                "fuel" => c.objects.fuel = num(l.get(1)).unwrap_or(0.0) as usize,
+                "semitrailers" => c.objects.semitrailers = num(l.get(1)).unwrap_or(0.0) as usize,
+                "missions" => c.objects.missions = num(l.get(1)).unwrap_or(0.0) as usize,
+                "containers" => c.objects.containers = num(l.get(1)).unwrap_or(0.0) as usize,
+                "parkings" => c.objects.parkings = num(l.get(1)).unwrap_or(0.0) as usize,
                 _ => {}
             }
         }
@@ -1246,10 +1254,10 @@ impl GameCnf {
 
 impl World {
     /// The start of a new game on a map as far as ported (`0x434780`): the markets, the vehicle
-    /// lists, the regular players, the vehicles for sale and those hired out. `car_share` is the
-    /// traffic setting (1 for 100 %). The human player is put at `human` (the game's place of
-    /// its vehicle). Not yet ported: the hidden objects and trailers with orders (`0x41d340`),
-    /// so the random numbers run apart from the original's after this.
+    /// lists, the regular players, the vehicles for sale and those hired out, the objects
+    /// (`0x41d340`). `car_share` is the traffic setting (1 for 100 %). The human player is put
+    /// at `human` (the game's place of its vehicle). Not yet ported: the steps after the objects
+    /// (`0x41cff0`, the timer draw of the second generator, `0x42cb20`, `0x477b60`).
     pub fn new_game(game_dir: &std::path::Path, map_dir: &std::path::Path, net: std::rc::Rc<RoadNet>, car_share: f64, human: Option<Spot>) -> World {
         let scripts = crate::road::read_map_scripts(map_dir);
         let lots = Parking::from_scripts(&scripts);
@@ -1269,6 +1277,17 @@ impl World {
         w.players[0].place = human;
         w.create_dealers(cnf.dealers);
         w.hire_out(cnf.forhire);
+        // 0x41d340: the objects
+        w.towns = crate::road::Town::from_scripts(&scripts);
+        w.merchandise = crate::objects::Merchandise::read(game_dir);
+        let liquid: Vec<String> = w.merchandise.iter().filter(|m| m.flags & 4 != 0).map(|m| m.name.clone()).collect();
+        w.mark_liquid_towns(&liquid);
+        w.presents = crate::objects::Present::read(game_dir);
+        w.object_want = cnf.objects.clone();
+        if let Some(st) = cnf.start {
+            w.human_pos = Some(st);
+        }
+        w.create_objects(0.0);
         w.ghost_want = cnf.counts[8];
         w.create_tasks(car_share);
         w
