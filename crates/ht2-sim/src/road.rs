@@ -578,6 +578,10 @@ pub struct RoadNet {
     /// leaving (0) or arriving (1) roads`), 0x7f for no route, 0xff not known yet. Later searches
     /// follow it, so which of two routes of equal cost is taken depends on the searches before.
     pub next_step: std::cell::RefCell<Vec<Vec<Vec<u8>>>>,
+    /// The flags of the segments as the game changes them (`segment + 8`): obstacles set 0x40 on
+    /// the segments of their road and clear it again (`0x42b060`). The route costs, the random
+    /// places and the ghosts read these.
+    pub seg_flags: std::cell::RefCell<Vec<u32>>,
 }
 
 struct Endpoint {
@@ -650,6 +654,7 @@ impl RoadNet {
         while let Some(i) = eps.iter().position(|e| !e.visited && e.node.is_some()) {
             net.walk(&mut eps, &mut seg_done, i);
         }
+        *net.seg_flags.borrow_mut() = net.segments.iter().map(|s| s.flags).collect();
         // 0x406160: road lengths
         let mut total = 0.0;
         for r in net.roads.iter_mut() {
@@ -871,6 +876,17 @@ impl Segment {
     pub fn width_at(&self, t: f64, k: usize) -> f64 {
         let s = self.distance(0.0, 0, t, k);
         (self.width[1] - self.width[0]) * s / self.length() + self.width[0]
+    }
+}
+
+impl RoadNet {
+    /// The flags of segment `s` now (see `seg_flags`).
+    pub fn flags_of(&self, s: usize) -> u32 {
+        self.seg_flags.borrow().get(s).copied().unwrap_or_else(|| self.segments[s].flags)
+    }
+
+    fn place_flags(&self, p: &Place) -> u32 {
+        self.flags_of(self.roads[p.road].segments[p.segment])
     }
 }
 
@@ -1122,7 +1138,7 @@ impl RoadNet {
         let mut p = Place { road, node: Some(r.start), t: 0.0, piece: 0, segment: 0, reversed: false };
         if 0.0 <= off {
             self.advance(&mut p, &mut off);
-            if self.seg(&p).flags & 8 != 0 {
+            if self.place_flags(&p) & 8 != 0 {
                 p.reversed = true;
             }
         }
@@ -1134,7 +1150,7 @@ impl RoadNet {
     pub fn random_start(&self, rng: &mut AiRng) -> Option<Place> {
         loop {
             let p = self.random_place(rng)?;
-            if self.seg(&p).flags & 0x60 == 0 {
+            if self.place_flags(&p) & 0x60 == 0 {
                 return Some(p);
             }
         }
@@ -1286,12 +1302,13 @@ impl RoadNet {
         let mut total = 0.0;
         for &s in &self.roads[road].segments {
             let seg = &self.segments[s];
+            let flags = self.flags_of(s);
             let mut k = match seg.attr2 {
                 2 => 1.5,
                 3 => 2.0,
                 _ => 1.0,
             };
-            if mode != 1 && (seg.flags & 0x40 != 0 || seg.flags & if against { 4 } else { 8 } != 0) {
+            if mode != 1 && (flags & 0x40 != 0 || flags & if against { 4 } else { 8 } != 0) {
                 k *= 10000.0;
             }
             total += seg.length() * k;
@@ -1547,13 +1564,13 @@ impl RoadNet {
     /// The factor of a segment in route costs (`0x409f10`): 1.5 for `attr2` 2, 2 for 3, else 1;
     /// for modes other than 1, times 10 000 on segments with flag 0x40 and on one-way segments
     /// driven the other way (flag 8 along the road, flag 4 against it).
-    fn segment_factor(seg: &Segment, mode: u32, against: bool) -> f64 {
+    fn segment_factor(seg: &Segment, flags: u32, mode: u32, against: bool) -> f64 {
         let k = match seg.attr2 {
             2 => 1.5,
             3 => 2.0,
             _ => 1.0,
         };
-        if mode != 1 && (seg.flags & 0x40 != 0 || seg.flags & if against { 4 } else { 8 } != 0) {
+        if mode != 1 && (flags & 0x40 != 0 || flags & if against { 4 } else { 8 } != 0) {
             k * 10000.0
         } else {
             k
@@ -1603,6 +1620,7 @@ impl RoadNet {
         let (from, to) = if forward { (pa, pb) } else { (pb, pa) };
         let r = &self.roads[road];
         let seg = |i: usize| &self.segments[r.segments[i]];
+        let fl = |i: usize| self.flags_of(r.segments[i]);
         // a place one segment past the last is the end of the last one
         let (mut s2, mut k2, mut t2) = (to.0, to.1, to.2);
         if s2 == r.segments.len() {
@@ -1611,14 +1629,14 @@ impl RoadNet {
             t2 = 0.0;
         }
         if from.0 == s2 {
-            return Self::segment_factor(seg(s2), mode, !forward) * seg(s2).distance(from.2, from.1, t2, k2);
+            return Self::segment_factor(seg(s2), fl(s2), mode, !forward) * seg(s2).distance(from.2, from.1, t2, k2);
         }
         let first = seg(from.0);
-        let mut sum = first.distance(from.2, from.1, 0.0, first.pieces()) * Self::segment_factor(first, mode, !forward);
+        let mut sum = first.distance(from.2, from.1, 0.0, first.pieces()) * Self::segment_factor(first, fl(from.0), mode, !forward);
         for i in from.0 + 1..s2 {
-            sum += Self::segment_factor(seg(i), mode, !forward) * seg(i).length();
+            sum += Self::segment_factor(seg(i), fl(i), mode, !forward) * seg(i).length();
         }
-        Self::segment_factor(seg(s2), mode, !forward) * seg(s2).distance(0.0, 0, t2, k2) + sum
+        Self::segment_factor(seg(s2), fl(s2), mode, !forward) * seg(s2).distance(0.0, 0, t2, k2) + sum
     }
 
     /// `0x409660`: the distance along `road` between two spots on it.

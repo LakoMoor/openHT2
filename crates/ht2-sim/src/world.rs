@@ -1124,7 +1124,7 @@ impl World {
             };
             let Some(place) = found else { continue };
             let seg = &self.net.segments[self.net.roads[place.road].segments[place.segment]];
-            if seg.flags & 0x50 != 0 {
+            if self.net.flags_of(self.net.roads[place.road].segments[place.segment]) & 0x50 != 0 {
                 continue;
             }
             let c = self.net.coordinates(&place);
