@@ -80,10 +80,10 @@ fn main() {
         let text = std::fs::read_to_string(path).unwrap();
         let line = text.lines().find(|l| l.starts_with("rng ")).expect("rng line");
         let v: Vec<u32> = line.split_whitespace().skip(1).map(|x| x.parse().unwrap()).collect();
+        world.create_tasks(1.0);
         world.rng = AiRng::from_state(v[..55].try_into().unwrap(), v[55] as usize, v[56] as usize);
         world.human_pos = Some([-3020.0, -4625.0, 20.0]);
         world.ghost_want = 25;
-        world.create_tasks(1.0);
         let budget: usize = std::env::var("BUDGET").ok().and_then(|b| b.parse().ok()).unwrap_or(8);
         let ticks: u32 = std::env::var("TICKS").ok().and_then(|t| t.parse().ok()).unwrap_or(400);
         // the generator at the ghost task of each tick (tasks not ported draw from it too)

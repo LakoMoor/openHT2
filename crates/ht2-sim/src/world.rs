@@ -392,6 +392,8 @@ pub struct World {
     pub object_made: crate::objects::ObjectCounts,
     pub vehicle_weight: Vec<f64>,
     pub taken: Vec<bool>,
+    /// `0x66c6e8`, drawn at the start of a new game (600..1199 s).
+    pub obstacle_time: f64,
 }
 
 impl World {
@@ -401,7 +403,7 @@ impl World {
         let name_use = vec![[0, 0]; names.len()];
         let vehicle_weight = vec![1.0; vehicles.len()];
         let taken = vec![false; net.nodes.len()];
-        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken }
+        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, obstacle_time: 0.0 }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -1091,17 +1093,20 @@ impl World {
         changes
     }
 
-    /// The tasks of the game clock a new game starts (`0x434780`), at the time 0. Ported of them:
+    /// The tasks of the game clock a new game starts (`0x434780`), at the time 0 (the period of
+    /// `ObstaclesTask` is drawn: 600 + `next() % 300`). Ported of them:
     /// `updateGhosts` (every 15^(1 − 0.7·traffic) × 2.667 s); the others only take their turns.
     pub fn create_tasks(&mut self, car_share: f64) {
         let ghosts = 15f64.powf(1.0 - car_share * 0.7) * 2.66666666666;
+        let obstacles = (600 + self.rng.next() % 300) as f64;
         self.tasks = [
             ("formOrders", 0.0, 10.0),
             ("updateRating", 0.0, 8.0),
             ("updatePresents", 0.0, 7.0),
             ("updateGhosts", 0.0, ghosts),
             ("updateDealers", 0.0, 27.5),
-            ("ObstaclesTask", 600.0, 895.0),
+            // its period drawn with the AI generator (0x434f1f), its time from 0x68d108
+            ("ObstaclesTask", 600.0, obstacles),
             ("updateAmbushes", 0.0, 1.0),
             ("provideRacesRegular", 0.0, 30.0),
             ("provideCompetitionRegular", 0.0, 30.0),
@@ -1256,8 +1261,9 @@ impl World {
     /// The start of a new game on a map as far as ported (`0x434780`): the markets, the vehicle
     /// lists, the regular players, the vehicles for sale and those hired out, the objects
     /// (`0x41d340`). `car_share` is the traffic setting (1 for 100 %). The human player is put
-    /// at `human` (the game's place of its vehicle). Not yet ported: the steps after the objects
-    /// (`0x41cff0`, the timer draw of the second generator, `0x42cb20`, `0x477b60`).
+    /// at `human` (the game's place of its vehicle). After the objects come the road works
+    /// (`0x41cff0`) and a timer drawn with the second generator; `0x42cb20` (the players'
+    /// rooms in the game's scene) and the counts of the parking places draw nothing.
     pub fn new_game(game_dir: &std::path::Path, map_dir: &std::path::Path, net: std::rc::Rc<RoadNet>, car_share: f64, human: Option<Spot>) -> World {
         let scripts = crate::road::read_map_scripts(map_dir);
         let lots = Parking::from_scripts(&scripts);
@@ -1288,6 +1294,11 @@ impl World {
             w.human_pos = Some(st);
         }
         w.create_objects(0.0);
+        // in the normal game (0x68d188 0 or 1): the road works of the map
+        w.road_works("pos_work_dr_33");
+        w.road_works("pos_work_dr_37");
+        // 0x66c6e8: 600 to 1199 s, drawn with the second generator
+        w.obstacle_time = (600 + w.rng2.next() % 600) as f64;
         w.ghost_want = cnf.counts[8];
         w.create_tasks(car_share);
         w

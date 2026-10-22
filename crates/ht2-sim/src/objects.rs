@@ -449,6 +449,25 @@ impl World {
     }
 }
 
+impl World {
+    /// `0x41cff0`: road works (the present of kind 4, `Katok`) at the node named `name`; they
+    /// count with the parked cars.
+    pub fn road_works(&mut self, name: &str) {
+        let Some(node) = self.net.nodes.iter().position(|n| n.name == name) else { return };
+        if self.net.nodes[node].flags & 0x10 != 0 || self.taken[node] {
+            return;
+        }
+        let mut o = self.new_object(0x480, node);
+        self.object_made.parkings += 1;
+        let weights: Vec<(usize, f64)> = self.presents.iter().enumerate().map(|(i, p)| (i, if p.kind == 4 { 0.75f64.powf(p.count as f64) } else { 0.0 })).collect();
+        let Some(i) = self.weighted(weights.into_iter()) else { return };
+        o.present = Some(i);
+        self.presents[i].count += 1;
+        o.made = self.last_tick;
+        self.objects.push(o);
+    }
+}
+
 /// How many objects of each kind a new game puts (`GAME.CNF`).
 #[derive(Debug, Clone, Default)]
 pub struct ObjectCounts {
