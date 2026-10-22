@@ -392,6 +392,12 @@ pub struct World {
     pub object_made: crate::objects::ObjectCounts,
     pub vehicle_weight: Vec<f64>,
     pub taken: Vec<bool>,
+    /// `town + 0x64`: the cost of the way between every two towns (`0x414670`).
+    pub town_dist: Vec<Vec<f64>>,
+    /// The orders of the towns' store nodes (two slots per node, `node + 8`), and `0x68d100`
+    /// (−2000 at the start; `formOrders` works when it is 20 s or more from now).
+    pub town_slots: Vec<Vec<[Option<crate::objects::TownOrder>; 2]>>,
+    pub orders_time: f64,
     /// `0x66c6e8`, drawn at the start of a new game (600..1199 s).
     pub obstacle_time: f64,
 }
@@ -403,7 +409,7 @@ impl World {
         let name_use = vec![[0, 0]; names.len()];
         let vehicle_weight = vec![1.0; vehicles.len()];
         let taken = vec![false; net.nodes.len()];
-        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, obstacle_time: 0.0 }
+        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -1142,6 +1148,9 @@ impl World {
             if t.name == "updateGhosts" && self.loads_done {
                 changes.extend(self.update_ghosts(now, fits));
             }
+            if t.name == "formOrders" {
+                self.form_orders(now);
+            }
             t.time += t.period;
             if t.time + t.period * 8.0 < now {
                 t.time = now + t.period;
@@ -1270,6 +1279,10 @@ impl World {
         let vehicles = Vehicle::read(game_dir);
         let names = DriverName::read(game_dir);
         let cnf = GameCnf::read(map_dir);
+        // 0x414670: the cost of the way between every two towns (its route searches fill the
+        // route tables the later searches follow)
+        let towns = crate::road::Town::from_scripts(&scripts);
+        let town_dist = net.town_distances(&towns);
         let mut rng = AiRng::default();
         let _offers = market_offers(&lots, &vehicles, &mut rng);
         let lists = sort_vehicles(&vehicles, &mut rng, car_share);
@@ -1284,7 +1297,8 @@ impl World {
         w.create_dealers(cnf.dealers);
         w.hire_out(cnf.forhire);
         // 0x41d340: the objects
-        w.towns = crate::road::Town::from_scripts(&scripts);
+        w.towns = towns;
+        w.town_dist = town_dist;
         w.merchandise = crate::objects::Merchandise::read(game_dir);
         let liquid: Vec<String> = w.merchandise.iter().filter(|m| m.flags & 4 != 0).map(|m| m.name.clone()).collect();
         w.mark_liquid_towns(&liquid);

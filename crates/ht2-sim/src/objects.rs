@@ -269,15 +269,27 @@ impl World {
     }
 
     /// `0x456a10`: a merchandise of the town (its list, with repeats) that is legal and whose
-    /// liquid flag is `liquid`, weighted 1 (×0.25 for each time a node of the town has it,
-    /// which none has at the start).
-    fn town_merchandise(&mut self, town: usize, liquid: bool) -> Option<usize> {
-        let goods: Vec<usize> = self.towns[town].goods.iter().filter_map(|g| self.merchandise.iter().position(|m| &m.name == g)).collect();
+    /// flags under `mask` are `value`, weighted 1, ×0.25 for each order slot of the town's nodes
+    /// that holds it.
+    fn town_merchandise(&mut self, town: usize, value: u32, mask: u32) -> Option<usize> {
+        // names are found whatever their case (`c_TABLEWARE` in TOWN_AD)
+        let goods: Vec<usize> = self.towns[town].goods.iter().filter_map(|g| self.merchandise.iter().position(|m| m.name.eq_ignore_ascii_case(g))).collect();
         let weights: Vec<(usize, f64)> = goods
             .into_iter()
             .map(|m| {
                 let f = self.merchandise[m].flags;
-                (m, if f & 1 == 0 && (f & 4 != 0) == liquid { 1.0 } else { 0.0 })
+                let mut w = 0.0;
+                if f & 1 == 0 && f & mask == value {
+                    w = 1.0;
+                    for slots in self.town_slots.get(town).into_iter().flatten() {
+                        for o in slots.iter().flatten() {
+                            if o.merchandise == m {
+                                w *= 0.25;
+                            }
+                        }
+                    }
+                }
+                (m, w)
             })
             .collect();
         self.weighted(weights.into_iter())
@@ -316,7 +328,7 @@ impl World {
     /// `0x434070` (new game): towns that deal in a liquid merchandise get flag 1.
     pub fn mark_liquid_towns(&mut self, liquid: &[String]) {
         for t in &mut self.towns {
-            if t.goods.iter().any(|g| liquid.contains(g)) {
+            if t.goods.iter().any(|g| liquid.iter().any(|l| l.eq_ignore_ascii_case(g))) {
                 t.flags |= 1;
             }
         }
@@ -377,12 +389,12 @@ impl World {
                 continue;
             };
             let merchandise = if !self.vehicles[v].liquid {
-                match self.town_merchandise(town, false) {
+                match self.town_merchandise(town, 0, 4) {
                     Some(m) => Some(m),
                     None => {
                         let at = self.net.town_node(&self.towns[town]).map_or([0.0; 3], |n| self.net.nodes[n].pos);
                         town = self.nearest_town_any(at, Some(town)).unwrap_or(town);
-                        match self.town_merchandise(town, false) {
+                        match self.town_merchandise(town, 0, 4) {
                             Some(m) => Some(m),
                             None => self.any_merchandise(false),
                         }
@@ -465,6 +477,97 @@ impl World {
         self.presents[i].count += 1;
         o.made = self.last_tick;
         self.objects.push(o);
+    }
+}
+
+/// An order of a town's store node (`fillTownOrder`, `0x41b3a0`, 0x20 bytes): carry `merchandise`
+/// to town `to` by `deadline`; `fee` is a tenth of the cost of the way between the towns
+/// (`0x41b300`). When an illegal merchandise was slipped in, `legal` is the one asked for.
+#[derive(Debug, Clone)]
+pub struct TownOrder {
+    pub merchandise: usize,
+    pub illegal: Option<usize>,
+    pub legal: Option<usize>,
+    pub to: Option<usize>,
+    pub deadline: f64,
+    pub fee: f64,
+}
+
+impl World {
+    /// `formOrders` (`0x41b720`, a task of the game clock every 10 s, in the normal game): in
+    /// every town, the orders of the store nodes (not unloading or dummy ones, two slots each)
+    /// that are due go; then, in towns that deal in anything, empty slots get a new order.
+    pub fn form_orders(&mut self, now: f64) {
+        if (now - self.orders_time).abs() < 20.0 {
+            return;
+        }
+        if self.town_slots.len() != self.towns.len() {
+            self.town_slots = self.towns.iter().map(|t| vec![[None, None]; t.nodes.len()]).collect();
+        }
+        for t in 0..self.towns.len() {
+            for k in 0..self.towns[t].nodes.len() {
+                if self.towns[t].nodes[k].1 & 9 != 0 {
+                    continue;
+                }
+                for s in 0..2 {
+                    if self.town_slots[t][k][s].as_ref().is_some_and(|o| o.deadline <= now) {
+                        self.town_slots[t][k][s] = None;
+                    }
+                }
+            }
+            if self.towns[t].goods.is_empty() {
+                continue;
+            }
+            for k in 0..self.towns[t].nodes.len() {
+                if self.towns[t].nodes[k].1 & 9 != 0 {
+                    continue;
+                }
+                for s in 0..2 {
+                    if self.town_slots[t][k][s].is_none() {
+                        self.town_slots[t][k][s] = self.fill_town_order(t, k, s, now);
+                    }
+                }
+            }
+        }
+    }
+
+    /// `fillTownOrder` (`0x41b3a0`): for slot `s` of node `k` of town `t`: at a fuel node any
+    /// liquid merchandise, else one of the town's (slot 0 for trucks, slot 1 for cars); a town
+    /// that takes it (`0x454230`); the deadline 200 + `next() % 300` s from now. With the human
+    /// player's `+0x300` over 0.25 (stand-in: never, it is 0 at the start), one time in five an
+    /// illegal merchandise would be slipped in.
+    fn fill_town_order(&mut self, t: usize, k: usize, s: usize, now: f64) -> Option<TownOrder> {
+        let m = if self.towns[t].nodes[k].1 & 4 == 0 {
+            self.town_merchandise(t, if s == 1 { 8 } else { 0x10 }, 0x1c)
+        } else {
+            self.any_merchandise(true)
+        }?;
+        let to = self.order_town(t, m);
+        let deadline = (self.rng.next() % 300 + 200) as f64 + now;
+        let fee = to.map_or(0.0, |to| self.town_dist.get(t).and_then(|d| d.get(to)).copied().unwrap_or(0.0) * 0.1);
+        Some(TownOrder { merchandise: m, illegal: None, legal: None, to, deadline, fee })
+    }
+
+    /// `0x454230`: a town other than `from` that takes `m`, weighted 1, ×0.001 for each order of
+    /// `from`'s nodes that already goes there.
+    fn order_town(&mut self, from: usize, m: usize) -> Option<usize> {
+        let weights: Vec<(usize, f64)> = (0..self.towns.len())
+            .map(|u| {
+                let mut w = 0.0;
+                if u != from && self.takes(u, m) {
+                    w = 1.0;
+                    for slots in &self.town_slots[from] {
+                        for o in slots.iter().flatten() {
+                            if o.to == Some(u) {
+                                w *= 0.001;
+                            }
+                        }
+                    }
+                }
+                (u, w)
+            })
+            .collect();
+        self.weighted(weights.into_iter())
     }
 }
 

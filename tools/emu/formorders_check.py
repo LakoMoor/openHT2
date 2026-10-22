@@ -1,0 +1,51 @@
+"""The town orders `formOrders` (0x41b720, the first task of the game clock) makes, from the state
+after a new game (the snapshot ai_traffic.py makes): after each of the first ticks, the orders in
+the two slots of every store node of every town (0x20 bytes: merchandise, the legal and the
+illegal one when it was swapped, the town it goes to, the deadline, the fee) and the AI
+generator.
+
+    python formorders_check.py <game folder>/ENV <ticks> > formorders.txt
+"""
+import os
+import struct
+import sys
+
+from dump_ai_world import load
+from newgame_steps import setup
+
+folder, ticks = sys.argv[1], int(sys.argv[2])
+snap = os.path.join(os.environ.get('TEMP', '.'), 'ht2_ai_' + os.path.basename(os.path.normpath(folder)) + '.snap')
+e = load(folder, full=True, events=[], snapshot=snap)
+setup(e)
+u = lambda a: struct.unpack('<I', e.read(a, 4))[0]
+i32 = lambda a: struct.unpack('<i', e.read(a, 4))[0]
+f64 = lambda a: struct.unpack('<d', e.read(a, 8))[0]
+clock = u(u(0x6cec6c) + 0x54c)
+
+
+def rng():
+    return ' '.join(str(x) for x in struct.unpack('<55I', e.read(0x68b9c8, 220))) + ' %d %d' % (u(0x68baa4), u(0x68baa8))
+
+
+def dump(tick):
+    for t in range((u(0x68cec4) - u(0x68cec0)) // 4):
+        town = u(u(0x68cec0) + 4 * t)
+        for k, a in enumerate(range(u(town + 0x1c), u(town + 0x20), 0x10)):
+            for s in range(2):
+                o = u(a + 8 + 4 * s)
+                if o:
+                    print('slot', tick, t, k, s, i32(o), i32(o + 4), i32(o + 8), i32(o + 12), repr(f64(o + 0x10)), repr(f64(o + 0x18)), flush=True)
+
+
+human = u(u(0x68b990))
+print('human +0x300', repr(f64(human + 0x300)), 'd100', repr(f64(0x68d100)), flush=True)
+print('rng', rng(), flush=True)
+time = 0.0
+for tick in range(1, ticks + 1):
+    time += 0.1
+    e.write(clock + 0xb98, struct.pack('<d', time))
+    e.write(clock + 0xb90, struct.pack('<d', 0.1))
+    e.call(0x42d6e0, max_insn=10**12)
+    print('tick', tick, flush=True)
+    dump(tick)
+    print('rng', rng(), flush=True)
