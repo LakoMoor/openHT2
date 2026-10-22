@@ -23,7 +23,7 @@ def load(folder, full=False, events=None, snapshot=None):
     e = Emu()
     e.hook_ret(0x4e260c, lambda emu: 0)       # error log
     e.hook_ret(0x61edde, lambda emu: 12345)   # rand
-    e.hook_ret(0x61cca9, lambda emu: 0)       # sprintf
+    e.hook_ret(0x61cca9, lambda emu: emu.sprintf())   # sprintf
     BIG, BIG_LEN = 0x40000000, 0x10000000
     FILES = 0x1e000000   # FILE handles handed out by the hooked fopen
     e.mu.mem_map(FILES, 0x100000)

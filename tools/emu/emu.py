@@ -118,7 +118,49 @@ class Emu:
         self.hook_ret(0x632643, malloc)          # malloc
         self.hook_ret(0x4e260c, lambda emu: 0)   # error log / assert
         self.hook_ret(0x61edde, lambda emu: 12345)  # rand(): fixed so that results are repeatable
-        self.hook_ret(0x61cca9, lambda emu: 0)   # sprintf: messages are not needed (float formatting needs CRT start-up state)
+        self.hook_ret(0x61cca9, lambda emu: emu.sprintf())   # sprintf (see Emu.sprintf)
+
+    def sprintf(self):
+        """`sprintf` (0x61cca9) for the formats the AI uses for names (`start%d_%d`): %d, %i, %u,
+        %x, %c, %s and %%; floating point conversions are formatted by Python."""
+        import re
+        sp = self.mu.reg_read(UC_X86_REG_ESP)
+        word = lambda k: struct.unpack('<I', self.mu.mem_read(sp + 4 + 4 * k, 4))[0]
+        buf, fmt = word(0), word(1)
+        text = bytes(self.mu.mem_read(fmt, 256)).split(b'\0')[0].decode('latin1')
+        k = 2
+        out = []
+        for m in re.finditer(r'%([-+ #0]*)(\d*)(?:\.(\d+))?(l?)([diuxXcsfgeE%])|[^%]+', text):
+            if m.group(5) is None:
+                out.append(m.group(0))
+                continue
+            flags, width, prec, conv = m.group(1), m.group(2), m.group(3), m.group(5)
+            spec = '%' + flags + width + ('.' + prec if prec else '')
+            if conv == '%':
+                out.append('%')
+            elif conv in 'diu':
+                v = word(k)
+                k += 1
+                if conv != 'u' and v >= 1 << 31:
+                    v -= 1 << 32
+                out.append((spec + 'd') % v)
+            elif conv in 'xX':
+                out.append((spec + conv) % word(k))
+                k += 1
+            elif conv == 'c':
+                out.append(chr(word(k) & 0xff))
+                k += 1
+            elif conv == 's':
+                a = word(k)
+                k += 1
+                out.append(bytes(self.mu.mem_read(a, 256)).split(b'\0')[0].decode('latin1') if a else '(null)')
+            else:
+                v = struct.unpack('<d', self.mu.mem_read(sp + 4 + 4 * k, 8))[0]
+                k += 2
+                out.append((spec + conv) % v)
+        data = ''.join(out).encode('latin1') + b'\0'
+        self.mu.mem_write(buf, data)
+        return len(data) - 1
 
     # --- memory helpers -------------------------------------------------
     def write(self, va, data):

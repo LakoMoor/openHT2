@@ -15,6 +15,12 @@ from newgame_steps import setup
 
 folder, ticks = sys.argv[1], int(sys.argv[2])
 snap = os.path.join(os.environ.get('TEMP', '.'), 'ht2_ai_' + os.path.basename(os.path.normpath(folder)) + '.snap')
+# FO_SAVE=<tick>:<file> keeps the state after that tick; FO_START=<tick>:<file> goes on from it
+save_at = os.environ.get('FO_SAVE', '').split(':', 1) if os.environ.get('FO_SAVE') else None
+start_at = os.environ.get('FO_START', '').split(':', 1) if os.environ.get('FO_START') else None
+first = 1
+if start_at:
+    first, snap = int(start_at[0]) + 1, start_at[1]
 e = load(folder, full=True, events=[], snapshot=snap)
 setup(e)
 u = lambda a: struct.unpack('<I', e.read(a, 4))[0]
@@ -41,7 +47,9 @@ human = u(u(0x68b990))
 print('human +0x300', repr(f64(human + 0x300)), 'd100', repr(f64(0x68d100)), flush=True)
 print('rng', rng(), flush=True)
 time = 0.0
-for tick in range(1, ticks + 1):
+for _ in range(1, first):
+    time += 0.1
+for tick in range(first, ticks + 1):
     time += 0.1
     e.write(clock + 0xb98, struct.pack('<d', time))
     e.write(clock + 0xb90, struct.pack('<d', 0.1))
@@ -49,3 +57,6 @@ for tick in range(1, ticks + 1):
     print('tick', tick, flush=True)
     dump(tick)
     print('rng', rng(), flush=True)
+    if save_at and int(save_at[0]) == tick:
+        from dump_ai_world import save
+        save(e, save_at[1])
