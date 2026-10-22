@@ -194,6 +194,8 @@ pub struct DriverName {
     pub name: String,
     /// `+0x18`: 1 trucker, 2 mafia, 3 police.
     pub role: u32,
+    /// `+0x30`: how well the driver keeps his cargo (1 at the start; `damageCargo`).
+    pub care: f64,
 }
 
 impl DriverName {
@@ -203,6 +205,7 @@ impl DriverName {
             .filter_map(|f| f.as_list())
             .filter(|l| matches!(l.first(), Some(Sexp::Str(_))))
             .map(|l| DriverName {
+                care: 1.0,
                 name: l[0].as_text().unwrap_or_default().to_string(),
                 role: match l.get(2).and_then(|s| s.as_text()) {
                     Some("police") => 3,
@@ -306,6 +309,9 @@ pub struct AiPlayer {
     pub object: Option<u32>,
     /// `+0x1f0`: in the list `0x68a980` (`0x4175c0`), wanted more in the scene.
     pub tracked: bool,
+    /// For a vehicle for sale: which of the three kinds (`forsale`, `forsale_stolen`,
+    /// `forsale_used`) it counts with (`0x68ced0`).
+    pub dealer: Option<usize>,
     /// For a player in the scene (`0x41a9d0`): `+0x1c0` the filter its speed goes through (at
     /// rest at 1), `+0x3c8` whether it is at full speed, `+0x3d0` how hard it slows down (its
     /// speed may not exceed the one it has, less v²/2/(this + 0.1) a second).
@@ -323,6 +329,33 @@ pub enum SceneChange {
     Load(usize),
     /// Unload it (`0x4d8ae0`).
     Unload(usize),
+}
+
+/// An ambush of the map scripts (`( ambush ID MAFIA|POLICE ... )`, list `0x68a970` in the
+/// order of the scripts): `+0x24` 1 mafia, 2 police; `+0xf0` whether it is set now.
+#[derive(Debug, Clone)]
+pub struct Ambush {
+    pub id: String,
+    pub kind: u32,
+    pub active: bool,
+}
+
+impl Ambush {
+    pub fn from_scripts(forms: &[Sexp]) -> Vec<Ambush> {
+        let tops: Vec<&Sexp> = forms.iter().flat_map(|f| f.as_list().map_or(vec![f], |l| l.iter().collect())).collect();
+        tops.into_iter()
+            .filter_map(|f| f.form("ambush"))
+            .map(|r| Ambush {
+                id: r.first().and_then(|s| s.as_text()).unwrap_or_default().to_string(),
+                kind: match r.get(1).and_then(|s| s.as_text()) {
+                    Some("MAFIA") => 1,
+                    Some("POLICE") => 2,
+                    _ => 0,
+                },
+                active: false,
+            })
+            .collect()
+    }
 }
 
 /// A task of the game clock: what it does, when it runs next and how often.
@@ -398,6 +431,16 @@ pub struct World {
     /// (−2000 at the start; `formOrders` works when it is 20 s or more from now).
     pub town_slots: Vec<Vec<[Option<crate::objects::TownOrder>; 2]>>,
     pub orders_time: f64,
+    /// The ambushes of the map (`0x68a970`).
+    pub ambushes: Vec<Ambush>,
+    /// `0x66c6f0`: the traffic setting (1 for 100 %); `0x68d15c`, `0x68d160`: how many
+    /// competitors the human player gets and how (`0x425610`).
+    pub car_share: f64,
+    pub competitors: u32,
+    pub competition: u32,
+    /// `0x68ced0`: of each kind of vehicle for sale, how many there are and are wanted.
+    pub dealer_have: [usize; 3],
+    pub dealer_want: [usize; 3],
     /// `0x66c6e8`, drawn at the start of a new game (600..1199 s).
     pub obstacle_time: f64,
 }
@@ -409,7 +452,7 @@ impl World {
         let name_use = vec![[0, 0]; names.len()];
         let vehicle_weight = vec![1.0; vehicles.len()];
         let taken = vec![false; net.nodes.len()];
-        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
+        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, ambushes: Vec::new(), car_share: 1.0, competitors: 0, competition: 0, dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -492,7 +535,7 @@ impl World {
             _ => {}
         }
         let name = if kind == 1 { None } else { self.pick_name(kind) };
-        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
+        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
     }
 
     /// `traceToArbitraryDestination` (`0x417820`): random destinations (`0x456140`) until there
@@ -626,10 +669,21 @@ impl World {
     /// leaving it (else arriving, `0x421690`), turned when that road's first segment is one-way
     /// against it (`0x421880`).
     pub fn create_dealers(&mut self, wants: [usize; 3]) {
-        for (kind, &want) in wants.iter().enumerate() {
-            for _ in 0..want.min(100) {
+        self.dealer_want = wants;
+        self.refill_dealers();
+    }
+
+    /// `0x4221d0`: for each kind, dealers while there are fewer than wanted (100 tries at most).
+    fn refill_dealers(&mut self) {
+        for kind in 0..3 {
+            for _ in 0..100 {
+                if self.dealer_want[kind] <= self.dealer_have[kind] {
+                    break;
+                }
                 let Some((lot, slot)) = self.parking_place(kind as u32) else { break };
+                self.dealer_have[kind] += 1;
                 let mut p = self.new_player(9);
+                p.dealer = Some(kind);
                 if let Some(n) = self.slot_node(lot, slot) {
                     let node = &self.net.nodes[n];
                     let road = node.out.first().or(node.inc.first()).copied();
@@ -1099,6 +1153,92 @@ impl World {
         changes
     }
 
+    /// `updateDealers` (`0x422370`, every 27.5 s): each vehicle for sale gets a lifetime of
+    /// 900 + `next() % 120` s (drawn every time); one older than that and more than 2000 m from
+    /// the human player is sold off (`0x446c80`, deleted by `killDelayedPlayers`, its slot
+    /// freed). Those within 700 m in the scene stay as they are, the others are put back on
+    /// their slots (`0x422210`, where they are anyway here). Then the kinds are filled up again
+    /// (`0x4221d0` with 700 m, which the slot choice does not use).
+    pub fn update_dealers(&mut self, now: f64) {
+        let h = self.players.iter().find(|p| p.kind == 1).and_then(|p| self.position(p)).unwrap_or([0.0; 3]);
+        let mut gone = Vec::new();
+        for k in 0..self.players.len() {
+            if self.players[k].kind != 9 {
+                continue;
+            }
+            let life = (self.rng.next() % 120 + 900) as f64;
+            let p = &self.players[k];
+            if life < now - p.born {
+                let q = self.position(p).unwrap_or([0.0; 3]);
+                let d = [h[0] - q[0], h[1] - q[1], h[2] - q[2]];
+                if 2000.0 < ((d[2] * d[2] + d[1] * d[1]) + d[0] * d[0]).sqrt() {
+                    gone.push(k);
+                }
+            }
+        }
+        for k in gone {
+            if let Some((lot, slot)) = self.players[k].parked {
+                self.slots[lot][slot] = None;
+                self.lot_used[lot] -= 1;
+            }
+            if let Some(kind) = self.players[k].dealer {
+                self.dealer_have[kind] -= 1;
+            }
+            self.unload(k);
+            let p = &mut self.players[k];
+            p.kind = 0;
+            p.place = None;
+            p.route.clear();
+        }
+        self.refill_dealers();
+    }
+
+    /// `provideCompetitionRegular` (`0x4262a0`, every 30 s) as far as the human player has no
+    /// order (`0x425790`): the tracked competitors are let go (`0x4256f0`) and drawn again how
+    /// many there will be, 3 + `next() % (⌊3.1 · traffic + 4⌋ − 2)`, and how they compete,
+    /// `next() & 3` (`0x425610`). The branches for a human player with an order are not ported.
+    pub fn provide_competition(&mut self) {
+        let Some(h) = self.players.iter().position(|p| p.kind == 1) else { return };
+        if self.players[h].state == 5 {
+            return;
+        }
+        for p in &mut self.players {
+            p.tracked = false;
+        }
+        let n = (self.car_share * 3.1 + 4.0) as u32;
+        self.competitors = self.rng.next() % (n - 2) + 3;
+        self.competition = self.rng.next() & 3;
+    }
+
+    /// `markAmbushes` (`0x42c0b0`, every 300 s): police ambushes are set with the chance 0.3
+    /// (`next() % 1000000 < 300000`); mafia ones only while the human player is wanted
+    /// (`+0xe0`, `+0xc9`) and his `+0x300` is over 0.2, which never holds at the start (not
+    /// ported further).
+    pub fn mark_ambushes(&mut self) {
+        for k in 0..self.ambushes.len() {
+            self.ambushes[k].active = false;
+            if self.ambushes[k].kind == 2 {
+                self.ambushes[k].active = ((self.rng.next() % 1_000_000) as f64) < 300000.0;
+            }
+        }
+    }
+
+    /// `damageCargo` (`0x420b90`, every 5.1 s): for each trucker a number is drawn; when it is
+    /// at least a million times the driver's care (never while that is 1), its cargo would be
+    /// damaged (`0x446d20`; the truckers carry nothing yet).
+    pub fn damage_cargo(&mut self) {
+        for k in 0..self.players.len() {
+            if self.players[k].kind != 2 {
+                continue;
+            }
+            let care = self.players[k].name.and_then(|n| self.names.get(n)).map_or(1.0, |n| n.care);
+            let draw = (self.rng.next() % 1_000_000) as f64;
+            if care * 1_000_000.0 <= draw {
+                // 0x446d20: the cargo is damaged (no cargo is carried yet)
+            }
+        }
+    }
+
     /// The tasks of the game clock a new game starts (`0x434780`), at the time 0 (the period of
     /// `ObstaclesTask` is drawn: 600 + `next() % 300`). Ported of them:
     /// `updateGhosts` (every 15^(1 − 0.7·traffic) × 2.667 s); the others only take their turns.
@@ -1150,6 +1290,18 @@ impl World {
             }
             if t.name == "formOrders" {
                 self.form_orders(now);
+            }
+            if t.name == "updateDealers" {
+                self.update_dealers(now);
+            }
+            if t.name == "provideCompetitionRegular" {
+                self.provide_competition();
+            }
+            if t.name == "markAmbushes" {
+                self.mark_ambushes();
+            }
+            if t.name == "damageCargo" {
+                self.damage_cargo();
             }
             t.time += t.period;
             if t.time + t.period * 8.0 < now {
@@ -1314,6 +1466,8 @@ impl World {
         // 0x66c6e8: 600 to 1199 s, drawn with the second generator
         w.obstacle_time = (600 + w.rng2.next() % 600) as f64;
         w.ghost_want = cnf.counts[8];
+        w.car_share = car_share;
+        w.ambushes = Ambush::from_scripts(&scripts);
         w.create_tasks(car_share);
         w
     }
