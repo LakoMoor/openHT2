@@ -41,9 +41,10 @@ impl World {
     /// (`0x429340`). While fewer are, the richest trucker with a licence and no company founds
     /// one (while there are fewer than `0x66c700` = 7 companies, not counting the human
     /// player's; else the richest that has one hires again), and a free trucker is drawn
-    /// (`0x45ef70`) to work for him (`0x476bc0`). When at most one trucker is free, the
-    /// employees of the company worth least (`0x429690`) would quit (not ported: it does not
-    /// happen with the truckers of a map).
+    /// (`0x45ef70`) to work for him (`0x476bc0`). When at most one trucker is free (`0x419000`),
+    /// the company worth least (`0x429690`) breaks up: its employees leave (`0x476f70`, the last
+    /// first), its owner keeps the money he had, and there may be one company less (`0x66c700`,
+    /// not below 1); an owner who works for someone himself leaves him instead.
     pub fn update_companies(&mut self, now: f64) {
         let have = self.players.iter().filter(|p| p.kind == 2 && (!p.members.is_empty() || p.boss.is_some())).count() as i64;
         let mut f = (self.truckers_want as i64 - self.hired_want as i64) as f64;
@@ -72,7 +73,82 @@ impl World {
                 }
             }
         }
-        // 0x419000: the free truckers; with at most one the least worth company would break up
+        let free = (0..self.players.len()).filter(|&k| self.players[k].state != 0x100 && self.players[k].state != 0x101 && self.can_hire(k)).count();
+        if 1 < free {
+            return;
+        }
+        // 0x429690: of the owners other than the human player, the one worth least
+        let mut worst = None;
+        let mut least = f64::MAX;
+        for k in 0..self.players.len() {
+            if self.players[k].kind != 1 && !self.players[k].members.is_empty() {
+                let c = self.capital(k);
+                if c < least {
+                    least = c;
+                    worst = Some(k);
+                }
+            }
+        }
+        let Some(w) = worst else { return };
+        let money = self.players[w].money;
+        match self.players[w].boss {
+            None => {
+                while let Some(&e) = self.players[w].members.last() {
+                    if !self.leave(w, e) {
+                        break;
+                    }
+                }
+                self.players[w].money = money;
+                if 1 < self.company_cap {
+                    self.company_cap -= 1;
+                }
+            }
+            Some(b) => {
+                self.leave(b, w);
+            }
+        }
+    }
+
+    /// `getPlayerCapital` (`0x429530`): what an owner and his employees' vehicles are worth
+    /// (`0x473680`: the vehicle less its damage in the scene · 5000; no damage here).
+    pub fn capital(&self, k: usize) -> f64 {
+        let mut c = self.vehicle_value(k);
+        for &e in &self.players[k].members {
+            c = self.vehicle_value(e) + c;
+        }
+        c
+    }
+
+    /// `0x476f70`: employee `e` leaves `b`: he works for no one, his account starts again, and
+    /// `b` buys his vehicle back (`0x473670`; what `e` cannot pay, `b` does not get). With no
+    /// employee left `b`'s company is gone (`0x476b50`: one less, its logo free).
+    pub fn leave(&mut self, b: usize, e: usize) -> bool {
+        if b == e || self.players[b].members.is_empty() || self.players[e].boss.is_none() {
+            return false;
+        }
+        let Some(i) = self.players[b].members.iter().position(|&m| m == e) else { return false };
+        self.players[b].members.remove(i);
+        self.players[e].boss = None;
+        self.players[e].company_balance = 0.0;
+        let v = self.vehicle_value(e);
+        self.players[e].money -= v;
+        let before = self.players[b].money;
+        self.players[b].money = v + before;
+        if self.players[e].money < 0.0 {
+            self.players[b].money = v + before + self.players[e].money;
+            self.players[e].money = 0.0;
+        }
+        self.players[e].flags &= !0x800;
+        if self.players[b].members.is_empty() {
+            self.players[b].flags &= !0x1000;
+            self.companies = self.companies.saturating_sub(1);
+            if self.players[b].kind != 1 {
+                if let Some(l) = self.players[b].logo.take() {
+                    self.logos[l] = false;
+                }
+            }
+        }
+        true
     }
 
     /// `0x476bc0`: trucker `b` hires trucker `e` (neither the other, neither working for anyone,

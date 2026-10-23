@@ -1300,31 +1300,38 @@ impl World {
             let moved = (d[2] * d[2] + d[1] * d[1] + d[0] * d[0]).sqrt();
             if let Some(b) = self.players[k].boss {
                 // an employee spends its advance, its pay per kilometre; when it is gone, its
-                // boss pays ten times the pay again (the boss without the money is not ported)
+                // boss pays ten times the pay again, and without the money the employee leaves
+                // (0x476f70)
                 let pay = self.salary(k);
                 let p = &mut self.players[k];
                 p.advance -= pay * moved * 0.001;
-                if p.advance < 0.0 && pay * 10.0 <= self.players[b].money {
-                    let pay = self.salary(k);
-                    self.players[k].salary = pay;
-                    self.players[b].money -= pay * 10.0;
-                    let p = &mut self.players[k];
-                    let x = p.salary * 10.0;
-                    p.advance += x;
-                    p.money += x;
-                    p.company_balance -= x;
+                if p.advance < 0.0 {
+                    if pay * 10.0 <= self.players[b].money {
+                        let pay = self.salary(k);
+                        self.players[k].salary = pay;
+                        self.players[b].money -= pay * 10.0;
+                        let p = &mut self.players[k];
+                        let x = p.salary * 10.0;
+                        p.advance += x;
+                        p.money += x;
+                        p.company_balance -= x;
+                    } else {
+                        self.leave(b, k);
+                    }
                 }
             }
             if self.players[k].kind == 2 {
                 match self.players[k].boss {
                     // the fuel a trucker of no company pays for (0.002 a unit of its record's use
-                    // per metre); a company pays 2e-5 (with no money left the employee would quit,
-                    // not ported)
+                    // per metre); a company pays 2e-5, and with no money left the employee leaves
                     None => self.players[k].money -= moved * fuel * 0.002,
                     Some(b) => {
                         let x = moved * fuel * 2e-5;
                         self.players[b].money -= x;
                         self.players[k].company_balance -= x;
+                        if self.players[b].money < 0.0 {
+                            self.leave(b, k);
+                        }
                     }
                 }
             }
