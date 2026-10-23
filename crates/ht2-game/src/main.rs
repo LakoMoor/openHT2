@@ -25,7 +25,7 @@ use winit::{
     window::{Window, WindowId},
 };
 
-const USAGE: &str = "usage: ht2-game [<game dir>] [--map ENV | MENV/dr] [--truck Kamaz] [--shot out.png [--seconds N] [--overview]]
+const USAGE: &str = "usage: ht2-game [<game dir>] [--map ENV | MENV/dr] [--truck Kamaz] [--shot out.png [--seconds N] [--overview | --cab]]
 \n  the game dir defaults to $HT2_GAME, else a folder \"Hard Truck 2 King of the Road\" next to the current one or its parents";
 const STEP: f32 = 1.0 / 120.0;
 
@@ -144,6 +144,10 @@ struct Truck {
     wheel_parts: Vec<Vec<b3d::Batch>>,
     wheels: Vec<Wheel>,
     ride_height: f32,
+    /// Where the driver's eyes are in the model (stand-in: the original's cab view, with the
+    /// interiors of `COMMON/CABINES.B3D`, is not ported): left of the middle, 0.5 m under the
+    /// roof of the front 3 m of the body, 1.2 m behind its front.
+    cab_eye: Vec3,
 }
 
 /// The vehicle models (`COMMON/TRUCKS.B3D`, all of them in one file with their textures) and
@@ -232,7 +236,13 @@ impl Models {
         let positions: Vec<Vec3> = wheels.iter().map(|w| w.mount.w_axis.truncate()).collect();
         let (wheel_nodes, add_nodes) = self.nodes(&t.prefix);
         let params = truck_params(t, &positions, wheel_nodes, add_nodes)?;
-        Ok(Truck { params, body, wheel_parts, wheels, ride_height: -low })
+        let cab_eye = {
+            let verts = || body.iter().flat_map(|b| b.verts.iter().map(|v| v.pos));
+            let front = verts().map(|p| p[1]).fold(f32::MIN, f32::max);
+            let roof = verts().filter(|p| front - 3.0 < p[1]).map(|p| p[2]).fold(f32::MIN, f32::max);
+            Vec3::new(-0.45, front - 1.2, roof - 0.5)
+        };
+        Ok(Truck { params, body, wheel_parts, wheels, ride_height: -low, cab_eye })
     }
 }
 
@@ -304,6 +314,44 @@ fn chase_view_proj(v: &Vehicle, aspect: f32) -> Mat4 {
     chase_from(v.pos, v.forward(), aspect)
 }
 
+/// The 2D layer (stand-in for the original's interface): the instruments at the bottom right
+/// and the keys at the top left.
+fn hud(v: &Vehicle, size: (u32, u32), cab: bool) -> Vec<ht2_render::hud::Rect> {
+    use ht2_render::hud::{text, text_width, Rect};
+    let mut out = Vec::new();
+    let (w, h) = (size.0 as f32, size.1 as f32);
+    let k = (h / 480.0).max(1.0).floor();
+    let white = [1.0, 1.0, 1.0, 1.0];
+    let amber = [1.0, 0.75, 0.2, 1.0];
+    let gear = match v.gear { 0 => "R".to_string(), 1 => "N".to_string(), g => (g - 1).to_string() };
+    let speed = format!("{:.0}", (v.speed * 3.6).abs());
+    let lines = [format!("GEAR {gear}"), format!("RPM {:.0}", v.rpm()), format!("FUEL {:.0} L", v.fuel)];
+    let pw = 150.0 * k;
+    let ph = 92.0 * k;
+    let (px, py) = (w - pw - 12.0 * k, h - ph - 12.0 * k);
+    out.push(Rect { x: px, y: py, w: pw, h: ph, color: [0.0, 0.0, 0.0, 0.55] });
+    let big = 4.0 * k;
+    text(&mut out, &speed, px + pw - 10.0 * k - text_width(&speed, big) - text_width(" KM/H", k), py + 8.0 * k, big, amber);
+    text(&mut out, " KM/H", px + pw - 10.0 * k - text_width(" KM/H", k), py + 8.0 * k + 21.0 * k, k, white);
+    for (i, l) in lines.iter().enumerate() {
+        text(&mut out, l, px + 10.0 * k, py + 42.0 * k + i as f32 * 15.0 * k, 2.0 * k * 0.5 + k * 0.5, white);
+    }
+    let keys = format!("W/S GAS/BRAKE  A/D STEER  C {}  R RESTART  ESC EXIT", if cab { "CHASE VIEW" } else { "CAB VIEW" });
+    out.push(Rect { x: 8.0 * k, y: 8.0 * k, w: text_width(&keys, k) + 12.0 * k, h: 7.0 * k + 12.0 * k, color: [0.0, 0.0, 0.0, 0.45] });
+    text(&mut out, &keys, 14.0 * k, 14.0 * k, k, white);
+    out
+}
+
+/// From the driver's seat, looking ahead along the body.
+fn cab_view_proj(v: &Vehicle, eye: Vec3, aspect: f32) -> Mat4 {
+    let m = v.model();
+    let eye = m.transform_point3(eye);
+    let fwd = m.transform_vector3(Vec3::Y).normalize_or(Vec3::Y);
+    let up = m.transform_vector3(Vec3::Z).normalize_or(Vec3::Z);
+    let target = eye + fwd * 10.0 - up * 0.6;
+    Mat4::perspective_rh(65f32.to_radians(), aspect, 0.1, 6000.0) * Mat4::look_at_rh(eye, target, up)
+}
+
 fn chase_from(pos: Vec3, fwd: Vec3, aspect: f32) -> Mat4 {
     let fwd = fwd.with_z(0.0).normalize_or(Vec3::Y);
     let eye = pos - fwd * 16.0 + Vec3::Z * 6.5;
@@ -341,6 +389,7 @@ fn run() -> Result<(), String> {
     let mut args = std::env::args().skip(1);
     let mut dir = None;
     let (mut map, mut truck, mut shot, mut seconds, mut overview) = ("ENV".to_string(), None, None, 10.0f32, false);
+    let mut cab = false;
     while let Some(a) = args.next() {
         let mut val = || args.next().ok_or(USAGE.to_string());
         match a.as_str() {
@@ -349,6 +398,7 @@ fn run() -> Result<(), String> {
             "--shot" => shot = Some(PathBuf::from(val()?)),
             "--seconds" => seconds = val()?.parse().map_err(|_| USAGE)?,
             "--overview" => overview = true,
+            "--cab" => cab = true,
             _ => dir = Some(PathBuf::from(a)),
         }
     }
@@ -365,6 +415,22 @@ fn run() -> Result<(), String> {
             // The demo is driven by the ported computer driver (HT2_WEAVE=1: full throttle with a
             // gentle weave instead).
             let weave = std::env::var_os("HT2_WEAVE").is_some();
+            // HT2_INPUT_TEST=1: the keyboard as a player would use it: gas for 10 s, then brake.
+            if std::env::var_os("HT2_INPUT_TEST").is_some() {
+                let mut t = 0.0;
+                let mut next = 0.0;
+                while t < 16.0 {
+                    let (throttle, brake) = if t < 10.0 { (1.0, 0.0) } else { (0.0, 1.0) };
+                    game.world.vehicle.step(Input { steer: 0.0, throttle, brake }, &game.world.ground, STEP);
+                    t += STEP;
+                    if t >= next {
+                        let v = &game.world.vehicle;
+                        println!("t={t:5.2} {} speed {:5.1} km/h gear {}", if brake > 0.0 { "brake" } else { "gas  " }, v.speed * 3.6, v.gear);
+                        next += 1.0;
+                    }
+                }
+                return Ok(());
+            }
             if !weave {
                 game.world.vehicle.set_autopilot(&game.world.ground);
             }
@@ -396,8 +462,10 @@ fn run() -> Result<(), String> {
             let vp = match follow {
                 Some(p) => chase_from(p.body.w_axis.truncate(), p.body.y_axis.truncate(), aspect),
                 None if overview => overview_view_proj(v, aspect, 1500.0),
+                None if cab => cab_view_proj(v, game.world.truck.cab_eye, aspect),
                 None => chase_view_proj(v, aspect),
             };
+            game.renderer.set_hud(hud(&game.world.vehicle, size, cab));
             let rgba = game.renderer.screenshot(size, vp);
             save_png(&path, size, &rgba)?;
             println!("wrote {}", path.display());
@@ -405,7 +473,7 @@ fn run() -> Result<(), String> {
         }
         None => {
             let event_loop = EventLoop::new().map_err(|e| e.to_string())?;
-            let mut app = App { instance, world: Some(world), gfx: None, keys: HashSet::new(), last: Instant::now(), acc: 0.0 };
+            let mut app = App { instance, world: Some(world), gfx: None, keys: HashSet::new(), last: Instant::now(), acc: 0.0, cab: false };
             event_loop.run_app(&mut app).map_err(|e| e.to_string())
         }
     }
@@ -496,6 +564,8 @@ struct App {
     keys: HashSet<KeyCode>,
     last: Instant,
     acc: f32,
+    /// C switches between the chase and the cab view.
+    cab: bool,
 }
 
 impl App {
@@ -537,6 +607,9 @@ impl ApplicationHandler for App {
                         if code == KeyCode::Escape {
                             el.exit();
                         }
+                        if code == KeyCode::KeyC {
+                            self.cab = !self.cab;
+                        }
                         if code == KeyCode::KeyR {
                             if let Some(g) = self.gfx.as_mut() {
                                 let (p, h, r) = g.game.world.spawn;
@@ -571,7 +644,9 @@ impl ApplicationHandler for App {
                     Ok(frame) => {
                         let view = frame.texture.create_view(&Default::default());
                         let size = (g.config.width, g.config.height);
-                        let vp = chase_view_proj(&g.game.world.vehicle, size.0 as f32 / size.1 as f32);
+                        let aspect = size.0 as f32 / size.1 as f32;
+                        let vp = if self.cab { cab_view_proj(&g.game.world.vehicle, g.game.world.truck.cab_eye, aspect) } else { chase_view_proj(&g.game.world.vehicle, aspect) };
+                        g.game.renderer.set_hud(hud(&g.game.world.vehicle, size, self.cab));
                         g.game.renderer.draw(&view, size, vp);
                         let v = &g.game.world.vehicle;
                         let gear = match v.gear { 0 => "R".to_string(), 1 => "N".to_string(), g => (g - 1).to_string() };

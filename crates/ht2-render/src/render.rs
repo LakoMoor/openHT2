@@ -36,6 +36,25 @@ struct VOut { @builtin(position) pos: vec4<f32>, @location(0) uv: vec2<f32> };
 }
 "#;
 
+/// The 2D layer: coloured triangles already in clip space.
+const HUD_SHADER: &str = r#"
+struct VOut { @builtin(position) pos: vec4<f32>, @location(0) color: vec4<f32> };
+@vertex fn vs(@location(0) p: vec2<f32>, @location(1) c: vec4<f32>) -> VOut {
+    var o: VOut;
+    o.pos = vec4<f32>(p, 0.0, 1.0);
+    o.color = c;
+    return o;
+}
+@fragment fn fs(i: VOut) -> @location(0) vec4<f32> { return i.color; }
+"#;
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct HudVertex {
+    pos: [f32; 2],
+    color: [f32; 4],
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct GpuVertex {
@@ -78,6 +97,8 @@ pub struct Renderer {
     objects: Vec<Object>,
     texture_sets: Vec<Vec<wgpu::TextureView>>,
     depth: Option<(wgpu::TextureView, (u32, u32))>,
+    hud_pipeline: wgpu::RenderPipeline,
+    hud: Vec<crate::hud::Rect>,
 }
 
 fn uniform_entry(binding: u32, visibility: wgpu::ShaderStages) -> wgpu::BindGroupLayoutEntry {
@@ -169,7 +190,34 @@ impl Renderer {
             ..Default::default()
         });
         let white = upload(&device, &queue, 1, 1, &[255; 4]);
-        Self { device, queue, pipeline, pipeline_blend, obj_layout, mat_layout, sampler, white, objects: Vec::new(), texture_sets: Vec::new(), depth: None }
+        let hud_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("hud"), source: wgpu::ShaderSource::Wgsl(HUD_SHADER.into()) });
+        let hud_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: None, bind_group_layouts: &[], push_constant_ranges: &[] });
+        let hud_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("hud"),
+            layout: Some(&hud_layout),
+            vertex: wgpu::VertexState {
+                module: &hud_shader,
+                entry_point: Some("vs"),
+                compilation_options: Default::default(),
+                buffers: &[wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<HudVertex>() as u64,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x4],
+                }],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &hud_shader,
+                entry_point: Some("fs"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::ColorTargetState { format, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })],
+            }),
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: Default::default(),
+            multiview: None,
+            cache: None,
+        });
+        Self { device, queue, pipeline, pipeline_blend, obj_layout, mat_layout, sampler, white, objects: Vec::new(), texture_sets: Vec::new(), depth: None, hud_pipeline, hud: Vec::new() }
     }
 
     /// Upload a scene's geometry and textures and return a handle to place it with [`set_model`](Self::set_model).
@@ -261,6 +309,11 @@ impl Renderer {
         ObjectId(self.objects.len() - 1)
     }
 
+    /// What the 2D layer shows over the scene from the next frame on (window pixels).
+    pub fn set_hud(&mut self, rects: Vec<crate::hud::Rect>) {
+        self.hud = rects;
+    }
+
     pub fn set_model(&mut self, id: ObjectId, model: Mat4) {
         self.objects[id.0].model = model;
     }
@@ -320,6 +373,28 @@ impl Renderer {
                     }
                 }
             }
+        }
+        if !self.hud.is_empty() {
+            let (w, h) = (size.0 as f32, size.1 as f32);
+            let clip = |x: f32, y: f32| [x / w * 2.0 - 1.0, 1.0 - y / h * 2.0];
+            let mut verts = Vec::with_capacity(self.hud.len() * 6);
+            for r in &self.hud {
+                let (a, b, c, d) = (clip(r.x, r.y), clip(r.x + r.w, r.y), clip(r.x + r.w, r.y + r.h), clip(r.x, r.y + r.h));
+                for p in [a, b, c, a, c, d] {
+                    verts.push(HudVertex { pos: p, color: r.color });
+                }
+            }
+            let vbuf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("hud"), contents: bytemuck::cast_slice(&verts), usage: wgpu::BufferUsages::VERTEX });
+            let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("hud"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment { view: target, resolve_target: None, ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store } })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            pass.set_pipeline(&self.hud_pipeline);
+            pass.set_vertex_buffer(0, vbuf.slice(..));
+            pass.draw(0..verts.len() as u32, 0..1);
         }
         self.queue.submit([enc.finish()]);
     }

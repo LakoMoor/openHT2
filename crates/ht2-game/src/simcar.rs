@@ -199,9 +199,14 @@ impl SimCar {
         };
         m.set_i16(CAR + 0x2746, request);
         let (pedal, braking) = if reversing { (brake, 0.0) } else { (throttle, brake) };
-        m.set_f32(CAR + 0x270c, pedal.clamp(0.0, 1.0));
+        // Keyboard control as the game has it (+0x2704 = 0, 0x4ff800): +0x2714 is the gas key
+        // and +0x2716 the brake key; both ramp up while held. (+0x270c and +0x2710 are the
+        // pedals of analog control.)
+        m.set_i16(CAR + 0x2704, 0);
+        m.set_f32(CAR + 0x270c, 0.0);
         m.set_f32(CAR + 0x2710, 0.0);
-        m.set_i16(CAR + 0x2714, (braking > 0.0) as i16);
+        m.set_i16(CAR + 0x2714, (pedal > 0.0) as i16);
+        m.set_i16(CAR + 0x2716, (braking > 0.0) as i16);
         with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, CAR));
         self.step_traffic(ground, dt);
     }
