@@ -343,8 +343,18 @@ pub struct AiPlayer {
     pub earning: f64,
     pub share: f64,
     pub fleet: f64,
-    /// `+0x90`: the times its marks run out (`0x4774e0`).
-    pub marks: Vec<f64>,
+    /// `+0x88`: its licences, the times they run out (`0x4774e0`; `LICENCES_EXPIRED`,
+    /// `0x477420`).
+    pub licences: Vec<f64>,
+    /// Its company (`ai_play.cpp`): whom it works for (`+0xa8`), who works for it (`+0x98`),
+    /// its pay (`+0x358`), what is left of its advance (`+0xb8`), what it has earned or spent
+    /// for the company (`+0x218`) and its company's logo (`+0x94`).
+    pub boss: Option<usize>,
+    pub members: Vec<usize>,
+    pub salary: f64,
+    pub advance: f64,
+    pub company_balance: f64,
+    pub logo: Option<usize>,
     /// `+0x28` of its vehicle (flag 2: it may be alarmed, `0x442850`) and whether it is (`+0x108`).
     pub vehicle_flags: u32,
     pub alarmed: bool,
@@ -531,6 +541,12 @@ pub struct World {
     /// `0x66c68c`: standing ends at once rather than when its time is over (set when the AI
     /// starts, `0x403940`; a new game clears it, `0x423c00`).
     pub stand_free: bool,
+    /// The companies (`0x68d18c`), how many there may be (`0x66c700`), the logos taken
+    /// (`0x68cc88`, flag 1) and how many truckers the map wants (`playertypes` of `GAME.CNF`).
+    pub companies: u32,
+    pub company_cap: u32,
+    pub logos: [bool; 8],
+    pub truckers_want: usize,
     /// `0x68d14c`: how many vehicles are hired out.
     pub hired_count: usize,
     /// `0x68d164`: how many competitors have arrived.
@@ -556,7 +572,7 @@ impl World {
         let name_use = vec![[0, 0]; names.len()];
         let vehicle_weight = vec![1.0; vehicles.len()];
         let taken = vec![false; net.nodes.len()];
-        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, debug_arrivals: false, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, hired_want: 0, hired_waiting: 0, stand_free: true, hired_count: 0, competitors_arrived: 0, tech: Vec::new(), ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
+        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, debug_arrivals: false, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, hired_want: 0, hired_waiting: 0, companies: 0, company_cap: 7, logos: [false; 8], truckers_want: 0, stand_free: true, hired_count: 0, competitors_arrived: 0, tech: Vec::new(), ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -639,7 +655,7 @@ impl World {
             _ => {}
         }
         let name = if kind == 1 { None } else { self.pick_name(kind) };
-        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, race_index: 0, laps: 0, race_progress: 0.0, waypoint: false, until: f64::MAX, town: -1, order: -1, loads: Vec::new(), money: 40000.0, earned: 0.0, earning: 2.0, share: 0.0, fleet: 0.0, rating: 10000.0, marks: Vec::new(), vehicle_flags: 0, alarmed: false, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
+        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, race_index: 0, laps: 0, race_progress: 0.0, waypoint: false, until: f64::MAX, town: -1, order: -1, loads: Vec::new(), money: 40000.0, earned: 0.0, earning: 2.0, share: 0.0, fleet: 0.0, rating: 10000.0, licences: Vec::new(), boss: None, members: Vec::new(), salary: 0.0, advance: 0.0, company_balance: 0.0, logo: None, vehicle_flags: 0, alarmed: false, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
     }
 
     /// `traceToArbitraryDestination` (`0x417820`): random destinations (`0x456140`) until there
@@ -876,7 +892,7 @@ impl World {
     /// goes anywhere (`0x417820`), else for the closest order (`0x4185d0`).
     fn send_for_something(&mut self, k: usize) {
         let p = &self.players[k];
-        if self.hired_count < self.hired_want && p.kind == 2 && p.state == 0 && p.vehicle.is_some() && p.loads.is_empty() {
+        if self.hired_count < self.hired_want && p.kind == 2 && p.state == 0 && self.can_hire(k) && p.loads.is_empty() {
             self.go_hire_it(k);
             return;
         }
@@ -893,13 +909,15 @@ impl World {
 
     /// The move of the players in a tick while their rooms are not loaded (`processMove`,
     /// `0x41ae60`; `prescribeAdvance`, `0x41a9d0`; `advancePlayer`, `0x435a90`): 20 m/s (police
-    /// 1.3 times that) times the time since the last tick along the route. The human player, the
-    /// vehicles standing for sale and those hired out do not move.
+    /// 1.3 times that) times the time since the last tick along the route. The human player and
+    /// the players standing (flag 4: the vehicles for sale, those hired out at their slot) do not
+    /// move.
     pub fn tick_move(&mut self, now: f64) {
         let dt = now - self.last_tick;
         for k in 0..self.players.len() {
             self.end_standing(k, now);
             self.move_player(k, dt);
+            self.expire_licences(k, now);
             // then, for a racer, the race (0x416b80)
             if self.players[k].state == 5 && self.players[k].kind != 0 {
                 self.race_step(k);
@@ -1147,7 +1165,7 @@ impl World {
     }
 
     /// A racer at its finish (`actOnArrival`, `0x419dc0`, ten check points passed): a number is
-    /// drawn (360 + `next() % 360`, the time of the marks a racer gets when competitors have
+    /// drawn (360 + `next() % 360`, the time of the licences a racer gets when competitors have
     /// arrived, not ported), the game is told (event 11), one more point is counted; a
     /// competitor has arrived (`0x417530`). It races no more (`0x417680`: out of the racers, flag
     /// 0x4000 and its route go, state 0), stands 20 s and goes anywhere (`0x417820`); when no
@@ -1180,7 +1198,7 @@ impl World {
     /// slot is free, it stands no longer (`0x477d60`); a trucker goes for the closest order
     /// (`0x4185d0`), others to a random node other than the nearest one (`0x405a60`,
     /// `0x40a2a0`); then it stands for 20 s. (With cargo it would deliver it, `0x417ed0`.)
-    fn cancel_hiring(&mut self, k: usize, now: f64) {
+    pub(crate) fn cancel_hiring(&mut self, k: usize, now: f64) {
         if self.players[k].state == 0x101 {
             self.hired_count = self.hired_count.saturating_sub(1);
             if self.players[k].flags & 4 != 0 {
@@ -1215,7 +1233,7 @@ impl World {
             let in_scene = self.in_scene(&self.players[k]);
             let p = &mut self.players[k];
             // 0x41ae60: not the human player (flag 1) and not standing (flag 4)
-            if p.kind == 0 || p.kind == 1 || p.flags & 4 != 0 || p.state == 0x100 || p.state == 0x101 || p.driven {
+            if p.kind == 0 || p.kind == 1 || p.flags & 4 != 0 || p.driven {
                 return;
             }
             let Some(Spot::Road(mut place)) = p.place else { return };
@@ -1272,16 +1290,43 @@ impl World {
                 Some(v) if self.players[k].kind == 2 => self.tech_of(v).map_or(0.0, |t| t.fuel_use as f64),
                 _ => 0.0,
             };
-            let p = &mut self.players[k];
-            let Some(place) = p.place else { continue };
+            let Some(place) = self.players[k].place else { continue };
             let q = self.net.spot_coordinates(&place);
+            let p = &mut self.players[k];
             let d = [q[0] - p.last_pos[0], q[1] - p.last_pos[1], q[2] - p.last_pos[2]];
             p.last_pos = q;
             let moved = (d[2] * d[2] + d[1] * d[1] + d[0] * d[0]).sqrt();
-            if p.kind == 2 {
-                // the fuel a trucker of no company pays for (0.002 a unit of its record's use per metre)
-                p.money -= moved * fuel * 0.002;
+            if let Some(b) = self.players[k].boss {
+                // an employee spends its advance, its pay per kilometre; when it is gone, its
+                // boss pays ten times the pay again (the boss without the money is not ported)
+                let pay = self.salary(k);
+                let p = &mut self.players[k];
+                p.advance -= pay * moved * 0.001;
+                if p.advance < 0.0 && pay * 10.0 <= self.players[b].money {
+                    let pay = self.salary(k);
+                    self.players[k].salary = pay;
+                    self.players[b].money -= pay * 10.0;
+                    let p = &mut self.players[k];
+                    let x = p.salary * 10.0;
+                    p.advance += x;
+                    p.money += x;
+                    p.company_balance -= x;
+                }
             }
+            if self.players[k].kind == 2 {
+                match self.players[k].boss {
+                    // the fuel a trucker of no company pays for (0.002 a unit of its record's use
+                    // per metre); a company pays 2e-5 (with no money left the employee would quit,
+                    // not ported)
+                    None => self.players[k].money -= moved * fuel * 0.002,
+                    Some(b) => {
+                        let x = moved * fuel * 2e-5;
+                        self.players[b].money -= x;
+                        self.players[k].company_balance -= x;
+                    }
+                }
+            }
+            let p = &mut self.players[k];
             let raw = moved / dt;
             if raw < 100.0 {
                 for _ in 0..steps - 1 {
@@ -2074,6 +2119,9 @@ impl World {
             if t.name == "provideRacesRegular" {
                 self.provide_races(now);
             }
+            if t.name == "updateCompanies" {
+                self.update_companies(now);
+            }
             if t.name == "updateRating" {
                 self.update_rating();
             }
@@ -2256,6 +2304,7 @@ impl World {
         // 0x66c6e8: 600 to 1199 s, drawn with the second generator
         w.obstacle_time = (600 + w.rng2.next() % 600) as f64;
         w.ghost_want = cnf.counts[8];
+        w.truckers_want = cnf.counts[2];
         w.car_share = car_share;
         w.ambushes = Ambush::from_scripts(&scripts);
         w.obstacles = Obstacle::from_scripts(&scripts, &w.net);

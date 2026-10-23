@@ -179,7 +179,7 @@ impl World {
     /// every load for the town goes; what they pay (`0x471450`: the price less the damage) is
     /// earned (`+0x80`, `+0x2f8`; a player of a company would pay it to the company). Then a
     /// number is drawn (360 + `next() % 360`, used for competitors), and for a player who is not
-    /// a competitor one in 24 (`0x429850`) marks it for 300 s (`0x4774e0`). The game is told
+    /// a competitor one in 24 (`0x429850`) licences it for 300 s (`0x4774e0`). The game is told
     /// (event 11) and `accountForChangeInLoadState` (`0x442c60`) runs.
     pub fn unload_order(&mut self, k: usize, t: usize, r: usize, now: f64) {
         let Some(&(_, attr)) = self.towns.get(t).and_then(|x| x.nodes.get(r)) else { return };
@@ -204,9 +204,14 @@ impl World {
             }
             earned = (pay - damage) + earned;
         }
-        let p = &mut self.players[k];
-        p.money += earned;
-        p.earned += earned;
+        match self.players[k].boss {
+            None => self.players[k].money += earned,
+            Some(b) => {
+                self.players[k].company_balance += earned;
+                self.players[b].money += earned;
+            }
+        }
+        self.players[k].earned += earned;
         let _ = self.rng.next() % 360 + 360;
         if !competitor {
             // 0x429850: one in 24, 12 or 6 as the human player's share is over 0.1 or 0.2
@@ -219,7 +224,7 @@ impl World {
                 d = 4;
             }
             if self.rng.next() % (24 / d) == 0 {
-                self.players[k].marks.push(now + 300.0);
+                self.players[k].licences.push(now + 300.0);
             }
         } else {
             // the competitor's arrival (0x4774e0, COMPETITOR_ARRIVED) is not ported

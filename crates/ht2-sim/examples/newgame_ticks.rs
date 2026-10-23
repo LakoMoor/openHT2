@@ -62,4 +62,21 @@ fn main() {
         }
         println!("{}", rng(&w));
     }
+    if std::env::var_os("LOTS").is_some() {
+        for (li, slots) in w.slots.iter().enumerate() {
+            let occ: Vec<String> = slots.iter().map(|o| o.map_or(".".to_string(), |k| k.to_string())).collect();
+            println!("lot {li} used {} {:?}", w.lot_used[li], occ);
+        }
+    }
+    if let Some(k) = std::env::var("ADV").ok().and_then(|k| k.parse::<usize>().ok()) {
+        let p = &w.players[k];
+        if let Some(ht2_sim::road::Spot::Road(mut q)) = p.place {
+            let r = &w.net.roads[q.road];
+            println!("road {} start {} end {} segments {}", q.road, r.start, r.end, r.segments.len());
+            println!("route head {:?}", &p.route[..3.min(p.route.len())]);
+            let mut d = 10.0;
+            w.net.advance_route(&mut q, &mut d, &p.route);
+            println!("after {:?} left {d}", q);
+        }
+    }
 }
