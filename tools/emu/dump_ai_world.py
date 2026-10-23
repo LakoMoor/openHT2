@@ -59,8 +59,9 @@ def load(folder, full=False, events=None, snapshot=None):
         return 0
 
     e.hook_ret(0x632643, lambda emu: alloc(emu, 0x632643))               # operator new / malloc
-    e.hook_ret(0x44b740, lambda emu: alloc(emu, 0x44b740))               # pooled allocator of the containers
-    e.hook_ret(0x44b4a0, free)                # pooled deallocator (pointer, size)
+    # the pooled allocator of the containers (0x44b740 / 0x44b4a0) runs as it is: its small-block
+    # lists are also used by inlined code (0x459150), so hooking it gave blocks two owners; it
+    # gets its chunks and large blocks from the hooked malloc / free
     e.hook_ret(0x61d1c8, free)                # free
     e.hook_ret(0x63266c, free)                # operator delete
     e.hook_ret(0x61d857, lambda emu: alloc(emu, 0x61d857))               # malloc (CRT heap)
