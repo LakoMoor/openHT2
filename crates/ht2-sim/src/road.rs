@@ -582,6 +582,10 @@ pub struct RoadNet {
     /// the segments of their road and clear it again (`0x42b060`). The route costs, the random
     /// places and the ghosts read these.
     pub seg_flags: std::cell::RefCell<Vec<u32>>,
+    /// `road + 0x38 + (mode · 2 + against) · 0x10`: the cost of each road once found
+    /// (`0x409980`), kept until the searches of the mode start afresh (`0x484140`). So after an
+    /// obstacle without a road replaces one with a road, the old road still costs what it did.
+    pub cost_cache: std::cell::RefCell<Vec<[Option<f64>; 4]>>,
 }
 
 struct Endpoint {
@@ -654,7 +658,9 @@ impl RoadNet {
         while let Some(i) = eps.iter().position(|e| !e.visited && e.node.is_some()) {
             net.walk(&mut eps, &mut seg_done, i);
         }
-        *net.seg_flags.borrow_mut() = net.segments.iter().map(|s| s.flags).collect();
+        // 0x406600: a segment closed in the map (ATTR 0x40) gets 0xc0; 0x80 keeps it closed when
+        // an obstacle there goes
+        *net.seg_flags.borrow_mut() = net.segments.iter().map(|s| if s.flags & 0x40 != 0 { s.flags | 0xc0 } else { s.flags }).collect();
         // 0x406160: road lengths
         let mut total = 0.0;
         for r in net.roads.iter_mut() {
@@ -1316,6 +1322,23 @@ impl RoadNet {
     /// length of each segment, half as much again on `attr2` 2 roads and double on 3, and for
     /// `mode` other than 1 ten thousand times on segments flagged 0x40 or one-way the other way.
     pub fn road_cost(&self, mode: u32, road: usize, against: bool) -> f64 {
+        let slot = (mode as usize) * 2 + against as usize;
+        if let Some(c) = self.cost_cache.borrow().get(road).and_then(|c| c.get(slot).copied().flatten()) {
+            return c;
+        }
+        let total = self.road_cost_now(mode, road, against);
+        let mut cache = self.cost_cache.borrow_mut();
+        if cache.len() < self.roads.len() {
+            cache.resize(self.roads.len(), [None; 4]);
+        }
+        if slot < 4 {
+            cache[road][slot] = Some(total);
+        }
+        total
+    }
+
+    /// The cost of a road from the flags of its segments now (the body of `0x409980`).
+    pub fn road_cost_now(&self, mode: u32, road: usize, against: bool) -> f64 {
         let mut total = 0.0;
         for &s in &self.roads[road].segments {
             let seg = &self.segments[s];
@@ -1347,6 +1370,14 @@ impl RoadNet {
     pub fn clear_steps(&self, mode: u32) {
         if let Some(m) = self.next_step.borrow_mut().get_mut(mode as usize) {
             m.clear();
+        }
+        // and the costs of the roads for the mode
+        for c in self.cost_cache.borrow_mut().iter_mut() {
+            for slot in [mode as usize * 2, mode as usize * 2 + 1] {
+                if let Some(x) = c.get_mut(slot) {
+                    *x = None;
+                }
+            }
         }
     }
 

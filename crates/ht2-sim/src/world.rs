@@ -1792,11 +1792,18 @@ impl World {
     /// (`0x40a1d0`).
     pub fn set_obstacle(&mut self, o: usize) {
         for k in 0..self.obstacles.len() {
-            if k != o && self.obstacles[k].active {
+            if k == o {
+                continue;
+            }
+            // 0x42b060(k, 0): the works of one that was set go; the flag 0x40 goes from the
+            // segments of every other obstacle's road (but those with 0x80), set or not
+            if self.obstacles[k].active {
                 self.obstacles[k].active = false;
                 for &n in &self.obstacles[k].works.clone() {
                     self.remove_works(n);
                 }
+            }
+            {
                 if let Some(r) = self.obstacles[k].road {
                     let mut f = self.net.seg_flags.borrow_mut();
                     for &sg in &self.net.roads[r].segments {

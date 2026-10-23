@@ -62,6 +62,10 @@ fn main() {
         // as the emulator has it: an empty scene with no memory to spare
         w.tick(time, &mut |_, _| false);
         println!("tick {tick}");
+        if std::env::var_os("OBSTLOG").is_some() {
+            let act: Vec<usize> = w.obstacles.iter().enumerate().filter(|(_, o)| o.active).map(|(k, _)| k).collect();
+            eprintln!("obst {tick} {:?}", act);
+        }
         if let Some(k) = std::env::var("WATCH").ok().and_then(|k| k.parse::<usize>().ok()) {
             let p = &w.players[k];
             if let Some(l) = p.loads.first() { println!("load {k} {:?}", l); }
@@ -78,6 +82,16 @@ fn main() {
             }
         }
         println!("{}", rng(&w));
+    }
+    if std::env::var_os("OBST").is_some() {
+        println!("obstacles {:?}", w.obstacles.iter().enumerate().map(|(k, o)| (k, o.active, o.road)).collect::<Vec<_>>());
+    }
+    if std::env::var_os("SEGFLAGS").is_some() {
+        let f = w.net.seg_flags.borrow();
+        for (r, road) in w.net.roads.iter().enumerate() {
+            let v: Vec<String> = road.segments.iter().map(|&sg| format!("{:#x}", f[sg])).collect();
+            println!("road {r} {}", v.join(" "));
+        }
     }
     if std::env::var_os("LOTS").is_some() {
         for (li, slots) in w.slots.iter().enumerate() {
