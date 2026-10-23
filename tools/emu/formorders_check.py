@@ -43,6 +43,27 @@ def dump(tick):
                     print('slot', tick, t, k, s, i32(o), i32(o + 4), i32(o + 8), i32(o + 12), repr(f64(o + 0x10)), repr(f64(o + 0x18)), flush=True)
 
 
+from unicorn import UC_HOOK_CODE
+# when a player arrives (actOnArrival, 0x419cb0)
+from unicorn.x86_const import UC_X86_REG_ESP
+
+
+def arrival(uc, a, size, user):
+    node = u(uc.reg_read(UC_X86_REG_ESP) + 4)
+    k, n = 0, u(sent)
+    while n != sent and n != node:
+        n, k = u(n), k + 1
+    print('arrival', k, 'type', i32(node + 0x5c), 'state', hex(u(node + 0x64)), 'flags', hex(u(node + 0x60)), flush=True)
+
+
+sent = u(0x68b990)
+# FO_TRACE=<hex>,<hex>,...: print the first five arguments of each call of these functions
+for f in filter(None, os.environ.get('FO_TRACE', '').split(',')):
+    def trace(uc, a, size, user):
+        sp = uc.reg_read(UC_X86_REG_ESP)
+        print('call %x' % a, *[hex(u(sp + 4 + 4 * j)) for j in range(5)], flush=True)
+    e.mu.hook_add(UC_HOOK_CODE, trace, begin=int(f, 16), end=int(f, 16))
+e.mu.hook_add(UC_HOOK_CODE, arrival, begin=0x419cb0, end=0x419cb0)
 human = u(u(0x68b990))
 print('human +0x300', repr(f64(human + 0x300)), 'd100', repr(f64(0x68d100)), flush=True)
 print('rng', rng(), flush=True)

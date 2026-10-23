@@ -20,6 +20,7 @@ fn main() {
     // the human player at the start position of GAME.CNF, as the original finds it (0x436900)
     let human = Some(Spot::Road(Place { road: 31, node: None, t: 0.8333333333333334, piece: 0, segment: 0, reversed: true }));
     let mut w = World::new_game(&game, &map, std::rc::Rc::new(net), 1.0, human);
+    w.debug_arrivals = std::env::var_os("ARRIVALS").is_some();
     let rng = |w: &World| {
         let s = format!("{:?}", w.rng);
         let table = s.split('[').nth(1).unwrap().split(']').next().unwrap().replace(',', "");
@@ -33,6 +34,10 @@ fn main() {
         // as the emulator has it: an empty scene with no memory to spare
         w.tick(time, &mut |_, _| false);
         println!("tick {tick}");
+        if let Some(k) = std::env::var("WATCH").ok().and_then(|k| k.parse::<usize>().ok()) {
+            let p = &w.players[k];
+            println!("watch {k} {:?} {:?} route {:?} to {:?} state {:#x} flags {:#x}", p.place, p.place.map(|s| w.net.spot_coordinates(&s)), p.route.iter().map(|s| s.node).collect::<Vec<_>>(), p.route.last().map(|s| s.node), p.state, p.flags);
+        }
         for (t, nodes) in w.town_slots.iter().enumerate() {
             for (k, slots) in nodes.iter().enumerate() {
                 for (s, o) in slots.iter().enumerate() {

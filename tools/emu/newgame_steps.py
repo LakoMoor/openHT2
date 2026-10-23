@@ -44,6 +44,9 @@ def run(folder, until, distances=False):
     return e
 
 
+KNOWN_EVENTS = (1, 4, 5, 7, 9, 0xb, 0xc, 0xd, 0xe, 0xf, 0x11)
+
+
 def setup(e):
     """The game clock, an empty scene and the game's callbacks (not run)."""
     game, clock, scene = e.heap_next, e.heap_next + 0x1000, e.heap_next + 0x2000
@@ -53,8 +56,10 @@ def setup(e):
     e.set_u32(game + 0x54c, clock)
     e.set_u32(0x696ca0, scene)
     e.hook_thiscall(0x5d9290, lambda emu: 0, 1)
-    for addr in (0x4d76b0, 0x4d8b60):
-        e.hook_ret(addr, lambda emu: 0)
+    # the game's event handler (0x4d76b0) answers the events it knows (with an empty scene: 0)
+    # and -1 to the others (8 and 10 of actOnArrival, so that it goes on)
+    e.hook_ret(0x4d76b0, lambda emu: 0 if emu.arg(1) in KNOWN_EVENTS else 0xffffffff)
+    e.hook_ret(0x4d8b60, lambda emu: 0)
 
 
 def seed_second(e, time):

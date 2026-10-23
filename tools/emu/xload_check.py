@@ -94,7 +94,8 @@ def handler(emu):
     if event == 1 and i32(node + 0x54) < 0:
         e.set_u32(node + 0x54, 100000 + counter[0])
         counter[0] = (counter[0] + 1) % 500
-    return 0
+    from newgame_steps import KNOWN_EVENTS
+    return 0 if event in KNOWN_EVENTS else 0xffffffff
 
 
 e.hook_ret(0x4d76b0, handler)

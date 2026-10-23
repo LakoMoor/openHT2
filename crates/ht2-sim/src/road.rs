@@ -1215,14 +1215,31 @@ impl RoadNet {
     /// node the route says which road to take next; the place continues on it from the end
     /// that touches the node. Stops (keeping the rest of `dist`) at a node the route does not
     /// continue from; a step back onto the same road ends the move.
+    ///
+    /// The step of the node is looked for from the start of the route each time (the position's
+    /// step hint is only used when it is past the end, so never); when that is the first step
+    /// and the node comes again later, the later one is taken. Moving back, the road of the
+    /// step before is taken (none before the first step).
     pub fn advance_route(&self, p: &mut Place, dist: &mut f64, route: &[RouteStep]) {
-        let mut from = 0;
+        let back = *dist <= 0.0;
         loop {
             self.advance(p, dist);
             let (Some(node), true) = (p.node, *dist != 0.0) else { return };
-            let Some(k) = route[from..].iter().position(|s| s.node == node).map(|k| k + from) else { return };
-            from = k + 1;
-            let Some(road) = route[k].road else { return };
+            let Some(mut k) = route.iter().position(|s| s.node == node) else { return };
+            if k == 0 {
+                if let Some(j) = route[1..].iter().position(|s| s.node == node) {
+                    k = j + 1;
+                }
+            }
+            let step = if back {
+                if k == 0 {
+                    return;
+                }
+                k - 1
+            } else {
+                k
+            };
+            let Some(road) = route[step].road else { return };
             if road == p.road {
                 *dist = 0.0;
                 return;

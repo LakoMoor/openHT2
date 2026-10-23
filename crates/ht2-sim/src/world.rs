@@ -317,6 +317,15 @@ pub struct AiPlayer {
     pub race_index: usize,
     pub laps: u32,
     pub race_progress: f64,
+    /// Whether it has somewhere to go (the list of waypoints at `+0x40` is not empty): set when
+    /// a route is given, cleared when it stands at the route's end (`0x417300`).
+    pub waypoint: bool,
+    /// `+0x68`: until when it stands (flag 4, `0x477bd0`).
+    pub until: f64,
+    /// A trucker's town (`+0x80`, its number) and the node of it whose order it goes for
+    /// (`+0x84`, -1 for none).
+    pub town: i32,
+    pub order: i32,
     /// For a player in the scene (`0x41a9d0`): `+0x1c0` the filter its speed goes through (at
     /// rest at 1), `+0x3c8` whether it is at full speed, `+0x3d0` how hard it slows down (its
     /// speed may not exceed the one it has, less v²/2/(this + 0.1) a second).
@@ -454,6 +463,8 @@ pub struct World {
     /// For comparing with the original while the tasks that draw from the generator are not
     /// ported: the generator to go on with when the moves of the next tick start.
     pub debug_rng_at_moves: Option<AiRng>,
+    /// For comparing with the original: print each `actOnArrival` as `formorders_check.py` does.
+    pub debug_arrivals: bool,
     /// `updateGhosts` (`0x420ed0`): how many ghosts (type 8) to keep around the human player; it
     /// does something only after `xLoadEntities` ran once (`0x68d130`).
     pub ghost_want: usize,
@@ -492,6 +503,9 @@ pub struct World {
     pub race_duration: f64,
     pub racers: Vec<usize>,
     pub racers_want: usize,
+    /// `0x68d150`: how many vehicles are hired out, `0x68d154` how many of them wait.
+    pub hired_want: usize,
+    pub hired_waiting: usize,
     /// `0x66c6f0`: the traffic setting (1 for 100 %); `0x68d15c`, `0x68d160`: how many
     /// competitors the human player gets and how (`0x425610`).
     pub car_share: f64,
@@ -511,7 +525,7 @@ impl World {
         let name_use = vec![[0, 0]; names.len()];
         let vehicle_weight = vec![1.0; vehicles.len()];
         let taken = vec![false; net.nodes.len()];
-        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
+        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, debug_arrivals: false, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, hired_want: 0, hired_waiting: 0, ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -594,7 +608,7 @@ impl World {
             _ => {}
         }
         let name = if kind == 1 { None } else { self.pick_name(kind) };
-        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, race_index: 0, laps: 0, race_progress: 0.0, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
+        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, race_index: 0, laps: 0, race_progress: 0.0, waypoint: false, until: f64::MAX, town: -1, order: -1, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
     }
 
     /// `traceToArbitraryDestination` (`0x417820`): random destinations (`0x456140`) until there
@@ -660,6 +674,7 @@ impl World {
         let Some(from) = p.place else { return };
         if let Some((r, _)) = self.net.route_from(&from, to, 0) {
             p.route = r;
+            p.waypoint = true;
             let q = self.net.spot_coordinates(&from);
             p.place = Some(self.net.locate(&p.route, q, &from));
         }
@@ -805,6 +820,8 @@ impl World {
             if let (Some(last), Some(place)) = (p.route.last(), p.place) {
                 let q = self.net.nodes[last.node].pos;
                 p.place = Some(self.net.locate(&p.route, q, &place));
+                // standing at the end: its waypoint is reached
+                p.waypoint = false;
             }
             self.players[k] = p;
         }
@@ -817,12 +834,246 @@ impl World {
     pub fn tick_move(&mut self, now: f64) {
         let dt = now - self.last_tick;
         for k in 0..self.players.len() {
+            self.end_standing(k, now);
             self.move_player(k, dt);
             // then, for a racer, the race (0x416b80)
             if self.players[k].state == 5 && self.players[k].kind != 0 {
                 self.race_step(k);
             }
+            self.semi_arrival(k);
+            // 0x4165a0: not the human player, not standing and nowhere to go
+            let p = &self.players[k];
+            if p.kind != 0 && p.kind != 1 && p.flags & 4 == 0 && !p.waypoint {
+                self.act_on_arrival(k, now);
+            }
         }
+    }
+
+    /// The start of `processMove` (`0x41ae60`): a vehicle hired out whose wait is over goes on
+    /// when all hired out wait (`0x419760`); any other that stands stops standing (`0x477d60`,
+    /// as `0x66c68c` is set), and so does one with flag 0x8000000 whose time is over. A vehicle
+    /// for sale whose time is over would go when its dealer has enough (`+0x3cc`; not ported).
+    fn end_standing(&mut self, k: usize, now: f64) {
+        let p = &self.players[k];
+        if p.state == 0x101 && p.flags & 4 != 0 && p.until <= now && self.hired_want <= self.hired_waiting {
+            self.cancel_hiring(k, now);
+        }
+        let p = &self.players[k];
+        if p.flags & 4 != 0 && p.state != 0x101 && p.state != 0x100 {
+            self.unstand(k);
+        }
+        let p = &self.players[k];
+        if p.flags & 0x800_0000 != 0 && p.until <= now {
+            self.unstand(k);
+        }
+    }
+
+    /// `0x477cd0`: it stands no longer (a vehicle hired out no longer counts as waiting).
+    fn unstand(&mut self, k: usize) {
+        let p = &mut self.players[k];
+        if p.flags & 4 != 0 && p.state == 0x101 {
+            self.hired_waiting = self.hired_waiting.saturating_sub(1);
+        }
+        p.flags &= 0xf7ff_fffb;
+        p.until = 0.0;
+    }
+
+    /// `0x477bd0`: it stands for `t` s.
+    fn stand(&mut self, k: usize, now: f64, t: f64) {
+        let p = &mut self.players[k];
+        p.flags |= 4;
+        p.until = now + t;
+    }
+
+    /// `0x4540a0` with the towns: a town drawn among those that are not filling stations or
+    /// deal in liquids (`+0x60 & 3`).
+    fn random_town(&mut self) -> Option<usize> {
+        let picks: Vec<usize> = (0..self.towns.len()).filter(|&t| self.towns[t].flags & 3 == 0).collect();
+        if picks.is_empty() {
+            return None;
+        }
+        Some(picks[self.rng.next() as usize % picks.len()])
+    }
+
+    /// `0x4050f0`: the town nearest to `q` among those of [`World::random_town`].
+    fn nearest_plain_town(&self, q: [f64; 3]) -> Option<usize> {
+        let mut best = f64::MAX;
+        let mut found = None;
+        for (k, t) in self.towns.iter().enumerate() {
+            if t.flags & 3 != 0 {
+                continue;
+            }
+            let Some(n) = self.net.town_node(t) else { continue };
+            let c = self.net.nodes[n].pos;
+            let d = [q[0] - c[0], q[1] - c[1], q[2] - c[2]];
+            let l = ((d[0] * d[0] + d[2] * d[2]) + d[1] * d[1]).sqrt();
+            if l < best {
+                best = l;
+                found = Some(k);
+            }
+        }
+        found
+    }
+
+    /// `0x418400`: up to 100 times a node number of town `t` is drawn (`next() % 9` of the
+    /// second generator); the first whose order slot for the player's vehicle (trucks slot 0,
+    /// else slot 1; `getOrderInfo`, `0x441120`) holds an order, else -1.
+    fn pick_order(&mut self, k: usize, t: usize) -> i32 {
+        let truck = self.players[k].vehicle.is_some_and(|v| matches!(self.vehicles[v].kind, 2 | 3));
+        for _ in 0..100 {
+            let r = (self.rng2.next() % 9) as usize;
+            let held = self.town_slots.get(t).and_then(|n| n.get(r)).is_some_and(|s| s[if truck { 0 } else { 1 }].is_some());
+            if held {
+                return r as i32;
+            }
+        }
+        -1
+    }
+
+    /// `traceToOrderNumber` (`0x4180f0`): a route to node `r` of town `t`.
+    fn trace_to_order(&mut self, k: usize, t: usize, r: usize) {
+        let Some((name, _)) = self.towns[t].nodes.get(r) else { return };
+        let Some(n) = self.net.nodes.iter().position(|x| &x.name == name) else { return };
+        let mut p = self.players[k].clone();
+        p.route.clear();
+        self.set_route(&mut p, &Spot::Node(n));
+        self.players[k] = p;
+    }
+
+    /// `sendForClosestOrder` (`0x4185d0`): a trucker (carrying nothing) goes for an order in
+    /// the nearest town (`0x4050f0`), else to a random destination (`0x417820`); others go to a
+    /// random destination.
+    fn send_for_closest_order(&mut self, k: usize) {
+        if self.players[k].kind != 2 {
+            let mut p = self.players[k].clone();
+            self.trace_to_random(&mut p);
+            self.players[k] = p;
+            return;
+        }
+        let q = self.players[k].place.map_or([0.0; 3], |s| self.net.spot_coordinates(&s));
+        let Some(t) = self.nearest_plain_town(q) else { return };
+        self.players[k].town = self.towns[t].number;
+        let r = self.pick_order(k, t);
+        self.players[k].order = r;
+        if r == -1 {
+            let mut p = self.players[k].clone();
+            self.trace_to_random(&mut p);
+            self.players[k] = p;
+            return;
+        }
+        self.trace_to_order(k, t, r as usize);
+        self.players[k].state = 3;
+    }
+
+    /// `actOnSemiArrival` (`0x417300`): at the end node of its route a player has reached its
+    /// waypoint.
+    fn semi_arrival(&mut self, k: usize) {
+        let p = &self.players[k];
+        if !p.waypoint {
+            return;
+        }
+        let Some(last) = p.route.last().map(|s| s.node) else { return };
+        let at = match p.place {
+            Some(Spot::Node(n)) => Some(n),
+            Some(Spot::Road(q)) => q.node,
+            None => None,
+        };
+        if at == Some(last) {
+            self.players[k].waypoint = false;
+        }
+    }
+
+    /// `actOnArrival` (`0x419cb0`), for a player with nowhere to go. A ghost is sent to a random
+    /// destination (`0x417820`); the game is told (events 8 and 10, which it lets pass); a racer
+    /// goes on racing; a vehicle hired out waits 1200 + `next() % 1500` s at its slot (flags 0x400
+    /// and 4, `0x477bd0`), and when more than all hired out but two wait, one whose wait is over
+    /// (drawn) is no longer for hire (`0x419760`). Players other than truckers go to a random
+    /// node other than the nearest one (`0x40a2a0`). The truckers' choices (orders, towns,
+    /// parkings) are not ported.
+    fn act_on_arrival(&mut self, k: usize, now: f64) {
+        let kind = self.players[k].kind;
+        if self.debug_arrivals {
+            let p = &self.players[k];
+            println!("arrival {} type {} state {:#x} flags {:#x}", k, kind, p.state, p.flags);
+        }
+        if kind == 8 {
+            let mut p = self.players[k].clone();
+            self.trace_to_random(&mut p);
+            self.players[k] = p;
+            return;
+        }
+        let state = self.players[k].state;
+        if state == 5 {
+            self.race_step(k);
+            return;
+        }
+        if state == 0x101 {
+            let wait = (self.rng.next() % 1500 + 1200) as f64;
+            let p = &mut self.players[k];
+            p.flags |= 0x400 | 4;
+            p.until = now + wait;
+            self.hired_waiting += 1;
+            if (self.hired_want as i64) - 2 < self.hired_waiting as i64 {
+                let picks: Vec<usize> = (0..self.players.len()).filter(|&j| self.players[j].state == 0x101 && self.players[j].flags & 4 != 0 && self.players[j].until <= now).collect();
+                if !picks.is_empty() {
+                    let j = picks[self.rng.next() as usize % picks.len()];
+                    self.cancel_hiring(j, now);
+                }
+            }
+            return;
+        }
+        if kind == 2 {
+            if state == 3 || state == 4 {
+                // taking or delivering an order (0x443d50, 0x4194e0, 0x417ed0): not ported
+                return;
+            }
+            // 0x404e30: a random town, a node with an order there (0x418400), and a route to
+            // it (state 3), else to another town (0x40a2a0); then it stands for a second
+            let Some(t) = self.random_town() else { return };
+            self.players[k].town = self.towns[t].number;
+            let r = self.pick_order(k, t);
+            self.players[k].order = r;
+            if r == -1 {
+                let mut p = self.players[k].clone();
+                self.trace_away(&mut p);
+                self.players[k] = p;
+            } else {
+                self.trace_to_order(k, t, r as usize);
+                self.players[k].state = 3;
+            }
+            self.stand(k, now, 1.0);
+            return;
+        }
+        let mut p = self.players[k].clone();
+        self.trace_away(&mut p);
+        self.players[k] = p;
+    }
+
+    /// `cancelSellingOrHiring` (`0x419760`) for a vehicle hired out: it counts no longer, its
+    /// slot is free, it stands no longer (`0x477d60`); a trucker goes for the closest order
+    /// (`0x4185d0`), others to a random node other than the nearest one (`0x405a60`,
+    /// `0x40a2a0`); then it stands for 20 s. (With cargo it would deliver it, `0x417ed0`.)
+    fn cancel_hiring(&mut self, k: usize, now: f64) {
+        if self.players[k].state == 0x101 && self.players[k].flags & 4 != 0 {
+            self.hired_waiting = self.hired_waiting.saturating_sub(1);
+        }
+        let p = &mut self.players[k];
+        p.route.clear();
+        p.state = 0;
+        p.flags &= 0xffff_fbbf;
+        self.unstand(k);
+        if let Some((lot, slot)) = self.players[k].parked.take() {
+            self.slots[lot][slot] = None;
+            self.lot_used[lot] = self.lot_used[lot].saturating_sub(1);
+        }
+        if self.players[k].kind == 2 {
+            self.send_for_closest_order(k);
+        } else {
+            let mut p = self.players[k].clone();
+            self.trace_away(&mut p);
+            self.players[k] = p;
+        }
+        self.stand(k, now, 20.0);
     }
 
     /// `processMove` (`0x41ae60`) of one player: along its route at the AI speed.
@@ -1766,6 +2017,7 @@ impl World {
         w.create_players_regular(&counts, live);
         w.players[0].place = human;
         w.create_dealers(cnf.dealers);
+        w.hired_want = cnf.forhire;
         w.hire_out(cnf.forhire);
         // 0x41d340: the objects
         w.towns = towns;
