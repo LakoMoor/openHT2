@@ -1326,6 +1326,13 @@ impl RoadNet {
         t.get(mode as usize).and_then(|m| m.get(node)).map_or(0xff, |r| r[dst])
     }
 
+    /// `0x484140`: forget what the route searches of `mode` found (after the roads changed).
+    pub fn clear_steps(&self, mode: u32) {
+        if let Some(m) = self.next_step.borrow_mut().get_mut(mode as usize) {
+            m.clear();
+        }
+    }
+
     fn set_step_entry(&self, mode: u32, node: usize, dst: usize, v: u8) {
         let mut t = self.next_step.borrow_mut();
         let n = self.nodes.len();

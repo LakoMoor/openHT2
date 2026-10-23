@@ -363,6 +363,47 @@ impl Ambush {
     }
 }
 
+/// An obstacle of the map scripts (`( obstacle ID REGULAR module "key" "node1" "node2"
+/// ["closed" "open" ( "works" ... )] )`, list `0x68cc18`): the road between its two nodes
+/// (`+0x38`, none when they are not given), where it is (`+0x40`: the last works node, else
+/// half way between the two nodes), the nodes road works are put at and whether it is set.
+#[derive(Debug, Clone)]
+pub struct Obstacle {
+    pub id: String,
+    pub road: Option<usize>,
+    pub pos: [f64; 3],
+    pub works: Vec<usize>,
+    pub active: bool,
+}
+
+impl Obstacle {
+    pub fn from_scripts(forms: &[Sexp], net: &RoadNet) -> Vec<Obstacle> {
+        let node = |name: &str| net.nodes.iter().position(|n| n.name == name);
+        let tops: Vec<&Sexp> = forms.iter().flat_map(|f| f.as_list().map_or(vec![f], |l| l.iter().collect())).collect();
+        tops.into_iter()
+            .filter_map(|f| f.form("obstacle"))
+            .map(|r| {
+                let text = |k: usize| r.get(k).and_then(|s| s.as_text()).unwrap_or_default();
+                let (a, b) = (node(text(4)), node(text(5)));
+                let road = match (a, b) {
+                    (Some(a), Some(b)) => net.roads.iter().position(|r| (r.start == a && r.end == b) || (r.start == b && r.end == a)),
+                    _ => None,
+                };
+                let works: Vec<usize> = r.get(8).and_then(|s| s.as_list()).map_or(Vec::new(), |l| l.iter().filter_map(|s| s.as_text()).filter_map(node).collect());
+                let pos = match (works.last(), a, b) {
+                    (Some(&w), _, _) => net.nodes[w].pos,
+                    (None, Some(a), Some(b)) => {
+                        let (p, q) = (net.nodes[a].pos, net.nodes[b].pos);
+                        [(p[0] + q[0]) * 0.5, (p[1] + q[1]) * 0.5, (p[2] + q[2]) * 0.5]
+                    }
+                    _ => [0.0; 3],
+                };
+                Obstacle { id: text(0).to_string(), road, pos, works, active: false }
+            })
+            .collect()
+    }
+}
+
 /// A task of the game clock: what it does, when it runs next and how often.
 #[derive(Debug, Clone)]
 pub struct Task {
@@ -438,6 +479,8 @@ pub struct World {
     pub orders_time: f64,
     /// The ambushes of the map (`0x68a970`).
     pub ambushes: Vec<Ambush>,
+    /// The obstacles of the map (`0x68cc18`).
+    pub obstacles: Vec<Obstacle>,
     /// The race (`provideRacesRegular`): `0x66c6e0` its state (3 waiting, 0 gathering racers,
     /// 2 running, 1 over), `0x66c6e4` the track, `0x68d170` when the wait began, `0x66c6d8`
     /// when it started and `0x66c6f8` how long it lasts, `0x68cf60` the racers and `0x66c6d0`
@@ -468,7 +511,7 @@ impl World {
         let name_use = vec![[0, 0]; names.len()];
         let vehicle_weight = vec![1.0; vehicles.len()];
         let taken = vec![false; net.nodes.len()];
-        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, ambushes: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
+        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -1266,6 +1309,97 @@ impl World {
         }
     }
 
+    /// `ObstaclesTask` (`0x42b3a0`): when the obstacle that is set (if any) is more than 500 m
+    /// from the human player, up to five times one is drawn; the first that is more than 500 m
+    /// from him and from the one set is set instead (`0x42b170`).
+    pub fn obstacles_task(&mut self) {
+        if self.obstacles.is_empty() {
+            return;
+        }
+        let h = self.players.iter().find(|p| p.kind == 1).and_then(|p| self.position(p));
+        let far = |a: [f64; 3], b: [f64; 3]| {
+            let (dx, dy, dz) = (b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+            500.0 < (dx * dx + dz * dz + dy * dy).sqrt()
+        };
+        let away = |w: &World, o: usize| h.is_none_or(|h| far(w.obstacles[o].pos, h));
+        let cur = self.obstacles.iter().position(|o| o.active);
+        if cur.is_some_and(|c| !away(self, c)) {
+            return;
+        }
+        for _ in 0..5 {
+            let o = self.rng.next() as usize % self.obstacles.len();
+            if away(self, o) && cur.is_none_or(|c| far(self.obstacles[o].pos, self.obstacles[c].pos)) {
+                self.set_obstacle(o);
+                return;
+            }
+        }
+    }
+
+    /// `0x42b170`: obstacle `o` is set and the others not (`0x42b060`): a set one has road works
+    /// at its works nodes (`0x41cff0`) and flag 0x40 on the segments of its road (cleared again,
+    /// but for segments with 0x80, when it goes). With a road, the route searches start afresh
+    /// (`0x484280`) and the players whose route takes that road find a new one to the same end
+    /// (`0x40a1d0`).
+    pub fn set_obstacle(&mut self, o: usize) {
+        for k in 0..self.obstacles.len() {
+            if k != o && self.obstacles[k].active {
+                self.obstacles[k].active = false;
+                for &n in &self.obstacles[k].works.clone() {
+                    self.remove_works(n);
+                }
+                if let Some(r) = self.obstacles[k].road {
+                    let mut f = self.net.seg_flags.borrow_mut();
+                    for &sg in &self.net.roads[r].segments {
+                        if f[sg] & 0x80 == 0 {
+                            f[sg] &= !0x40;
+                        }
+                    }
+                }
+            }
+        }
+        if !self.obstacles[o].active {
+            for &n in &self.obstacles[o].works.clone() {
+                let name = self.net.nodes[n].name.clone();
+                self.road_works(&name);
+            }
+        }
+        self.obstacles[o].active = true;
+        let Some(r) = self.obstacles[o].road else { return };
+        {
+            let mut f = self.net.seg_flags.borrow_mut();
+            for &sg in &self.net.roads[r].segments {
+                f[sg] |= 0x40;
+            }
+        }
+        self.net.clear_steps(0);
+        self.net.clear_steps(1);
+        for k in 0..self.players.len() {
+            if self.players[k].kind == 0 || !self.players[k].route.iter().any(|s| s.road == Some(r)) {
+                continue;
+            }
+            let Some(dest) = self.players[k].route.last().map(|s| s.node) else { continue };
+            let at = match self.players[k].place {
+                Some(Spot::Node(n)) => Some(n),
+                Some(Spot::Road(q)) => q.node,
+                None => None,
+            };
+            if at != Some(dest) {
+                let mut p = self.players[k].clone();
+                self.set_route(&mut p, &Spot::Node(dest));
+                self.players[k] = p;
+            }
+        }
+    }
+
+    /// `0x41f970`: the road works at node `n` go (`0x41ef10`).
+    fn remove_works(&mut self, n: usize) {
+        if let Some(i) = self.objects.iter().position(|o| o.node == n && o.flags & 0x400 != 0) {
+            self.objects.remove(i);
+            self.taken[n] = false;
+            self.object_made.parkings -= 1;
+        }
+    }
+
     /// `provideRacesRegular` (`0x4279d0`, every 30 s). Waiting (3), the race is set up 300 s
     /// after the wait began (track 1, `0x4279a0`). Gathering (0), when the human player is at
     /// least 700 m from `start<track>_3`, racers are drawn until there are four (`0x45eba0`,
@@ -1483,6 +1617,11 @@ impl World {
             if t.name == "provideRacesRegular" {
                 self.provide_races(now);
             }
+            if t.name == "ObstaclesTask" {
+                self.obstacles_task();
+                // its task object (0x435690) draws its next period: 600 + next() % 300
+                t.period = (600 + self.rng.next() % 300) as f64;
+            }
             t.time += t.period;
             if t.time + t.period * 8.0 < now {
                 t.time = now + t.period;
@@ -1648,6 +1787,7 @@ impl World {
         w.ghost_want = cnf.counts[8];
         w.car_share = car_share;
         w.ambushes = Ambush::from_scripts(&scripts);
+        w.obstacles = Obstacle::from_scripts(&scripts, &w.net);
         w.create_tasks(car_share);
         w
     }
