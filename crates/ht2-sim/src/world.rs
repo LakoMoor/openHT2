@@ -1667,7 +1667,22 @@ impl World {
             p.born = now;
             // +0x118 stays 0: the first speed of the ghost is over 100 m/s and left out
             self.trace_without_turns(&mut p);
+            // still turning back sharply after three tries: marked (0x446c80) and deleted at once
+            // by killDelayedPlayers in the same tick, which first sends it away (0x419760)
+            let sharp = !p.route.is_empty() && self.route_turn(&p.route) < -0.8;
             self.players.push(p);
+            if sharp {
+                let k = self.players.len() - 1;
+                let mut p = self.players[k].clone();
+                self.trace_away(&mut p);
+                if self.unload(k) {
+                    changes.push(SceneChange::Unload(k));
+                }
+                let p = &mut self.players[k];
+                p.kind = 0;
+                p.place = None;
+                p.route.clear();
+            }
             return changes;
         }
         changes
