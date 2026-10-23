@@ -38,6 +38,16 @@ pub struct Tech {
     pub spring: f32,
     pub driving_wheels: [bool; 8],
     pub steering_wheels: [bool; 8],
+    /// The model in the vehicle catalogue (`evehicles.sch`) the record is for, e.g. `KamazR`
+    /// (offset 2342; the game finds a vehicle's record by it, `0x42e9f0`).
+    pub key: String,
+    /// What it can load, kg (offset 272; `0x41b830`).
+    pub capacity: f32,
+    /// The width and length of its load space, m (offsets 280 and 284; their product is the
+    /// load area, `0x41b830`).
+    pub load_space: [f32; 2],
+    /// Fuel used per metre (offset 156; `calculatePlayerSpeedsAndFares`, `0x423f40`).
+    pub fuel_use: f32,
 }
 
 fn f32_at(d: &[u8], o: usize) -> f32 {
@@ -97,6 +107,10 @@ pub fn parse(d: &[u8]) -> Result<Vec<Tech>> {
             spring: f32_at(r, 780),
             driving_wheels: flags(r, 300),
             steering_wheels: flags(r, 332),
+            key: text(r, 2342, 30),
+            capacity: f32_at(r, 272),
+            load_space: [f32_at(r, 280), f32_at(r, 284)],
+            fuel_use: f32_at(r, 156),
         });
     }
     Ok(out)

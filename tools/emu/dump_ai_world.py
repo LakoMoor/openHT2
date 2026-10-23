@@ -306,6 +306,7 @@ def load(folder, full=False, events=None, snapshot=None):
                 WATCH(e)
             e.hook_ret(0x4d76b0, callback('player'))
             e.hook_ret(0x4d8b60, callback('other'))
+            load_tech(e, folder)
             path = e.heap_next
             e.heap_next += 0x100
             e.write(path, prefix + bytes(1))
@@ -320,6 +321,26 @@ def load(folder, full=False, events=None, snapshot=None):
 
 
     return e
+
+
+def load_tech(e, folder):
+    """`vehicle.tech` as the game has it in memory before the AI starts (0x508000 reads it at
+    start-up): the eight header words after the record length at 0x6ce32c (the first is the number
+    of records), the 0x970-byte records from 0x697868, and the flag 0x697860 that it is loaded.
+    The catalogue (0x42e9f0) finds each vehicle's record by name here, and the AI reads the
+    capacities (0x41b830) and fuel use (0x423f40) from it."""
+    path = os.path.join(os.path.dirname(os.path.normpath(folder)), 'vehicle.tech')
+    d = open(path, 'rb').read()
+    n = struct.unpack_from('<I', d, 0)[0]
+    at = 4 + n + 4
+    size = struct.unpack_from('<I', d, at)[0]
+    assert size == 0x970, size
+    e.write(0x6ce32c, d[at + 4:at + 36])
+    count = struct.unpack_from('<I', d, at + 4)[0]
+    first = at + 36
+    for k in range(count):
+        e.write(0x697868 + k * 0x970, d[first + k * 0x970:first + (k + 1) * 0x970])
+    e.set_u32(0x697860, 1)
 
 
 def save(e, path):

@@ -57,6 +57,12 @@ pub struct Merchandise {
     /// `+0x30` (`0x40b4a0`): `illegal` 1, `formafia` 2, `fuel` 4 (liquid), `cars` 8,
     /// `trucks` 0x10.
     pub flags: u32,
+    /// `+0x10`, `+0x18`: the weight and the load area of a unit (the two numbers after the pack).
+    pub unit_weight: f64,
+    pub unit_area: f64,
+    /// `+0x20`, `+0x28`: the share and the value of the price list (its third and second number).
+    pub share: f64,
+    pub value: f64,
 }
 
 impl Merchandise {
@@ -80,7 +86,9 @@ impl Merchandise {
                     _ => 0,
                 }
             });
-            out.push(Merchandise { name: name.to_string(), flags });
+            let num = |s: Option<&Sexp>| s.and_then(|s| s.as_text()).and_then(|t| t.parse::<f64>().ok()).unwrap_or(0.0);
+            let prices = l.get(4).and_then(|s| s.as_list()).unwrap_or(&[]);
+            out.push(Merchandise { name: name.to_string(), flags, unit_weight: num(l.get(2)), unit_area: num(l.get(3)), share: num(prices.get(2)), value: num(prices.get(1)) });
         }
         out
     }

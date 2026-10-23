@@ -70,7 +70,22 @@ print('rng', rng(), flush=True)
 time = 0.0
 for _ in range(1, first):
     time += 0.1
+# FO_RNGWATCH=<tick>: during that tick, print where the AI generator is drawn from (writes of
+# its index 0x68baa4) with the return addresses on the stack
+watch_tick = int(os.environ.get('FO_RNGWATCH', '0'))
+cur_tick = [0]
+if watch_tick:
+    from unicorn import UC_HOOK_MEM_WRITE
+
+    def rng_write(uc, access, addr, size, value, user):
+        if cur_tick[0] == watch_tick:
+            sp = uc.reg_read(UC_X86_REG_ESP)
+            rets = [hex(u(sp + 4 * j)) for j in range(0, 64) if 0x401000 <= u(sp + 4 * j) < 0x640000][:6]
+            print('draw at', hex(uc.reg_read(UC_X86_REG_EIP)), rets, flush=True)
+    from unicorn.x86_const import UC_X86_REG_EIP
+    e.mu.hook_add(UC_HOOK_MEM_WRITE, rng_write, begin=0x68baa4, end=0x68baa7)
 for tick in range(first, ticks + 1):
+    cur_tick[0] = tick
     time += 0.1
     e.write(clock + 0xb98, struct.pack('<d', time))
     e.write(clock + 0xb90, struct.pack('<d', 0.1))
