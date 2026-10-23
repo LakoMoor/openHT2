@@ -1780,6 +1780,30 @@ impl World {
         }
     }
 
+    /// `expireParkedCars` (`0x42a2c0`, every 19 s): parked cars (not road works) put more than
+    /// 900 s ago and more than 2000 m from the human player go: their present counts one less
+    /// and the object is destroyed (`0x41ef10`: the game is told, the node is free, one parked
+    /// car less).
+    fn expire_parked_cars(&mut self, now: f64) {
+        let Some(h) = self.players.iter().find(|p| p.kind == 1).and_then(|p| self.position(p)) else { return };
+        let mut i = 0;
+        while i < self.objects.len() {
+            let o = &self.objects[i];
+            let (dx, dy, dz) = (h[0] - o.pos[0], h[1] - o.pos[1], h[2] - o.pos[2]);
+            if o.flags & 0x400 == 0 && o.flags & 0xf0 == 0x80 && 900.0 < now - o.made && 2000.0 < (dx * dx + dz * dz + dy * dy).sqrt() {
+                if let Some(pr) = o.present {
+                    self.presents[pr].count = self.presents[pr].count.saturating_sub(1);
+                }
+                let n = o.node;
+                self.objects.remove(i);
+                self.taken[n] = false;
+                self.object_made.parkings -= 1;
+                continue;
+            }
+            i += 1;
+        }
+    }
+
     /// `0x41f970`: the road works at node `n` go (`0x41ef10`).
     fn remove_works(&mut self, n: usize) {
         if let Some(i) = self.objects.iter().position(|o| o.node == n && o.flags & 0x400 != 0) {
@@ -1794,13 +1818,17 @@ impl World {
     /// least 700 m from `start<track>_3`, racers are drawn until there are four (`0x45eba0`,
     /// else without the `+0xa8` condition `0x45ed90`): truckers in a tractor (for a human player
     /// in a truck), not tracked, not standing, for sale, hired out or racing, not in the scene.
-    /// Each is put at `start<track>_<n>` (n from 1) with a route to `check_point1` and state 5;
+    /// Each drops its loads (`0x4778a0`) and is put at `start<track>_<n>` (n from 1) with a
+    /// route to `check_point1` and state 5, standing there (`0x477c50`) until the race is over;
     /// with the fourth the race runs (2) for the human player's route cost to the start / 10,
     /// at most 3660, in whole minutes. Running past that, it is over (1, `0x4278b0`).
     pub fn provide_races(&mut self, now: f64) {
         if self.race_state == 2 && self.race_duration < now - self.race_start {
-            // 0x4278b0
+            // 0x4278b0: the racers stand no more (0x477cd0)
             self.race_state = 1;
+            for k in self.racers.clone() {
+                self.unstand(k);
+            }
             return;
         }
         if self.race_state == 3 && 300.0 < now - self.race_wait {
@@ -1835,7 +1863,7 @@ impl World {
                 return;
             }
             let k = picks[self.rng.next() as usize % picks.len()];
-            // 0x417770: one more racer
+            // 0x4778a0: its loads go; 0x417770: one more racer
             self.racers.push(k);
             let n = self.racers.len();
             let start = node(self, &format!("start{}_{}", self.race_track, n));
@@ -1850,9 +1878,13 @@ impl World {
             if let Some(st) = start {
                 p.place = Some(Spot::Node(st));
             }
+            p.loads.clear();
             if let Some(cp) = cp1 {
                 self.set_route(&mut p, &Spot::Node(cp));
             }
+            // 0x477c50: it stands at the start until the race is over
+            p.flags |= 4;
+            p.until = f64::MAX;
             self.players[k] = p;
             if self.racers_want <= self.racers.len() {
                 self.race_state = 2;
@@ -2005,6 +2037,13 @@ impl World {
             }
             if t.name == "provideRacesRegular" {
                 self.provide_races(now);
+            }
+            if t.name == "expireParkedCars" {
+                self.expire_parked_cars(now);
+            }
+            if t.name == "updatePresents" {
+                // 0x41ed50: the objects that went missing, at least 700 m from the human player
+                self.create_objects(700.0);
             }
             if t.name == "ObstaclesTask" {
                 self.obstacles_task();

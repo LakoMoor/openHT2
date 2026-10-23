@@ -19,6 +19,17 @@ fn main() {
     net.mark_parkings(&Parking::from_scripts(&scripts));
     // the human player at the start position of GAME.CNF, as the original finds it (0x436900)
     let human = Some(Spot::Road(Place { road: 31, node: None, t: 0.8333333333333334, piece: 0, segment: 0, reversed: true }));
+    if let Ok(list) = std::env::var("NAMES") {
+        for k in list.split(',').filter_map(|k| k.parse::<usize>().ok()) {
+            println!("node {k} {}", net.nodes[k].name);
+        }
+        for (k, n) in net.nodes.iter().enumerate() {
+            if n.name.starts_with("check_point") || n.name.starts_with("finish") || n.name.starts_with("start") {
+                println!("node {k} {}", n.name);
+            }
+        }
+        return;
+    }
     let mut w = World::new_game(&game, &map, std::rc::Rc::new(net), 1.0, human);
     w.debug_arrivals = std::env::var_os("ARRIVALS").is_some();
     let rng = |w: &World| {
@@ -36,7 +47,7 @@ fn main() {
         println!("tick {tick}");
         if let Some(k) = std::env::var("WATCH").ok().and_then(|k| k.parse::<usize>().ok()) {
             let p = &w.players[k];
-            println!("watch {k} {:?} {:?} route {:?} to {:?} state {:#x} flags {:#x}", p.place, p.place.map(|s| w.net.spot_coordinates(&s)), p.route.iter().map(|s| s.node).collect::<Vec<_>>(), p.route.last().map(|s| s.node), p.state, p.flags);
+            println!("watch {k} {:?} {:?} route {:?} to {:?} laps {} state {:#x} flags {:#x}", p.place, p.place.map(|s| w.net.spot_coordinates(&s)), p.route.iter().map(|s| s.node).collect::<Vec<_>>(), p.route.last().map(|s| s.node), p.laps, p.state, p.flags);
         }
         for (t, nodes) in w.town_slots.iter().enumerate() {
             for (k, slots) in nodes.iter().enumerate() {
