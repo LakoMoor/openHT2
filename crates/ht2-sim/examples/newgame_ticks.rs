@@ -93,6 +93,14 @@ fn main() {
             println!("road {r} {}", v.join(" "));
         }
     }
+    if std::env::var_os("OBJ").is_some() {
+        println!("objects made {:?} want {:?}", w.object_made, w.object_want);
+        let mut c = std::collections::BTreeMap::new();
+        for o in &w.objects {
+            *c.entry(o.flags & 0xfff).or_insert(0) += 1;
+        }
+        println!("objects by flags {:?}", c);
+    }
     if std::env::var_os("LOTS").is_some() {
         for (li, slots) in w.slots.iter().enumerate() {
             let occ: Vec<String> = slots.iter().map(|o| o.map_or(".".to_string(), |k| k.to_string())).collect();

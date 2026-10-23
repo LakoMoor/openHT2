@@ -547,6 +547,9 @@ pub struct World {
     pub company_cap: u32,
     pub logos: [bool; 8],
     pub truckers_want: usize,
+    /// The time of the tick being run (`0x401000` reads the clock; `last_tick` is the previous
+    /// tick's until the tick ends).
+    pub now: f64,
     /// `0x68d14c`: how many vehicles are hired out.
     pub hired_count: usize,
     /// `0x68d164`: how many competitors have arrived.
@@ -572,7 +575,7 @@ impl World {
         let name_use = vec![[0, 0]; names.len()];
         let vehicle_weight = vec![1.0; vehicles.len()];
         let taken = vec![false; net.nodes.len()];
-        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, debug_arrivals: false, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, hired_want: 0, hired_waiting: 0, companies: 0, company_cap: 7, logos: [false; 8], truckers_want: 0, stand_free: true, hired_count: 0, competitors_arrived: 0, tech: Vec::new(), ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
+        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, debug_arrivals: false, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, hired_want: 0, hired_waiting: 0, companies: 0, company_cap: 7, logos: [false; 8], truckers_want: 0, stand_free: true, now: 0.0, hired_count: 0, competitors_arrived: 0, tech: Vec::new(), ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -2121,6 +2124,7 @@ impl World {
     /// A tick of the AI world as far as ported: the moves, the speeds, the time (`0x42d6e0`).
     pub fn tick(&mut self, now: f64, fits: &mut dyn FnMut(&std::collections::BTreeSet<u32>, Option<u32>) -> bool) -> Vec<SceneChange> {
         let mut changes = Vec::new();
+        self.now = now;
         if self.first_load {
             self.first_load = false;
             self.load_counter = 200;
@@ -2128,8 +2132,10 @@ impl World {
         }
         // the game clock (0x42d960): the first task in the list that is due, then it goes to the
         // end of the list
+        let before = self.rng.clone();
         if let Some(i) = self.tasks.iter().position(|t| t.time < now) {
             let mut t = self.tasks.remove(i);
+            let task = t.name;
             if t.name == "updateGhosts" && self.loads_done {
                 changes.extend(self.update_ghosts(now, fits));
             }
@@ -2174,11 +2180,24 @@ impl World {
                 t.time = now + t.period;
             }
             self.tasks.push(t);
+            if self.debug_arrivals {
+                let n = draws_between(&before, &self.rng);
+                if n != 0 {
+                    println!("draws {task} {n}");
+                }
+            }
         }
         if let Some(r) = self.debug_rng_at_moves.take() {
             self.rng = r;
         }
+        let before = self.rng.clone();
         self.tick_move(now);
+        if self.debug_arrivals {
+            let n = draws_between(&before, &self.rng);
+            if n != 0 {
+                println!("draws moves {n}");
+            }
+        }
         self.update_speeds(now);
         changes.extend(self.load_entities(fits));
         self.last_tick = now;
@@ -2343,4 +2362,16 @@ impl World {
         w.create_tasks(car_share);
         w
     }
+}
+
+/// For comparing with the original: how many numbers were drawn from `a` to get `b` (up to 10000).
+fn draws_between(a: &AiRng, b: &AiRng) -> usize {
+    let mut x = a.clone();
+    for n in 0..10000 {
+        if format!("{x:?}") == format!("{b:?}") {
+            return n;
+        }
+        x.next();
+    }
+    usize::MAX
 }

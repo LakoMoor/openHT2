@@ -421,7 +421,7 @@ impl World {
                 // 0x471780 and 0x471200 each find the route cost
                 let fee = 0.1 * self.route_cost(&from, unload) * 1.3;
                 let distance = self.route_cost(&from, unload);
-                o.orders.push(Order { merchandise: m, to, from, amount: 0.0, pay: 0.0, deadline: self.last_tick + 900.0, made: self.last_tick, fee, kind: 2, distance });
+                o.orders.push(Order { merchandise: m, to, from, amount: 0.0, pay: 0.0, deadline: self.now + 900.0, made: self.now, fee, kind: 2, distance });
             }
             self.objects.push(o);
         }
@@ -463,7 +463,7 @@ impl World {
                 o.present = Some(i);
                 self.presents[i].count += 1;
             }
-            o.made = self.last_tick;
+            o.made = self.now;
             self.objects.push(o);
         }
     }
@@ -483,7 +483,7 @@ impl World {
         let Some(i) = self.weighted(weights.into_iter()) else { return };
         o.present = Some(i);
         self.presents[i].count += 1;
-        o.made = self.last_tick;
+        o.made = self.now;
         self.objects.push(o);
     }
 }
