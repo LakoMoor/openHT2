@@ -25,7 +25,8 @@ use winit::{
     window::{Window, WindowId},
 };
 
-const USAGE: &str = "usage: ht2-game <game dir> [--map MENV/dr | ENV] [--truck Kamaz] [--shot out.png [--seconds N] [--overview]]";
+const USAGE: &str = "usage: ht2-game [<game dir>] [--map ENV | MENV/dr] [--truck Kamaz] [--shot out.png [--seconds N] [--overview]]
+\n  the game dir defaults to $HT2_GAME, else a folder \"Hard Truck 2 King of the Road\" next to the current one or its parents";
 const STEP: f32 = 1.0 / 120.0;
 
 struct World {
@@ -326,10 +327,20 @@ fn main() -> ExitCode {
     }
 }
 
+/// Where the original game is when it is not given: `HT2_GAME`, else a folder
+/// `Hard Truck 2 King of the Road` beside the current folder or one of its parents.
+fn find_game_dir() -> Option<PathBuf> {
+    if let Some(d) = std::env::var_os("HT2_GAME") {
+        return Some(PathBuf::from(d));
+    }
+    let cwd = std::env::current_dir().ok()?;
+    cwd.ancestors().map(|a| a.join("Hard Truck 2 King of the Road")).find(|d| d.join("king.exe").exists() || d.join("ENV").is_dir())
+}
+
 fn run() -> Result<(), String> {
     let mut args = std::env::args().skip(1);
     let mut dir = None;
-    let (mut map, mut truck, mut shot, mut seconds, mut overview) = ("MENV/dr".to_string(), None, None, 10.0f32, false);
+    let (mut map, mut truck, mut shot, mut seconds, mut overview) = ("ENV".to_string(), None, None, 10.0f32, false);
     while let Some(a) = args.next() {
         let mut val = || args.next().ok_or(USAGE.to_string());
         match a.as_str() {
@@ -341,7 +352,7 @@ fn run() -> Result<(), String> {
             _ => dir = Some(PathBuf::from(a)),
         }
     }
-    let dir = dir.ok_or(USAGE)?;
+    let dir = dir.or_else(find_game_dir).ok_or(USAGE)?;
     let world = load_world(&dir, &map, truck.as_deref())?;
     let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
 
