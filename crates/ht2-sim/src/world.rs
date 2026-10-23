@@ -936,8 +936,8 @@ impl World {
     /// The start of `processMove` (`0x41ae60`): a vehicle hired out whose wait is over goes on
     /// when all hired out wait (`0x419760`); any other that stands stops standing when its time
     /// is over (`0x477d60`; at once while `0x66c68c` is set, which it is not in a game), and so
-    /// does one with flag 0x8000000. A vehicle
-    /// for sale whose time is over would go when its dealer has enough (`+0x3cc`; not ported).
+    /// does one with flag 0x8000000. For a vehicle for sale whose time is over `0x419760` is
+    /// asked too, but it leaves dealers (type 9) alone.
     fn end_standing(&mut self, k: usize, now: f64) {
         let p = &self.players[k];
         if p.state == 0x101 && p.flags & 4 != 0 && p.until <= now && self.hired_want <= self.hired_waiting {
@@ -1073,8 +1073,9 @@ impl World {
     /// goes on racing; a vehicle hired out waits 1200 + `next() % 1500` s at its slot (flags 0x400
     /// and 4, `0x477bd0`), and when more than all hired out but two wait, one whose wait is over
     /// (drawn) is no longer for hire (`0x419760`). Players other than truckers go to a random
-    /// node other than the nearest one (`0x40a2a0`). The truckers' choices (orders, towns,
-    /// parkings) are not ported.
+    /// node other than the nearest one (`0x40a2a0`). A trucker without an order draws a town
+    /// and a node with one there, with an order loads it (`0x443d50`) and drives it to its town,
+    /// where it is unloaded; a racer at its finish is done (`0x419dc0`).
     fn act_on_arrival(&mut self, k: usize, now: f64) {
         let kind = self.players[k].kind;
         if self.debug_arrivals {

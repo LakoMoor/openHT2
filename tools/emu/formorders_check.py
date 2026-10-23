@@ -84,8 +84,20 @@ if watch_tick:
             print('draw at', hex(uc.reg_read(UC_X86_REG_EIP)), rets, flush=True)
     from unicorn.x86_const import UC_X86_REG_EIP
     e.mu.hook_add(UC_HOOK_MEM_WRITE, rng_write, begin=0x68baa4, end=0x68baa7)
+# FO_HUMAN=<file>: the human player drives: before each tick the game reports where his vehicle
+# is (0x43ee70, a matrix with the point of that line of the file)
+path = [tuple(map(float, l.split())) for l in open(os.environ['FO_HUMAN'])] if os.environ.get('FO_HUMAN') else None
+if path:
+    hnode = u(u(0x68b990))
+    MATRIX = e.heap_next
+    e.heap_next += 0x40
 for tick in range(first, ticks + 1):
     cur_tick[0] = tick
+    if path:
+        x, y, z = path[tick - 1]
+        e.write(MATRIX, struct.pack('<12f', 1, 0, 0, 0, 1, 0, 0, 0, 1, x, y, z))
+        e.call(0x43ee70, [hnode, MATRIX], 'ii', max_insn=10**10)
+        print('hplace', i32(hnode + 0x28), i32(hnode + 0x2c), struct.unpack('<Q', e.read(hnode + 0x30, 8))[0], i32(hnode + 0x38), i32(hnode + 0x3c), i32(hnode + 0x40), flush=True)
     time += 0.1
     e.write(clock + 0xb98, struct.pack('<d', time))
     e.write(clock + 0xb90, struct.pack('<d', 0.1))

@@ -40,8 +40,25 @@ fn main() {
     };
     println!("{}", rng(&w));
     let mut time = 0.0;
+    // HUMAN=<file>: the human player drives, as the game reports it (0x43ee70: his vehicle's
+    // point, and his place on the roads from it, 0x43e610 -> 0x436900 without a route)
+    let path: Vec<[f64; 3]> = std::env::var("HUMAN").ok().map_or(Vec::new(), |f| {
+        std::fs::read_to_string(f).unwrap().lines().map(|l| {
+            let v: Vec<f64> = l.split_whitespace().map(|x| x.parse::<f32>().unwrap() as f64).collect();
+            [v[0], v[1], v[2]]
+        }).collect()
+    });
     for tick in 1..=ticks {
         time += 0.1;
+        if let Some(&q) = path.get(tick as usize - 1) {
+            w.human_pos = Some(q);
+            let h = w.players.iter().position(|p| p.kind == 1).unwrap();
+            if let Some(pl) = w.net.nearest(q) {
+                w.players[h].place = Some(Spot::Road(pl));
+                let flags = if pl.reversed { 1 } else { 0 };
+                println!("hplace {} {} {} {} {} {}", pl.road, pl.node.map_or(-1, |n| n as i64), pl.t.to_bits(), pl.piece, pl.segment, flags);
+            }
+        }
         // as the emulator has it: an empty scene with no memory to spare
         w.tick(time, &mut |_, _| false);
         println!("tick {tick}");
