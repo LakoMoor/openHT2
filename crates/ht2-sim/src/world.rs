@@ -337,6 +337,12 @@ pub struct AiPlayer {
     pub money: f64,
     pub earned: f64,
     pub rating: f64,
+    /// `+0x2d8`: what it earns, smoothed every 8 s (`0x4880e0`: earned · 1/256 + 255/256 · it;
+    /// 2 at the start); `+0x2f8`: its share of the load capacity of all truckers and the human
+    /// player, and `+0x300` its own (`updateRating`, `0x41fcf0`).
+    pub earning: f64,
+    pub share: f64,
+    pub fleet: f64,
     /// `+0x90`: the times its marks run out (`0x4774e0`).
     pub marks: Vec<f64>,
     /// `+0x28` of its vehicle (flag 2: it may be alarmed, `0x442850`) and whether it is (`+0x108`).
@@ -633,7 +639,7 @@ impl World {
             _ => {}
         }
         let name = if kind == 1 { None } else { self.pick_name(kind) };
-        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, race_index: 0, laps: 0, race_progress: 0.0, waypoint: false, until: f64::MAX, town: -1, order: -1, loads: Vec::new(), money: 40000.0, earned: 0.0, rating: 0.0, marks: Vec::new(), vehicle_flags: 0, alarmed: false, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
+        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, race_index: 0, laps: 0, race_progress: 0.0, waypoint: false, until: f64::MAX, town: -1, order: -1, loads: Vec::new(), money: 40000.0, earned: 0.0, earning: 2.0, share: 0.0, fleet: 0.0, rating: 10000.0, marks: Vec::new(), vehicle_flags: 0, alarmed: false, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
     }
 
     /// `traceToArbitraryDestination` (`0x417820`): random destinations (`0x456140`) until there
@@ -1780,6 +1786,36 @@ impl World {
         }
     }
 
+    /// `updateRating` (`0x41fcf0`, every 8 s): each player's earnings go into its smoothed
+    /// earning (`0x4880e0`) and start again; then each player's share is the load weight its
+    /// vehicle can carry (`0x41fca0`: the human player and truckers only; with those of its
+    /// company's players, none here) over that of all. A share of at least `0x66c710` (0.51)
+    /// would make it the winner (`+0x308`, event to the game; not ported, no one gets there).
+    fn update_rating(&mut self) {
+        for p in &mut self.players {
+            p.earning = p.earned * 0.00390625 + 0.99609375 * p.earning;
+            p.earned = 0.0;
+        }
+        let fleet = |w: &World, k: usize| if matches!(w.players[k].kind, 1 | 2) { w.capacity(k).0 } else { 0.0 };
+        let mut total = 0.0;
+        for k in 0..self.players.len() {
+            total = fleet(self, k) + total;
+        }
+        if total == 0.0 {
+            return;
+        }
+        for k in 0..self.players.len() {
+            let f = fleet(self, k);
+            self.players[k].fleet = f;
+            self.players[k].share = f / total;
+        }
+    }
+
+    /// The human player's share of the load capacity (`+0x300` of its record, `updateRating`).
+    pub fn human_share(&self) -> f64 {
+        self.players.iter().find(|p| p.kind == 1).map_or(0.0, |p| p.share)
+    }
+
     /// `expireParkedCars` (`0x42a2c0`, every 19 s): parked cars (not road works) put more than
     /// 900 s ago and more than 2000 m from the human player go: their present counts one less
     /// and the object is destroyed (`0x41ef10`: the game is told, the node is free, one parked
@@ -2037,6 +2073,9 @@ impl World {
             }
             if t.name == "provideRacesRegular" {
                 self.provide_races(now);
+            }
+            if t.name == "updateRating" {
+                self.update_rating();
             }
             if t.name == "expireParkedCars" {
                 self.expire_parked_cars(now);

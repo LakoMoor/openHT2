@@ -209,8 +209,16 @@ impl World {
         p.earned += earned;
         let _ = self.rng.next() % 360 + 360;
         if !competitor {
-            // 0x429850 (the human player's +0x300 is 0: one in 24)
-            if self.rng.next() % 24 == 0 {
+            // 0x429850: one in 24, 12 or 6 as the human player's share is over 0.1 or 0.2
+            let h = self.human_share();
+            let mut d = 1;
+            if 0.1 < h {
+                d = 2;
+            }
+            if 0.2 < h {
+                d = 4;
+            }
+            if self.rng.next() % (24 / d) == 0 {
                 self.players[k].marks.push(now + 300.0);
             }
         } else {
@@ -226,7 +234,8 @@ impl World {
     ///   (`+0x28`) a number is drawn, under 500000 it is alarmed (`+0x108`);
     /// - a competitor that carries nothing is one no more (`0x425790`, `0x417530`);
     /// - flag 0x8000 when a load goes to `TOWN_AA` (`0x41ef90`);
-    /// - its rating (`+0x3c0`): 0.8 of it and 0.2 of what the first load is worth (`0x4715a0`);
+    /// - its rating (`+0x3c0`, 10000 at the start): 0.8 of it and 0.2 of what the first load is
+    ///   worth (`0x4715a0`: the price ×1.5, see below, and √(value · units) · 10 less the damage);
     ///   flags 0x100000 and 0x1000000 go when it carries nothing;
     /// - `markAmbushes` (`0x42c0b0`).
     /// The flags of `0x477210` are not kept.
@@ -252,7 +261,13 @@ impl World {
                 let m = &self.merchandise[l.merchandise];
                 let a = (m.value * l.amount).sqrt() * 10.0;
                 let b = (1.0 - l.condition) * (m.value * l.amount).sqrt() * 10.0;
-                let worth = l.price + (a - b);
+                // 0x4715a0 calls 0x471560 one argument short: its flag is what lies on the stack,
+                // which is not 0, so the price counts ×1.5 (for an order of a town that pays)
+                let mut price = l.price;
+                if 0.0 < price && l.kind == 1 {
+                    price *= 1.5;
+                }
+                let worth = price + (a - b);
                 let p = &mut self.players[k];
                 p.rating = p.rating * 0.8 + worth * 0.2;
             }

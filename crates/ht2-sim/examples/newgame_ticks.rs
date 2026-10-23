@@ -47,6 +47,8 @@ fn main() {
         println!("tick {tick}");
         if let Some(k) = std::env::var("WATCH").ok().and_then(|k| k.parse::<usize>().ok()) {
             let p = &w.players[k];
+            if let Some(l) = p.loads.first() { println!("load {k} {:?}", l); }
+            println!("rating {k} earning {:?} share {:?} fleet {:?} money {:?} loads {} rating {:?}", p.earning, p.share, p.fleet, p.money, p.loads.len(), p.rating);
             println!("watch {k} {:?} {:?} route {:?} to {:?} laps {} state {:#x} flags {:#x}", p.place, p.place.map(|s| w.net.spot_coordinates(&s)), p.route.iter().map(|s| s.node).collect::<Vec<_>>(), p.route.last().map(|s| s.node), p.laps, p.state, p.flags);
         }
         for (t, nodes) in w.town_slots.iter().enumerate() {
