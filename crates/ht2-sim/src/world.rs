@@ -791,11 +791,11 @@ impl World {
     /// against it (`0x421880`).
     pub fn create_dealers(&mut self, wants: [usize; 3]) {
         self.dealer_want = wants;
-        self.refill_dealers();
+        self.refill_dealers(0.0);
     }
 
     /// `0x4221d0`: for each kind, dealers while there are fewer than wanted (100 tries at most).
-    fn refill_dealers(&mut self) {
+    fn refill_dealers(&mut self, now: f64) {
         for kind in 0..3 {
             for _ in 0..100 {
                 if self.dealer_want[kind] <= self.dealer_have[kind] {
@@ -804,6 +804,8 @@ impl World {
                 let Some((lot, slot)) = self.parking_place(kind as u32) else { break };
                 self.dealer_have[kind] += 1;
                 let mut p = self.new_player(9);
+                // the player's constructor keeps when it was made (+0x3b0)
+                p.born = now;
                 p.dealer = Some(kind);
                 if let Some(n) = self.slot_node(lot, slot) {
                     let node = &self.net.nodes[n];
@@ -1700,7 +1702,7 @@ impl World {
             p.place = None;
             p.route.clear();
         }
-        self.refill_dealers();
+        self.refill_dealers(now);
     }
 
     /// `provideCompetitionRegular` (`0x4262a0`, every 30 s) as far as the human player has no
