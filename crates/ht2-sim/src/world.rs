@@ -1,7 +1,7 @@
 //! The AI world of the original (`Ai_main.cpp`): the vehicle catalogue and what the start of a
 //! new game (`0x434780`) sets up from it.
 
-use crate::road::{AiRng, Parking, RoadNet, RouteStep, Spot};
+use crate::road::{AiRng, Parking, Place, RoadNet, RouteStep, Spot};
 use ht2_formats::sexpr::Sexp;
 
 /// A vehicle of the catalogue (`evehicles.sch`):
@@ -384,9 +384,47 @@ pub struct Ambush {
     pub id: String,
     pub kind: u32,
     pub active: bool,
+    /// The node it is at, the side of the world it faces, the numbers of the game's objects it
+    /// switches (`+0x70`) and the ambushes set off with it (`+0xdc`).
+    pub node: String,
+    pub facing: String,
+    pub objects: Vec<u32>,
+    pub links: Vec<String>,
+    /// `+0x38`: where it is (its node); `+0x58`: the way it faces (NORTH +y, SOUTH -y, EAST +x,
+    /// WEST -x); `+0x90`: the place on the roads nearest to it (`0x436900`); `+0xb0`: that
+    /// place turned the way it faces.
+    pub pos: [f64; 3],
+    pub dir: [f64; 3],
+    pub place: Option<Place>,
+    pub facing_place: Option<Place>,
+    /// `+0x1c`: set off (a player stands at it); `+0x7c`: that player.
+    pub set: bool,
+    pub player: Option<usize>,
 }
 
 impl Ambush {
+    /// Where the ambush is and which way it faces (as `0x412320` leaves it): its node, the
+    /// nearest place on the roads, and that place reversed when the road there runs against the
+    /// way it faces. The constructor is not ported line by line; this gives its result for all
+    /// 87 ambushes of ENV (compared with the emulator, `+0x38` .. `+0xb0`).
+    pub fn locate(&mut self, net: &RoadNet) {
+        let Some(n) = net.nodes.iter().position(|x| x.name == self.node) else { return };
+        self.pos = net.nodes[n].pos;
+        self.dir = match self.facing.as_str() {
+            "NORTH" => [0.0, 1.0, 0.0],
+            "SOUTH" => [0.0, -1.0, 0.0],
+            "EAST" => [1.0, 0.0, 0.0],
+            "WEST" => [-1.0, 0.0, 0.0],
+            _ => [0.0; 3],
+        };
+        self.place = net.nearest(self.pos);
+        self.facing_place = self.place.map(|mut p| {
+            let t = net.tangent(&p);
+            p.reversed = t[0] * self.dir[0] + t[1] * self.dir[1] + t[2] * self.dir[2] < 0.0;
+            p
+        });
+    }
+
     pub fn from_scripts(forms: &[Sexp]) -> Vec<Ambush> {
         let tops: Vec<&Sexp> = forms.iter().flat_map(|f| f.as_list().map_or(vec![f], |l| l.iter().collect())).collect();
         tops.into_iter()
@@ -399,6 +437,16 @@ impl Ambush {
                     _ => 0,
                 },
                 active: false,
+                node: r.get(4).and_then(|s| s.as_text()).unwrap_or_default().to_string(),
+                facing: r.get(5).and_then(|s| s.as_text()).unwrap_or_default().to_string(),
+                objects: r.get(6).and_then(|s| s.as_list()).map_or(Vec::new(), |l| l.iter().filter_map(|x| x.as_text()?.parse().ok()).collect()),
+                links: r.get(7).and_then(|s| s.as_list()).map_or(Vec::new(), |l| l.iter().filter_map(|x| x.as_text()).map(str::to_string).collect()),
+                pos: [0.0; 3],
+                dir: [0.0; 3],
+                place: None,
+                facing_place: None,
+                set: false,
+                player: None,
             })
             .collect()
     }
@@ -489,6 +537,10 @@ pub struct World {
     pub object_counter: u32,
     /// `+0x268` of the human player: where the game has its vehicle (else: its road place).
     pub human_pos: Option<[f64; 3]>,
+    /// `+0x3a8` / `+0x378` of the human player: the road he is on as `updatePlayerBoxes` saw it
+    /// last, and the box around the points he has been at on it since (lowest corner, highest).
+    pub human_box_road: Option<usize>,
+    pub human_box: [[f64; 3]; 2],
     /// For comparing with the original: when set, the vectors each player was weighed by in
     /// the last `xLoadEntities`.
     pub debug_wants: Option<Vec<(usize, [f64; 3], [f64; 3])>>,
@@ -575,7 +627,7 @@ impl World {
         let name_use = vec![[0, 0]; names.len()];
         let vehicle_weight = vec![1.0; vehicles.len()];
         let taken = vec![false; net.nodes.len()];
-        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, debug_wants: None, debug_rng_at_moves: None, debug_arrivals: false, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, hired_want: 0, hired_waiting: 0, companies: 0, company_cap: 7, logos: [false; 8], truckers_want: 0, stand_free: true, now: 0.0, hired_count: 0, competitors_arrived: 0, tech: Vec::new(), ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
+        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, human_box_road: None, human_box: [[0.0; 3]; 2], debug_wants: None, debug_rng_at_moves: None, debug_arrivals: false, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, hired_want: 0, hired_waiting: 0, companies: 0, company_cap: 7, logos: [false; 8], truckers_want: 0, stand_free: true, now: 0.0, hired_count: 0, competitors_arrived: 0, tech: Vec::new(), ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -1400,6 +1452,49 @@ impl World {
         p.place.map(|q| self.net.spot_coordinates(&q))
     }
 
+    /// `updatePlayerBoxes` (`0x42cf50`, each tick): for the human player (`+0x54` 1) on a road,
+    /// a box around where he has been on it (`0x487ee0` starts it on a new road, `0x487f60`
+    /// widens it). Once its diagonal times 1.2 is more than the diagonal of the road's box
+    /// (`RoadNet::road_box`) on a segment without flag 0x10, the road is marked (bit 0x200) and
+    /// the game told (`0x483ff0` → `0x529880`, not ported).
+    pub fn update_player_boxes(&mut self) {
+        for k in 0..self.players.len() {
+            if self.players[k].kind != 1 {
+                continue;
+            }
+            let Some(Spot::Road(pl)) = self.players[k].place else { continue };
+            // +0x268 when flag 1, else +0x130
+            let Some(pos) = self.position(&self.players[k]) else { continue };
+            if self.human_box_road != Some(pl.road) {
+                self.human_box_road = Some(pl.road);
+                self.human_box = [pos, pos];
+                continue;
+            }
+            let b = &mut self.human_box;
+            for c in 0..3 {
+                if pos[c] < b[0][c] {
+                    b[0][c] = pos[c];
+                }
+                if b[1][c] < pos[c] {
+                    b[1][c] = pos[c];
+                }
+            }
+            if self.net.is_explored(pl.road) {
+                continue;
+            }
+            let d = |b: &[[f64; 3]; 2]| {
+                let (x, y, z) = (b[0][0] - b[1][0], b[0][1] - b[1][1], b[0][2] - b[1][2]);
+                (x * x + y * y + z * z).sqrt()
+            };
+            let mine = d(&self.human_box);
+            let road = d(&self.net.road_box(pl.road));
+            let seg = self.net.roads[pl.road].segments[pl.segment];
+            if self.net.flags_of(seg) & 0x10 == 0 && road < mine * 1.2 {
+                self.net.set_explored(pl.road);
+            }
+        }
+    }
+
     /// `xLoadEntities` (`0x424550`, every ninth tick): which players' vehicles the game should
     /// have in its scene. Each player but the human one gets a want (`0x4244c0`) of where it is
     /// now relative to the human player and of where it will be in a quarter of a second
@@ -1757,6 +1852,181 @@ impl World {
             self.ambushes[k].active = false;
             if self.ambushes[k].kind == 2 {
                 self.ambushes[k].active = ((self.rng.next() % 1_000_000) as f64) < 300000.0;
+            }
+        }
+    }
+
+    /// `updateAmbushes` (`0x42c390`, every second). An ambush that is set goes off when the
+    /// human player is more than 600 m from it (`0x42b4c0`) and its player is sent away
+    /// (`0x42c330`). An active one that is not set is set off when he comes its way
+    /// (`0x42b550`); then the ambushes that go with it and are set, but which he does not come
+    /// to, go off and their players are sent away.
+    pub fn update_ambushes(&mut self) {
+        for a in 0..self.ambushes.len() {
+            if self.ambushes[a].set {
+                if self.ambush_left(a) {
+                    let p = self.ambushes[a].player;
+                    self.set_ambush(a, false);
+                    if let Some(p) = p {
+                        self.send_away(p);
+                    }
+                }
+            } else if self.ambushes[a].active && self.ambush_ahead(a) {
+                self.set_ambush(a, true);
+                for id in self.ambushes[a].links.clone() {
+                    let Some(l) = self.ambushes.iter().position(|x| x.id == id) else { continue };
+                    if self.ambushes[l].set && !self.ambush_ahead(l) {
+                        let p = self.ambushes[l].player;
+                        self.set_ambush(l, false);
+                        if let Some(p) = p {
+                            self.send_away(p);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Where the human player is for the ambushes: `+0x268` of his record (and `0x68bab0`, its
+    /// copy at the start of the tick).
+    fn human_point(&self) -> Option<[f64; 3]> {
+        let h = self.players.iter().position(|p| p.kind == 1)?;
+        self.position(&self.players[h])
+    }
+
+    /// `0x42b4c0`: there is no human player, or he is more than 600 m from ambush `a`.
+    fn ambush_left(&self, a: usize) -> bool {
+        let Some(h) = self.human_point() else { return true };
+        let p = self.ambushes[a].pos;
+        let (x, y, z) = (p[0] - h[0], p[1] - h[1], p[2] - h[2]);
+        600.0 < (x * x + z * z + y * y).sqrt()
+    }
+
+    /// `0x42b550`: the human player is 250 to 600 m from ambush `a`, the route from his place to
+    /// it (`0x4858b0`, mode 1) has at least two steps, and it comes to the ambush's place the
+    /// way the ambush faces: the road's direction there (`0x4390a0`), turned round when the last
+    /// road is driven against it (`0x484690`), points along the ambush (positive dot product).
+    fn ambush_ahead(&self, a: usize) -> bool {
+        let Some(k) = self.players.iter().position(|p| p.kind == 1) else { return false };
+        let Some(h) = self.position(&self.players[k]) else { return false };
+        let am = &self.ambushes[a];
+        let (x, y, z) = (am.pos[0] - h[0], am.pos[1] - h[1], am.pos[2] - h[2]);
+        let d = (x * x + z * z + y * y).sqrt();
+        if d < 250.0 || 600.0 < d {
+            return false;
+        }
+        let (Some(from), Some(to)) = (self.players[k].place, am.place) else { return false };
+        let Some((route, _)) = self.net.route_from(&from, &Spot::Road(to), 1) else { return false };
+        if route.len() < 2 {
+            return false;
+        }
+        let mut t = self.net.tangent(&to);
+        let last = route[route.len() - 2];
+        if last.road.is_some_and(|r| self.net.roads[r].start != last.node) {
+            t = [-t[0], -t[1], -t[2]];
+        }
+        0.0 < t[0] * am.dir[0] + t[1] * am.dir[1] + t[2] * am.dir[2]
+    }
+
+    /// `activateAmbush` (`0x42bb90`). Set off (`on`): a police ambush (mafia: type 6) without a
+    /// player takes the police car (type 5) farthest from the human player that is not
+    /// standing, not with another ambush (0x80000), not in the game's scene and not the human
+    /// player (`0x45f130` / `0x45f740`; sorted nearest first, `0x45f2c0`, the last taken): it is put
+    /// at the ambush's place turned its way (`0x4786a0`), stands there for good (`0x477c50`)
+    /// and gets flag 0x80000. Going off: the player is let go (`releaseAttachedPlayer`,
+    /// `0x42b870`: `0x477cd0`, flag 0x80000 cleared). The game objects of the ambush are
+    /// switched (`0x569310` / `0x569410`) and the game told (`0x483c10`), not ported.
+    fn set_ambush(&mut self, a: usize, on: bool) {
+        if !on {
+            if self.ambushes[a].set {
+                if let Some(k) = self.ambushes[a].player.take() {
+                    self.unstand(k);
+                    self.players[k].flags &= !0x80000;
+                }
+            }
+        } else if !self.ambushes[a].set && self.ambushes[a].player.is_none() {
+            let kind = match self.ambushes[a].kind {
+                2 => Some(5),
+                1 => Some(6),
+                _ => None,
+            };
+            if let Some(kind) = kind {
+                let h = self.human_point().unwrap_or([0.0; 3]);
+                let mut cands: Vec<usize> = (0..self.players.len())
+                    .filter(|&k| {
+                        let p = &self.players[k];
+                        p.kind == kind && p.flags & 4 == 0 && p.flags & 0x80000 == 0 && p.object.is_none_or(|o| !self.loaded.contains(&o)) && p.flags & 1 == 0
+                    })
+                    .collect();
+                let dist = |k: &usize| {
+                    let c = self.players[*k].place.map_or([0.0; 3], |s| self.net.spot_coordinates(&s));
+                    ((h[0] - c[0]) * (h[0] - c[0]) + (h[2] - c[2]) * (h[2] - c[2]) + (h[1] - c[1]) * (h[1] - c[1])).sqrt()
+                };
+                let d: Vec<f64> = (0..self.players.len()).map(|k| if cands.contains(&k) { dist(&k) } else { 0.0 }).collect();
+                crate::stl::sort(&mut cands, |x, y| d[*x] < d[*y]);
+                if let (Some(&k), Some(place)) = (cands.last(), self.ambushes[a].facing_place) {
+                    self.teleport(k, place);
+                    let p = &mut self.players[k];
+                    p.until = f64::MAX;
+                    p.flags |= 4 | 0x80000;
+                    self.ambushes[a].player = Some(k);
+                }
+            }
+        }
+        if self.debug_arrivals && self.ambushes[a].set != on {
+            println!("ambush {a} {} set {on} player {:?}", self.ambushes[a].id, self.ambushes[a].player);
+        }
+        self.ambushes[a].set = on;
+    }
+
+    /// `0x4786a0`: player `k` is put at `place`: its object leaves the game's scene (`0x4d8ae0`,
+    /// not ported), its route and waypoints go, and its place is set (`0x474290`: the node it
+    /// had stays when that is within 1 mm of the new point).
+    fn teleport(&mut self, k: usize, mut place: Place) {
+        let c = self.net.coordinates(&place);
+        let p = &mut self.players[k];
+        p.route.clear();
+        p.waypoint = false;
+        let old = match p.place {
+            Some(Spot::Node(n)) => Some(n),
+            Some(Spot::Road(q)) => q.node,
+            None => None,
+        };
+        if let Some(n) = old {
+            let q = self.net.nodes[n].pos;
+            let (x, y, z) = (q[0] - c[0], q[1] - c[1], q[2] - c[2]);
+            if (z * z + y * y + x * x).sqrt() < 0.001 {
+                place.node = Some(n);
+            }
+        }
+        p.place = Some(Spot::Road(place));
+    }
+
+    /// `0x42c330`: a player let go by an ambush is put at a random place (`0x422e00`) and goes
+    /// anywhere (`0x417820`).
+    fn send_away(&mut self, k: usize) {
+        let Some(place) = self.random_far_place() else { return };
+        self.teleport(k, place);
+        let mut p = self.players[k].clone();
+        self.trace_to_random(&mut p);
+        self.players[k] = p;
+    }
+
+    /// `0x422e00`: random places (`0x4801f0`) until one has neither flag 0x20 nor 0x40
+    /// (`0x438d70`). The flags are only read for a place at least 400 m from the human player;
+    /// for a nearer one those of the place before count (none before the first).
+    fn random_far_place(&mut self) -> Option<Place> {
+        let h = self.human_point().unwrap_or([0.0; 3]);
+        let mut flags = 0;
+        loop {
+            let p = self.net.random_place(&mut self.rng)?;
+            let c = self.net.coordinates(&p);
+            let y = c[1] - h[1];
+            if 400.0 <= ((c[0] - h[0]) * (c[0] - h[0]) + (c[2] - h[2]) * (c[2] - h[2]) + y * y).sqrt() {
+                flags = self.net.place_flags(&p);
+            }
+            if flags & 0x60 == 0 {
+                return Some(p);
             }
         }
     }
@@ -2151,6 +2421,9 @@ impl World {
             if t.name == "markAmbushes" {
                 self.mark_ambushes();
             }
+            if t.name == "updateAmbushes" {
+                self.update_ambushes();
+            }
             if t.name == "damageCargo" {
                 self.damage_cargo();
             }
@@ -2200,6 +2473,7 @@ impl World {
         }
         self.update_speeds(now);
         changes.extend(self.load_entities(fits));
+        self.update_player_boxes();
         self.last_tick = now;
         changes
     }
@@ -2358,6 +2632,9 @@ impl World {
         w.truckers_want = cnf.counts[2];
         w.car_share = car_share;
         w.ambushes = Ambush::from_scripts(&scripts);
+        for a in &mut w.ambushes {
+            a.locate(&w.net);
+        }
         w.obstacles = Obstacle::from_scripts(&scripts, &w.net);
         w.create_tasks(car_share);
         w

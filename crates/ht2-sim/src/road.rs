@@ -586,6 +586,10 @@ pub struct RoadNet {
     /// (`0x409980`), kept until the searches of the mode start afresh (`0x484140`). So after an
     /// obstacle without a road replaces one with a road, the old road still costs what it did.
     pub cost_cache: std::cell::RefCell<Vec<[Option<f64>; 4]>>,
+    /// `road + 0x10` bit 0x200: the human player has driven the road (`updatePlayerBoxes`,
+    /// `0x42cf50`). Its segments then lose flag 0x20 where `getRoadParameters` (`0x438d70`)
+    /// reads them, so vehicles may appear there.
+    pub explored: std::cell::RefCell<Vec<bool>>,
 }
 
 struct Endpoint {
@@ -891,8 +895,65 @@ impl RoadNet {
         self.seg_flags.borrow().get(s).copied().unwrap_or_else(|| self.segments[s].flags)
     }
 
-    fn place_flags(&self, p: &Place) -> u32 {
-        self.flags_of(self.roads[p.road].segments[p.segment])
+    /// The box around road `r` (`road + 0x88` the lowest corner, `+0xa0` the highest; `0x406160`):
+    /// the box around the points `vtable + 0x14` steps through on each segment from its start,
+    /// which is not one of them (`0x48d530`: the further points of a polyline; `0x48e100`: a
+    /// curve at t = 0.05001, 0.10002 .. 1, the sum kept as it adds up).
+    pub fn road_box(&self, r: usize) -> [[f64; 3]; 2] {
+        let road = &self.roads[r];
+        let mut b = [[f64::MAX; 3], [-f64::MAX; 3]];
+        let mut widen = |p: [f64; 3]| {
+            for c in 0..3 {
+                if p[c] < b[0][c] {
+                    b[0][c] = p[c];
+                }
+                if b[1][c] < p[c] {
+                    b[1][c] = p[c];
+                }
+            }
+        };
+        for &s in &road.segments {
+            let seg = &self.segments[s];
+            match &seg.shape {
+                Shape::Polyline(p) => {
+                    for k in 1..p.len() {
+                        widen(p[k]);
+                    }
+                }
+                Shape::Curve { .. } => {
+                    let mut t = 0.0f64;
+                    while t < 1.0 {
+                        t += 0.05001;
+                        if 1.0 <= t {
+                            t = 1.0;
+                        }
+                        widen(seg.point(t, 0));
+                    }
+                }
+            }
+        }
+        b
+    }
+
+    /// Has the human player driven road `r` (see `explored`)?
+    pub fn is_explored(&self, r: usize) -> bool {
+        self.explored.borrow().get(r).copied().unwrap_or(false)
+    }
+
+    /// Mark road `r` as driven by the human player.
+    pub fn set_explored(&self, r: usize) {
+        let mut e = self.explored.borrow_mut();
+        if e.len() <= r {
+            e.resize(self.roads.len().max(r + 1), false);
+        }
+        e[r] = true;
+    }
+
+    /// The segment flags at a place as `getRoadParameters` (`0x438d70`) gives them: without
+    /// 0x20 on a road the human player has driven.
+    pub fn place_flags(&self, p: &Place) -> u32 {
+        let f = self.flags_of(self.roads[p.road].segments[p.segment]);
+        if self.is_explored(p.road) { f & !0x20 } else { f }
     }
 }
 

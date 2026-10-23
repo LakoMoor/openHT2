@@ -32,6 +32,14 @@ fn main() {
     }
     let mut w = World::new_game(&game, &map, std::rc::Rc::new(net), 1.0, human);
     w.debug_arrivals = std::env::var_os("ARRIVALS").is_some();
+    // AMBPLACES=1: the ambushes as `ambush_places.py` prints the original's
+    if std::env::var_os("AMBPLACES").is_some() {
+        let pl = |p: &Option<Place>| p.map_or("none".to_string(), |p| format!("{} {} {} {} {} {}", p.road, p.node.map_or(-1, |n| n as i64), p.t.to_bits(), p.piece, p.segment, u8::from(p.reversed)));
+        for (k, a) in w.ambushes.iter().enumerate() {
+            println!("{k} {:?} {:?} {:?} {:?} {:?} {:?} {} {}", a.pos[0], a.pos[1], a.pos[2], a.dir[0], a.dir[1], a.dir[2], pl(&a.place), pl(&a.facing_place));
+        }
+        return;
+    }
     let rng = |w: &World| {
         let s = format!("{:?}", w.rng);
         let table = s.split('[').nth(1).unwrap().split(']').next().unwrap().replace(',', "");
@@ -62,6 +70,19 @@ fn main() {
         // as the emulator has it: an empty scene with no memory to spare
         w.tick(time, &mut |_, _| false);
         println!("tick {tick}");
+        // AMB=1: the ambushes 250..600 m from the human player (0x42b550)
+        if std::env::var_os("AMB").is_some() {
+            if let Some(h) = w.human_pos {
+                for (k, a) in w.ambushes.iter().enumerate() {
+                    let Some(n) = w.net.nodes.iter().position(|x| x.name == a.node) else { continue };
+                    let p = w.net.nodes[n].pos;
+                    let d = ((p[0] - h[0]).powi(2) + (p[1] - h[1]).powi(2) + (p[2] - h[2]).powi(2)).sqrt();
+                    if (250.0..=600.0).contains(&d) {
+                        eprintln!("amb {tick} {k} {} {} active {} d {d:.1}", a.id, a.kind, a.active);
+                    }
+                }
+            }
+        }
         if std::env::var_os("OBSTLOG").is_some() {
             let act: Vec<usize> = w.obstacles.iter().enumerate().filter(|(_, o)| o.active).map(|(k, _)| k).collect();
             eprintln!("obst {tick} {:?}", act);
@@ -92,6 +113,21 @@ fn main() {
             let v: Vec<String> = road.segments.iter().map(|&sg| format!("{:#x}", f[sg])).collect();
             println!("road {r} {}", v.join(" "));
         }
+    }
+    // PLAYERS=1: the players as `police_dump.py` prints the original's
+    if std::env::var_os("PLAYERS").is_some() {
+        for (k, p) in w.players.iter().enumerate() {
+            let (r, n, t, pc, sg, f) = match p.place {
+                Some(Spot::Road(q)) => (q.road as i64, q.node.map_or(-1, |n| n as i64), q.t, q.piece as i64, q.segment as i64, u8::from(q.reversed)),
+                Some(Spot::Node(n)) => (-1, n as i64, 0.0, 0, 0, 0),
+                None => (-1, -1, 0.0, 0, 0, 0),
+            };
+            println!("{k} {} {:#x} {r} {n} {t:?} {pc} {sg} {f} route {}", p.kind, p.flags, p.route.len());
+        }
+    }
+    if std::env::var_os("EXPLORED").is_some() {
+        let v: Vec<usize> = (0..w.net.roads.len()).filter(|&r| w.net.is_explored(r)).collect();
+        println!("explored {} {:?}", v.len(), v);
     }
     if std::env::var_os("OBJ").is_some() {
         println!("objects made {:?} want {:?}", w.object_made, w.object_want);
