@@ -193,7 +193,7 @@ impl World {
                 let q = self.position(&self.players[k]).unwrap_or([0.0; 3]);
                 let c = self.net.nodes[n].pos;
                 let (x, y, z) = (c[0] - q[0], c[1] - q[1], c[2] - q[2]);
-                left = (z * z + x * x + y * y).sqrt();
+                left = (y * y + x * x + z * z).sqrt();
                 if 100.0 < left {
                     left = match self.players[k].place {
                         Some(from) => self.net.route_from(&from, &Spot::Node(n), 0).map_or(0.0, |(_, c)| c),
@@ -501,6 +501,37 @@ impl World {
         let p = &mut self.players[h];
         if p.comp_place != p.comp_told {
             p.comp_told = p.comp_place;
+        }
+    }
+
+    /// `setPlayerPosition` (`0x43e610`) for the human player as the game reports where his
+    /// vehicle is: his place becomes `place`; when its road is not the one before, he has passed
+    /// the node the two roads share (`0x47fc80`) and `0x40b100` runs for it: in a game every
+    /// competitor's route is looked at again (`0x40a180` → `0x409fc0`). (Its branches for a
+    /// wanted human player, the node events and the race finish are not ported; they change
+    /// nothing in the AI while he is not wanted.)
+    pub fn place_human(&mut self, place: Spot) {
+        let Some(h) = self.players.iter().position(|p| p.kind == 1) else { return };
+        let road = |s: &Option<Spot>| match s {
+            Some(Spot::Road(q)) => Some(q.road),
+            _ => None,
+        };
+        let old = road(&self.players[h].place);
+        self.players[h].place = Some(place);
+        let new = road(&self.players[h].place);
+        if old == new {
+            return;
+        }
+        let (Some(a), Some(b)) = (old, new) else { return };
+        let (ra, rb) = (&self.net.roads[a], &self.net.roads[b]);
+        let node = [ra.start, ra.end].into_iter().find(|n| *n == rb.start || *n == rb.end);
+        if node.is_none() {
+            return;
+        }
+        for k in 0..self.players.len() {
+            if self.players[k].kind != 0 {
+                self.retrace_competitor(k);
+            }
         }
     }
 

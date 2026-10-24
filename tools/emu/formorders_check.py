@@ -118,6 +118,19 @@ def human_orders(tick):
         print('horder', tick, t, r, amount, 'ret', e.eax - (1 << 32) if e.eax >> 31 else e.eax, 'amount', repr(f64(ARGS)), 'index', i32(ARGS + 8), flush=True)
 
 
+def comp_state(tick):
+    # FO_COMP=1: after each tick, the human player and the competitors (list 0x68a980): index,
+    # place (road, t bits, segment), +0x1f8, +0x200, +0x350
+    idx, n, k = {}, u(sent), 0
+    while n != sent:
+        idx[n] = k
+        n, k = u(n), k + 1
+    hn = u(sent)
+    print('compglobals', tick, repr(f64(0x66c6a0)), repr(f64(0x68d0f0)), flush=True)
+    for c in [hn] + [u(a) for a in range(u(0x68a980), u(0x68a984), 4)]:
+        print('comp', tick, idx.get(c, -1), i32(c + 0x28), struct.unpack('<Q', e.read(c + 0x30, 8))[0], i32(c + 0x3c), repr(f64(c + 0x1f8)), e.read(c + 0x200, 1)[0], e.read(c + 0x350, 1)[0], flush=True)
+
+
 def human_state(tick):
     hn = u(u(0x68b990))
     lst = u(hn + 0x208) or u(hn + 0x204)
@@ -160,6 +173,8 @@ for tick in range(first, ticks + 1):
     print('tick', tick, flush=True)
     if orders:
         human_state(tick)
+    if os.environ.get('FO_COMP'):
+        comp_state(tick)
     dump(tick)
     print('rng', rng(), flush=True)
     if save_at and int(save_at[0]) == tick:

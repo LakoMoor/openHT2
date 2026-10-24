@@ -75,7 +75,8 @@ fn main() {
             w.human_matrix = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, q[0], q[1], q[2]];
             let h = w.players.iter().position(|p| p.kind == 1).unwrap();
             if let Some(pl) = w.net.nearest(q) {
-                w.players[h].place = Some(Spot::Road(pl));
+                let _ = h;
+                w.place_human(Spot::Road(pl));
                 let flags = if pl.reversed { 1 } else { 0 };
                 println!("hplace {} {} {} {} {} {}", pl.road, pl.node.map_or(-1, |n| n as i64), pl.t.to_bits(), pl.piece, pl.segment, flags);
             }
@@ -89,6 +90,19 @@ fn main() {
         // as the emulator has it: an empty scene with no memory to spare
         w.tick(time, &mut |_, _| false);
         println!("tick {tick}");
+        // COMP=1: the human player and the competitors as formorders_check.py FO_COMP prints them
+        if std::env::var_os("COMP").is_some() {
+            let live = |k: usize| w.players[..k].iter().filter(|p| p.kind != 0).count();
+            let h = w.players.iter().position(|p| p.kind == 1).unwrap();
+            for &c in std::iter::once(&h).chain(w.competitor_list.iter()) {
+                let p = &w.players[c];
+                let (r, t, sg) = match p.place {
+                    Some(Spot::Road(q)) => (q.road as i64, q.t.to_bits(), q.segment as i64),
+                    _ => (-1, 0, 0),
+                };
+                println!("comp {tick} {} {r} {t} {sg} {:?} {} {}", live(c), p.advancement, u8::from(p.behind), u8::from(p.shadow));
+            }
+        }
         if !orders.is_empty() {
             let h = &w.players[w.players.iter().position(|p| p.kind == 1).unwrap()];
             let loads: Vec<String> = h.loads.iter().map(|l| format!("{} {} {:?} {:?} {:?} {:?}", l.merchandise, l.to, l.amount, l.deadline, l.time, l.condition)).collect();
