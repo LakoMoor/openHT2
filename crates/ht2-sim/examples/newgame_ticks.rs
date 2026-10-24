@@ -56,10 +56,23 @@ fn main() {
             [v[0], v[1], v[2]]
         }).collect()
     });
+    // the human player's vehicle matrix as the emulator's new game has it (rows 0, the
+    // translation of the game's start position); a driving one has the matrix the game reports
+    w.human_matrix = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -3020.0, -4625.0, 20.0];
+    // ORDERS=<file>: lines "<tick> <town index> <node index> <amount>": before that tick the
+    // game hands the human player an order (message 0x11, loadOrder 0x443d50), as
+    // formorders_check.py FO_ORDERS does; after each tick his money, +0x218, earnings and loads
+    let orders: Vec<(u32, usize, usize, f64)> = std::env::var("ORDERS").ok().map_or(Vec::new(), |f| {
+        std::fs::read_to_string(f).unwrap().lines().filter_map(|l| {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            (w.len() == 4).then(|| (w[0].parse().unwrap(), w[1].parse().unwrap(), w[2].parse().unwrap(), w[3].parse().unwrap()))
+        }).collect()
+    });
     for tick in 1..=ticks {
         time += 0.1;
         if let Some(&q) = path.get(tick as usize - 1) {
             w.human_pos = Some(q);
+            w.human_matrix = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, q[0], q[1], q[2]];
             let h = w.players.iter().position(|p| p.kind == 1).unwrap();
             if let Some(pl) = w.net.nearest(q) {
                 w.players[h].place = Some(Spot::Road(pl));
@@ -67,9 +80,20 @@ fn main() {
                 println!("hplace {} {} {} {} {} {}", pl.road, pl.node.map_or(-1, |n| n as i64), pl.t.to_bits(), pl.piece, pl.segment, flags);
             }
         }
+        for &(_, t, r, amount) in orders.iter().filter(|o| o.0 == tick) {
+            let h = w.players.iter().position(|p| p.kind == 1).unwrap();
+            let now = w.now;
+            let (ret, units, index) = w.load_order_at(h, t, r, amount, now);
+            println!("horder {tick} {t} {r} {amount:?} ret {ret} amount {units:?} index {index}");
+        }
         // as the emulator has it: an empty scene with no memory to spare
         w.tick(time, &mut |_, _| false);
         println!("tick {tick}");
+        if !orders.is_empty() {
+            let h = &w.players[w.players.iter().position(|p| p.kind == 1).unwrap()];
+            let loads: Vec<String> = h.loads.iter().map(|l| format!("{} {} {:?} {:?} {:?} {:?}", l.merchandise, l.to, l.amount, l.deadline, l.time, l.condition)).collect();
+            println!("hstate {tick} {:?} {} {:?} {}{}{}", h.money, h.wins, h.earned, loads.len(), if loads.is_empty() { "" } else { " " }, loads.join(" "));
+        }
         // AMB=1: the ambushes 250..600 m from the human player (0x42b550)
         if std::env::var_os("AMB").is_some() {
             if let Some(h) = w.human_pos {
@@ -91,7 +115,7 @@ fn main() {
             let p = &w.players[k];
             if let Some(l) = p.loads.first() { println!("load {k} {:?}", l); }
             println!("rating {k} earning {:?} share {:?} fleet {:?} money {:?} loads {} rating {:?}", p.earning, p.share, p.fleet, p.money, p.loads.len(), p.rating);
-            println!("watch {k} {:?} {:?} route {:?} to {:?} laps {} state {:#x} flags {:#x}", p.place, p.place.map(|s| w.net.spot_coordinates(&s)), p.route.iter().map(|s| s.node).collect::<Vec<_>>(), p.route.last().map(|s| s.node), p.laps, p.state, p.flags);
+            println!("watch {k} {:?} {:?} route {:?} to {:?} laps {} state {:#x} flags {:#x} wp {:?} adv {:?} behind {} shadow {}", p.place, p.place.map(|s| w.net.spot_coordinates(&s)), p.route.iter().map(|s| s.node).collect::<Vec<_>>(), p.route.last().map(|s| s.node), p.laps, p.state, p.flags, p.waypoints, p.advancement, p.behind, p.shadow);
         }
         for (t, nodes) in w.town_slots.iter().enumerate() {
             for (k, slots) in nodes.iter().enumerate() {

@@ -122,14 +122,91 @@ impl World {
     /// the same merchandise for the same town); its price; with a semitrailer its time ×1.3.
     /// Then `accountForChangeInLoadState` (`0x442c60`). Whether it loaded.
     pub fn load_order(&mut self, k: usize, t: usize, r: usize, now: f64) -> bool {
-        let Some(&(ref name, attr)) = self.towns.get(t).and_then(|x| x.nodes.get(r)) else { return false };
-        if attr & 1 != 0 {
-            return false;
+        self.load_order_at(k, t, r, 1e6, now).0 == 0
+    }
+
+    /// `loadOrder` (`0x443d50`) as the game calls it for the human player (message 0x11):
+    /// `amount` above 0 loads at a store node, below 0 unloads at the unload node. What it
+    /// returns: 0, or -1 (nothing to do there), -8, -3, -4 (no room), -10 (a liquid needs a tank
+    /// semitrailer), -11 (a tank takes only liquids); the units loaded (else `amount`); the
+    /// index of the load (else -1). For the human player `0x68d100` is set to now, and at the
+    /// end `provideCompetitionRegular` runs while fewer competitors than `0x68d160` are in the
+    /// list (`0x4262a0`, until it adds none).
+    pub fn load_order_at(&mut self, k: usize, t: usize, r: usize, amount: f64, now: f64) -> (i32, f64, i32) {
+        if self.is_human(k) {
+            self.orders_time = now;
         }
-        let Some(node) = self.net.nodes.iter().position(|n| &n.name == name) else { return false };
+        let Some(&(_, attr)) = self.towns.get(t).and_then(|x| x.nodes.get(r)) else { return (-1, amount, -1) };
+        if attr & 1 != 0 {
+            if amount < 0.0 {
+                self.unload_order(k, t, r, now);
+                self.after_order(k);
+                return (0, amount, -1);
+            }
+            return (-1, amount, -1);
+        }
+        if !(0.0 < amount) {
+            return (-1, amount, -1);
+        }
+        match self.load_at_store(k, t, r, now) {
+            Ok((units, index)) => {
+                self.after_order(k);
+                (0, units, index)
+            }
+            Err(code) => (code, amount, -1),
+        }
+    }
+
+    /// The end of `loadOrder` (`0x444e05`): for the human player the competition is provided
+    /// while fewer than `0x68d160` are in the list; then `accountForChangeInLoadState`.
+    fn after_order(&mut self, k: usize) {
+        if self.is_human(k) {
+            let mut n = self.competitor_count();
+            if n + self.competitors_arrived < self.competition {
+                loop {
+                    self.provide_competition();
+                    let m = self.competitor_count();
+                    if n == m {
+                        break;
+                    }
+                    n = m;
+                    if self.competition <= m + self.competitors_arrived {
+                        break;
+                    }
+                }
+            }
+        }
+        self.account_for_load_change(k);
+    }
+
+    /// `0x41b9a0`: whether the vehicle of player `k` (its semitrailer when it has one) is a tank.
+    fn tank(&self, k: usize) -> bool {
+        let p = &self.players[k];
+        let mut tank = p.vehicle.is_some_and(|v| self.vehicles[v].liquid);
+        if let Some(t) = p.trailer {
+            tank = self.vehicles[t].liquid;
+        }
+        tank
+    }
+
+    /// The loading part of `loadOrder`: the units loaded and the index of the load, or the code.
+    fn load_at_store(&mut self, k: usize, t: usize, r: usize, now: f64) -> Result<(f64, i32), i32> {
+        let Some(&(ref name, _)) = self.towns.get(t).and_then(|x| x.nodes.get(r)) else { return Err(-1) };
+        let Some(node) = self.net.nodes.iter().position(|n| &n.name == name) else { return Err(-1) };
         let truck = self.players[k].vehicle.is_some_and(|v| matches!(self.vehicles[v].kind, 2 | 3));
-        let Some(order) = self.town_slots.get(t).and_then(|n| n.get(r)).and_then(|s| s[if truck { 0 } else { 1 }].clone()) else { return false };
-        let Some(to) = order.to else { return false };
+        let Some(order) = self.town_slots.get(t).and_then(|n| n.get(r)).and_then(|s| s[if truck { 0 } else { 1 }].clone()) else { return Err(-1) };
+        let Some(to) = order.to else { return Err(-1) };
+        if self.is_human(k) {
+            let liquid = self.merchandise[order.merchandise].flags & 4 != 0;
+            if liquid && !self.tank(k) {
+                // NEED_A_PETROL_SEMITRAILER
+                return Err(-10);
+            }
+            if !liquid && self.tank(k) {
+                // LOAD_AT_AN_OIL_TANK
+                return Err(-11);
+            }
+        }
         let (mut used_w, mut used_a) = (0.0, 0.0);
         for l in &self.players[k].loads {
             let m = &self.merchandise[l.merchandise];
@@ -139,10 +216,14 @@ impl World {
         let (cap_w, cap_a) = self.capacity(k);
         let (w, a, units) = self.fits(k, order.merchandise);
         if cap_w < w + used_w || cap_a < a + used_a {
-            return false;
+            // NOT_ENOUGH_SPACE for the human player
+            return Err(-8);
         }
-        if 0.0 <= used_w - cap_w || 0.0 <= used_a - cap_a {
-            return false;
+        if 0.0 <= used_w - cap_w {
+            return Err(-3);
+        }
+        if 0.0 <= used_a - cap_a {
+            return Err(-4);
         }
         let cost = match self.unload_node(to) {
             Some(u) => self.spot_route_cost(&Spot::Node(node), u),
@@ -160,6 +241,7 @@ impl World {
                 loads.len() - 1
             }
         };
+        let mut index = i as i32;
         if self.players[k].loads[i].amount != 0.0 {
             let trailer = self.players[k].trailer.is_some();
             self.price_load(k, i, trailer);
@@ -170,24 +252,36 @@ impl World {
             }
         } else {
             self.players[k].loads.remove(i);
+            index = -1;
         }
-        self.account_for_load_change(k);
-        true
+        Ok((units, index))
     }
 
     /// `loadOrder` (`0x443d50`) unloading (`-1e6`) at node `r` of town `t`: at an unload node,
     /// every load for the town goes; what they pay (`0x471450`: the price less the damage) is
     /// earned (`+0x80`, `+0x2f8`; a player of a company would pay it to the company). Then a
     /// number is drawn (360 + `next() % 360`, used for competitors), and for a player who is not
-    /// a competitor one in 24 (`0x429850`) licences it for 300 s (`0x4774e0`). The game is told
-    /// (event 11) and `accountForChangeInLoadState` (`0x442c60`) runs.
+    /// a competitor one in 24 (`0x429850`) licences it for 300 s (`0x4774e0`). The human player,
+    /// when he brought an order of a town before any competitor arrived (and there are some),
+    /// counts one more such arrival (`+0x218`) and gets ⌊√(that + 1)⌋ licences (at most 3) for
+    /// the time drawn; else the count is 0. A competitor counts as arrived (`0x68d164`), and
+    /// the first to arrive gets a licence for that time. The game is told (event 11).
     pub fn unload_order(&mut self, k: usize, t: usize, r: usize, now: f64) {
+        self.unload_at(k, t, r, now);
+        if !self.is_human(k) {
+            self.account_for_load_change(k);
+        }
+    }
+
+    fn unload_at(&mut self, k: usize, t: usize, r: usize, now: f64) {
         let Some(&(_, attr)) = self.towns.get(t).and_then(|x| x.nodes.get(r)) else { return };
         if attr & 1 == 0 {
             return;
         }
         let mut earned = 0.0;
         let competitor = self.players[k].tracked;
+        let human = self.is_human(k);
+        let (mut delivered, mut of_town) = (false, false);
         let mut i = 0;
         while i < self.players[k].loads.len() {
             if self.players[k].loads[i].to != t {
@@ -195,11 +289,15 @@ impl World {
                 continue;
             }
             let l = self.players[k].loads.remove(i);
+            delivered = true;
+            if l.kind == 1 {
+                of_town = true;
+            }
             let m = &self.merchandise[l.merchandise];
             // 0x4713f0: the damage, (1 − condition) · √(value · units) · 10
             let damage = (1.0 - l.condition) * (m.value * l.amount).sqrt() * 10.0;
             let mut pay = l.price;
-            if competitor && self.competitors_arrived == 0 && 0.0 < pay && l.kind == 1 {
+            if (competitor || human) && self.competitors_arrived == 0 && 0.0 < pay && l.kind == 1 {
                 pay *= 1.5;
             }
             earned = (pay - damage) + earned;
@@ -212,8 +310,20 @@ impl World {
             }
         }
         self.players[k].earned += earned;
-        let _ = self.rng.next() % 360 + 360;
-        if !competitor {
+        let time = (self.rng.next() % 360 + 360) as f64;
+        if !competitor && self.players[k].kind == 1 {
+            if self.competitors_arrived == 0 && delivered && of_town && !self.competitor_list.is_empty() {
+                let p = &mut self.players[k];
+                p.wins += 1;
+                let n = (((p.wins + 1) as f64).sqrt() as i64).min(3);
+                for _ in 0..n {
+                    p.licences.push(now + time);
+                }
+                p.licences.sort_by(|a, b| a.total_cmp(b));
+            } else {
+                self.players[k].wins = 0;
+            }
+        } else if !competitor {
             // 0x429850: one in 24, 12 or 6 as the human player's share is over 0.1 or 0.2
             let h = self.human_share();
             let mut d = 1;
@@ -227,10 +337,14 @@ impl World {
                 self.players[k].licences.push(now + 300.0);
             }
         } else {
-            // the competitor's arrival (0x4774e0, COMPETITOR_ARRIVED) is not ported
+            if self.competitors_arrived == 0 && delivered && !self.competitor_list.is_empty() {
+                let p = &mut self.players[k];
+                p.licences.push(now + time);
+                p.licences.sort_by(|a, b| a.total_cmp(b));
+            }
+            // COMPETITOR_ARRIVED
             self.competitors_arrived += 1;
         }
-        self.account_for_load_change(k);
     }
 
     /// `accountForChangeInLoadState` (`0x442c60`) for a player other than the human:
@@ -251,15 +365,8 @@ impl World {
         } else {
             self.players[k].alarmed = false;
         }
-        if self.players[k].state != 5 && self.players[k].tracked && self.players[k].loads.is_empty() {
-            self.players[k].tracked = false;
-        }
-        let aa = self.players[k].loads.iter().any(|l| self.towns.get(l.to).is_some_and(|t| t.id == "TOWN_AA"));
-        let p = &mut self.players[k];
-        p.flags &= !0x8000;
-        if aa {
-            p.flags |= 0x8000;
-        }
+        self.drop_competition(k);
+        self.mark_town_aa(k);
         match self.players[k].loads.first() {
             None => self.players[k].flags &= 0xfeef_ffff,
             Some(l) => {
@@ -278,6 +385,39 @@ impl World {
             }
         }
         self.mark_ambushes();
+    }
+
+    /// `expirePlayerOrders` (`0x429fb0`, every second): the loads of the human player whose time
+    /// is over go (`0x429cd0`, the first such one each time) and their penalties (`0x471420`:
+    /// √(value · units) · 10) come off his money (`+0x88` of his node). When one went, the
+    /// competition is dropped if no order of a town is left (`0x425790`), `0x41ef90` runs and the
+    /// game is told (event 13, `ORDER_EXPIRED`; not ported). `0x426f20` tells the game when his
+    /// money is below 0 (not ported).
+    pub fn expire_player_orders(&mut self) {
+        let Some(h) = self.players.iter().position(|p| p.kind == 1) else { return };
+        let now = self.now;
+        let mut penalty = 0.0;
+        let mut any = false;
+        while let Some(i) = self.players[h].loads.iter().position(|l| l.deadline < now) {
+            let l = self.players[h].loads.remove(i);
+            penalty = (self.merchandise[l.merchandise].value * l.amount).sqrt() * 10.0 + penalty;
+            any = true;
+        }
+        self.players[h].money -= penalty;
+        if any {
+            self.drop_competition(h);
+            self.mark_town_aa(h);
+        }
+    }
+
+    /// `0x41ef90`: flag 0x8000 while a load goes to `TOWN_AA`.
+    pub(crate) fn mark_town_aa(&mut self, k: usize) {
+        let aa = self.players[k].loads.iter().any(|l| self.towns.get(l.to).is_some_and(|t| t.id == "TOWN_AA"));
+        let p = &mut self.players[k];
+        p.flags &= !0x8000;
+        if aa {
+            p.flags |= 0x8000;
+        }
     }
 
     /// `0x417ed0`: a route to the unload node of the town its first load goes to.

@@ -9,6 +9,7 @@ pub mod ai;
 pub mod carv;
 pub mod chassis;
 pub mod companies;
+pub mod competition;
 pub mod contact;
 pub mod ctor;
 pub mod curves;

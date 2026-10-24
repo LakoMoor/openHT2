@@ -321,9 +321,22 @@ pub struct AiPlayer {
     pub race_index: usize,
     pub laps: u32,
     pub race_progress: f64,
-    /// Whether it has somewhere to go (the list of waypoints at `+0x40` is not empty): set when
-    /// a route is given, cleared when it stands at the route's end (`0x417300`).
-    pub waypoint: bool,
+    /// As a competitor of the human player (`competition.rs`; offsets of the list node): how
+    /// far it has still to go, negative (`+0x1f8`, `0x41a7d0`); whether it was behind him at the
+    /// last move (`+0x200`); whether it follows him when behind (`+0x350`). For the human
+    /// player: how many compete (`+0x20c`), his place (`+0x210`), the place told to the game
+    /// (`+0x214`) and how often in a row he arrived first (`+0x218`).
+    pub advancement: f64,
+    pub behind: bool,
+    pub shadow: bool,
+    pub comp_count: i32,
+    pub comp_place: i32,
+    pub comp_told: i32,
+    pub wins: u32,
+    /// `+0x40`: where it is to go (0x28 bytes each: a place and its kind, at most one of each
+    /// kind; 1 a destination, 2 the human player's place for a competitor behind him). The
+    /// route goes to the last one (`0x478100`); one is reached at the route's end (`0x417300`).
+    pub waypoints: Vec<(Spot, u32)>,
     /// `+0x68`: until when it stands (flag 4, `0x477bd0`).
     pub until: f64,
     /// A trucker's town (`+0x80`, its number) and the node of it whose order it goes for
@@ -613,6 +626,13 @@ pub struct World {
     pub car_share: f64,
     pub competitors: u32,
     pub competition: u32,
+    /// The competitors of the human player (`0x68a980`, in the order they joined).
+    pub competitor_list: Vec<usize>,
+    /// `+0x228` of the human player: the matrix of his vehicle as the game reports it (three
+    /// rows and the translation), and `+0x354`: the room of his place at the last
+    /// `updatePlayerRooms` (`0x42cb20`, end of a tick).
+    pub human_matrix: [f64; 12],
+    pub human_room: Option<String>,
     /// `0x68ced0`: of each kind of vehicle for sale, how many there are and are wanted.
     pub dealer_have: [usize; 3],
     pub dealer_want: [usize; 3],
@@ -627,7 +647,7 @@ impl World {
         let name_use = vec![[0, 0]; names.len()];
         let vehicle_weight = vec![1.0; vehicles.len()];
         let taken = vec![false; net.nodes.len()];
-        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, human_box_road: None, human_box: [[0.0; 3]; 2], debug_wants: None, debug_rng_at_moves: None, debug_arrivals: false, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, hired_want: 0, hired_waiting: 0, companies: 0, company_cap: 7, logos: [false; 8], truckers_want: 0, stand_free: true, now: 0.0, hired_count: 0, competitors_arrived: 0, tech: Vec::new(), ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
+        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, human_box_road: None, human_box: [[0.0; 3]; 2], debug_wants: None, debug_rng_at_moves: None, debug_arrivals: false, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, hired_want: 0, hired_waiting: 0, companies: 0, company_cap: 7, logos: [false; 8], truckers_want: 0, stand_free: true, now: 0.0, hired_count: 0, competitors_arrived: 0, tech: Vec::new(), ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, competitor_list: Vec::new(), human_matrix: [0.0; 12], human_room: None, dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -710,7 +730,7 @@ impl World {
             _ => {}
         }
         let name = if kind == 1 { None } else { self.pick_name(kind) };
-        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, race_index: 0, laps: 0, race_progress: 0.0, waypoint: false, until: f64::MAX, town: -1, order: -1, loads: Vec::new(), money: 40000.0, earned: 0.0, earning: 2.0, share: 0.0, fleet: 0.0, rating: 10000.0, licences: Vec::new(), boss: None, members: Vec::new(), salary: 0.0, advance: 0.0, company_balance: 0.0, logo: None, vehicle_flags: 0, alarmed: false, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
+        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, race_index: 0, laps: 0, race_progress: 0.0, advancement: 0.0, behind: false, shadow: false, comp_count: 0, comp_place: 0, comp_told: -1, wins: 0, waypoints: Vec::new(), until: f64::MAX, town: -1, order: -1, loads: Vec::new(), money: 40000.0, earned: 0.0, earning: 2.0, share: 0.0, fleet: 0.0, rating: 10000.0, licences: Vec::new(), boss: None, members: Vec::new(), salary: 0.0, advance: 0.0, company_balance: 0.0, logo: None, vehicle_flags: 0, alarmed: false, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
     }
 
     /// `traceToArbitraryDestination` (`0x417820`): random destinations (`0x456140`) until there
@@ -770,15 +790,43 @@ impl World {
         }
     }
 
-    /// `0x478260` / `0x4872f0`: the route (mode 0) from the player's place to `to`; when there is
-    /// one, the player's place is set again from its coordinates on it (`0x43dc60`).
+    /// `0x478260` with kind 1: a destination (see [`World::trace_to`]).
     pub(crate) fn set_route(&self, p: &mut AiPlayer, to: &Spot) {
+        self.trace_to(p, to, 1);
+    }
+
+    /// `0x478260`: `to` becomes the player's waypoint of `kind` (`0x477e90`: one of the same kind
+    /// goes first) and the route is traced to the last waypoint (`0x478100`).
+    pub(crate) fn trace_to(&self, p: &mut AiPlayer, to: &Spot, kind: u32) {
+        p.waypoints.retain(|w| w.1 != kind);
+        p.waypoints.push((*to, kind));
+        self.retrace(p);
+    }
+
+    /// `0x478100`: when the route does not end at the node of the last waypoint (or there is
+    /// none), the route (mode 0, `0x4872f0`) from the player's place to it; when there is one,
+    /// the player's place is set again from its coordinates on it (`0x43dc60`, its place set by
+    /// `0x474290`).
+    pub(crate) fn retrace(&self, p: &mut AiPlayer) {
+        let Some(&(to, _)) = p.waypoints.last() else { return };
+        let node = match to {
+            Spot::Node(n) => Some(n),
+            Spot::Road(q) => q.node,
+        };
+        if !p.route.is_empty() && node.is_some() && node == p.route.last().map(|s| s.node) {
+            return;
+        }
+        self.route_again(p, &to);
+    }
+
+    /// `0x4872f0` / `0x487230`: the route (mode 0) from the player's place to `to`; when there is
+    /// one, the player's place is set again from its coordinates on it (`0x43dc60`, its place
+    /// set by `0x474290`). The waypoints stay.
+    pub(crate) fn route_again(&self, p: &mut AiPlayer, to: &Spot) {
         let Some(from) = p.place else { return };
         if let Some((r, _)) = self.net.route_from(&from, to, 0) {
             p.route = r;
-            p.waypoint = true;
             let q = self.net.spot_coordinates(&from);
-            // 0x43dc60, its place set by 0x474290
             p.place = Some(self.net.keep_node(Some(&from), self.net.locate(&p.route, q, &from)));
         }
     }
@@ -914,7 +962,7 @@ impl World {
                 let q = self.net.nodes[last.node].pos;
                 p.place = Some(self.net.locate(&p.route, q, &place));
                 // standing at the end: its waypoint is reached
-                p.waypoint = false;
+                p.waypoints.pop();
             }
             self.players[k] = p;
         }
@@ -983,7 +1031,7 @@ impl World {
             self.semi_arrival(k);
             // 0x4165a0: not the human player, not standing and nowhere to go
             let p = &self.players[k];
-            if p.kind != 0 && p.kind != 1 && p.flags & 4 == 0 && !p.waypoint {
+            if p.kind != 0 && p.kind != 1 && p.flags & 4 == 0 && p.waypoints.is_empty() {
                 self.act_on_arrival(k, now);
             }
         }
@@ -1010,7 +1058,7 @@ impl World {
     }
 
     /// `0x477cd0`: it stands no longer (a vehicle hired out no longer counts as waiting).
-    fn unstand(&mut self, k: usize) {
+    pub(crate) fn unstand(&mut self, k: usize) {
         let p = &mut self.players[k];
         if p.flags & 4 != 0 && p.state == 0x101 {
             self.hired_waiting = self.hired_waiting.saturating_sub(1);
@@ -1106,11 +1154,12 @@ impl World {
         self.players[k].state = 3;
     }
 
-    /// `actOnSemiArrival` (`0x417300`): at the end node of its route a player has reached its
-    /// waypoint.
+    /// `actOnSemiArrival` (`0x417300`): at the end node of its route a player has reached a
+    /// waypoint: those at that node go (`0x477fa0`), else the last one, and the route is traced
+    /// to the one left (`0x478100`); then a competitor's route is looked at again (`0x409fc0`).
     fn semi_arrival(&mut self, k: usize) {
         let p = &self.players[k];
-        if !p.waypoint {
+        if p.waypoints.is_empty() {
             return;
         }
         let Some(last) = p.route.last().map(|s| s.node) else { return };
@@ -1119,9 +1168,24 @@ impl World {
             Some(Spot::Road(q)) => q.node,
             None => None,
         };
-        if at == Some(last) {
-            self.players[k].waypoint = false;
+        if at != Some(last) {
+            return;
         }
+        let mut p = self.players[k].clone();
+        let before = p.waypoints.len();
+        p.waypoints.retain(|w| {
+            let node = match w.0 {
+                Spot::Node(n) => Some(n),
+                Spot::Road(q) => q.node,
+            };
+            node != at
+        });
+        if p.waypoints.len() == before {
+            p.waypoints.pop();
+        }
+        self.retrace(&mut p);
+        self.players[k] = p;
+        self.retrace_competitor(k);
     }
 
     /// `actOnArrival` (`0x419cb0`), for a player with nowhere to go. A ghost is sent to a random
@@ -1289,6 +1353,37 @@ impl World {
     /// `processMove` (`0x41ae60`) of one player: along its route at the AI speed.
     fn move_player(&mut self, k: usize, dt: f64) {
         {
+            let p = &self.players[k];
+            if p.kind == 0 || p.kind == 1 || p.flags & 4 != 0 || p.driven {
+                return;
+            }
+        }
+        // 0x41a9d0: a competitor (without flag 0x1000000) goes at the travel speed up to 40 %
+        // slower when ahead of the human player, faster when behind, by how far apart they are
+        // (`0x409f70`, all of it from 300 on), at least 35 km/h; when it has just come behind
+        // or ahead, its route is looked at again (`0x409fc0`)
+        let mut rival = None;
+        if self.players[k].tracked && self.players[k].flags & 0x100_0000 == 0 {
+            let behind = self.competitor_behind(k);
+            let h = self.players.iter().position(|p| p.kind == 1);
+            let gap = h.map_or(0.0, |h| self.players[h].advancement - self.players[k].advancement);
+            let mut d = gap.abs() / 300.0;
+            if d < 0.0 {
+                d = 0.0;
+            } else if 1.0 < d {
+                d = 1.0;
+            }
+            let mut v = if behind { (0.4 * d + 1.0) * self.travel_speed } else { (1.0 - 0.4 * d) * self.travel_speed };
+            if behind != self.players[k].behind {
+                self.retrace_competitor(k);
+            }
+            if v < 9.722222222222221 {
+                v = 9.722222222222221;
+            }
+            self.players[k].behind = behind;
+            rival = Some(v);
+        }
+        {
             let in_scene = self.in_scene(&self.players[k]);
             let p = &mut self.players[k];
             // 0x41ae60: not the human player (flag 1) and not standing (flag 4)
@@ -1301,6 +1396,9 @@ impl World {
             let mut v = 13.88888888888889;
             if v < self.travel_speed {
                 v = self.travel_speed;
+            }
+            if let Some(r) = rival {
+                v = r;
             }
             if p.kind == 5 {
                 v *= 1.3;
@@ -1827,22 +1925,6 @@ impl World {
         self.refill_dealers(now);
     }
 
-    /// `provideCompetitionRegular` (`0x4262a0`, every 30 s) as far as the human player has no
-    /// order (`0x425790`): the tracked competitors are let go (`0x4256f0`) and drawn again how
-    /// many there will be, 3 + `next() % (⌊3.1 · traffic + 4⌋ − 2)`, and how they compete,
-    /// `next() & 3` (`0x425610`). The branches for a human player with an order are not ported.
-    pub fn provide_competition(&mut self) {
-        let Some(h) = self.players.iter().position(|p| p.kind == 1) else { return };
-        if self.players[h].state == 5 {
-            return;
-        }
-        for p in &mut self.players {
-            p.tracked = false;
-        }
-        let n = (self.car_share * 3.1 + 4.0) as u32;
-        self.competitors = self.rng.next() % (n - 2) + 3;
-        self.competition = self.rng.next() & 3;
-    }
 
     /// `markAmbushes` (`0x42c0b0`, every 300 s): police ambushes are set with the chance 0.3
     /// (`next() % 1000000 < 300000`); mafia ones only while the human player is wanted
@@ -1890,7 +1972,7 @@ impl World {
 
     /// Where the human player is for the ambushes: `+0x268` of his record (and `0x68bab0`, its
     /// copy at the start of the tick).
-    fn human_point(&self) -> Option<[f64; 3]> {
+    pub(crate) fn human_point(&self) -> Option<[f64; 3]> {
         let h = self.players.iter().position(|p| p.kind == 1)?;
         self.position(&self.players[h])
     }
@@ -1987,7 +2069,7 @@ impl World {
         let place = self.net.keep_node(self.players[k].place.as_ref(), Spot::Road(place));
         let p = &mut self.players[k];
         p.route.clear();
-        p.waypoint = false;
+        p.waypoints.clear();
         p.place = Some(place);
     }
 
@@ -2065,8 +2147,8 @@ impl World {
     /// `0x42b170`: obstacle `o` is set and the others not (`0x42b060`): a set one has road works
     /// at its works nodes (`0x41cff0`) and flag 0x40 on the segments of its road (cleared again,
     /// but for segments with 0x80, when it goes). With a road, the route searches start afresh
-    /// (`0x484280`) and the players whose route takes that road find a new one to the same end
-    /// (`0x40a1d0`).
+    /// (`0x484280`) and the players whose route takes that road and who have a waypoint find a
+    /// new one to the same end (`0x40a1d0` → `0x487230`, the waypoints stay).
     pub fn set_obstacle(&mut self, o: usize) {
         for k in 0..self.obstacles.len() {
             if k == o {
@@ -2108,7 +2190,7 @@ impl World {
         self.net.clear_steps(0);
         self.net.clear_steps(1);
         for k in 0..self.players.len() {
-            if self.players[k].kind == 0 || !self.players[k].route.iter().any(|s| s.road == Some(r)) {
+            if self.players[k].kind == 0 || self.players[k].waypoints.is_empty() || !self.players[k].route.iter().any(|s| s.road == Some(r)) {
                 continue;
             }
             let Some(dest) = self.players[k].route.last().map(|s| s.node) else { continue };
@@ -2119,7 +2201,7 @@ impl World {
             };
             if at != Some(dest) {
                 let mut p = self.players[k].clone();
-                self.set_route(&mut p, &Spot::Node(dest));
+                self.route_again(&mut p, &Spot::Node(dest));
                 self.players[k] = p;
             }
         }
@@ -2410,6 +2492,9 @@ impl World {
             if t.name == "markAmbushes" {
                 self.mark_ambushes();
             }
+            if t.name == "expirePlayerOrders" {
+                self.expire_player_orders();
+            }
             if t.name == "updateAmbushes" {
                 self.update_ambushes();
             }
@@ -2462,6 +2547,14 @@ impl World {
         }
         self.update_speeds(now);
         changes.extend(self.load_entities(fits));
+        // in a game: 0x4287b0, 0x4285c0
+        self.update_advancements();
+        self.report_competition();
+        // 0x42cb20: the room of the human player's place
+        self.human_room = self.players.iter().find(|p| p.kind == 1).and_then(|p| match p.place {
+            Some(Spot::Road(q)) => Some(self.net.room_of(&q).to_string()),
+            _ => None,
+        });
         self.update_player_boxes();
         self.last_tick = now;
         changes

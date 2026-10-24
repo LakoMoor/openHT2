@@ -91,6 +91,43 @@ if path:
     hnode = u(u(0x68b990))
     MATRIX = e.heap_next
     e.heap_next += 0x40
+# FO_ORDERS=<file>: lines "<tick> <town index> <node index> <amount>": before that tick the game
+# hands the human player an order (message 0x11: loadOrder 0x443d50, amount > 0 loads, < 0
+# unloads); after each tick his money (+0x88), +0x218, +0x2f8 and loads (+0x204/+0x208 list,
+# 0x90 bytes each: merchandise, town, amount +0x38, deadline +0x48, time +0x58, price +0x60)
+orders = {}
+if os.environ.get('FO_ORDERS'):
+    for l in open(os.environ['FO_ORDERS']):
+        w = l.split()
+        if len(w) == 4:
+            orders.setdefault(int(w[0]), []).append((int(w[1]), int(w[2]), float(w[3])))
+# the game's side of an order (the interface 0x56f6d0, messages 0x56ae60) is not run
+if orders:
+    for a in (0x56f6d0, 0x56ae60):
+        e.hook_ret(a, lambda emu: 0)
+ARGS = e.heap_next
+e.heap_next += 0x20
+
+
+def human_orders(tick):
+    hn = u(u(0x68b990))
+    for t, r, amount in orders.get(tick, []):
+        number = i32(u(u(0x68cec0) + 4 * t) + 0x18)
+        e.write(ARGS, struct.pack('<di', amount, -1))
+        e.call(0x443d50, [hn, number, r, ARGS, ARGS + 8], 'iiiii', max_insn=10**10)
+        print('horder', tick, t, r, amount, 'ret', e.eax - (1 << 32) if e.eax >> 31 else e.eax, 'amount', repr(f64(ARGS)), 'index', i32(ARGS + 8), flush=True)
+
+
+def human_state(tick):
+    hn = u(u(0x68b990))
+    lst = u(hn + 0x208) or u(hn + 0x204)
+    loads = []
+    if lst and i32(lst + 4) != -1:
+        for a in range(u(lst + 0x1c), u(lst + 0x20), 0x90):
+            loads.append('%d %d %r %r %r %r' % (i32(a), i32(a + 0xc), f64(a + 0x38), f64(a + 0x48), f64(a + 0x58), f64(a + 0x60)))
+    print('hstate', tick, repr(f64(hn + 0x88)), i32(hn + 0x218), repr(f64(hn + 0x2f8)), len(loads), *loads, flush=True)
+
+
 # FO_COVER=<file>: the start addresses of the basic blocks of the AI module (0x401000..0x490000)
 # that run, written to the file every 500 ticks and at the end
 cover_file = os.environ.get('FO_COVER')
@@ -117,8 +154,12 @@ for tick in range(first, ticks + 1):
     time += 0.1
     e.write(clock + 0xb98, struct.pack('<d', time))
     e.write(clock + 0xb90, struct.pack('<d', 0.1))
+    if orders:
+        human_orders(tick)
     e.call(0x42d6e0, max_insn=10**12)
     print('tick', tick, flush=True)
+    if orders:
+        human_state(tick)
     dump(tick)
     print('rng', rng(), flush=True)
     if save_at and int(save_at[0]) == tick:
