@@ -91,8 +91,24 @@ if path:
     hnode = u(u(0x68b990))
     MATRIX = e.heap_next
     e.heap_next += 0x40
+# FO_COVER=<file>: the start addresses of the basic blocks of the AI module (0x401000..0x490000)
+# that run, written to the file every 500 ticks and at the end
+cover_file = os.environ.get('FO_COVER')
+cover = set()
+if cover_file:
+    from unicorn import UC_HOOK_BLOCK
+    e.mu.hook_add(UC_HOOK_BLOCK, lambda uc, a, size, user: cover.add(a), begin=0x401000, end=0x490000)
+
+
+def write_cover():
+    with open(cover_file, 'w') as f:
+        f.write('\n'.join('%x' % a for a in sorted(cover)) + '\n')
+
+
 for tick in range(first, ticks + 1):
     cur_tick[0] = tick
+    if cover_file and tick % 500 == 0:
+        write_cover()
     if path:
         x, y, z = path[tick - 1]
         e.write(MATRIX, struct.pack('<12f', 1, 0, 0, 0, 1, 0, 0, 0, 1, x, y, z))
@@ -108,3 +124,5 @@ for tick in range(first, ticks + 1):
     if save_at and int(save_at[0]) == tick:
         from dump_ai_world import save
         save(e, save_at[1])
+if cover_file:
+    write_cover()

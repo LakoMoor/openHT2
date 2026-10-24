@@ -778,7 +778,8 @@ impl World {
             p.route = r;
             p.waypoint = true;
             let q = self.net.spot_coordinates(&from);
-            p.place = Some(self.net.locate(&p.route, q, &from));
+            // 0x43dc60, its place set by 0x474290
+            p.place = Some(self.net.keep_node(Some(&from), self.net.locate(&p.route, q, &from)));
         }
     }
 
@@ -1982,24 +1983,12 @@ impl World {
     /// `0x4786a0`: player `k` is put at `place`: its object leaves the game's scene (`0x4d8ae0`,
     /// not ported), its route and waypoints go, and its place is set (`0x474290`: the node it
     /// had stays when that is within 1 mm of the new point).
-    fn teleport(&mut self, k: usize, mut place: Place) {
-        let c = self.net.coordinates(&place);
+    fn teleport(&mut self, k: usize, place: Place) {
+        let place = self.net.keep_node(self.players[k].place.as_ref(), Spot::Road(place));
         let p = &mut self.players[k];
         p.route.clear();
         p.waypoint = false;
-        let old = match p.place {
-            Some(Spot::Node(n)) => Some(n),
-            Some(Spot::Road(q)) => q.node,
-            None => None,
-        };
-        if let Some(n) = old {
-            let q = self.net.nodes[n].pos;
-            let (x, y, z) = (q[0] - c[0], q[1] - c[1], q[2] - c[2]);
-            if (z * z + y * y + x * x).sqrt() < 0.001 {
-                place.node = Some(n);
-            }
-        }
-        p.place = Some(Spot::Road(place));
+        p.place = Some(place);
     }
 
     /// `0x42c330`: a player let go by an ambush is put at a random place (`0x422e00`) and goes

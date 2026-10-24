@@ -1184,6 +1184,26 @@ impl RoadNet {
         Spot::Road(place)
     }
 
+    /// `setPosition` (`0x474290`): a player put at `new` keeps the node it had (`+0x24` of its
+    /// place) when the new point is within 1 mm of that node.
+    pub fn keep_node(&self, old: Option<&Spot>, new: Spot) -> Spot {
+        let Spot::Road(mut place) = new else { return new };
+        let node = match old {
+            Some(Spot::Node(n)) => Some(*n),
+            Some(Spot::Road(q)) => q.node,
+            None => None,
+        };
+        if let Some(n) = node {
+            let c = self.coordinates(&place);
+            let q = self.nodes[n].pos;
+            let (x, y, z) = (q[0] - c[0], q[1] - c[1], q[2] - c[2]);
+            if (z * z + y * y + x * x).sqrt() < 0.001 {
+                place.node = Some(n);
+            }
+        }
+        Spot::Road(place)
+    }
+
     /// The coordinates of a spot (`0x435bf0`).
     pub fn spot_coordinates(&self, s: &Spot) -> [f64; 3] {
         match s {
