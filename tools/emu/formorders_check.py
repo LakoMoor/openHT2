@@ -155,8 +155,20 @@ def write_cover():
         f.write('\n'.join('%x' % a for a in sorted(cover)) + '\n')
 
 
+# FO_OFFENCE=<file>: lines "<tick> <value>": before that tick (before the human player is placed)
+# the game counts an offence of his (0x56f120: +0xd0 of his node grows, flag 0x20 of +0xd8)
+offences = {}
+if os.environ.get('FO_OFFENCE'):
+    for l in open(os.environ['FO_OFFENCE']):
+        w = l.split()
+        if len(w) == 2:
+            offences.setdefault(int(w[0]), []).append(float(w[1]))
 for tick in range(first, ticks + 1):
     cur_tick[0] = tick
+    for v in offences.get(tick, []):
+        hn_ = u(u(0x68b990))
+        e.write(hn_ + 0xd0, struct.pack('<d', f64(hn_ + 0xd0) + v))
+        e.write(hn_ + 0xd8, struct.pack('<I', u(hn_ + 0xd8) | 0x20))
     if cover_file and tick % 500 == 0:
         write_cover()
     if path:
@@ -175,6 +187,17 @@ for tick in range(first, ticks + 1):
         human_state(tick)
     if os.environ.get('FO_COMP'):
         comp_state(tick)
+    if os.environ.get('FO_PW'):
+        # FO_PW=k,k,...: after each tick these players' place (road, t bits, segment), route
+        # length and end, and waypoints (kind and node)
+        want = [int(x) for x in os.environ['FO_PW'].split(',')]
+        n, k = u(sent), 0
+        while n != sent:
+            if k in want:
+                r0, r1 = u(n + 0x18), u(n + 0x1c)
+                wps = ' '.join('%d:%d' % (i32(a + 0x20), i32(a + 4)) for a in range(u(n + 0x48), u(n + 0x4c), 0x28))
+                print('pw', tick, k, i32(n + 0x28), struct.unpack('<Q', e.read(n + 0x30, 8))[0], i32(n + 0x3c), (r1 - r0) // 12, i32(r1 - 0xc) if r1 != r0 else -1, wps, flush=True)
+            n, k = u(n), k + 1
     dump(tick)
     print('rng', rng(), flush=True)
     if save_at and int(save_at[0]) == tick:

@@ -333,6 +333,17 @@ pub struct AiPlayer {
     pub comp_place: i32,
     pub comp_told: i32,
     pub wins: u32,
+    /// What the police and the mafia have on the player (`police.rs`; offsets of the list node):
+    /// `+0xd0`, `+0xe0`, `+0xf0` / `+0xf8` / `+0x100`, `+0xd8` (flag 0x20: an offence the game
+    /// saw), `+0xc8` something to hide, `+0xc9` of interest to the mafia; and whom a police or
+    /// mafia car is after (`+0x3c8`).
+    pub police_score: f64,
+    pub mafia_score: f64,
+    pub scores: [f64; 3],
+    pub offence_flags: u32,
+    pub hide: bool,
+    pub for_mafia: bool,
+    pub target: Option<usize>,
     /// `+0x40`: where it is to go (0x28 bytes each: a place and its kind, at most one of each
     /// kind; 1 a destination, 2 the human player's place for a competitor behind him). The
     /// route goes to the last one (`0x478100`); one is reached at the route's end (`0x417300`).
@@ -633,6 +644,9 @@ pub struct World {
     /// `updatePlayerRooms` (`0x42cb20`, end of a tick).
     pub human_matrix: [f64; 12],
     pub human_room: Option<String>,
+    /// Per node: whether its node event (`node + 0xc0`, the last `( nodeevent ID TYPE "node"
+    /// ...)` of the map scripts for it) is a `STATEBORDER` (flag 0x10).
+    pub border: Vec<bool>,
     /// `0x68ced0`: of each kind of vehicle for sale, how many there are and are wanted.
     pub dealer_have: [usize; 3],
     pub dealer_want: [usize; 3],
@@ -647,7 +661,7 @@ impl World {
         let name_use = vec![[0, 0]; names.len()];
         let vehicle_weight = vec![1.0; vehicles.len()];
         let taken = vec![false; net.nodes.len()];
-        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, human_box_road: None, human_box: [[0.0; 3]; 2], debug_wants: None, debug_rng_at_moves: None, debug_arrivals: false, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, hired_want: 0, hired_waiting: 0, companies: 0, company_cap: 7, logos: [false; 8], truckers_want: 0, stand_free: true, now: 0.0, hired_count: 0, competitors_arrived: 0, tech: Vec::new(), ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, competitor_list: Vec::new(), human_matrix: [0.0; 12], human_room: None, dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
+        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, human_box_road: None, human_box: [[0.0; 3]; 2], debug_wants: None, debug_rng_at_moves: None, debug_arrivals: false, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, hired_want: 0, hired_waiting: 0, companies: 0, company_cap: 7, logos: [false; 8], truckers_want: 0, stand_free: true, now: 0.0, hired_count: 0, competitors_arrived: 0, tech: Vec::new(), ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, competitor_list: Vec::new(), human_matrix: [0.0; 12], human_room: None, border: Vec::new(), dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -730,7 +744,7 @@ impl World {
             _ => {}
         }
         let name = if kind == 1 { None } else { self.pick_name(kind) };
-        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, race_index: 0, laps: 0, race_progress: 0.0, advancement: 0.0, behind: false, shadow: false, comp_count: 0, comp_place: 0, comp_told: -1, wins: 0, waypoints: Vec::new(), until: f64::MAX, town: -1, order: -1, loads: Vec::new(), money: 40000.0, earned: 0.0, earning: 2.0, share: 0.0, fleet: 0.0, rating: 10000.0, licences: Vec::new(), boss: None, members: Vec::new(), salary: 0.0, advance: 0.0, company_balance: 0.0, logo: None, vehicle_flags: 0, alarmed: false, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
+        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, race_index: 0, laps: 0, race_progress: 0.0, advancement: 0.0, behind: false, shadow: false, comp_count: 0, comp_place: 0, comp_told: -1, wins: 0, police_score: 0.0, mafia_score: 0.0, scores: [0.0; 3], offence_flags: 0, hide: false, for_mafia: false, target: None, waypoints: Vec::new(), until: f64::MAX, town: -1, order: -1, loads: Vec::new(), money: 40000.0, earned: 0.0, earning: 2.0, share: 0.0, fleet: 0.0, rating: 10000.0, licences: Vec::new(), boss: None, members: Vec::new(), salary: 0.0, advance: 0.0, company_balance: 0.0, logo: None, vehicle_flags: 0, alarmed: false, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
     }
 
     /// `traceToArbitraryDestination` (`0x417820`): random destinations (`0x456140`) until there
@@ -750,7 +764,7 @@ impl World {
 
     /// `0x40a2a0`: a new route to a random destination other than the node nearest to the player
     /// (`0x405a60`, `0x4558e0` → `0x45b8b0`), drawn again until there is a route.
-    fn trace_away(&mut self, p: &mut AiPlayer) {
+    pub(crate) fn trace_away(&mut self, p: &mut AiPlayer) {
         let Some(place) = p.place else { return };
         let c = self.net.spot_coordinates(&place);
         let mut near = 0;
@@ -796,10 +810,22 @@ impl World {
     }
 
     /// `0x478260`: `to` becomes the player's waypoint of `kind` (`0x477e90`: one of the same kind
-    /// goes first) and the route is traced to the last waypoint (`0x478100`).
+    /// goes first; `0x477d70`: the list is kept in the order of the kinds, a stable sort, and of
+    /// waypoints next to each other at the same place the first stays) and the route is traced
+    /// to the last waypoint (`0x478100`).
     pub(crate) fn trace_to(&self, p: &mut AiPlayer, to: &Spot, kind: u32) {
         p.waypoints.retain(|w| w.1 != kind);
         p.waypoints.push((*to, kind));
+        p.waypoints.sort_by_key(|w| w.1);
+        // the place as the original compares it: (road, node, t, piece, segment)
+        let key = |s: &Spot| match s {
+            Spot::Node(n) => (-1i64, *n as i64, 0u64, 0usize, 0usize),
+            Spot::Road(q) => (q.road as i64, q.node.map_or(-1, |n| n as i64), q.t.to_bits(), q.piece, q.segment),
+        };
+        p.waypoints.dedup_by(|b, a| {
+            let (ka, kb) = (key(&a.0), key(&b.0));
+            (ka.1 != -1 && ka.1 == kb.1) || ka == kb
+        });
         self.retrace(p);
     }
 
@@ -2714,6 +2740,17 @@ impl World {
         w.truckers_want = cnf.counts[2];
         w.car_share = car_share;
         w.ambushes = Ambush::from_scripts(&scripts);
+        // the node events (0x4133c0): the last one of a node counts
+        w.border = vec![false; w.net.nodes.len()];
+        {
+            let tops: Vec<&Sexp> = scripts.iter().flat_map(|f| f.as_list().map_or(vec![f], |l| l.iter().collect())).collect();
+            for r in tops.into_iter().filter_map(|f| f.form("nodeevent")) {
+                let (Some(kind), Some(name)) = (r.get(1).and_then(|s| s.as_text()), r.get(2).and_then(|s| s.as_text())) else { continue };
+                if let Some(n) = w.net.nodes.iter().position(|x| x.name.eq_ignore_ascii_case(name)) {
+                    w.border[n] = kind == "STATEBORDER";
+                }
+            }
+        }
         for a in &mut w.ambushes {
             a.locate(&w.net);
         }

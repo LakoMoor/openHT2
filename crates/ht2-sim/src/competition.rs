@@ -524,10 +524,8 @@ impl World {
         }
         let (Some(a), Some(b)) = (old, new) else { return };
         let (ra, rb) = (&self.net.roads[a], &self.net.roads[b]);
-        let node = [ra.start, ra.end].into_iter().find(|n| *n == rb.start || *n == rb.end);
-        if node.is_none() {
-            return;
-        }
+        let Some(node) = [ra.start, ra.end].into_iter().find(|n| *n == rb.start || *n == rb.end) else { return };
+        self.human_passes(h, node);
         for k in 0..self.players.len() {
             if self.players[k].kind != 0 {
                 self.retrace_competitor(k);

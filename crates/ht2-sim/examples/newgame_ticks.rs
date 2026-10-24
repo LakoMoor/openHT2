@@ -32,6 +32,12 @@ fn main() {
     }
     let mut w = World::new_game(&game, &map, std::rc::Rc::new(net), 1.0, human);
     w.debug_arrivals = std::env::var_os("ARRIVALS").is_some();
+    // BORDERS=1: the nodes with a state border event
+    if std::env::var_os("BORDERS").is_some() {
+        let v: Vec<usize> = (0..w.border.len()).filter(|&n| w.border[n]).collect();
+        println!("{} {}", v.len(), v.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(" "));
+        return;
+    }
     // AMBPLACES=1: the ambushes as `ambush_places.py` prints the original's
     if std::env::var_os("AMBPLACES").is_some() {
         let pl = |p: &Option<Place>| p.map_or("none".to_string(), |p| format!("{} {} {} {} {} {}", p.road, p.node.map_or(-1, |n| n as i64), p.t.to_bits(), p.piece, p.segment, u8::from(p.reversed)));
@@ -68,8 +74,19 @@ fn main() {
             (w.len() == 4).then(|| (w[0].parse().unwrap(), w[1].parse().unwrap(), w[2].parse().unwrap(), w[3].parse().unwrap()))
         }).collect()
     });
+    // OFFENCE=<file>: lines "<tick> <value>": before that tick the game counts an offence of
+    // the human player (0x56f120), as formorders_check.py FO_OFFENCE does
+    let offences: Vec<(u32, f64)> = std::env::var("OFFENCE").ok().map_or(Vec::new(), |f| {
+        std::fs::read_to_string(f).unwrap().lines().filter_map(|l| {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            (w.len() == 2).then(|| (w[0].parse().unwrap(), w[1].parse().unwrap()))
+        }).collect()
+    });
     for tick in 1..=ticks {
         time += 0.1;
+        for &(_, v) in offences.iter().filter(|o| o.0 == tick) {
+            w.offence(v);
+        }
         if let Some(&q) = path.get(tick as usize - 1) {
             w.human_pos = Some(q);
             w.human_matrix = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, q[0], q[1], q[2]];
@@ -90,6 +107,31 @@ fn main() {
         // as the emulator has it: an empty scene with no memory to spare
         w.tick(time, &mut |_, _| false);
         println!("tick {tick}");
+        // PW=k,k,...: these players (numbered as the original's list) as FO_PW prints them
+        if let Ok(list) = std::env::var("PW") {
+            let want: Vec<usize> = list.split(',').filter_map(|x| x.parse().ok()).collect();
+            let mut live = 0;
+            for p in w.players.iter() {
+                if p.kind == 0 {
+                    continue;
+                }
+                if want.contains(&live) {
+                    let (r, t, sg) = match p.place {
+                        Some(Spot::Road(q)) => (q.road as i64, q.t.to_bits(), q.segment as i64),
+                        _ => (-1, 0, 0),
+                    };
+                    let wps: Vec<String> = p.waypoints.iter().map(|(s, kind)| {
+                        let n = match s {
+                            Spot::Node(n) => *n as i64,
+                            Spot::Road(q) => q.node.map_or(-1, |n| n as i64),
+                        };
+                        format!("{kind}:{n}")
+                    }).collect();
+                    println!("pw {tick} {live} {r} {t} {sg} {} {} {}", p.route.len(), p.route.last().map_or(-1, |s| s.node as i64), wps.join(" "));
+                }
+                live += 1;
+            }
+        }
         // COMP=1: the human player and the competitors as formorders_check.py FO_COMP prints them
         if std::env::var_os("COMP").is_some() {
             let live = |k: usize| w.players[..k].iter().filter(|p| p.kind != 0).count();
