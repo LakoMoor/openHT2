@@ -13,6 +13,27 @@ pub struct Font {
     pub glyphs: Vec<Glyph>,
 }
 impl Font {
+    /// Original `0x5ea0e0`: byte strings end at NUL. Proportional mode measures
+    /// the longest LF-separated line; fixed mode counts LF as a normal cell.
+    pub fn text_width(&self, text: &[u8], proportional: bool) -> i32 {
+        let text = &text[..text.iter().position(|&c| c == 0).unwrap_or(text.len())];
+        if !proportional {
+            return (text.len() as i32).wrapping_mul(self.cell_width as i32);
+        }
+        let mut line = 0i32;
+        let mut widest = 0i32;
+        for &code in text {
+            if code == b'\n' {
+                widest = widest.max(line);
+                line = 0;
+            } else {
+                let advance = i32::from(self.glyphs[usize::from(code)].advance);
+                line = line.wrapping_add(advance);
+            }
+        }
+        widest.max(line)
+    }
+
     pub fn parse(data: &[u8]) -> Result<Self> {
         let image = txr::decode(data)?;
         let (w, h) = (image.width as usize, image.height as usize);

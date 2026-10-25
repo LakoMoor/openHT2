@@ -7,10 +7,11 @@ import pathlib
 import struct
 import subprocess
 import sys
+import random
 from emu import Emu, OBJ_BASE, STUB
 
 root = pathlib.Path(sys.argv[1])
-example = pathlib.Path(__file__).resolve().parents[2] / 'target/release/examples/font_info.exe'
+example = pathlib.Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else pathlib.Path(__file__).resolve().parents[2] / 'target/release/examples/font_info.exe'
 for path in sorted(root.iterdir()):
     if path.suffix.lower() != '.fon':
         continue
@@ -50,3 +51,16 @@ for path in sorted(root.iterdir()):
         assert int(got_advance) == e.read(advance + code, 1)[0], (path.name, code, 'advance')
         assert got_mask == expected, (path.name, code, 'mask')
     print(f'{path.name}: 256 glyph metrics and masks exact ({cw}x{gh})', flush=True)
+    rng = random.Random(0x5ea0e0)
+    strings = [b'', b'\n', b'A\nB\n', b'A\0ignored', bytes(range(1, 256))]
+    strings += [bytes(rng.randrange(256) for _ in range(rng.randrange(200))) for _ in range(100)]
+    measured = subprocess.check_output([str(example), str(path), '--measure'],
+        input=''.join(s.hex() + '\n' for s in strings), text=True).splitlines()
+    text = OBJ_BASE + 0x100000
+    for string, widths in zip(strings, measured, strict=True):
+        e.write(text, string + b'\0')
+        for flag, width in zip((1, 0), map(int, widths.split()), strict=True):
+            e.set_u32(font, flag)
+            e.call(0x5ea0e0, [text], 'i', this=font)
+            assert e.eax == width, (path.name, string.hex(), flag, width, e.eax)
+    print(f'{path.name}: {len(strings) * 2} string widths exact', flush=True)
