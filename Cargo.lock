@@ -634,6 +634,7 @@ dependencies = [
  "ht2-sim",
  "pollster",
  "wgpu",
+ "windows-sys 0.59.0",
  "winit",
 ]
 

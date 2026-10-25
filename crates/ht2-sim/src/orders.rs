@@ -33,6 +33,9 @@ pub struct Load {
     pub kind: u32,
     /// `+0x70`: the route cost from where it was loaded to the unload node of its town.
     pub cost: f64,
+    /// `+0x88`: remembered mafia decision, initially -1. `0x442850` draws once and writes
+    /// 0 (the drawn value is discarded); a value of 1 lets the mafia know about hidden cargo.
+    pub mafia_decision: i32,
 }
 
 impl World {
@@ -229,7 +232,7 @@ impl World {
             Some(u) => self.spot_route_cost(&Spot::Node(node), u),
             None => 0.0,
         };
-        let load = Load { merchandise: order.merchandise, illegal: order.illegal, legal: order.legal, to, from: t, at: node, amount: units, price: 0.0, deadline: now + order.fee, loaded: now, time: order.fee, condition: 1.0, kind: 1, cost };
+        let load = Load { merchandise: order.merchandise, illegal: order.illegal, legal: order.legal, to, from: t, at: node, amount: units, price: 0.0, deadline: now + order.fee, loaded: now, time: order.fee, condition: 1.0, kind: 1, cost, mafia_decision: -1 };
         let loads = &mut self.players[k].loads;
         let i = match loads.iter().position(|l| l.merchandise == load.merchandise && l.to == load.to) {
             Some(i) => {
@@ -347,10 +350,8 @@ impl World {
         }
     }
 
-    /// `accountForChangeInLoadState` (`0x442c60`) for a player other than the human:
-    /// - `accountForGuilt` (`0x442850`): its loads are not illegal and the human player is not
-    ///   wanted, so it carries nothing to hide (`+0xc8`, `+0xc9`); when its vehicle has flag 2
-    ///   (`+0x28`) a number is drawn, under 500000 it is alarmed (`+0x108`);
+    /// `accountForChangeInLoadState` (`0x442c60`):
+    /// - `accountForGuilt` (`0x442850`): hidden cargo, interest to the mafia and the alarm;
     /// - a competitor that carries nothing is one no more (`0x425790`, `0x417530`);
     /// - flag 0x8000 when a load goes to `TOWN_AA` (`0x41ef90`);
     /// - its rating (`+0x3c0`, 10000 at the start): 0.8 of it and 0.2 of what the first load is
@@ -359,12 +360,7 @@ impl World {
     /// - `markAmbushes` (`0x42c0b0`).
     /// The flags of `0x477210` are not kept.
     pub fn account_for_load_change(&mut self, k: usize) {
-        if self.players[k].vehicle_flags & 2 != 0 {
-            let r = (self.rng.next() % 1_000_000) as f64;
-            self.players[k].alarmed = r < 500000.0;
-        } else {
-            self.players[k].alarmed = false;
-        }
+        self.account_for_guilt(k);
         self.drop_competition(k);
         self.mark_town_aa(k);
         match self.players[k].loads.first() {

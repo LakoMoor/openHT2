@@ -9,6 +9,56 @@
 use crate::world::World;
 
 impl World {
+    /// `accountForGuilt` (`0x442850`), after cargo changes. The flags accumulate across loads
+    /// until a random draw clears them; this deliberately does not test each load separately.
+    /// Merchandise flag 2 matters to the mafia only when the human player's share exceeds
+    /// 0.15 (`0x4297f0`), even when this function is called for an AI player.
+    pub fn account_for_guilt(&mut self, k: usize) {
+        let interested = self.human_share() > 0.15;
+        let mut hidden = false;
+        let mut mafia = false;
+        let mut decision = -1;
+        for load in &mut self.players[k].loads {
+            if let Some(m) = load.illegal {
+                hidden = true;
+                if self.merchandise[m].flags & 2 != 0 && interested {
+                    mafia = true;
+                }
+            }
+            if self.merchandise[load.merchandise].flags & 2 != 0 && interested {
+                mafia = true;
+            }
+            if hidden {
+                if self.rng.next() % 1_000_000 < 200_000 {
+                    hidden = false;
+                    mafia = false;
+                } else if mafia {
+                    if load.mafia_decision == -1 {
+                        self.rng.next();
+                        load.mafia_decision = 0;
+                    }
+                    decision = load.mafia_decision;
+                }
+            } else if mafia {
+                let threshold = if 10000.0 <= load.price { 200_000 } else { 500_000 };
+                if self.rng.next() % 1_000_000 < threshold {
+                    mafia = false;
+                }
+            }
+        }
+        if hidden && mafia {
+            if decision == 1 {
+                hidden = false;
+            } else {
+                mafia = false;
+            }
+        }
+        let p = &mut self.players[k];
+        p.hide = hidden;
+        p.for_mafia = mafia;
+        p.alarmed = p.vehicle_flags & 2 != 0 && self.rng.next() % 1_000_000 < 500_000;
+    }
+
     /// `0x56f120` (the game): the human player's vehicle did something the police count (its
     /// object in a room whose `+0x1a0` is 0, both in state 2): `+0xd0` grows by `value` (6200 in
     /// the game) and flag 0x20 of `+0xd8` is set.

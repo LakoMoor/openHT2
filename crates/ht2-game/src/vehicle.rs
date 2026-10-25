@@ -168,6 +168,11 @@ impl Vehicle {
         }
     }
 
+    /// Pending original game callbacks; no movie/menu request is silently discarded.
+    pub fn pending_game_actions(&self) -> &[ht2_sim::game_message::Action] {
+        self.sim.as_ref().map_or(&[], |s| s.pending_game_actions())
+    }
+
     /// The computer vehicles, for drawing.
     pub fn traffic(&self) -> Vec<Pose> {
         self.sim.as_ref().map_or_else(Vec::new, |s| s.traffic())

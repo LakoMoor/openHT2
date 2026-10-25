@@ -1,6 +1,7 @@
 //! Scene loading and wgpu rendering shared by the viewer and the game.
 
 pub mod hud;
+mod movie;
 pub mod render;
 pub mod scene;
 

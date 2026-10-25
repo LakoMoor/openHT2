@@ -99,6 +99,7 @@ pub struct Renderer {
     depth: Option<(wgpu::TextureView, (u32, u32))>,
     hud_pipeline: wgpu::RenderPipeline,
     hud: Vec<crate::hud::Rect>,
+    movie: crate::movie::Layer,
 }
 
 fn uniform_entry(binding: u32, visibility: wgpu::ShaderStages) -> wgpu::BindGroupLayoutEntry {
@@ -217,7 +218,8 @@ impl Renderer {
             multiview: None,
             cache: None,
         });
-        Self { device, queue, pipeline, pipeline_blend, obj_layout, mat_layout, sampler, white, objects: Vec::new(), texture_sets: Vec::new(), depth: None, hud_pipeline, hud: Vec::new() }
+        let movie = crate::movie::Layer::new(&device, format);
+        Self { device, queue, pipeline, pipeline_blend, obj_layout, mat_layout, sampler, white, objects: Vec::new(), texture_sets: Vec::new(), depth: None, hud_pipeline, hud: Vec::new(), movie }
     }
 
     /// Upload a scene's geometry and textures and return a handle to place it with [`set_model`](Self::set_model).
@@ -336,6 +338,11 @@ impl Renderer {
 
     /// Draw every object with the combined `proj * view` matrix.
     pub fn draw(&mut self, target: &wgpu::TextureView, size: (u32, u32), view_proj: Mat4) {
+        let mut movie_encoder = self.device.create_command_encoder(&Default::default());
+        if self.movie.draw(&mut movie_encoder, target, size) {
+            self.queue.submit([movie_encoder.finish()]);
+            return;
+        }
         for o in &self.objects {
             let mvp = view_proj * o.model;
             self.queue.write_buffer(&o.mvp, 0, bytemuck::cast_slice(&mvp.to_cols_array()));
@@ -398,6 +405,12 @@ impl Renderer {
         }
         self.queue.submit([enc.finish()]);
     }
+
+    /// Render offscreen and return tightly packed RGBA8.
+    pub fn set_movie_frame(&mut self, size: (u32, u32), rgba: &[u8]) -> Result<(), String> {
+        self.movie.set_frame(&self.device, &self.queue, size, rgba)
+    }
+    pub fn clear_movie(&mut self) { self.movie.clear(); }
 
     /// Render offscreen and return tightly packed RGBA8.
     pub fn screenshot(&mut self, size: (u32, u32), view_proj: Mat4) -> Vec<u8> {

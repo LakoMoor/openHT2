@@ -3,6 +3,8 @@
 //! Formats are documented in `docs/FORMATS.md`. Nothing here contains game data.
 
 pub mod b3d;
+pub mod avi;
+pub mod font;
 pub mod res;
 pub mod sdte;
 pub mod sexpr;

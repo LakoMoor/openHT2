@@ -65,6 +65,8 @@ pub struct SimCar {
     /// The AI world of the map (players on the road network); with it, the computer vehicles
     /// are a pool of slots taken by the players whose rooms the AI has loaded.
     ai_world: Option<ht2_sim::world::World>,
+    /// Original callback requests awaiting the application's media/menu layer.
+    game_actions: Vec<ht2_sim::game_message::Action>,
     slot_player: Vec<Option<usize>>,
     /// The model prefix of the vehicle in each slot, and the `vehicle.tech` record of each
     /// model prefix (set up with its wheel nodes, as the game does for every vehicle type when
@@ -144,7 +146,7 @@ impl SimCar {
         m.set_i16(CAR + 0x2704, 1);
         m.set_i16(CAR + 0x2706, 1);
         ht2_sim::gearbox::fn_004ff770(&mut m, CAR, 1);
-        Ok(SimCar { m, time: 0.0, rooms, traffic: Vec::new(), vid, autopilot: None, rng: Default::default(), ai_world: None, slot_player: Vec::new(), slot_model: Vec::new(), records: HashMap::new() })
+        Ok(SimCar { m, time: 0.0, rooms, traffic: Vec::new(), vid, autopilot: None, rng: Default::default(), ai_world: None, game_actions: Vec::new(), slot_player: Vec::new(), slot_model: Vec::new(), records: HashMap::new() })
     }
 
     /// One step of `dt` seconds with the pedals in `0..=1` and the steering keys (-1 right, 1 left).
@@ -235,9 +237,7 @@ impl SimCar {
         let me = self.pos();
         w.human_pos = Some([me.x as f64, me.y as f64, me.z as f64]);
         if let Some(p) = net.nearest([me.x as f64, me.y as f64, me.z as f64]) {
-            if let Some(h) = w.players.iter().position(|p| p.kind == 1) {
-                w.players[h].place = Some(ht2_sim::road::Spot::Road(p));
-            }
+            w.place_human(ht2_sim::road::Spot::Road(p));
         }
         for (k, slot) in self.slot_player.iter().enumerate() {
             if let Some(pl) = slot {
@@ -246,6 +246,10 @@ impl SimCar {
         }
         let pool = self.slot_player.len();
         let changes = w.tick(self.time, &mut |loaded, _| loaded.len() < pool);
+        for winner in std::mem::take(&mut w.victory_events) {
+            let p = &w.players[winner];
+            self.game_actions.push(ht2_sim::game_message::victory(w.is_human(winner), p.flags));
+        }
         if !changes.is_empty() && std::env::var_os("HT2_AI_LOG").is_some() {
             let ghosts = w.players.iter().filter(|p| p.kind == 8).count();
             let active = self.slot_player.iter().filter(|s| s.is_some()).count();
@@ -401,6 +405,11 @@ impl SimCar {
             self.traffic.push((car, ai::Driver::new(place)));
             taken.push(pos);
         }
+    }
+
+    /// Requests remain pending until the application's movie/menu layer handles them.
+    pub fn pending_game_actions(&self) -> &[ht2_sim::game_message::Action] {
+        &self.game_actions
     }
 
     /// The computer vehicles, for drawing.

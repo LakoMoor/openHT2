@@ -3,6 +3,9 @@ mod world;
 mod powertrain;
 mod simcar;
 mod vehicle;
+mod audio;
+mod movie;
+mod menu;
 
 use glam::{Mat4, Vec3};
 use ground::Ground;
@@ -30,6 +33,7 @@ const USAGE: &str = "usage: ht2-game [<game dir>] [--map ENV | MENV/dr] [--truck
 const STEP: f32 = 1.0 / 120.0;
 
 struct World {
+    game_dir: PathBuf,
     ground: Ground,
     vehicle: Vehicle,
     world_scenes: Vec<Scene>,
@@ -307,7 +311,7 @@ fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, Strin
         vehicle.add_traffic(&ground, traffic, 0x2545_f491);
     }
     println!("traffic: {} vehicle slots", vehicle.traffic().len());
-    Ok(World { ground, vehicle, world_scenes, models, truck: truck_model, spawn: (pos, heading, ride) })
+    Ok(World { game_dir: dir.to_path_buf(), ground, vehicle, world_scenes, models, truck: truck_model, spawn: (pos, heading, ride) })
 }
 
 fn chase_view_proj(v: &Vehicle, aspect: f32) -> Mat4 {
@@ -480,6 +484,12 @@ fn run() -> Result<(), String> {
 }
 
 struct Game {
+    movie: Option<movie::Player>,
+    movie_mode: Option<u32>,
+    menu_mode: Option<u32>,
+    shown_menu: Option<u32>,
+    action_index: usize,
+    media_error: Option<String>,
     renderer: Renderer,
     textures: TexturesId,
     /// Body first, then one object per wheel.
@@ -507,6 +517,71 @@ fn place_parts(renderer: &mut Renderer, ids: &[ObjectId], t: &Truck, p: &simcar:
 }
 
 impl Game {
+    fn finish_movie(&mut self) {
+        let mode = self.movie_mode.take();
+        self.movie = None; // stops audio and joins decoder workers before clearing video
+        self.renderer.clear_movie();
+        if let Some(menu) = mode.and_then(ht2_sim::game_message::movie_menu) {
+            self.menu_mode = Some(menu);
+        } else {
+            self.media_error = Some("movie completion mode is not ported yet".into());
+        }
+    }
+    fn movie_character(&mut self, ch: u16) {
+        if let Some(mode) = self.movie_mode {
+            let (_, finish) = ht2_sim::game_message::movie_character(mode, 0x102, ch);
+            if finish { self.finish_movie(); }
+        }
+    }
+    /// Consume only successfully started requests. Unsupported menu transitions remain
+    /// pending and stop simulation rather than pretending the end-of-game UI is complete.
+    fn update_media(&mut self) -> bool {
+        if self.movie.is_none() && self.media_error.is_none() && self.menu_mode.is_none() {
+            if let Some(action) = self.world.vehicle.pending_game_actions().get(self.action_index).copied() {
+                let result = match action {
+                    ht2_sim::game_message::Action::PlayMovie { path, mode } => {
+                        self.movie_mode = Some(mode);
+                        let exe = std::env::var_os("HT2_FFMPEG").unwrap_or_else(|| "ffmpeg".into());
+                        let path = self.world.game_dir.join(path.trim_start_matches(['\\', '/']));
+                        movie::Player::open(&exe, &path)
+                    },
+                    ht2_sim::game_message::Action::Menu { mode } => {
+                        self.menu_mode = Some(mode);
+                        self.action_index += 1;
+                        return true;
+                    },
+                };
+                match result {
+                    Ok(player) => { self.movie = Some(player); self.action_index += 1; },
+                    Err(e) => { self.movie_mode = None; eprintln!("media request remains pending: {e}"); self.media_error = Some(e); },
+                }
+            }
+        }
+        if let Some(player) = &mut self.movie {
+            if let Err(e) = player.update(&mut self.renderer) {
+                eprintln!("movie playback failed: {e}");
+                self.media_error = Some(e);
+                self.movie = None;
+                self.movie_mode = None;
+                self.action_index = self.action_index.saturating_sub(1);
+            }
+        }
+        if self.movie.as_ref().is_some_and(|p| p.finished) { self.finish_movie(); }
+        if self.media_error.is_none() && self.menu_mode != self.shown_menu {
+            if let Some(mode) = self.menu_mode {
+                // The renderer uses full-colour output. Family 16 is provisional until
+                // the original graphics-config choice (0x568fd0) is exposed in settings.
+                let result = menu::background(&self.world.game_dir, mode, 16)
+                    .and_then(|t| self.renderer.set_movie_frame((t.width, t.height), &t.rgba));
+                match result {
+                    Ok(()) => self.shown_menu = Some(mode),
+                    Err(e) => { eprintln!("menu background: {e}"); self.media_error = Some(e); },
+                }
+            }
+        }
+        self.movie.is_some() || self.media_error.is_some() || self.menu_mode.is_some()
+    }
+
     fn new(mut renderer: Renderer, world: World) -> Self {
         for scene in &world.world_scenes {
             renderer.add(scene);
@@ -514,7 +589,7 @@ impl Game {
         let textures = renderer.upload_textures(&world.models.assets);
         let truck_objects = renderer.add_parts(textures, &world.models.assets, &truck_parts(&world.truck));
         let traffic_objects = world.vehicle.traffic().iter().map(|_| HashMap::new()).collect();
-        let mut game = Game { renderer, textures, truck_objects, trucks: HashMap::new(), traffic_objects, world };
+        let mut game = Game { renderer, textures, truck_objects, trucks: HashMap::new(), traffic_objects, world, movie: None, movie_mode: None, menu_mode: None, shown_menu: None, action_index: 0, media_error: None };
         game.place_truck();
         game
     }
@@ -601,6 +676,15 @@ impl ApplicationHandler for App {
         match event {
             WindowEvent::CloseRequested => el.exit(),
             WindowEvent::KeyboardInput { event, .. } => {
+                if event.state.is_pressed() {
+                    if let Some(g) = self.gfx.as_mut().filter(|g| g.game.movie.is_some()) {
+                        let ch = event.text.as_ref().and_then(|s| s.chars().next()).and_then(|c| u16::try_from(c as u32).ok())
+                            .or_else(|| (event.physical_key == PhysicalKey::Code(KeyCode::Escape)).then_some(27));
+                        if let Some(ch) = ch { g.game.movie_character(ch); }
+                        self.keys.clear();
+                        return;
+                    }
+                }
                 if let PhysicalKey::Code(code) = event.physical_key {
                     if event.state.is_pressed() {
                         self.keys.insert(code);
@@ -635,9 +719,13 @@ impl ApplicationHandler for App {
                 self.acc += (now - self.last).as_secs_f32().min(0.1);
                 self.last = now;
                 let Some(g) = self.gfx.as_mut() else { return };
-                while self.acc >= STEP {
-                    g.game.world.vehicle.step(input, &g.game.world.ground, STEP);
-                    self.acc -= STEP;
+                if g.game.update_media() {
+                    self.acc = 0.0;
+                } else {
+                    while self.acc >= STEP {
+                        g.game.world.vehicle.step(input, &g.game.world.ground, STEP);
+                        self.acc -= STEP;
+                    }
                 }
                 g.game.place_truck();
                 match g.surface.get_current_texture() {

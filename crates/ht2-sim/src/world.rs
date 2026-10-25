@@ -367,6 +367,8 @@ pub struct AiPlayer {
     pub earning: f64,
     pub share: f64,
     pub fleet: f64,
+    /// `+0x308`: this player has already crossed the victory threshold.
+    pub won: bool,
     /// `+0x88`: its licences, the times they run out (`0x4774e0`; `LICENCES_EXPIRED`,
     /// `0x477420`).
     pub licences: Vec<f64>,
@@ -652,6 +654,12 @@ pub struct World {
     pub dealer_want: [usize; 3],
     /// `0x66c6e8`, drawn at the start of a new game (600..1199 s).
     pub obstacle_time: f64,
+    /// `0x66c710`: 0.51 before the first victory, 1.05 afterwards.
+    pub victory_share: f64,
+    /// Winners awaiting delivery to the game (original AI callback event 12).
+    pub victory_events: Vec<usize>,
+    /// `0x68d1a0`: after victory, dealer selection also accepts vehicles with role 7.
+    pub expanded_dealer_vehicles: bool,
 }
 
 impl World {
@@ -661,7 +669,7 @@ impl World {
         let name_use = vec![[0, 0]; names.len()];
         let vehicle_weight = vec![1.0; vehicles.len()];
         let taken = vec![false; net.nodes.len()];
-        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, human_box_road: None, human_box: [[0.0; 3]; 2], debug_wants: None, debug_rng_at_moves: None, debug_arrivals: false, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, hired_want: 0, hired_waiting: 0, companies: 0, company_cap: 7, logos: [false; 8], truckers_want: 0, stand_free: true, now: 0.0, hired_count: 0, competitors_arrived: 0, tech: Vec::new(), ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, competitor_list: Vec::new(), human_matrix: [0.0; 12], human_room: None, border: Vec::new(), dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0 }
+        World { net, lots, slots, lot_used, vehicles, lists, names, name_use, cursor: [0; 12], rng, rng2: AiRng::new(time ^ 161_803_398), players: Vec::new(), last_tick: time as f64, travel_speed: 20.0, load_counter: 0, load_distance: 0.0, first_load: true, loaded: Default::default(), object_counter: 0, human_pos: None, human_box_road: None, human_box: [[0.0; 3]; 2], debug_wants: None, debug_rng_at_moves: None, debug_arrivals: false, ghost_want: 0, loads_done: false, tasks: Vec::new(), towns: Vec::new(), objects: Vec::new(), presents: Vec::new(), merchandise: Vec::new(), object_want: Default::default(), object_made: Default::default(), vehicle_weight, taken, hired_want: 0, hired_waiting: 0, companies: 0, company_cap: 7, logos: [false; 8], truckers_want: 0, stand_free: true, now: 0.0, hired_count: 0, competitors_arrived: 0, tech: Vec::new(), ambushes: Vec::new(), obstacles: Vec::new(), race_state: 3, race_track: 1, race_wait: 0.0, race_start: 0.0, race_duration: 0.0, racers: Vec::new(), racers_want: 4, car_share: 1.0, competitors: 0, competition: 0, competitor_list: Vec::new(), human_matrix: [0.0; 12], human_room: None, border: Vec::new(), dealer_have: [0; 3], dealer_want: [0; 3], obstacle_time: 0.0, town_dist: Vec::new(), town_slots: Vec::new(), orders_time: -2000.0, victory_share: 0.51, victory_events: Vec::new(), expanded_dealer_vehicles: false }
     }
 
     /// `0x4148a0`: the name for a new player: among the names of its role (trucker for types 1,
@@ -724,7 +732,7 @@ impl World {
                 let list = &self.lists.lists[9];
                 let v = loop {
                     let v = list[self.cursor[9] % list.len()];
-                    if has(v, 9) || has(v, 2) {
+                    if has(v, 9) || has(v, 2) || (self.expanded_dealer_vehicles && has(v, 7)) {
                         break v;
                     }
                     self.cursor[9] += 1;
@@ -744,7 +752,7 @@ impl World {
             _ => {}
         }
         let name = if kind == 1 { None } else { self.pick_name(kind) };
-        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, race_index: 0, laps: 0, race_progress: 0.0, advancement: 0.0, behind: false, shadow: false, comp_count: 0, comp_place: 0, comp_told: -1, wins: 0, police_score: 0.0, mafia_score: 0.0, scores: [0.0; 3], offence_flags: 0, hide: false, for_mafia: false, target: None, waypoints: Vec::new(), until: f64::MAX, town: -1, order: -1, loads: Vec::new(), money: 40000.0, earned: 0.0, earning: 2.0, share: 0.0, fleet: 0.0, rating: 10000.0, licences: Vec::new(), boss: None, members: Vec::new(), salary: 0.0, advance: 0.0, company_balance: 0.0, logo: None, vehicle_flags: 0, alarmed: false, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
+        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, race_index: 0, laps: 0, race_progress: 0.0, advancement: 0.0, behind: false, shadow: false, comp_count: 0, comp_place: 0, comp_told: -1, wins: 0, police_score: 0.0, mafia_score: 0.0, scores: [0.0; 3], offence_flags: 0, hide: false, for_mafia: false, target: None, waypoints: Vec::new(), until: f64::MAX, town: -1, order: -1, loads: Vec::new(), money: 40000.0, earned: 0.0, earning: 2.0, share: 0.0, fleet: 0.0, won: false, rating: 10000.0, licences: Vec::new(), boss: None, members: Vec::new(), salary: 0.0, advance: 0.0, company_balance: 0.0, logo: None, vehicle_flags: 0, alarmed: false, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
     }
 
     /// `traceToArbitraryDestination` (`0x417820`): random destinations (`0x456140`) until there
@@ -1954,12 +1962,15 @@ impl World {
 
     /// `markAmbushes` (`0x42c0b0`, every 300 s): police ambushes are set with the chance 0.3
     /// (`next() % 1000000 < 300000`); mafia ones only while the human player is wanted
-    /// (`+0xe0`, `+0xc9`) and his `+0x300` is over 0.2, which never holds at the start (not
-    /// ported further).
+    /// (`+0xe0`, `+0xc9`) and his share (`+0x300` of the list node) is over 0.2.
     pub fn mark_ambushes(&mut self) {
+        // 0x429820: mafia ambushes need the human player's share strictly over 0.2,
+        // as well as a mafia score or cargo of interest to them.
+        let mafia = self.human_share() > 0.2
+            && self.players.iter().find(|p| p.kind == 1).is_some_and(|p| 0.0 < p.mafia_score || p.for_mafia);
         for k in 0..self.ambushes.len() {
             self.ambushes[k].active = false;
-            if self.ambushes[k].kind == 2 {
+            if self.ambushes[k].kind == 2 || (self.ambushes[k].kind == 1 && mafia) {
                 self.ambushes[k].active = ((self.rng.next() % 1_000_000) as f64) < 300000.0;
             }
         }
@@ -2236,9 +2247,9 @@ impl World {
     /// `updateRating` (`0x41fcf0`, every 8 s): each player's earnings go into its smoothed
     /// earning (`0x4880e0`) and start again; then each player's share is the load weight its
     /// vehicle can carry (`0x41fca0`: the human player and truckers only; with those of its
-    /// company's players, none here) over that of all. A share of at least `0x66c710` (0.51)
-    /// would make it the winner (`+0x308`, event to the game; not ported, no one gets there).
-    fn update_rating(&mut self) {
+    /// company's players) over that of all. Employees have zero personal share. The first
+    /// winner raises the global threshold from 0.51 to 1.05 (`0x66c710`).
+    pub fn update_rating(&mut self) {
         for p in &mut self.players {
             p.earning = p.earned * 0.00390625 + 0.99609375 * p.earning;
             p.earned = 0.0;
@@ -2252,9 +2263,21 @@ impl World {
             return;
         }
         for k in 0..self.players.len() {
-            let f = fleet(self, k);
+            let mut f = 0.0;
+            if self.players[k].boss.is_none() {
+                f = fleet(self, k);
+                for &member in &self.players[k].members {
+                    f = fleet(self, member) + f;
+                }
+            }
             self.players[k].fleet = f;
             self.players[k].share = f / total;
+            if self.victory_share <= self.players[k].share && !self.players[k].won {
+                self.players[k].won = true;
+                self.victory_share = 1.05;
+                self.expanded_dealer_vehicles = true;
+                self.victory_events.push(k);
+            }
         }
     }
 
@@ -2770,4 +2793,22 @@ fn draws_between(a: &AiRng, b: &AiRng) -> usize {
         x.next();
     }
     usize::MAX
+}
+
+#[cfg(test)]
+mod victory_tests {
+    use super::*;
+
+    #[test]
+    fn dealer_accepts_role_seven_only_after_expansion() {
+        let vehicle = |role| Vehicle { id: format!("role{role}"), model: String::new(), colour: 0, kind: 1, roles: vec![role], price: 0.0, power: 0.0, trailers: vec![], liquid: false };
+        let mut lists = Categories::default();
+        lists.lists[9] = vec![0, 1];
+        let mut w = World::new(std::rc::Rc::new(RoadNet::default()), vec![], vec![vehicle(7), vehicle(9)], lists, vec![], AiRng::default(), 0);
+        assert_eq!(w.new_player(9).vehicle, Some(1));
+        w.cursor[9] = 0;
+        w.expanded_dealer_vehicles = true;
+        assert_eq!(w.new_player(9).vehicle, Some(0));
+        assert_eq!(w.new_player(9).vehicle, Some(1));
+    }
 }

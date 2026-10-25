@@ -542,8 +542,7 @@ impl World {
     /// `fillTownOrder` (`0x41b3a0`): for slot `s` of node `k` of town `t`: at a fuel node any
     /// liquid merchandise, else one of the town's (slot 0 for trucks, slot 1 for cars); a town
     /// that takes it (`0x454230`); the deadline 200 + `next() % 300` s from now. With the human
-    /// player's `+0x300` over 0.25 (stand-in: never, it is 0 at the start), one time in five an
-    /// illegal merchandise would be slipped in.
+    /// player's share over 0.25, one time in five an illegal merchandise is slipped in.
     fn fill_town_order(&mut self, t: usize, k: usize, s: usize, now: f64) -> Option<TownOrder> {
         let m = if self.towns[t].nodes[k].1 & 4 == 0 {
             self.town_merchandise(t, if s == 1 { 8 } else { 0x10 }, 0x1c)
@@ -553,7 +552,34 @@ impl World {
         let to = self.order_town(t, m);
         let deadline = (self.rng.next() % 300 + 200) as f64 + now;
         let fee = to.map_or(0.0, |to| self.town_dist.get(t).and_then(|d| d.get(to)).copied().unwrap_or(0.0) * 0.1);
-        Some(TownOrder { merchandise: m, illegal: None, legal: None, to, deadline, fee })
+        let mut order = TownOrder { merchandise: m, illegal: None, legal: None, to, deadline, fee };
+        self.slip_illegal_merchandise(&mut order, s);
+        Some(order)
+    }
+
+    /// The final branch of `fillTownOrder` (`0x41b3a0`). Destination, deadline and fee
+    /// have already been computed for the legal merchandise and remain those of it.
+    /// `0x41b1e0` / `0x456880` draw uniformly, even with just one eligible item.
+    pub fn slip_illegal_merchandise(&mut self, order: &mut TownOrder, slot: usize) {
+        if self.merchandise[order.merchandise].flags & 4 != 0 || !(self.human_share() > 0.25) {
+            return;
+        }
+        if self.rng.next() % 5 != 2 {
+            return;
+        }
+        let value = if slot == 1 { 9 } else { 17 };
+        let picks: Vec<usize> = (0..self.merchandise.len())
+            .filter(|&m| self.merchandise[m].flags & 0x19 == value)
+            .collect();
+        // The original reports an error when no merchandise matches, leaving both
+        // substitution fields at -1 and the original merchandise in place.
+        if picks.is_empty() {
+            return;
+        }
+        let m = picks[self.rng.next() as usize % picks.len()];
+        order.illegal = Some(m);
+        order.legal = Some(order.merchandise);
+        order.merchandise = m;
     }
 
     /// `0x454230`: a town other than `from` that takes `m`, weighted 1, ×0.001 for each order of
