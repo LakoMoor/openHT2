@@ -32,6 +32,7 @@ impl Cockpit {
                 let geometry=model.triangles_in(Some(&name));
                 if !geometry.is_empty(){
                     let id=renderer.add_parts(textures,&assets,&[&geometry])[0];
+                    renderer.set_cockpit(id,true);
                     needles.push((id,transform(axes,pos),index));excluded.push(name);
                 }
             }
@@ -40,6 +41,7 @@ impl Cockpit {
         assets.set_batches(model.triangles_in(Some(&root)));
         if assets.batches.is_empty(){return Err(format!("empty original cockpit {root}"));}
         let body=renderer.add_parts(textures,&assets,&[&assets.batches])[0];
+        renderer.set_cockpit(body,true);
         let result=Self{body,needles,tank};result.hide(renderer);Ok(result)
     }
     pub fn hide(&self,renderer:&mut Renderer){
@@ -79,6 +81,27 @@ fn select_prefix<'a>(primary:&'a str,fallback:Option<&'a str>,mut exists:impl Fn
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore = "requires GPU"]
+    fn cockpit_depth_is_independent_of_world() {
+        let instance=wgpu::Instance::default();
+        let (_,device,queue)=pollster::block_on(ht2_render::request_device(&instance,None)).unwrap();
+        let mut renderer=Renderer::new(device,queue,wgpu::TextureFormat::Rgba8Unorm);
+        let triangle=|z,color| scene::Scene {
+            textures:vec![],looks:vec![scene::Look::Flat(color)],material_names:vec![],
+            center:[0.;3],radius:1.,batches:vec![ht2_formats::b3d::Batch {
+                material:0,verts:[[-1.,-1.,z],[1.,-1.,z],[0.,1.,z]].map(|pos|ht2_formats::b3d::Vertex{pos,uv:[0.;2]}).to_vec(),
+            }],
+        };
+        renderer.add(&triangle(0.1,[1.,0.,0.]));
+        let cabin=renderer.add(&triangle(0.8,[0.,1.,0.]));
+        let center=|pixels:Vec<u8>| pixels[(16*32+16)*4..(16*32+16)*4+4].to_vec();
+        assert_eq!(center(renderer.screenshot((32,32),Mat4::IDENTITY)),[255,0,0,255]);
+        renderer.set_cockpit(cabin,true);
+        assert_eq!(center(renderer.screenshot((32,32),Mat4::IDENTITY)),[0,255,0,255]);
+        renderer.set_visible(cabin,false);
+        assert_eq!(center(renderer.screenshot((32,32),Mat4::IDENTITY)),[255,0,0,255]);
+    }
     #[test]
     fn original_cabin_fallback_lookups(){
         for line in include_str!("../../../tools/emu/golden_cabin_fallback.tsv").lines(){

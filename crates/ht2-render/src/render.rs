@@ -82,6 +82,7 @@ struct Object {
     bind: wgpu::BindGroup,
     model: Mat4,
     visible: bool,
+    cockpit: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -313,7 +314,7 @@ impl Renderer {
             layout: &self.obj_layout,
             entries: &[wgpu::BindGroupEntry { binding: 0, resource: mvp.as_entire_binding() }],
         });
-        self.objects.push(Object { batches, mvp, bind, model: Mat4::IDENTITY, visible: true });
+        self.objects.push(Object { batches, mvp, bind, model: Mat4::IDENTITY, visible: true, cockpit: false });
         ObjectId(self.objects.len() - 1)
     }
 
@@ -324,6 +325,11 @@ impl Renderer {
 
     pub fn set_model(&mut self, id: ObjectId, model: Mat4) {
         self.objects[id.0].model = model;
+    }
+
+    /// Draw cabin geometry after the world with its own depth buffer contents.
+    pub fn set_cockpit(&mut self, id: ObjectId, cockpit: bool) {
+        self.objects[id.0].cockpit = cockpit;
     }
 
     fn depth_view(&mut self, size: (u32, u32)) {
@@ -379,14 +385,15 @@ impl Renderer {
         self.depth_view(size);
         let depth = &self.depth.as_ref().unwrap().0;
         let mut enc = self.device.create_command_encoder(&Default::default());
-        {
+        for cockpit in [false, true] {
+            if cockpit && !self.objects.iter().any(|o| o.visible && o.cockpit) { continue; }
             let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
+                label: Some(if cockpit { "cockpit" } else { "world" }),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: target,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.45, g: 0.6, b: 0.8, a: 1.0 }),
+                        load: if cockpit { wgpu::LoadOp::Load } else { wgpu::LoadOp::Clear(wgpu::Color { r: 0.45, g: 0.6, b: 0.8, a: 1.0 }) },
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -398,10 +405,12 @@ impl Renderer {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-            if let Some([x,y,w,h])=viewport {pass.set_viewport(x as f32,y as f32,w as f32,h as f32,0.,1.);}
+            if !cockpit {
+                if let Some([x,y,w,h])=viewport {pass.set_viewport(x as f32,y as f32,w as f32,h as f32,0.,1.);}
+            }
             for blended in [false, true] {
                 pass.set_pipeline(if blended { &self.pipeline_blend } else { &self.pipeline });
-                for o in self.objects.iter().filter(|o| o.visible) {
+                for o in self.objects.iter().filter(|o| o.visible && o.cockpit == cockpit) {
                     pass.set_bind_group(0, &o.bind, &[]);
                     for b in o.batches.iter().filter(|b| b.blend == blended) {
                         pass.set_bind_group(1, &b.bind, &[]);
