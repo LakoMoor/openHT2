@@ -2,6 +2,32 @@
 //! Buttons and multiplayer outcomes still require porting.
 use std::path::Path;
 
+/// Mouse-message branch of the original button (`0x5bfa80`). `inside` comes
+/// from the widget's hit test; the returned word is the original routed message.
+pub fn button_mouse(id: u32, disabled: bool, bits: &mut u32, message: u32,
+    inside: bool) -> u32 {
+    match message {
+        0x201 => {
+            if disabled { return message; }
+            *bits |= 2;
+            id | 0xc000
+        }
+        0x202 => {
+            if disabled { return message; }
+            if inside { *bits &= !2; id | 0x8000 } else { id | 0xa000 }
+        }
+        _ => message,
+    }
+}
+
+/// Captured mouse movement (`0x5bfb30`); ordinary hover only returns a hit.
+pub fn button_move(bits: &mut u32, captured: bool, inside: bool) -> bool {
+    if captured {
+        if inside { *bits |= 2; } else { *bits &= !2; }
+        true
+    } else { inside }
+}
+
 /// `0x51ef...` builds groups by prepending children; `0x5bdee0` lays them out.
 pub fn button_positions(widths: &[i32], winning: bool) -> Vec<i32> {
     let gap = if winning { 0x91 } else { 0x122 } - widths[0];
@@ -185,6 +211,21 @@ pub fn screen(game: &Path, mode: u32, family: u32, size: (u32, u32),
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn button_mouse_matches_original() {
+        for line in include_str!("../../../tools/emu/golden_button_mouse.txt").lines() {
+            let p: Vec<u32> = line.split_whitespace().map(|s| s.parse().unwrap()).collect();
+            let mut bits = p[2];
+            assert_eq!(button_mouse(p[0],p[1]!=0,&mut bits,p[3],p[4]!=0),p[5]);
+            assert_eq!(bits,p[6]);
+        }
+        for line in include_str!("../../../tools/emu/golden_button_move.txt").lines() {
+            let p: Vec<u32> = line.split_whitespace().map(|s| s.parse().unwrap()).collect();
+            let mut bits = p[0];
+            assert_eq!(button_move(&mut bits,p[1]!=0,p[2]!=0),p[3]!=0);
+            assert_eq!(bits,p[4]);
+        }
+    }
     #[test]
     fn button_layout_matches_original() {
         for line in include_str!("../../../tools/emu/golden_end_buttons.tsv").lines() {
