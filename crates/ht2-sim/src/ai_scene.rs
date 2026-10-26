@@ -1,6 +1,29 @@
 //! Operations bridging scene vehicles and the trajectory AI.
 use crate::mem::Mem;
 
+pub trait ObstacleHooks {
+    /// 0x4cfc30 with null command and slot 0, on the two-slot command owner.
+    fn consume(&mut self,m:&mut Mem,commands:u32);
+    /// 0x447180, after copying player identity with 0x41d300.
+    fn publish(&mut self,m:&mut Mem,player:u32,clear:bool,distance:f64);
+}
+/// Command/obstacle tail `0x4cfb51..0x4cfbf7` of the common AI update.
+pub fn update_obstacle_command(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl ObstacleHooks) {
+    let driver=m.u32(vehicle+0x5460);m.set_f64(driver+0x40b0,-1.);
+    let command=m.u32(vehicle+0x5570);
+    if m.u32(vehicle+0x5574)==0 && command!=0 && m.u32(command)==29 {
+        let distance=m.f32(m.u32(command+12));
+        if distance>0. && m.u32(command+4)==0 {
+            let target=m.u32(vehicle+0x5460);m.set_f64(target+0x40b0,distance as f64);
+        }
+        h.consume(m,vehicle+0x5570);
+    }
+    if m.u32(flags)&1==0 {
+        let distance=m.f64(driver+0x40b0);
+        h.publish(m,player,!(distance>0.),distance);
+    }
+}
+
 trait ModeDispatch {
     fn enter_needed(&mut self,m:&mut Mem,vehicle:u32)->bool;
     fn leave_needed(&mut self,m:&mut Mem,vehicle:u32)->bool;
@@ -240,6 +263,23 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_obstacle_command_tail() {
+        struct Hooks(Vec<String>);
+        impl ObstacleHooks for Hooks {
+            fn consume(&mut self,m:&mut Mem,commands:u32){assert_eq!(commands,0x2a005570);self.0.push("consume".into());m.set_u32(commands,0);}
+            fn publish(&mut self,_:&mut Mem,player:u32,clear:bool,distance:f64){let bits=distance.to_bits();self.0.push(format!("publish:{player},{},{},{}",u32::from(clear),bits as u32,(bits>>32) as u32));}
+        }
+        for (case,line) in include_str!("../../../tools/emu/golden_ai_obstacle_command.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let v:Vec<i64>=p[0].split(',').map(|x|x.parse().unwrap()).collect();
+            let mut m=Mem::new();let vehicle=0x2a000000;let driver=vehicle+0x10000;let flags=vehicle+0x20000;let command=vehicle+0x30000;let data=command+0x100;
+            m.set_u32(vehicle+0x5460,driver);m.set_u32(vehicle+0x5570,if v[0]!=0 {command}else{0});m.set_u32(vehicle+0x5574,v[1] as u32);
+            m.set_u32(command,v[2] as u32);m.set_u32(command+4,v[3] as u32);m.set_u32(command+12,data);m.set_u32(data,v[4] as u32);m.set_u32(flags,v[5] as u32);
+            let mut h=Hooks(vec![]);update_obstacle_command(&mut m,vehicle,0x12345678,flags,&mut h);
+            assert_eq!(vec![m.f64(driver+0x40b0).to_bits(),m.u32(vehicle+0x5570) as u64],p[1].split(',').map(|x|x.parse::<u64>().unwrap()).collect::<Vec<_>>(),"case {case} state");
+            assert_eq!(h.0.join(";"),p[2],"case {case} calls");
+        }
+    }
     #[test]
     fn original_mode_dispatch_block() {
         struct Dispatch {enter:bool,leave:bool,flags:u32,driver:u32,trace:Vec<String>}
