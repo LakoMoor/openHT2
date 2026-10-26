@@ -1,5 +1,11 @@
 //! Cabin needle transforms from the cabin branch of `0x53d1f0`.
 use crate::{mem::Mem,matrix};
+/// Layout table writes performed by the four profile reads in `0x4dfb67`.
+pub fn install_view_tables(m:&mut Mem,tables:&ht2_formats::view_config::ViewTables) {
+    for (base,values) in [0x696bf0,0x696c04,0x696c18,0x696c2c].into_iter().zip(tables.0){
+        for (i,value) in values.into_iter().enumerate(){m.set_i32(base+i as u32*4,value);}
+    }
+}
 /// Rectangle passed to the scene by `0x532330`. Original table indices are
 /// signed view modes; arithmetic preserves the original 32-bit wrapping.
 pub fn view_rectangle(m:&Mem,scenario:u32)->[i32;4] {
@@ -85,6 +91,14 @@ pub fn cabin_needles(m:&mut Mem,bases:[u32;3],destinations:[u32;3],speed:f32,rev
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_layout_table_writes(){
+        for line in include_str!("../../../tools/emu/golden_view_tables.tsv").lines(){
+            let p:Vec<_>=line.split('\t').collect();let values=core::array::from_fn(|i|if p[i]=="<missing>"{None}else{Some(p[i])});
+            let mut m=Mem::new();install_view_tables(&mut m,&ht2_formats::view_config::ViewTables::from_values(values));
+            assert_eq!((0..20).map(|i|m.i32(0x696bf0+i*4)).collect::<Vec<_>>(),p[4].split(',').map(|s|s.parse::<i32>().unwrap()).collect::<Vec<_>>());
+        }
+    }
     #[test]
     fn original_view_rectangles(){
         for line in include_str!("../../../tools/emu/golden_view_rectangle.tsv").lines(){

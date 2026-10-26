@@ -12,6 +12,7 @@ pub mod sexpr;
 pub mod tech;
 pub mod txr;
 pub mod way;
+pub mod view_config;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
