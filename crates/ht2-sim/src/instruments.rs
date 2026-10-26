@@ -1,6 +1,16 @@
 //! Cabin needle transforms from the cabin branch of `0x53d1f0`.
 use crate::{mem::Mem,matrix};
 
+/// Radar-emission branch `0x4d14b9..0x4d1526` of police update `0x4d1360`.
+/// Caller supplies the already computed distance and flags from 0x43f620,
+/// after the original health/activity gate. This assigns, rather than maximizes,
+/// the player's signal; equipment ownership is checked later by the viewer.
+pub fn police_radar_signal(m:&mut Mem,police:u32,player:u32,flags:u32,distance:f64) {
+    if m.i32(police+0x5568)==5 && flags&0x80000!=0 && !(distance>=100.) {
+        m.set_f32(player+0x51d8,(distance*0.01) as f32);
+    }
+}
+
 /// Radar prefix of viewer update `0x538370`, through signal reset at 0x538529.
 /// Sound is returned as gain; geometry commands retain their original node IDs.
 pub fn radar_panel(m:&mut Mem,viewer:u32)->(Vec<KeyCommand>,Option<f32>) {
@@ -113,6 +123,37 @@ pub fn panel_switch(m:&Mem,node:u32)->i32 {
 #[cfg(test)]
 mod panel_switch_tests {
     use super::*;
+    #[test]
+    fn original_police_radar_emission() {
+        for (case,line) in include_str!("../../../tools/emu/golden_police_radar.tsv").lines().enumerate() {
+            let p:Vec<u64>=line.split('\t').map(|v|v.parse::<i128>().unwrap() as u64).collect();
+            let mut m=Mem::new();let police=0x2a000000;let player=police+0x10000;
+            m.set_u32(police+0x5568,p[0] as u32);m.set_u32(player+0x51d8,p[3] as u32);
+            police_radar_signal(&mut m,police,player,p[1] as u32,f64::from_bits(p[2]));
+            assert_eq!(m.u32(player+0x51d8),p[4] as u32,"case {case}");
+        }
+    }
+    #[test]
+    fn police_signal_reaches_panel_then_is_consumed() {
+        let mut m=Mem::new();let police=0x2a000000;let player=police+0x10000;
+        let viewer=police+0x20000;let clock=police+0x30000;let body=police+0x40000;let lamp=body+0x100;
+        m.set_u32(police+0x5568,5);m.set_u32(player+0x5400,1);
+        m.set_u32(viewer+0x268,player);m.set_u32(viewer+0x1b8,body);m.set_u32(viewer+0x1bc,lamp);
+        m.set_u32(viewer+0x578,1);m.set_u32(viewer+0x1c4,2);
+        m.set_u32(body+0x10,0x12);m.set_u32(lamp+0x10,0x12);
+        m.set_u32(0x696ca0,clock);crate::globals::install_clock(&mut m,clock,0.,0.1);
+        police_radar_signal(&mut m,police,player,0x80000,50.);
+        assert_eq!(m.f32(player+0x51d8),0.5);
+        let (commands,sound)=radar_panel(&mut m,viewer);
+        assert_eq!(sound,Some(0.5));
+        for command in commands {set_panel_switch(&mut m,command.node,command.value,if command.node==body {2}else{4});}
+        assert_eq!((panel_switch(&m,body),panel_switch(&m,lamp)),(1,2));
+        assert_eq!(m.u32(player+0x51d8),0);
+        let (commands,sound)=radar_panel(&mut m,viewer);
+        assert_eq!(sound,None);
+        for command in commands {set_panel_switch(&mut m,command.node,command.value,if command.node==body {2}else{4});}
+        assert_eq!((panel_switch(&m,body),panel_switch(&m,lamp)),(1,0));
+    }
     #[test]
     fn original_radar_panel_updates() {
         for (case,line) in include_str!("../../../tools/emu/golden_radar_panel.tsv").lines().enumerate() {
