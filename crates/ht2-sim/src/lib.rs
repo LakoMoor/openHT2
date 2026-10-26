@@ -38,5 +38,6 @@ pub mod world;
 pub mod game_message;
 pub mod controller;
 pub mod scene_state;
+pub mod instruments;
 
 pub use tech_rec::TechRec;

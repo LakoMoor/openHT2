@@ -7,6 +7,7 @@ mod audio;
 mod movie;
 mod menu;
 mod camera;
+mod cockpit;
 
 use glam::{Mat4, Vec3};
 use ground::Ground;
@@ -355,7 +356,8 @@ fn cab_view_proj(v: &Vehicle, eye: Vec3, size: (u32,u32)) -> camera::Frame {
     let fwd = m.transform_vector3(Vec3::Y).normalize_or(Vec3::Y);
     let up = m.transform_vector3(Vec3::Z).normalize_or(Vec3::Z);
     let target = eye + fwd * 10.0 - up * 0.6;
-    camera::from_pose(eye,target,up,size)
+    // Original cabin setup 0x4de2a0 sets +0x58=1.6, +0x54=1.2.
+    camera::from_pose_with_lens(eye,target,up,size,[1.6,1.2])
 }
 
 /// Stand-in chase pose; original distance, interpolation and collision are pending.
@@ -466,13 +468,15 @@ fn run() -> Result<(), String> {
             let aspect = size.0 as f32 / size.1 as f32;
             // HT2_FOLLOW=k looks at the k-th computer vehicle in the scene instead.
             let follow = std::env::var("HT2_FOLLOW").ok().and_then(|k| k.parse::<usize>().ok()).and_then(|k| v.traffic().into_iter().filter(|p| !p.hidden).nth(k));
+            let cockpit_visible=cab && !overview && follow.is_none();
             let vp = match follow {
                 Some(p) => chase_from(p.body.w_axis.truncate(), p.body.y_axis.truncate(), size).combined(),
                 None if overview => overview_view_proj(v, aspect, 1500.0),
                 None if cab => cab_view_proj(v, game.world.truck.cab_eye, size).combined(),
                 None => chase_view_proj(v, size).combined(),
             };
-            game.renderer.set_hud(hud(&game.world.vehicle, size, cab));
+            game.place_cockpit(cockpit_visible);
+            game.renderer.set_hud(if cockpit_visible && game.cockpit.is_some() {Vec::new()}else{hud(&game.world.vehicle, size, cab)});
             let rgba = game.renderer.screenshot(size, vp);
             save_png(&path, size, &rgba)?;
             println!("wrote {}", path.display());
@@ -487,6 +491,7 @@ fn run() -> Result<(), String> {
 }
 
 struct Game {
+    cockpit:Option<cockpit::Cockpit>,
     movie: Option<movie::Player>,
     movie_mode: Option<u32>,
     menu_mode: Option<u32>,
@@ -593,12 +598,24 @@ impl Game {
         let textures = renderer.upload_textures(&world.models.assets);
         let truck_objects = renderer.add_parts(textures, &world.models.assets, &truck_parts(&world.truck));
         let traffic_objects = world.vehicle.traffic().iter().map(|_| HashMap::new()).collect();
-        let mut game = Game { renderer, textures, truck_objects, trucks: HashMap::new(), traffic_objects, world, movie: None, movie_mode: None, menu_mode: None, shown_menu: None, menu_buttons: Default::default(), action_index: 0, media_error: None };
+        let cockpit=world.models.techs.iter().find(|t|t.index==world.vehicle.params.record)
+            .and_then(|t|match cockpit::Cockpit::load(&mut renderer,&world.game_dir,&t.prefix,t.tank){Ok(c)=>Some(c),Err(e)=>{eprintln!("cockpit: {e}");None}});
+        let mut game = Game { cockpit,renderer, textures, truck_objects, trucks: HashMap::new(), traffic_objects, world, movie: None, movie_mode: None, menu_mode: None, shown_menu: None, menu_buttons: Default::default(), action_index: 0, media_error: None };
         game.place_truck();
         game
     }
 
     /// Move the body and wheels to where the vehicle currently is.
+    fn place_cockpit(&mut self,cab:bool) {
+        let Some(cockpit)=&self.cockpit else{return};
+        if !cab {cockpit.hide(&mut self.renderer);return;}
+        let v=&self.world.vehicle;let m=v.model();
+        let eye=m.transform_point3(self.world.truck.cab_eye);
+        let forward=m.transform_vector3(Vec3::Y).normalize_or(Vec3::Y);
+        let up=m.transform_vector3(Vec3::Z).normalize_or(Vec3::Z);
+        cockpit.update(&mut self.renderer,cockpit::mount(eye,eye+forward*10.-up*0.6,up),v.speed*3.6,v.engine_rev,v.fuel);
+    }
+
     fn place_truck(&mut self) {
         let v = &self.world.vehicle;
         let me = simcar::Pose { body: v.model(), steer: v.steer_angle(), wheel_angle: core::array::from_fn(|i| v.wheel_angle(i)), wheel_drop: core::array::from_fn(|i| v.wheel_drop(i)), model: None, hidden: false };
@@ -769,12 +786,13 @@ impl ApplicationHandler for App {
                     }
                 }
                 g.game.place_truck();
+                g.game.place_cockpit(self.cab);
                 match g.surface.get_current_texture() {
                     Ok(frame) => {
                         let view = frame.texture.create_view(&Default::default());
                         let size = (g.config.width, g.config.height);
                         let vp = if self.cab { cab_view_proj(&g.game.world.vehicle, g.game.world.truck.cab_eye, size) } else { chase_view_proj(&g.game.world.vehicle, size) };
-                        g.game.renderer.set_hud(hud(&g.game.world.vehicle, size, self.cab));
+                        g.game.renderer.set_hud(if self.cab && g.game.cockpit.is_some(){Vec::new()}else{hud(&g.game.world.vehicle, size, self.cab)});
                         g.game.renderer.draw_original_view(&view,size,&vp.view,&vp.projection,vp.viewport).expect("camera viewport must fit the surface");
                         let v = &g.game.world.vehicle;
                         let gear = match v.gear { 0 => "R".to_string(), 1 => "N".to_string(), g => (g - 1).to_string() };

@@ -17,6 +17,9 @@ impl Frame {
 /// Use the original startup lens (controller +0xbe8/+0xbf0), scene near/far,
 /// hierarchy lookup, inverse, axis conversion and projection for a supplied pose.
 pub fn from_pose(eye:Vec3,target:Vec3,up:Vec3,size:(u32,u32))->Frame {
+    from_pose_with_lens(eye,target,up,size,[0.8,0.6])
+}
+pub fn from_pose_with_lens(eye:Vec3,target:Vec3,up:Vec3,size:(u32,u32),lens:[f32;2])->Frame {
     // The pose helper uses right/up/back; original transform nodes use
     // right/forward/up. This conversion does not apply a projection.
     let pose=Mat4::look_at_rh(eye,target,up).inverse();
@@ -25,7 +28,7 @@ pub fn from_pose(eye:Vec3,target:Vec3,up:Vec3,size:(u32,u32))->Frame {
     matrix::put12(&mut memory,node+0x40,&std::array::from_fn(|i|axes[i/3][i%3]));
     matrix::put12(&mut memory,ht2_sim::globals::MAT_IDENTITY,&matrix::IDENTITY);
     memory.set_u32(node+0x38,1);memory.set_u32(camera+0x50,node);
-    memory.set_f32(camera+0x58,0.8);memory.set_f32(camera+0x54,0.6);
+    memory.set_f32(camera+0x58,lens[0]);memory.set_f32(camera+0x54,lens[1]);
     memory.set_u32(0x720908,1);
     memory.set_f64(scene+0x2110,1.);memory.set_f64(scene+0x2118,100000.);
     memory.set_f64(scene+0x2148,1.);
