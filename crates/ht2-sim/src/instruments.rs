@@ -63,6 +63,36 @@ pub fn cabin_view(m:&mut Mem,dst:u32,ignore_tilt:bool) {
 }
 #[derive(Debug,PartialEq,Eq)]
 pub struct KeyCommand {pub node:u32,pub value:i32,pub digit:bool}
+/// `0x5e1a10`, also the guarded behavior of `0x4e48a2`.
+/// `case_count` is the signed result of the node's virtual +0x3c query.
+pub fn set_panel_switch(m:&mut Mem,node:u32,key:i32,case_count:i32) {
+    if node!=0 && m.u32(node+0x10)==0x12 && key>=0 && key<case_count {
+        m.set_i32(node+0x38,key);
+    }
+}
+/// `0x5e1a40`: wrong node types and missing nodes report -1.
+pub fn panel_switch(m:&Mem,node:u32)->i32 {
+    if node==0 || m.u32(node+0x10)!=0x12 {-1} else {m.i32(node+0x38)}
+}
+
+#[cfg(test)]
+mod panel_switch_tests {
+    use super::*;
+    #[test]
+    fn original_switch_setters_and_getter() {
+        for (case,line) in include_str!("../../../tools/emu/golden_panel_switch.tsv").lines().enumerate() {
+            let p:Vec<i64>=line.split('\t').map(|v|v.parse().unwrap()).collect();
+            let mut m=Mem::new();let storage=0x2a000000;
+            let node=if p[0]!=0 {storage} else {0};
+            for i in [5,7] {
+                m.set_u32(storage+0x10,p[1] as u32);m.set_u32(storage+0x38,p[4] as u32);
+                set_panel_switch(&mut m,node,p[3] as i32,p[2] as i32);
+                assert_eq!(m.u32(storage+0x38),p[i] as u32,"case {case}");
+                assert_eq!(panel_switch(&m,node) as u32,p[i+1] as u32,"case {case}");
+            }
+        }
+    }
+}
 /// Key commands emitted by the cabin branch of `0x53d1f0`. Missing nodes
 /// are skipped; odometer nodes are visited from +0x1338 down to +0x1328.
 pub fn cabin_keys(m:&Mem,panel:u32,gear:i32,automatic:i32,park:i32,low_fuel:i32,digits:[i32;5])->Vec<KeyCommand> {
