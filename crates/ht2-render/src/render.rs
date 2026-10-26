@@ -7,6 +7,12 @@ use glam::Mat4;
 use ht2_formats::b3d::Batch;
 use wgpu::util::DeviceExt;
 
+/// Convert original Direct3D row-vector uploads to the shader's column-vector
+/// convention. Both APIs use 0..1 depth; the original view already changes axes.
+pub fn original_view_projection(view:&[f32;16],projection:&[f32;16])->Mat4 {
+    Mat4::from_cols_array(projection)*Mat4::from_cols_array(view)
+}
+
 const SHADER: &str = r#"
 struct Object { mvp: mat4x4<f32> };
 @group(0) @binding(0) var<uniform> obj: Object;
@@ -354,6 +360,12 @@ impl Renderer {
         self.draw_region(target,size,view_proj,Some(viewport));Ok(())
     }
 
+    /// Consume the original backend's view/projection commands and viewport.
+    pub fn draw_original_view(&mut self,target:&wgpu::TextureView,size:(u32,u32),
+        view:&[f32;16],projection:&[f32;16],viewport:[u32;4])->Result<(),String> {
+        self.draw_viewport(target,size,original_view_projection(view,projection),viewport)
+    }
+
     fn draw_region(&mut self, target: &wgpu::TextureView, size: (u32, u32), view_proj: Mat4, viewport:Option<[u32;4]>) {
         let mut movie_encoder = self.device.create_command_encoder(&Default::default());
         if self.movie.draw(&mut movie_encoder, target, size) {
@@ -486,4 +498,33 @@ fn upload(device: &wgpu::Device, queue: &wgpu::Queue, w: u32, h: u32, rgba: &[u8
             rgba,
         )
         .create_view(&Default::default())
+}
+
+#[cfg(test)]
+mod original_camera_tests {
+    use super::*;
+    #[test]
+    fn uploaded_matrices_preserve_original_clip_coordinates() {
+        let parse=|s:&str|-> [f32;16] {
+            s.split(',').map(|v|f32::from_bits(v.parse().unwrap())).collect::<Vec<_>>().try_into().unwrap()
+        };
+        for (view,projection) in include_str!("../../../tools/emu/golden_scene_device_view.tsv").lines()
+            .zip(include_str!("../../../tools/emu/golden_scene_projection.tsv").lines()) {
+            let v=parse(view.split('\t').nth(1).unwrap());
+            let p=parse(projection.split('\t').nth(6).unwrap());
+            let combined=original_view_projection(&v,&p);
+            for point in [[0.,0.,0.,1.],[1.,2.,3.,1.],[-30.,70.,12.,1.],[0.,1.,0.,0.]] {
+                let row_mul=|x:[f32;4],m:&[f32;16]|-> [f64;4] {
+                    std::array::from_fn(|col|(0..4).map(|row|x[row] as f64*m[row*4+col] as f64).sum())
+                };
+                let camera=row_mul(point,&v);
+                let expected:[f64;4]=std::array::from_fn(|col|(0..4).map(|row|camera[row]*p[row*4+col] as f64).sum());
+                let actual=(combined*glam::Vec4::from_array(point)).to_array();
+                for i in 0..4 {
+                    let scale=(0..4).flat_map(|r|(0..4).map(move |k| (point[r] as f64*v[r*4+k] as f64*p[k*4+i] as f64).abs())).sum::<f64>().max(1.);
+                    assert!((actual[i] as f64-expected[i]).abs()<=scale*2e-6);
+                }
+            }
+        }
+    }
 }

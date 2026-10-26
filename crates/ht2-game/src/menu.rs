@@ -279,6 +279,15 @@ mod tests {
         let view=target.create_view(&Default::default());
         renderer.device.push_error_scope(wgpu::ErrorFilter::Validation);
         renderer.draw_viewport(&view,(64,48),glam::Mat4::IDENTITY,[7,5,40,30]).unwrap();
+        let mut memory=ht2_sim::mem::Mem::new();let scene=0x2a000000;let model=scene+0x10000;
+        ht2_sim::matrix::put12(&mut memory,model,&ht2_sim::matrix::IDENTITY);
+        memory.set_i32(scene+0x7a8,19<<20);memory.set_i32(scene+0x7ac,14<<20);
+        memory.set_f64(scene+0x2110,1.);memory.set_f64(scene+0x2118,1000.);
+        memory.set_u32(scene+0x2024,1);
+        ht2_sim::matrix::put12(&mut memory,scene+0x10d0,&ht2_sim::matrix::IDENTITY);
+        let projection=ht2_sim::scene_state::projection(&mut memory,scene,[7,5,64,48]);
+        let original_view=ht2_sim::scene_state::device_view(&mut memory,model);
+        renderer.draw_original_view(&view,(64,48),&original_view,&projection.matrix,projection.viewport).unwrap();
         assert!(renderer.draw_viewport(&view,(64,48),glam::Mat4::IDENTITY,[63,0,2,2]).is_err());
         assert!(renderer.draw_viewport(&view,(64,48),glam::Mat4::IDENTITY,[0,0,0,2]).is_err());
         renderer.device.poll(wgpu::Maintain::Wait);
