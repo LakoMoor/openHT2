@@ -1,6 +1,37 @@
 //! Operations bridging scene vehicles and the trajectory AI.
 use crate::mem::Mem;
 
+pub trait VehicleModeHooks {
+    fn excessive_velocity(&mut self,m:&mut Mem,vector:u32,limit:f32)->bool;
+    fn clear_linear_velocity(&mut self,m:&mut Mem,body:u32);
+    fn check_velocity(&mut self,m:&mut Mem,vector:u32,limit:f32);
+    /// `0x4fc930`, with arguments 3, vehicle+0x330, +0x204, +0x1b0, +0x1bc.
+    fn start_physics(&mut self,m:&mut Mem,driver:u32,owner:u32,position:u32,linear:u32,angular:u32);
+}
+/// Complete mode orchestration `0x54ca60`; validation and driver activation
+/// remain explicit subsystem boundaries.
+pub fn vehicle_mode(m:&mut Mem,vehicle:u32,value:i32,h:&mut impl VehicleModeHooks) {
+    if m.i32(vehicle+0x2aac)==1 && value!=1 {
+        let driver=m.u32(vehicle+0x5460);m.set_u32(driver+0x2638,0);
+    }
+    if value==1 {
+        if m.i32(vehicle+0x2aac)!=1 && (m.u32(vehicle+0x51ac)==0 || m.i32(vehicle+0xf98)==3) {
+            if m.i32(vehicle+0x2aac)==2 && h.excessive_velocity(m,vehicle+0x1b0,100.) {
+                h.clear_linear_velocity(m,vehicle+0x10);
+            }
+            h.check_velocity(m,vehicle+0x1b0,100.);
+            let driver=m.u32(vehicle+0x5460);let owner=m.u32(vehicle+0x330);
+            h.start_physics(m,driver,owner,vehicle+0x204,vehicle+0x1b0,vehicle+0x1bc);
+            m.set_u32(vehicle+0x2aac,1);m.set_u32(vehicle+0x51ac,0);
+        }
+    }else if value==2 {
+        for offset in [0x50d0,0x50e8] {
+            let zero=m.read(0x702650,12);m.write(vehicle+offset,&zero);
+        }
+    }
+    m.set_i32(vehicle+0x2aac,value);
+}
+
 /// `0x58f230`: disable one named movement bit; other values do nothing.
 pub fn disable_movement(m:&mut Mem,body:u32,value:i32) {
     if matches!(value,1|2|4|8) {m.set_u32(body+0x4ac,m.u32(body+0x4ac)&!(value as u32));}
@@ -90,6 +121,32 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 #[cfg(test)]
 mod tests {
     use super::*;
+    struct ModeHooks {excessive:bool,trace:Vec<String>}
+    impl VehicleModeHooks for ModeHooks {
+        fn excessive_velocity(&mut self,_:&mut Mem,v:u32,limit:f32)->bool {assert_eq!((v,limit),(0x2a0001b0,100.));self.trace.push("excessive".into());self.excessive}
+        fn clear_linear_velocity(&mut self,m:&mut Mem,body:u32) {
+            assert_eq!(body,0x2a000010);self.trace.push(format!("clear:{}",(0..3).map(|i|m.u32(0x702650+i*4).to_string()).collect::<Vec<_>>().join(",")));
+        }
+        fn check_velocity(&mut self,_:&mut Mem,v:u32,limit:f32) {assert_eq!((v,limit),(0x2a0001b0,100.));self.trace.push("check".into());}
+        fn start_physics(&mut self,_:&mut Mem,driver:u32,owner:u32,p:u32,l:u32,a:u32) {
+            assert_eq!(driver,0x2a010000);self.trace.push(format!("start:3,{owner},{p},{l},{a}"));
+        }
+    }
+    #[test]
+    fn original_vehicle_mode_orchestration() {
+        for (case,line) in include_str!("../../../tools/emu/golden_vehicle_mode.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let values:Vec<i64>=p[0].split(',').map(|v|v.parse().unwrap()).collect();
+            let mut m=Mem::new();let vehicle=0x2a000000;let driver=vehicle+0x10000;
+            let offsets=[0x2aac,0x51ac,0x50d0,0x50d4,0x50d8,0x50e8,0x50ec,0x50f0];
+            for (offset,value) in offsets.into_iter().zip(&values[5..]){m.set_u32(vehicle+offset,*value as u32);}
+            m.set_u32(vehicle+0x5460,driver);m.set_u32(vehicle+0xf98,values[1] as u32);m.set_u32(vehicle+0x330,values[3] as u32);m.set_u32(driver+0x2638,values[4] as u32);
+            for (i,value) in p[1].split(',').enumerate(){m.set_u32(0x702650+i as u32*4,value.parse().unwrap());}
+            let mut h=ModeHooks{excessive:values[2]!=0,trace:vec![]};vehicle_mode(&mut m,vehicle,values[0] as i32,&mut h);
+            let actual=offsets.into_iter().map(|o|m.u32(vehicle+o)).chain([m.u32(driver+0x2638)]).collect::<Vec<_>>();
+            assert_eq!(actual,p[2].split(',').map(|v|v.parse::<u32>().unwrap()).collect::<Vec<_>>(),"case {case} state");
+            assert_eq!(h.trace.join(";"),p[3],"case {case} calls");
+        }
+    }
     #[test]
     fn original_body_mode_fields() {
         for (case,line) in include_str!("../../../tools/emu/golden_body_modes.tsv").lines().enumerate(){
