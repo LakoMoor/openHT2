@@ -349,14 +349,24 @@ fn hud(v: &Vehicle, size: (u32, u32), cab: bool) -> Vec<ht2_render::hud::Rect> {
 
 /// Stand-in seat pose, looking ahead along the body. Matrix preparation and
 /// projection use the original path; the original camera controller is pending.
+fn cab_world_transform(v:&Vehicle,eye:Vec3,tilt:f32)->[f32;12] {
+    use ht2_sim::{mem::Mem,matrix,instruments};
+    let mut memory=Mem::new();ht2_sim::globals::install_constants(&mut memory);
+    let (scenario,vehicle,local,body,out)=(0x2a000000,0x2a010000,0x2a020000,0x2a020100,0x2a020200);
+    memory.set_u32(0x6d2078,scenario);memory.set_u32(scenario+0x268,vehicle);memory.set_u32(0x6cec68,1);
+    memory.set_f32(scenario+200,tilt);matrix::put12(&mut memory,scenario+0x5f0,&matrix::IDENTITY);
+    // Initial view: no look offset, height offset or suspension-filter state.
+    // Dynamic channels and the original per-frame update remain pending.
+    instruments::cabin_view(&mut memory,local,false);
+    for (i,value) in eye.to_array().into_iter().enumerate(){memory.set_f32(local+36+i as u32*4,value);}
+    let model=v.model();let axes=[model.x_axis,model.y_axis,model.z_axis,model.w_axis];
+    matrix::put12(&mut memory,body,&std::array::from_fn(|i|axes[i/3][i%3]));
+    matrix::mat_mul(&mut memory,out,local,body);
+    std::array::from_fn(|i|memory.f32(out+i as u32*4))
+}
 fn cab_view_proj(v: &Vehicle, eye: Vec3, tilt:f32, size: (u32,u32)) -> camera::Frame {
-    let m = v.model();
-    let eye = m.transform_point3(eye);
-    let fwd = m.transform_vector3(Vec3::Y).normalize_or(Vec3::Y);
-    let up = m.transform_vector3(Vec3::Z).normalize_or(Vec3::Z);
-    let target = eye + (fwd*tilt.cos()+up*tilt.sin())*10.;
     // Original cabin setup 0x4de2a0 sets +0x58=1.6, +0x54=1.2.
-    camera::from_pose_with_lens(eye,target,up,size,[1.6,1.2])
+    camera::from_transform(cab_world_transform(v,eye,tilt),size,[1.6,1.2])
 }
 
 /// Stand-in chase pose; original distance, interpolation and collision are pending.
@@ -609,12 +619,10 @@ impl Game {
         for id in &self.truck_objects {self.renderer.set_visible(*id,!cab || self.cockpit.is_none());}
         let Some(cockpit)=&self.cockpit else{return};
         if !cab {cockpit.hide(&mut self.renderer);return;}
-        let v=&self.world.vehicle;let m=v.model();
-        let eye=m.transform_point3(self.world.truck.cab_eye);
-        let forward=m.transform_vector3(Vec3::Y).normalize_or(Vec3::Y);
-        let up=m.transform_vector3(Vec3::Z).normalize_or(Vec3::Z);
-        let tilt=self.world.truck.cab_tilt;
-        cockpit.update(&mut self.renderer,cockpit::mount(eye,eye+(forward*tilt.cos()+up*tilt.sin())*10.,up),v.speed*3.6,v.engine_rev,v.fuel,v.steering_position());
+        let v=&self.world.vehicle;
+        let t=cab_world_transform(v,self.world.truck.cab_eye,self.world.truck.cab_tilt);
+        let mount=Mat4::from_cols(glam::Vec4::new(t[0],t[1],t[2],0.),glam::Vec4::new(t[3],t[4],t[5],0.),glam::Vec4::new(t[6],t[7],t[8],0.),glam::Vec4::new(t[9],t[10],t[11],1.));
+        cockpit.update(&mut self.renderer,mount,v.speed*3.6,v.engine_rev,v.fuel,v.steering_position());
     }
 
     fn place_truck(&mut self) {

@@ -24,8 +24,12 @@ pub fn from_pose_with_lens(eye:Vec3,target:Vec3,up:Vec3,size:(u32,u32),lens:[f32
     // right/forward/up. This conversion does not apply a projection.
     let pose=Mat4::look_at_rh(eye,target,up).inverse();
     let axes=[pose.x_axis.truncate(),-pose.z_axis.truncate(),pose.y_axis.truncate(),eye];
+    from_transform(std::array::from_fn(|i|axes[i/3][i%3]),size,lens)
+}
+/// Original row-vector world transform, without rebuilding its axes via look-at.
+pub fn from_transform(world:[f32;12],size:(u32,u32),lens:[f32;2])->Frame {
     let mut memory=Mem::new();let (scene,camera,node)=(0x2a000000,0x2a010000,0x2a020000);
-    matrix::put12(&mut memory,node+0x40,&std::array::from_fn(|i|axes[i/3][i%3]));
+    matrix::put12(&mut memory,node+0x40,&world);
     matrix::put12(&mut memory,ht2_sim::globals::MAT_IDENTITY,&matrix::IDENTITY);
     memory.set_u32(node+0x38,1);memory.set_u32(camera+0x50,node);
     memory.set_f32(camera+0x58,lens[0]);memory.set_f32(camera+0x54,lens[1]);

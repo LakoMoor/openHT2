@@ -1,6 +1,6 @@
 //! Original CABINES.B3D geometry and instrument nodes. The pose still follows
 //! the prototype's seat camera; cabin selection and indicator keyframes remain pending.
-use glam::{Mat4,Vec3,Vec4};
+use glam::{Mat4,Vec3};
 use ht2_formats::b3d::Node;
 use ht2_render::{scene,Renderer,ObjectId};
 use std::path::Path;
@@ -88,10 +88,4 @@ mod tests {
             assert_eq!(selected.unwrap_or(""),p[5]);
         }
     }
-}
-
-/// Mount CABINES' eye-relative right/forward/up coordinates at the current view.
-pub fn mount(eye:Vec3,target:Vec3,up:Vec3)->Mat4 {
-    let pose=Mat4::look_at_rh(eye,target,up).inverse();
-    Mat4::from_cols(pose.x_axis,-pose.z_axis,pose.y_axis,Vec4::from((eye,1.)))
 }
