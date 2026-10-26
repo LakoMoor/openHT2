@@ -1,6 +1,29 @@
 //! Matrix-stack and clipping state of `0x5ae0e0`. Device viewport/transform
 //! uploads at the end of that function are handled by the rendering backend.
 use crate::{mem::Mem,matrix,math};
+/// Matrix/clip portion of `0x5eb4b0`. `world_transform` is the result of
+/// the camera node's hierarchy lookup (`0x5f25c0`), supplied by its owner.
+pub fn prepare_camera(m:&mut Mem,camera:u32,world_transform:u32,scene:u32,clip:[i32;4]) {
+    const S:u32=0x2ffd_4300;
+    let (model,rotation,translation,stereo,scaled)=(S,S+48,S+96,S+144,S+192);
+    math::mat_inverse(m,model,world_transform);
+    if m.u32(0x702e8c)&0x100!=0 {
+        let mut shift=m.f64(scene+0x2130)*0.5;
+        let mut angle=m.f64(scene+0x2138) as f32;
+        if m.u32(scene+0x210c)==0 {shift=-shift;angle=-angle;}
+        matrix::mat_rot_z(m,rotation,angle);
+        matrix::put12(m,translation,&[1.,0.,0.,0.,1.,0.,0.,0.,1.,shift as f32,0.,0.]);
+        matrix::mat_mul(m,stereo,translation,rotation);
+        matrix::mat_apply(m,model,stereo);
+    }
+    let x=if clip[0]<0 {clip[2] as f64/clip[2].wrapping_sub(clip[0]) as f64}else{1.};
+    let y=if clip[1]<0 {clip[3] as f64/clip[3].wrapping_sub(clip[1]) as f64}else{1.};
+    let sign=if m.u32(camera+0x64)!=0 {-2.}else{2.};
+    let sx=(sign/(m.f32(camera+0x58) as f64*x)) as f32;
+    let sz=(2./(y*m.f32(camera+0x54) as f64)) as f32;
+    matrix::put12(m,scaled,&[sx,0.,0.,0.,1.,0.,0.,0.,sz,0.,0.,0.]);
+    setup(m,scene,model,scaled,m.u32(0x720908)==0);
+}
 /// Hardware view upload at the end of `0x5ae0e0`, in Direct3D row-vector layout.
 /// The original rounds each 3x4 product before packing it into a 4x4 matrix.
 pub fn device_view(m:&mut Mem,model:u32)->[f32;16] {
@@ -74,6 +97,24 @@ pub fn setup(m:&mut Mem,scene:u32,model:u32,view:u32,software:bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_camera_scene_preparation() {
+        for (case,line) in include_str!("../../../tools/emu/golden_camera_scene.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();
+            let (camera,scene,transform)=(0x2a000000,0x2a010000,0x2a020000);
+            for (base,values) in [(transform,p[0]),(camera+0x54,p[1])]{
+                for (i,v) in values.split(',').enumerate(){m.set_u32(base+i as u32*4,v.parse().unwrap());}
+            }
+            m.set_u32(camera+0x64,p[2].parse().unwrap());m.set_u32(0x702e8c,p[3].parse::<u32>().unwrap()*0x100);
+            m.set_u32(scene+0x210c,p[4].parse().unwrap());m.set_f64(scene+0x2130,p[5].parse().unwrap());m.set_f64(scene+0x2138,p[6].parse().unwrap());
+            m.set_u32(0x720908,1);m.set_f64(scene+0x2110,1.);m.set_f64(scene+0x2148,250.);m.set_i32(scene+0x7a8,100<<19);
+            let clip=p[7].split(',').map(|v|v.parse::<i32>().unwrap()).collect::<Vec<_>>().try_into().unwrap();
+            prepare_camera(&mut m,camera,transform,scene,clip);
+            for (base,expected) in [(scene+0x1070,p[8]),(scene+0x10d0,p[9])]{
+                assert_eq!((0..12).map(|i|m.u32(base+i*4)).collect::<Vec<_>>(),expected.split(',').map(|v|v.parse::<u32>().unwrap()).collect::<Vec<_>>(),"case {case}");
+            }
+        }
+    }
     #[test]
     fn original_hardware_view_uploads() {
         for line in include_str!("../../../tools/emu/golden_scene_device_view.tsv").lines(){

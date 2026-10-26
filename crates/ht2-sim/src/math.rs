@@ -48,10 +48,10 @@ pub fn vec_div(m: &mut Mem, dst: u32, a: [f32; 3], b: u32) -> u32 {
 pub fn mat_inverse(m: &mut Mem, dst: u32, src: u32) -> u32 {
     let p: Vec<f32> = (0..12).map(|i| m.f32(src + 4 * i)).collect();
     let q = |i: usize| p[i] as f64;
-    let c0 = r(q(1) * q(5) - q(2) * q(4));
+    let c0 = q(1) * q(5) - q(2) * q(4);
     let c1 = r(q(3) * q(2) - q(5) * q(0));
     let c2 = r(q(0) * q(4) - q(1) * q(3));
-    let det = r(c1 as f64 * q(7) + c2 as f64 * q(8) + c0 as f64 * q(6));
+    let det = r((c0 * q(6) + c2 as f64 * q(8)) + c1 as f64 * q(7));
     let d = det as f64;
     let mut o = [0.0f32; 12];
     o[0] = r((q(8) * q(4) - q(7) * q(5)) / d);
@@ -64,9 +64,9 @@ pub fn mat_inverse(m: &mut Mem, dst: u32, src: u32) -> u32 {
     o[7] = r((q(6) * q(1) - q(7) * q(0)) / d);
     o[8] = r(c2 as f64 / d);
     let (t0, t1, t2) = (r(-q(9)) as f64, r(-q(10)) as f64, r(-q(11)) as f64);
-    o[9] = r(t0 * o[0] as f64 + t1 * o[3] as f64 + t2 * o[6] as f64);
-    o[10] = r(t0 * o[1] as f64 + t1 * o[4] as f64 + t2 * o[7] as f64);
-    o[11] = r(t0 * o[2] as f64 + t1 * o[5] as f64 + t2 * o[8] as f64);
+    o[9] = r((t2 * o[6] as f64 + t1 * o[3] as f64) + t0 * o[0] as f64);
+    o[10] = r((t2 * o[7] as f64 + t1 * o[4] as f64) + t0 * o[1] as f64);
+    o[11] = r((t2 * o[8] as f64 + t1 * o[5] as f64) + t0 * o[2] as f64);
     for (i, v) in o.iter().enumerate() {
         m.set_f32(dst + 4 * i as u32, *v);
     }
