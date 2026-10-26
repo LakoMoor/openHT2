@@ -1,6 +1,52 @@
 //! Original scenario-controller reset. Resource destruction and the base reset
 //! remain explicit callbacks, so a caller cannot silently skip their side effects.
 use crate::mem::Mem;
+/// Runtime for the original recurring internal tasks. Effects are supplied by
+/// the game controller; task completion schedules its next tick internally.
+pub trait InternalEffects {
+    fn call(&mut self,m:&mut Mem,controller:u32,slot:u32);
+}
+pub struct InternalScheduler {
+    pub memory: Mem,
+    pub manager: u32,
+    pub controller: u32,
+    free: Vec<u32>,
+}
+struct InternalRunner<'a,H> { effects:&'a mut H,free:&'a mut Vec<u32> }
+impl<H:InternalEffects> TaskHooks for InternalRunner<'_,H> {
+    fn call(&mut self,m:&mut Mem,c:u32,s:u32){self.effects.call(m,c,s);}
+    fn complete(&mut self,m:&mut Mem,task:u32){
+        let manager=m.u32(task+12);
+        if manager==0{return;}
+        let r=self.free.pop().unwrap_or_else(||m.alloc(24));m.write(r,&[0;24]);
+        m.set_u32(r+12,task);m.set_u32(r+16,1);
+        if !enqueue(m,manager,r){self.free.push(r);}
+    }
+}
+impl<H:InternalEffects> RequestHooks for InternalRunner<'_,H> {
+    fn run(&mut self,m:&mut Mem,task:u32){execute_task(m,task,self);}
+    fn remove_task(&mut self,_:&mut Mem,_:u32,_:u32){unreachable!("internal runtime creates only run/activate requests");}
+    fn destroy(&mut self,_:&mut Mem,object:u32){self.free.push(object);}
+}
+impl<H:InternalEffects> SchedulerHooks for InternalRunner<'_,H> {
+    fn execute(&mut self,m:&mut Mem,c:u32,r:u32){execute_request(m,c,r,self);}
+}
+impl InternalScheduler {
+    pub fn new(flags:u32,extra:bool)->Self {
+        let mut memory=Mem::new();let manager=memory.alloc(32);let controller=memory.alloc(0x2100);
+        for id in internal_tasks(flags,extra) {
+            let task=memory.alloc(40);memory.set_u32(task+12,manager);memory.set_i32(task+20,id);
+            memory.set_u32(task+32,controller);memory.set_i32(task+36,id);
+            let r=memory.alloc(24);memory.set_u32(r+12,task);memory.set_u32(r+20,2);
+            assert!(enqueue(&mut memory,manager,r));
+        }
+        Self {memory,manager,controller,free:vec![]}
+    }
+    pub fn tick(&mut self,effects:&mut impl InternalEffects) {
+        let mut runner=InternalRunner{effects,free:&mut self.free};
+        scheduler_tick(&mut self.memory,self.manager,&mut runner);
+    }
+}
 pub trait FrameBeginHooks {
     fn clear_frame(&mut self,m:&mut Mem,scene:u32);
     fn copy_palette(&mut self,m:&mut Mem,destination:u32,source:u32);
@@ -254,6 +300,22 @@ pub fn reset(m: &mut Mem, controller: u32, hooks: &mut impl ResetHooks) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    struct Effects(Vec<u32>);
+    impl InternalEffects for Effects {
+        fn call(&mut self,m:&mut Mem,c:u32,s:u32){self.0.extend([s,m.u32(c+0x224)]);}
+    }
+    #[test]
+    fn recurring_runtime_matches_original() {
+        let mut current=None;let mut runtime=InternalScheduler::new(0,false);let mut e=Effects(vec![]);
+        for line in include_str!("../../../tools/emu/golden_internal_runtime.tsv").lines() {
+            let p:Vec<_>=line.split('\t').collect();let mode=(p[0].parse::<u32>().unwrap(),p[1]=="1");
+            if current!=Some(mode){runtime=InternalScheduler::new(mode.0,mode.1);current=Some(mode);}
+            e.0.clear();runtime.tick(&mut e);
+            assert_eq!(runtime.memory.u32(runtime.manager),p[2].parse::<u32>().unwrap()+1);
+            assert_eq!(e.0,p[3].split(',').map(|s|s.parse().unwrap()).collect::<Vec<u32>>());
+            assert!(runtime.free.len()<=1);
+        }
+    }
     struct Begin;
     impl FrameBeginHooks for Begin {
         fn clear_frame(&mut self,_:&mut Mem,_:u32){}
