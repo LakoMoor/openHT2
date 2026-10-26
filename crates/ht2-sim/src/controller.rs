@@ -1,6 +1,41 @@
 //! Original scenario-controller reset. Resource destruction and the base reset
 //! remain explicit callbacks, so a caller cannot silently skip their side effects.
 use crate::mem::Mem;
+pub trait FrameBeginHooks {
+    fn clear_frame(&mut self,m:&mut Mem,scene:u32);
+    fn copy_palette(&mut self,m:&mut Mem,destination:u32,source:u32);
+}
+/// Complete `0x5de600` handler, with clock/rendering services supplied by caller.
+pub fn begin_frame(m:&mut Mem,c:u32,milliseconds:f64,overhead_ms:f64,h:&mut impl FrameBeginHooks) {
+    begin_frame_time(m,c,milliseconds,overhead_ms);
+    h.clear_frame(m,m.u32(c+0x1d0));
+    for offset in [0,4,8,12] {
+        let scene=m.u32(c+0x1d0);m.set_u32(scene+0x2130+offset,m.u32(c+0xbf8+offset));
+    }
+    let scene=m.u32(c+0x1d0);let player=m.u32(c+0x1d4);
+    m.set_u32(scene+0x2104,m.u32(player+0x94));
+    let player=m.u32(c+0x1d4);m.set_u32(player+0x94,m.u32(player+0x94).wrapping_add(1));
+    m.set_u32(0x702e90,0);
+    let player=m.u32(c+0x1d4);let table=m.u32(player+0x64);let index=m.u32(player+0x8c);
+    h.copy_palette(m,c+0xc18,m.u32(table+index*4));
+    let index=m.u32(m.u32(c+0x1d4)+0x8c);
+    if m.u32(c+0x220)!=index {m.set_u32(c+0x220,index);m.set_u32(c+0xc14,1);}
+    m.set_u32(0x702e8c,m.u32(c+0xbcc));
+}
+/// Timing part of `0x5de600`, with the original double-precision x87 mode.
+/// Accumulation deliberately precedes invalid-step rejection.
+pub fn begin_frame_time(m:&mut Mem,c:u32,milliseconds:f64,overhead_ms:f64) {
+    let now=milliseconds*0.001;
+    let elapsed=now-m.f64(c+0x250);m.set_f64(c+0xba0,elapsed);
+    let fixed=m.i32(c+0xbd8);
+    let mut dt=if fixed>0 {f64::from(fixed)*0.001}else{
+        let dt=(elapsed-m.f64(c+0x258))-overhead_ms*0.001;
+        if dt>0.3 && fixed==0 {0.05}else{dt}
+    };
+    m.set_f64(c+0xb98,m.f64(c+0xb98)+dt);
+    if dt<0.0 || dt>100.0 {dt=0.0;}
+    m.set_f64(c+0xb90,dt);m.set_f64(c+0x258,0.0);m.set_f64(c+0x250,now);
+}
 pub trait FrameEndHooks {
     fn apply_palette(&mut self,m:&mut Mem,controller:u32);
     fn refresh_surface(&mut self,m:&mut Mem,controller:u32);
@@ -219,6 +254,28 @@ pub fn reset(m: &mut Mem, controller: u32, hooks: &mut impl ResetHooks) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    struct Begin;
+    impl FrameBeginHooks for Begin {
+        fn clear_frame(&mut self,_:&mut Mem,_:u32){}
+        fn copy_palette(&mut self,_:&mut Mem,_:u32,_:u32){}
+    }
+    #[test]
+    fn frame_time_matches_original_bits() {
+        for (i,line) in include_str!("../../../tools/emu/golden_controller_frame_time.tsv").lines().enumerate() {
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let c=0x2a000000;
+            let values:Vec<f64>=p[0].split(',').map(|s|s.parse().unwrap()).collect();
+            m.set_f64(c+0x250,values[1]);m.set_f64(c+0x258,values[2]);m.set_f64(c+0xb98,values[4]);m.set_i32(c+0xbd8,p[1].parse().unwrap());
+            let scene=c+0x20000;let player=c+0x30000;let table=c+0x40000;
+            m.set_u32(c+0x1d0,scene);m.set_u32(c+0x1d4,player);m.set_u32(player+0x64,table);
+            m.set_u32(player+0x8c,i as u32%2);m.set_u32(player+0x94,i as u32);m.set_u32(c+0xbcc,123);
+            for k in 0..4 {m.set_u32(c+0xbf8+k*4,100+k);}
+            begin_frame(&mut m,c,values[0],values[3],&mut Begin);
+            let bits:Vec<u64>=p[2].split(',').map(|s|s.parse().unwrap()).collect();
+            assert_eq!([0x250,0x258,0xb90,0xb98,0xba0].map(|o|m.f64(c+o).to_bits()).to_vec(),bits);
+            let expected:Vec<u32>=p[3].split(',').map(|s|s.parse().unwrap()).collect();
+            assert_eq!([scene+0x2130,scene+0x2134,scene+0x2138,scene+0x213c,scene+0x2104,player+0x94,c+0x220,c+0xc14,0x702e8c,0x702e90].map(|a|m.u32(a)).to_vec(),expected);
+        }
+    }
     struct FrameEnd(Vec<u32>);
     impl FrameEndHooks for FrameEnd {
         fn apply_palette(&mut self,_:&mut Mem,_:u32){self.0.push(1);}
