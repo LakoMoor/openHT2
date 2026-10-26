@@ -1,6 +1,40 @@
 //! Operations bridging scene vehicles and the trajectory AI.
 use crate::mem::Mem;
 
+pub trait ObstacleSourceHooks {
+    /// Kind from the original 0x43fc40 snapshot query.
+    fn player_kind(&mut self,m:&mut Mem,vehicle:u32)->i32;
+    fn world_transform(&mut self,m:&mut Mem,body:u32)->[f32;12];
+}
+/// Command-29 preparation in `0x4ce300`, before queue rotation/allocation.
+/// Returns the subcode and signed plane distance written to the new command.
+pub fn prepare_obstacle_command(m:&mut Mem,command:u32,vehicle:u32,h:&mut impl ObstacleSourceHooks)->Option<(i32,f32)> {
+    if m.u32(command)!=29 {return None;}
+    let controller=m.u32(0x696338);if controller==0 {return None;}
+    if h.player_kind(m,vehicle)==5 && m.u32(vehicle+0x55a4)!=0 {return None;}
+    let code=m.i32(command+4);let mut state=m.u32(controller+0x24);
+    if code%10!=0 {state^=1;}
+    match code/10 {1|3=>state^=1,4=>state=1,_=>{}}
+    let plane=m.u32(command+12);let mut distance=100.;
+    if plane!=0 {
+        let a:[f64;4]=std::array::from_fn(|i|m.f32(plane+i as u32*4) as f64);
+        let transform=h.world_transform(m,vehicle+0x10);
+        let raw=((transform[11] as f64*a[2]+transform[10] as f64*a[1])+transform[9] as f64*a[0])+a[3];
+        distance=raw as f32;
+        let mut positive=false;
+        if !(raw>=0.) {
+            let transform=h.world_transform(m,vehicle+0x10);
+            let forward:[f64;3]=std::array::from_fn(|axis|{
+                (m.f32(0x702628) as f64*transform[6+axis] as f64+m.f32(0x702624) as f64*transform[3+axis] as f64)
+                    +m.f32(0x702620) as f64*transform[axis] as f64
+            });
+            positive=(forward[0]*a[0]+forward[1]*a[1])+forward[2]*a[2]>0.;
+        }
+        distance=if positive {distance.abs()}else{-distance.abs()};
+    }
+    Some((state as i32,distance))
+}
+
 pub trait CommandHeap {
     fn allocate(&mut self,m:&mut Mem,bytes:u32)->u32;
     fn release(&mut self,m:&mut Mem,address:u32);
@@ -315,6 +349,26 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_obstacle_source_preparation() {
+        struct Source {kind:i32,transform:[f32;12]}
+        impl ObstacleSourceHooks for Source {
+            fn player_kind(&mut self,_:&mut Mem,v:u32)->i32{assert_eq!(v,0x2a010000);self.kind}
+            fn world_transform(&mut self,_:&mut Mem,b:u32)->[f32;12]{assert_eq!(b,0x2a010010);self.transform}
+        }
+        for (case,line) in include_str!("../../../tools/emu/golden_obstacle_source.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let v:Vec<i64>=p[0].split(',').map(|x|x.parse().unwrap()).collect();
+            let parse=|s:&str|s.split(',').map(|x|x.parse::<u32>().unwrap()).collect::<Vec<_>>();
+            let mut m=Mem::new();let c=0x2a000000;let vehicle=c+0x10000;let controller=vehicle+0x10000;let plane=controller+0x1000;
+            m.set_u32(c,29);m.set_u32(c+4,v[3] as u32);m.set_u32(c+12,if v[5]!=0 {plane}else{0});
+            m.set_u32(0x696338,if v[0]!=0 {controller}else{0});m.set_u32(controller+0x24,v[4] as u32);m.set_u32(vehicle+0x55a4,v[2] as u32);
+            for (i,value) in parse(p[2]).into_iter().enumerate(){m.set_u32(plane+i as u32*4,value);}
+            m.set_f32(0x702624,1.);
+            let mut source=Source{kind:v[1] as i32,transform:parse(p[1]).into_iter().map(f32::from_bits).collect::<Vec<_>>().try_into().unwrap()};
+            let actual=prepare_obstacle_command(&mut m,c,vehicle,&mut source).map(|(state,distance)|vec![state as u32,distance.to_bits()]);
+            assert_eq!(actual,if p[3].is_empty(){None}else{Some(parse(p[3]))},"case {case}");
+        }
+    }
     #[test]
     fn original_obstacle_publication_writes() {
         let bytes=|s:&str|(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect::<Vec<_>>();
