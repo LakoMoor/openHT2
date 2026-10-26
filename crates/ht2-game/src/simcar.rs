@@ -411,6 +411,7 @@ impl SimCar {
     pub fn pending_game_actions(&self) -> &[ht2_sim::game_message::Action] {
         &self.game_actions
     }
+    pub fn rating_world(&self) -> Option<&ht2_sim::world::World> { self.ai_world.as_ref() }
 
     /// The computer vehicles, for drawing.
     pub fn traffic(&self) -> Vec<Pose> {

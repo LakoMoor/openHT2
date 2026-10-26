@@ -1,5 +1,5 @@
-//! End-menu backgrounds loaded from the user's game data. Widgets and text are still
-//! missing; displaying the backdrop is not a complete original menu.
+//! End-menu backgrounds and company-rating text from the user's game data.
+//! Buttons, logos and multiplayer outcomes still require porting.
 use std::path::Path;
 
 /// Original `0x574310`: at most 60 eligible companies, descending share, with
@@ -77,9 +77,89 @@ pub fn background(game: &Path, mode: u32, family: u32) -> Result<ht2_formats::tx
     Err(format!("menu texture missing: {name}"))
 }
 
+/// Centered backdrop and rating text, following the single-player branch of
+/// `0x51f760`. Logos, buttons and multiplayer outcomes are not yet composed.
+pub fn screen(game: &Path, mode: u32, family: u32, size: (u32, u32),
+    world: Option<&ht2_sim::world::World>) -> Result<Vec<u8>, String> {
+    let t = background(game, mode, family)?;
+    let (w, h) = size;
+    if w == 0 || h == 0 || w > 8192 || h > 8192 { return Err("unsupported menu surface size".into()); }
+    let ox = (t.width as i32 - w as i32) / 2;
+    let oy = (t.height as i32 - h as i32) / 2;
+    let mut rgba = vec![0; w as usize * h as usize * 4];
+    for y in 0..h as i32 {
+        for x in 0..w as i32 {
+            let dst = (y as usize * w as usize + x as usize) * 4;
+            rgba[dst + 3] = 255;
+            let (sx, sy) = (x + ox, y + oy);
+            if sx >= 0 && sy >= 0 && sx < t.width as i32 && sy < t.height as i32 {
+                let src = (sy as usize * t.width as usize + sx as usize) * 4;
+                rgba[dst..dst + 4].copy_from_slice(&t.rgba[src..src + 4]);
+            }
+        }
+    }
+    if !matches!(mode, 1 | 2 | 5) { return Ok(rgba); }
+    let Some(world) = world else { return Ok(rgba) };
+    let Some(human) = world.players.iter().position(|p| p.kind == 1) else { return Ok(rgba) };
+    let data = std::fs::read(game.join("MENU.FON")).map_err(|e| e.to_string())?;
+    let font = ht2_formats::font::Font::parse(&data).map_err(|e| e.to_string())?;
+    let players: Vec<_> = world.players.iter().map(|p| (p.kind, p.flags, p.share)).collect();
+    for (row, index) in rating_rows(&players, human, 3).into_iter().enumerate() {
+        let p = &world.players[index];
+        let name = p.name.and_then(|i| world.names.get(i)).map_or("", |n| n.name.as_str());
+        // Invert the same byte decoder used when reading names.sch. Unsupported
+        // Unicode cannot occur in names parsed from the installed byte strings.
+        let name: Vec<u8> = name.chars().map(|c| (0u16..=255).find(|&b|
+            ht2_formats::sdte::cp1251_to_string(&[b as u8]).starts_with(c)).unwrap_or(63) as u8).collect();
+        let runs = rating_text((0x26e - ox, 0x1b8 - oy + row as i32 * 0x21),
+            &name, p.share, p.members.len() as i32, p.fleet);
+        for run in runs {
+            let limit = run.limit.unwrap_or_else(|| font.text_width(&run.bytes, true).wrapping_add(1));
+            let mask = font.draw_mask((w as u16, h as u16), run.origin, limit, &run.bytes, true);
+            for (pixel, mask) in rgba.chunks_exact_mut(4).zip(mask) {
+                // Entry 6 of the base palette (0x5ba240). Dynamic palette changes
+                // and the DirectDraw font path still require differential checking.
+                if mask != 0 { pixel.copy_from_slice(&[0, 255, 0, 255]); }
+            }
+        }
+    }
+    Ok(rgba)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore = "requires HT2_GAME game data and GPU"]
+    fn render_rating_from_world() {
+        let game = std::env::var_os("HT2_GAME").unwrap();
+        let game = Path::new(&game);
+        let mut world = ht2_sim::world::World::new(std::rc::Rc::new(Default::default()),
+            vec![], vec![], Default::default(), vec![], Default::default(), 0);
+        world.create_players_regular(&[0; 12], None);
+        world.names.push(ht2_sim::world::DriverName { name: "Иван".into(), role: 1, care: 1.0, wander: 1.0 });
+        world.players[0].name = Some(0);
+        world.players[0].share = 0.51;
+        world.players[0].fleet = 5100.0;
+        let mut ai = world.players[0].clone();
+        ai.kind = 2;
+        ai.share = 0.49;
+        ai.fleet = 4900.0;
+        world.players.push(ai);
+        let rgba = screen(game, 2, 16, (800,600), Some(&world)).unwrap();
+        let base = screen(game, 2, 16, (800,600), None).unwrap();
+        assert!(rgba.chunks_exact(4).zip(base.chunks_exact(4)).filter(|(a,b)| a != b).count() > 100);
+        let t = background(game, 2, 16).unwrap();
+        assert_eq!(&base[..4], &t.rgba[(300*1600+400)*4..(300*1600+400)*4+4]);
+        let instance = wgpu::Instance::default();
+        let (_, device, queue) = pollster::block_on(ht2_render::request_device(&instance, None)).unwrap();
+        let mut renderer = ht2_render::Renderer::new(device, queue, wgpu::TextureFormat::Rgba8Unorm);
+        renderer.set_movie_frame((800,600), &rgba).unwrap();
+        let pixels = renderer.screenshot((800,600), glam::Mat4::IDENTITY);
+        assert_eq!(pixels, rgba);
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/end-rating.png");
+        ht2_render::save_png(&path, (800,600), &pixels).unwrap();
+    }
     #[test]
     fn company_order_matches_original() {
         for line in include_str!("../../../tools/emu/golden_rating_rows.tsv").lines() {

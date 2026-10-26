@@ -172,6 +172,9 @@ impl Vehicle {
     pub fn pending_game_actions(&self) -> &[ht2_sim::game_message::Action] {
         self.sim.as_ref().map_or(&[], |s| s.pending_game_actions())
     }
+    pub fn rating_world(&self) -> Option<&ht2_sim::world::World> {
+        self.sim.as_ref().and_then(|s| s.rating_world())
+    }
 
     /// The computer vehicles, for drawing.
     pub fn traffic(&self) -> Vec<Pose> {

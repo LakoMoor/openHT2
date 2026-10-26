@@ -535,7 +535,7 @@ impl Game {
     }
     /// Consume only successfully started requests. Unsupported menu transitions remain
     /// pending and stop simulation rather than pretending the end-of-game UI is complete.
-    fn update_media(&mut self) -> bool {
+    fn update_media(&mut self, size: (u32, u32)) -> bool {
         if self.movie.is_none() && self.media_error.is_none() && self.menu_mode.is_none() {
             if let Some(action) = self.world.vehicle.pending_game_actions().get(self.action_index).copied() {
                 let result = match action {
@@ -571,8 +571,8 @@ impl Game {
             if let Some(mode) = self.menu_mode {
                 // The renderer uses full-colour output. Family 16 is provisional until
                 // the original graphics-config choice (0x568fd0) is exposed in settings.
-                let result = menu::background(&self.world.game_dir, mode, 16)
-                    .and_then(|t| self.renderer.set_movie_frame((t.width, t.height), &t.rgba));
+                let result = menu::screen(&self.world.game_dir, mode, 16, size, self.world.vehicle.rating_world())
+                    .and_then(|rgba| self.renderer.set_movie_frame(size, &rgba));
                 match result {
                     Ok(()) => self.shown_menu = Some(mode),
                     Err(e) => { eprintln!("menu background: {e}"); self.media_error = Some(e); },
@@ -710,6 +710,7 @@ impl ApplicationHandler for App {
                 if let Some(g) = self.gfx.as_mut() {
                     g.config.width = s.width;
                     g.config.height = s.height;
+                    g.game.shown_menu = None;
                     g.surface.configure(&g.game.renderer.device, &g.config);
                 }
             }
@@ -719,7 +720,7 @@ impl ApplicationHandler for App {
                 self.acc += (now - self.last).as_secs_f32().min(0.1);
                 self.last = now;
                 let Some(g) = self.gfx.as_mut() else { return };
-                if g.game.update_media() {
+                if g.game.update_media((g.config.width, g.config.height)) {
                     self.acc = 0.0;
                 } else {
                     while self.acc >= STEP {
