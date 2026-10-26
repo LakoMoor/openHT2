@@ -33,6 +33,18 @@ pub trait ObstacleHooks {
     /// 0x447180, after copying player identity with 0x41d300.
     fn publish(&mut self,m:&mut Mem,player:u32,clear:bool,distance:f64);
 }
+
+/// State writes of `0x447180`; caller supplies a validated AI player identity.
+pub fn publish_obstacle(m:&mut Mem,player:u32,clear:bool,distance:f64) {
+    m.wr8(player+0x3d0,u8::from(clear));m.set_f64(player+0x3d8,distance);
+}
+/// Command consumer and AI publisher using the original memory layouts.
+/// Heap ownership is supplied by the application, not emulated by leaking frees.
+pub struct OwnedObstacle<'a,H:CommandHeap> {pub heap:&'a mut H}
+impl<H:CommandHeap> ObstacleHooks for OwnedObstacle<'_,H> {
+    fn consume(&mut self,m:&mut Mem,commands:u32){replace_command(m,commands,0,0,self.heap);}
+    fn publish(&mut self,m:&mut Mem,player:u32,clear:bool,distance:f64){publish_obstacle(m,player,clear,distance);}
+}
 /// Command/obstacle tail `0x4cfb51..0x4cfbf7` of the common AI update.
 pub fn update_obstacle_command(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl ObstacleHooks) {
     let driver=m.u32(vehicle+0x5460);m.set_f64(driver+0x40b0,-1.);
@@ -289,6 +301,39 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_obstacle_publication_writes() {
+        let bytes=|s:&str|(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect::<Vec<_>>();
+        for line in include_str!("../../../tools/emu/golden_obstacle_publish.tsv").lines(){
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let player=0x2a000000;
+            m.write(player+0x3d0,&bytes(p[2]));publish_obstacle(&mut m,player,p[0]=="1",f64::from_bits(p[1].parse().unwrap()));
+            assert_eq!(m.read(player+0x3d0,24),bytes(p[3]));
+        }
+    }
+    #[test]
+    fn owned_obstacle_copy_consume_and_publish_chain() {
+        struct Heap {freed:Vec<u32>}
+        impl CommandHeap for Heap {
+            fn allocate(&mut self,m:&mut Mem,bytes:u32)->u32 {m.alloc(bytes)}
+            fn release(&mut self,_:&mut Mem,address:u32){self.freed.push(address);}
+        }
+        let mut m=Mem::new();let vehicle=0x2a000000;let driver=vehicle+0x10000;let player=vehicle+0x20000;
+        let flags=vehicle+0x30000;let source=vehicle+0x40000;let data=source+0x100;
+        m.set_u32(vehicle+0x5460,driver);
+        for (offset,value) in [(0,29),(4,0),(8,1),(12,data)]{m.set_u32(source+offset,value);}
+        m.set_f32(data,12.5);let mut heap=Heap{freed:vec![]};
+        replace_command(&mut m,vehicle+0x5570,source,0,&mut heap);
+        let owned=m.u32(vehicle+0x5570);let payload=m.u32(owned+12);
+        assert_ne!(owned,source);assert_ne!(payload,data);
+        m.set_f32(data,999.); // External caller's buffer is no longer authoritative.
+        update_obstacle_command(&mut m,vehicle,player,flags,&mut OwnedObstacle{heap:&mut heap});
+        assert_eq!(m.f64(driver+0x40b0),12.5);assert_eq!(m.f64(player+0x3d8),12.5);
+        assert_eq!(m.rd8(player+0x3d0),0);assert_eq!(m.u32(vehicle+0x5570),0);
+        assert_eq!(heap.freed,vec![payload,owned]);
+        update_obstacle_command(&mut m,vehicle,player,flags,&mut OwnedObstacle{heap:&mut heap});
+        assert_eq!(m.f64(player+0x3d8),-1.);assert_eq!(m.rd8(player+0x3d0),1);
+        assert_eq!(heap.freed.len(),2); // The consumed command cannot be freed twice.
+    }
     #[test]
     fn original_owned_command_replacement() {
         struct Heap {outer_fail:bool,inner_fail:bool,calls:usize,trace:Vec<String>}
