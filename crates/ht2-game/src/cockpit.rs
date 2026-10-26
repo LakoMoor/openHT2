@@ -1,12 +1,12 @@
-//! Original CABINES.B3D geometry and instrument nodes. The pose still follows
-//! the prototype's seat camera; cabin selection and indicator keyframes remain pending.
+//! Original CABINES.B3D geometry, cabin selection and instrument nodes.
+//! Suspension camera dynamics and live warning signals remain pending.
 use glam::{Mat4,Vec3};
 use ht2_formats::b3d::Node;
 use ht2_render::{scene,Renderer,ObjectId};
 use std::path::Path;
 
 pub struct Cockpit {
-    body:ObjectId,
+    bodies:[ObjectId;2],
     needles:Vec<(ObjectId,Mat4,usize)>,
     tank:f32,
 }
@@ -40,15 +40,19 @@ impl Cockpit {
         remove(&mut model.nodes,&excluded);
         assets.set_batches(model.triangles_in(Some(&root)));
         if assets.batches.is_empty(){return Err(format!("empty original cockpit {root}"));}
-        let body=renderer.add_parts(textures,&assets,&[&assets.batches])[0];
-        renderer.set_cockpit(body,true);
-        let result=Self{body,needles,tank};result.hide(renderer);Ok(result)
+        // The viewer overrides the file's demo states on its first update:
+        // unowned equipment is absent; owned equipment without signal is dark.
+        let absent=model.triangles_with_switches(Some(&root),&[("RD_Key",0),("RD_LampKey",0)]);
+        let present=model.triangles_with_switches(Some(&root),&[("RD_Key",1),("RD_LampKey",0)]);
+        let bodies:[ObjectId;2]=renderer.add_parts(textures,&assets,&[&absent,&present]).try_into().unwrap();
+        for body in bodies {renderer.set_cockpit(body,true);}
+        let result=Self{bodies,needles,tank};result.hide(renderer);Ok(result)
     }
     pub fn hide(&self,renderer:&mut Renderer){
-        renderer.set_visible(self.body,false);
+        for body in self.bodies {renderer.set_visible(body,false);}
         for (id,_,_) in &self.needles {renderer.set_visible(*id,false);}
     }
-    pub fn update(&self,renderer:&mut Renderer,mount:Mat4,speed_kmh:f32,rev_per_second:f32,fuel:f32,steering:f32){
+    pub fn update(&self,renderer:&mut Renderer,mount:Mat4,speed_kmh:f32,rev_per_second:f32,fuel:f32,steering:f32,radar_equipped:bool){
         let mut memory=ht2_sim::mem::Mem::new();
         let bases=[0x2a000000,0x2a000040,0x2a000080];let out=[0x2a000100,0x2a000140,0x2a000180];
         for (_,base,index) in self.needles.iter().filter(|(_,_,i)|*i<3) {
@@ -56,7 +60,9 @@ impl Cockpit {
             ht2_sim::matrix::put12(&mut memory,bases[*index],&std::array::from_fn(|i|values[i/3][i%3]));
         }
         ht2_sim::instruments::cabin_needles(&mut memory,bases,out,speed_kmh,rev_per_second,if self.tank>0. {fuel/self.tank}else{0.});
-        renderer.set_visible(self.body,true);renderer.set_model(self.body,mount);
+        for (i,body) in self.bodies.iter().enumerate(){
+            renderer.set_visible(*body,i==usize::from(radar_equipped));renderer.set_model(*body,mount);
+        }
         for (id,base,index) in &self.needles {
             renderer.set_visible(*id,true);
             if *index==3 {

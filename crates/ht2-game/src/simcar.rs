@@ -509,6 +509,7 @@ impl SimCar {
     }
     /// Original normalized steering position used by the cabin wheel.
     pub fn steering_position(&self)->f32 {self.m.f32(CAR+0x29e0)}
+    pub fn radar_equipped(&self)->bool {self.m.u32(CAR+0x5400)!=0}
 
     /// Rotation angle of wheel `k`, radians.
     pub fn wheel_angle(&self, k: usize) -> f32 {

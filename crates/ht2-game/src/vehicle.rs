@@ -303,4 +303,7 @@ impl Vehicle {
     pub fn steering_position(&self)->f32 {
         self.sim.as_ref().map_or(self.steer_angle/MAX_STEER_ANGLE,|s|s.steering_position())
     }
+    pub fn radar_equipped(&self)->bool {
+        self.sim.as_ref().is_some_and(|s|s.radar_equipped())
+    }
 }

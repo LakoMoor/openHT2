@@ -1,5 +1,40 @@
 //! Cabin needle transforms from the cabin branch of `0x53d1f0`.
 use crate::{mem::Mem,matrix};
+
+/// Radar prefix of viewer update `0x538370`, through signal reset at 0x538529.
+/// Sound is returned as gain; geometry commands retain their original node IDs.
+pub fn radar_panel(m:&mut Mem,viewer:u32)->(Vec<KeyCommand>,Option<f32>) {
+    let vehicle=m.u32(viewer+0x268);
+    if vehicle==0 {return (vec![],None);}
+    let mut commands=Vec::new();let mut sound=None;
+    let mut key=|offset,value|commands.push(KeyCommand{node:m.u32(viewer+offset),value,digit:false});
+    if m.u32(vehicle+0x5400)==0 {key(0x1b8,0);}else{
+        key(0x1b8,1);
+        let signal=m.f32(vehicle+0x51d8);
+        if !(signal>0.) {key(0x1bc,0);}else{
+            let strength=signal.min(1.) as f64;
+            let level=(1-(-3.*strength).trunc() as i32).clamp(1,3);
+            let clock=m.u32(0x696ca0);let ticks=m.i32(clock+0xbb0);
+            let mut start=m.i32(viewer+0x1c0);let mut period=m.i32(viewer+0x1c4);
+            if ticks>=start.wrapping_add(period) {
+                start=ticks;m.set_i32(viewer+0x1c0,start);
+                let interval=(1./(strength*5.+2.)) as f32 as f64;
+                let quotient=interval/crate::globals::dt_hi(m);
+                // MSVC _ftol returns i64; callers here retain only EAX.
+                period=if quotient.is_finite() && quotient>=i64::MIN as f64 && quotient<9223372036854775808. {
+                    quotient.trunc() as i64 as i32
+                }else{0};
+                m.set_i32(viewer+0x1c4,period);
+            }
+            let middle=start.wrapping_add(period/2);
+            let on=if period&1==0 {ticks<middle}else{ticks<=middle};
+            if on {sound=Some(if m.u32(viewer+0x578)!=0 {0.5}else{1.});}
+            commands.push(KeyCommand{node:m.u32(viewer+0x1bc),value:if on {level}else{0},digit:false});
+        }
+    }
+    m.set_u32(vehicle+0x51d8,0);
+    (commands,sound)
+}
 /// Layout table writes performed by the four profile reads in `0x4dfb67`.
 pub fn install_view_tables(m:&mut Mem,tables:&ht2_formats::view_config::ViewTables) {
     for (base,values) in [0x696bf0,0x696c04,0x696c18,0x696c2c].into_iter().zip(tables.0){
@@ -78,6 +113,23 @@ pub fn panel_switch(m:&Mem,node:u32)->i32 {
 #[cfg(test)]
 mod panel_switch_tests {
     use super::*;
+    #[test]
+    fn original_radar_panel_updates() {
+        for (case,line) in include_str!("../../../tools/emu/golden_radar_panel.tsv").lines().enumerate() {
+            let p:Vec<_>=line.split('\t').collect();let input:Vec<i64>=p[0].split(',').map(|v|v.parse().unwrap()).collect();
+            let mut m=Mem::new();let viewer=0x2a000000;let vehicle=viewer+0x10000;let clock=vehicle+0x10000;
+            m.set_u32(viewer+0x268,if input[0]!=0 {vehicle}else{0});m.set_u32(vehicle+0x5400,input[1] as u32);
+            m.set_u32(viewer+0x578,input[2] as u32);m.set_u32(vehicle+0x51d8,input[3] as u32);
+            m.set_u32(clock+0xbb0,input[4] as u32);m.set_u32(viewer+0x1c0,input[5] as u32);m.set_u32(viewer+0x1c4,input[6] as u32);
+            m.set_u32(0x696ca0,clock);crate::globals::install_clock(&mut m,clock,0.,p[1].parse().unwrap());
+            m.set_u32(viewer+0x1b8,11);m.set_u32(viewer+0x1bc,12);
+            let (commands,sound)=radar_panel(&mut m,viewer);
+            let output=[m.u32(viewer+0x1c0),m.u32(viewer+0x1c4),m.u32(vehicle+0x51d8)];
+            assert_eq!(output.to_vec(),p[2].split(',').map(|v|v.parse::<u32>().unwrap()).collect::<Vec<_>>(),"case {case} state");
+            assert_eq!(commands.iter().map(|c|format!("{},{}",c.node,c.value)).collect::<Vec<_>>().join(";"),p[3],"case {case} keys");
+            assert_eq!(sound.map(|v|v.to_bits().to_string()).unwrap_or_default(),p[4],"case {case} sound");
+        }
+    }
     #[test]
     fn original_switch_setters_and_getter() {
         for (case,line) in include_str!("../../../tools/emu/golden_panel_switch.tsv").lines().enumerate() {
