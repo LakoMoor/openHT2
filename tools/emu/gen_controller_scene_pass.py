@@ -3,12 +3,10 @@ import pathlib,struct
 from emu import Emu,OBJ_BASE,STUB
 E=Emu();c=OBJ_BASE;scene=c+0x10000;cam=c+0x20000;obj=c+0x30000;v=c+0x40000;overlay=c+0x50000;config=c+0x60000;events=[]
 u=lambda a:struct.unpack('<I',E.read(a,4))[0]
-E.set_u32(0x721750,config);E.set_u32(c+0x1d0,scene);E.set_u32(c+0x1e8,cam);E.set_u32(obj,v);E.set_u32(v+0x38,STUB+0x400);E.set_u32(v+0x30,STUB+0x410);E.set_u32(overlay,v)
+E.write(0x7025f0,struct.pack('<12f',1,0,0,0,1,0,0,0,1,0,0,0));E.set_u32(0x702e08,3);E.hook_ret(0x5adea0,lambda q:0);E.write(scene+0x2110,struct.pack('<d',1.));E.write(scene+0x2148,struct.pack('<d',250.));E.set_u32(scene+0x7a8,100<<19);E.set_u32(0x721750,config);E.set_u32(c+0x1d0,scene);E.set_u32(c+0x1e8,cam);E.set_u32(obj,v);E.set_u32(v+0x38,STUB+0x400);E.set_u32(v+0x30,STUB+0x410);E.set_u32(overlay,v)
 E.hook_ret(0x5b6190,lambda q:0);E.hook_ret(0x5b6180,lambda q:0);E.hook_ret(STUB+0x410,lambda q:events.append(1) or 0)
 def matrix(q):q.write(q.arg(0),bytes(range(48)));return q.arg(0)
 E.hook_ret(0x5d2fa0,lambda q:events.append(2) or 0);E.hook_ret(0x5d2fc0,lambda q:events.append(8) or 0)
-E.hook_thiscall(0x5adc70,lambda q:events.extend([3,q.arg(0)]) or 0,1)
-E.hook_thiscall(0x5ae0e0,lambda q:events.append(4) or 0,2)
 E.hook_thiscall(STUB+0x400,lambda q:events.extend([5,q.arg(0)]) or 0,4)
 E.hook_thiscall(0x5eb280,lambda q:events.extend([6,u(scene+0x21dc)]) or 0,4)
 E.write(overlay+0x398,struct.pack('<12f',2,0,0,0,3,0,0,0,4,1,2,3));rows=[]

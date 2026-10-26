@@ -72,3 +72,39 @@ pub fn mat_inverse(m: &mut Mem, dst: u32, src: u32) -> u32 {
     }
     dst
 }
+
+/// `0x5ac480`: scene variant. Some cofactors stay in x87 registers through
+/// translation; its arithmetic order differs from `0x5ac2e0` above.
+pub fn mat_inverse_scene(m:&mut Mem,dst:u32,src:u32)->u32 {
+    let p:[f64;12]=core::array::from_fn(|i|m.f32(src+i as u32*4) as f64);
+    let c0=p[1]*p[5]-p[4]*p[2];
+    let c1=r(p[3]*p[2]-p[0]*p[5]) as f64;
+    let c2=r(p[4]*p[0]-p[1]*p[3]) as f64;
+    let d=r((c0*p[6]+c2*p[8])+c1*p[7]) as f64;
+    let (a,b,c)=(c0/d,c1/d,c2/d);
+    let mut o=[0.0f32;12];
+    o[0]=r((p[4]*p[8]-p[7]*p[5])/d);o[1]=r((p[7]*p[2]-p[8]*p[1])/d);o[2]=r(a);
+    o[3]=r((p[6]*p[5]-p[8]*p[3])/d);o[4]=r((p[8]*p[0]-p[6]*p[2])/d);o[5]=r(b);
+    o[6]=r((p[7]*p[3]-p[4]*p[6])/d);o[7]=r((p[6]*p[1]-p[7]*p[0])/d);o[8]=r(c);
+    let (x,y,z)=(-p[9],-p[10],-p[11]);
+    o[9]=r((z*o[6] as f64+x*o[0] as f64)+y*o[3] as f64);
+    o[10]=r((y*o[4] as f64+x*o[1] as f64)+z*o[7] as f64);
+    o[11]=r((z*c+y*b)+x*a);
+    for (i,v) in o.iter().enumerate(){m.set_f32(dst+i as u32*4,*v);}
+    dst
+}
+
+#[cfg(test)]
+mod scene_inverse_tests {
+    use super::*;
+    #[test]
+    fn original_scene_inverse_bits() {
+        for line in include_str!("../../../tools/emu/golden_scene_inverse.tsv").lines() {
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let src=0x2a000000;let dst=src+0x100;
+            for (i,s) in p[0].split(',').enumerate(){m.set_u32(src+i as u32*4,s.parse().unwrap());}
+            mat_inverse_scene(&mut m,dst,src);
+            let expected:Vec<u32>=p[1].split(',').map(|s|s.parse().unwrap()).collect();
+            assert_eq!((0..12).map(|i|m.u32(dst+i*4)).collect::<Vec<_>>(),expected);
+        }
+    }
+}

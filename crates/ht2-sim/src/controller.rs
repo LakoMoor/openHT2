@@ -13,8 +13,8 @@ pub fn camera_matrix(m:&mut Mem,c:u32,destination:u32) {
 pub trait ScenePassHooks {
     fn overlay(&mut self,m:&mut Mem,object:u32);
     fn profile(&mut self,begin:bool);
-    fn prepare_scene(&mut self,m:&mut Mem,scene:u32,phase:u32);
-    fn transform_scene(&mut self,m:&mut Mem,scene:u32);
+    /// Device viewport/projection/model uploads at the end of `0x5ae0e0`.
+    fn upload_scene_state(&mut self,m:&mut Mem,scene:u32);
     fn update_object(&mut self,m:&mut Mem,object:u32,mode:u32,matrix:&[u8;48],scene:u32);
     fn render(&mut self,m:&mut Mem,controller:u32);
 }
@@ -28,11 +28,13 @@ pub fn scene_pass(m:&mut Mem,c:u32,audio:bool,h:&mut impl ScenePassHooks) {
     const CAMERA:u32=0x2ffd_3040;
     camera_matrix(m,c,CAMERA);
     let matrix:[u8;48]=m.read(CAMERA,48).try_into().unwrap();h.profile(true);
-    if m.u32(0x702e8c)&0x100!=0 {h.prepare_scene(m,m.u32(c+0x1d0),m.u32(c+0x224));}
+    if m.u32(0x702e8c)&0x100!=0 {let scene=m.u32(c+0x1d0);m.set_u32(scene+0x210c,m.u32(c+0x224));}
     for offset in [0,4,8,12] {let scene=m.u32(c+0x1d0);m.set_u32(scene+0x2120+offset,m.u32(c+0xb90+offset));}
     let camera=m.u32(c+0x1e8);
     if camera!=0 && m.u32(camera+0x4c)!=0 {
-        let scene=m.u32(c+0x1d0);h.transform_scene(m,scene);
+        let scene=m.u32(c+0x1d0);
+        crate::scene_state::setup(m,scene,0x7025f0,0x7025f0,m.u32(0x720908)==0);
+        h.upload_scene_state(m,scene);
         let camera=m.u32(c+0x1e8);let object=if camera==0 {0}else{m.u32(camera+0x4c)};
         h.update_object(m,object,if audio{1}else{5},&matrix,m.u32(c+0x1d0));
     }
@@ -360,8 +362,7 @@ mod tests {
     impl ScenePassHooks for ScenePass {
         fn overlay(&mut self,_:&mut Mem,_:u32){self.0.push(1);}
         fn profile(&mut self,b:bool){self.0.push(if b{2}else{8});}
-        fn prepare_scene(&mut self,_:&mut Mem,_:u32,p:u32){self.0.extend([3,p]);}
-        fn transform_scene(&mut self,_:&mut Mem,_:u32){self.0.push(4);}
+        fn upload_scene_state(&mut self,_:&mut Mem,_:u32){}
         fn update_object(&mut self,_:&mut Mem,_:u32,mode:u32,_:&[u8;48],_:u32){self.0.extend([5,mode]);}
         fn render(&mut self,m:&mut Mem,c:u32){self.0.extend([6,m.u32(m.u32(c+0x1d0)+0x21dc)]);}
     }
@@ -369,6 +370,8 @@ mod tests {
     fn scene_pass_matches_original() {
         for line in include_str!("../../../tools/emu/golden_controller_scene_pass.tsv").lines() {
             let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let c=0x2a000000;let scene=c+0x10000;let cam=c+0x20000;
+            crate::matrix::put12(&mut m,0x7025f0,&crate::matrix::IDENTITY);
+            m.set_f64(scene+0x2110,1.);m.set_f64(scene+0x2148,250.);m.set_u32(scene+0x7a8,100<<19);
             m.set_u32(c+0x1d0,scene);m.set_u32(c+0x1e8,if p[0]=="1"{cam}else{0});m.set_u32(cam+0x4c,if p[1]=="1"{c+0x30000}else{0});
             m.set_u32(c+0xb2c,if p[2]=="1"{c+0x50000}else{0});m.set_u32(0x702e8c,p[3].parse().unwrap());m.set_u32(c+0x224,9);
             let variant=p[8].parse::<u32>().unwrap() as f32;
