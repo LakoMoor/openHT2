@@ -14,6 +14,40 @@ pub const LANE_WIDTH: u32 = 0x40a8;
 pub const FLAGS: u32 = 0x4070;
 pub const STEER_INPUT: u32 = 0x271c;
 
+fn scene_distance(human:[f32;3],vehicle:[f32;3])->f64 {
+    let [x,y,z]=std::array::from_fn::<_,3,_>(|i|(human[i]-vehicle[i]) as f64);
+    (z*z+y*y+x*x).sqrt()
+}
+
+#[cfg(test)]
+mod scene_mode_tests {
+    use super::*;
+    #[test]
+    fn original_simulation_mode_decisions() {
+        for (case,line) in include_str!("../../../tools/emu/golden_ai_simulation_mode.tsv").lines().enumerate() {
+            let p:Vec<_>=line.split('\t').collect();let values:Vec<f32>=p[0].split(',').map(|v|f32::from_bits(v.parse().unwrap())).collect();
+            let human=values[..3].try_into().unwrap();let position=values[3..].try_into().unwrap();
+            let mut m=Mem::new();let vehicle=0x2a000000;let driver=vehicle+0x30000;
+            m.set_u32(vehicle+0x5460,driver);m.set_f64(driver+0x40b8,f64::from_bits(p[1].parse().unwrap()));m.set_u32(driver+0x4070,p[2].parse().unwrap());
+            assert_eq!(u32::from(fn_004cedd0(human,position)),p[3].parse::<u32>().unwrap(),"case {case} enter");
+            assert_eq!(u32::from(fn_004cee70(&m,vehicle,human,position)),p[4].parse::<u32>().unwrap(),"case {case} leave");
+        }
+    }
+}
+/// `0x4cedd0`: switch a trajectory vehicle to physical simulation near the human.
+/// Inputs are translations returned by the original world-transform lookup.
+pub fn fn_004cedd0(human:[f32;3],vehicle:[f32;3])->bool {
+    !(scene_distance(human,vehicle)>=80.)
+}
+/// `0x4cee70`: leave physical simulation beyond 300, or beyond/equal 100
+/// when centred in its lane and flag 2 is clear. Preserve x87 unordered tests.
+pub fn fn_004cee70(m:&Mem,vehicle:u32,human:[f32;3],position:[f32;3])->bool {
+    let distance=scene_distance(human,position);
+    if distance>300. {return true;}
+    let driver=m.u32(vehicle+0x5460);
+    distance>=100. && !(m.f64(driver+0x40b8).abs()>0.5) && m.u32(driver+0x4070)&2==0
+}
+
 /// Top speed of the vehicle with its current mass (`0x4ff5e0` → `0x507710`).
 pub fn top_speed(m: &Mem, this: u32) -> f32 {
     let vid = m.i32(this + 0x8cc);
