@@ -613,7 +613,7 @@ impl Game {
         let eye=m.transform_point3(self.world.truck.cab_eye);
         let forward=m.transform_vector3(Vec3::Y).normalize_or(Vec3::Y);
         let up=m.transform_vector3(Vec3::Z).normalize_or(Vec3::Z);
-        cockpit.update(&mut self.renderer,cockpit::mount(eye,eye+forward*10.-up*0.6,up),v.speed*3.6,v.engine_rev,v.fuel);
+        cockpit.update(&mut self.renderer,cockpit::mount(eye,eye+forward*10.-up*0.6,up),v.speed*3.6,v.engine_rev,v.fuel,v.steering_position());
     }
 
     fn place_truck(&mut self) {

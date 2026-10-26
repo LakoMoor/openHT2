@@ -1,5 +1,11 @@
 //! Cabin needle transforms from the cabin branch of `0x53d1f0`.
 use crate::{mem::Mem,matrix};
+/// Steering-wheel matrix portion of `0x4decc0`, before cabin suspension motion.
+pub fn cabin_steering(m:&mut Mem,base:u32,dst:u32,steering:f32) {
+    let angle=(steering as f64*core::f64::consts::FRAC_PI_2) as f32;
+    matrix::mat_rot_z(m,0x2ffd_4840,angle);
+    matrix::mat_mul(m,dst,0x2ffd_4840,base);
+}
 pub fn cabin_needles(m:&mut Mem,bases:[u32;3],destinations:[u32;3],speed:f32,rev:f32,fuel_fraction:f32) {
     let angles=[rev*f32::from_bits(0x3dc104fb),speed.abs()*f32::from_bits(0x3d20d97c),fuel_fraction*f32::from_bits(0x4016cbe4)];
     for i in 0..3 {
@@ -10,6 +16,15 @@ pub fn cabin_needles(m:&mut Mem,bases:[u32;3],destinations:[u32;3],speed:f32,rev
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_cabin_steering(){
+        for line in include_str!("../../../tools/emu/golden_cabin_steering.tsv").lines(){
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let base=0x2a000000;let out=base+0x100;
+            for (i,v) in p[1].split(',').enumerate(){m.set_u32(base+i as u32*4,v.parse().unwrap());}
+            cabin_steering(&mut m,base,out,f32::from_bits(p[0].parse().unwrap()));
+            assert_eq!((0..12).map(|i|m.u32(out+i*4)).collect::<Vec<_>>(),p[2].split(',').map(|v|v.parse::<u32>().unwrap()).collect::<Vec<_>>());
+        }
+    }
     #[test]
     fn original_cabin_needle_transforms(){
         for (case,line) in include_str!("../../../tools/emu/golden_cabin_needles.tsv").lines().enumerate(){

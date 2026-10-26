@@ -45,7 +45,7 @@ impl Cockpit {
         renderer.set_visible(self.body,false);
         for (id,_,_) in &self.needles {renderer.set_visible(*id,false);}
     }
-    pub fn update(&self,renderer:&mut Renderer,mount:Mat4,speed_kmh:f32,rev_per_second:f32,fuel:f32){
+    pub fn update(&self,renderer:&mut Renderer,mount:Mat4,speed_kmh:f32,rev_per_second:f32,fuel:f32,steering:f32){
         let mut memory=ht2_sim::mem::Mem::new();
         let bases=[0x2a000000,0x2a000040,0x2a000080];let out=[0x2a000100,0x2a000140,0x2a000180];
         for (_,base,index) in self.needles.iter().filter(|(_,_,i)|*i<3) {
@@ -56,7 +56,13 @@ impl Cockpit {
         renderer.set_visible(self.body,true);renderer.set_model(self.body,mount);
         for (id,base,index) in &self.needles {
             renderer.set_visible(*id,true);
-            if *index==3 {renderer.set_model(*id,mount * *base);continue;}
+            if *index==3 {
+                let values=[base.x_axis.truncate(),base.y_axis.truncate(),base.z_axis.truncate(),base.w_axis.truncate()];
+                ht2_sim::matrix::put12(&mut memory,0x2a000200,&std::array::from_fn(|i|values[i/3][i%3]));
+                ht2_sim::instruments::cabin_steering(&mut memory,0x2a000200,0x2a000240,steering);
+                let v:[f32;12]=std::array::from_fn(|i|memory.f32(0x2a000240+i as u32*4));
+                renderer.set_model(*id,mount*transform([[v[0],v[1],v[2]],[v[3],v[4],v[5]],[v[6],v[7],v[8]]],[v[9],v[10],v[11]]));continue;
+            }
             let v:[f32;12]=std::array::from_fn(|i|memory.f32(out[*index]+i as u32*4));
             let transformed=transform([[v[0],v[1],v[2]],[v[3],v[4],v[5]],[v[6],v[7],v[8]]],[v[9],v[10],v[11]]);
             // Type-4/36 geometry is in its named space's local coordinates.

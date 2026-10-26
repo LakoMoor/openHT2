@@ -300,4 +300,7 @@ impl Vehicle {
     pub fn rpm(&self) -> f32 {
         self.engine_rev * 60.0
     }
+    pub fn steering_position(&self)->f32 {
+        self.sim.as_ref().map_or(self.steer_angle/MAX_STEER_ANGLE,|s|s.steering_position())
+    }
 }
