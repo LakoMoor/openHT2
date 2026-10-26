@@ -17,6 +17,8 @@ pub struct Tech {
     pub name: String,
     /// Prefix of the model blocks in `.b3d` files, e.g. `Kamaz`.
     pub prefix: String,
+    /// Cabin node prefix at record offset 2322, used by `0x4dde70`.
+    pub cabin: String,
     pub mass: f32,
     pub wheel_radius: f32,
     /// Fuel tank, litres.
@@ -90,6 +92,7 @@ pub fn parse(d: &[u8]) -> Result<Vec<Tech>> {
             index: i,
             name,
             prefix: text(r, 2302, 20),
+            cabin: text(r, 2322, 20),
             mass: f32_at(r, 96),
             wheel_radius: f32_at(r, 100),
             tank: f32_at(r, 108),
@@ -147,6 +150,15 @@ mod tests {
         assert_eq!(v[0].mass, 5100.0);
         assert!((v[0].wheel_radius - 0.53).abs() < 1e-6);
         assert_eq!(v[0].driving_wheels, [false, false, true, false, false, false, false, false]);
+    }
+    #[test]
+    fn cabin_selection_matches_original_lookup() {
+        for line in include_str!("../../../tools/emu/golden_cabin_selection.tsv").lines(){
+            let p:Vec<_>=line.split('\t').collect();let mut data=sample();
+            for (offset,value) in [(2302,p[0]),(2322,p[1])]{let bytes=value.as_bytes();data[HEADER_LEN+offset..HEADER_LEN+offset+bytes.len()].copy_from_slice(bytes);}
+            let record=parse(&data).unwrap().remove(0);
+            assert_eq!(record.prefix,p[0]);assert_eq!(format!("{}Cab",record.cabin),p[2]);
+        }
     }
 
     #[test]

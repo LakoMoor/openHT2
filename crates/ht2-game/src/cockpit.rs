@@ -20,7 +20,6 @@ fn transform(axes:[[f32;3];3],pos:[f32;3])->Mat4 {
 impl Cockpit {
     pub fn load(renderer:&mut Renderer,game:&Path,prefix:&str,tank:f32)->Result<Self,String> {
         let (mut model,mut assets)=scene::load_assets(&game.join("COMMON/CABINES.B3D"))?;
-        let prefix=if model.nodes.iter().any(|n|n.name==format!("{prefix}Cab")){prefix}else{prefix.strip_suffix('R').unwrap_or(prefix)};
         let root=format!("{prefix}Cab");
         if !model.nodes.iter().any(|n|n.name==root){return Err(format!("no original cockpit {root}"));}
         let textures=renderer.upload_textures(&assets);

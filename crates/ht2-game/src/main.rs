@@ -599,7 +599,7 @@ impl Game {
         let truck_objects = renderer.add_parts(textures, &world.models.assets, &truck_parts(&world.truck));
         let traffic_objects = world.vehicle.traffic().iter().map(|_| HashMap::new()).collect();
         let cockpit=world.models.techs.iter().find(|t|t.index==world.vehicle.params.record)
-            .and_then(|t|match cockpit::Cockpit::load(&mut renderer,&world.game_dir,&t.prefix,t.tank){Ok(c)=>Some(c),Err(e)=>{eprintln!("cockpit: {e}");None}});
+            .and_then(|t|match cockpit::Cockpit::load(&mut renderer,&world.game_dir,&t.cabin,t.tank){Ok(c)=>Some(c),Err(e)=>{eprintln!("cockpit: {e}");None}});
         let mut game = Game { cockpit,renderer, textures, truck_objects, trucks: HashMap::new(), traffic_objects, world, movie: None, movie_mode: None, menu_mode: None, shown_menu: None, menu_buttons: Default::default(), action_index: 0, media_error: None };
         game.place_truck();
         game
