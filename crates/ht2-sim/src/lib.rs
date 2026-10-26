@@ -40,5 +40,6 @@ pub mod controller;
 pub mod scene_state;
 pub mod instruments;
 pub mod condition;
+pub mod ai_scene;
 
 pub use tech_rec::TechRec;
