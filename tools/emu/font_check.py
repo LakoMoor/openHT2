@@ -64,3 +64,23 @@ for path in sorted(root.iterdir()):
             e.call(0x5ea0e0, [text], 'i', this=font)
             assert e.eax == width, (path.name, string.hex(), flag, width, e.eax)
     print(f'{path.name}: {len(strings) * 2} string widths exact', flush=True)
+    surface, output = OBJ_BASE + 0x200000, OBJ_BASE + 0x210000
+    e.write(surface, struct.pack('<HHHH', 80, 64, 1, 80))
+    e.set_u32(surface + 24, output)
+    e.hook_ret(0x5d3b10, lambda emu: 1)
+    e.hook_thiscall(0x5b6710, lambda emu: 0, 1)
+    cases = [(x, y, limit, flag, s) for x, y, limit in
+        [(3, 40, 100), (-2, 40, 100), (70, 40, 100), (3, 0, 100), (3, 63, 100), (3, 40, 7)]
+        for flag in (0, 1) for s in (b'ABC', b'A\nB', b' A\0B', bytes([192, 193, 255]), b'')]
+    cases += [(rng.randrange(-30, 100), rng.randrange(-30, 90), rng.randrange(-10, 140),
+        rng.randrange(2), bytes(rng.randrange(256) for _ in range(rng.randrange(40)))) for _ in range(300)]
+    drawn = subprocess.check_output([str(example), str(path), '--draw'],
+        input=''.join(f'{x} {y} {limit} {flag} {s.hex()}\n' for x, y, limit, flag, s in cases), text=True).splitlines()
+    for (x, y, limit, flag, string), got in zip(cases, drawn, strict=True):
+        e.set_u32(font, flag)
+        e.write(output, bytes(80 * 64))
+        e.write(text, string + b'\0')
+        e.call(0x5ea1b0, [surface, x, y, limit, font, text, 1, 1], 'iiiiiiii')
+        expected = ''.join(str(v) for v in e.read(output, 80 * 64))
+        assert got == expected, (path.name, x, y, limit, flag, string.hex(), next((i for i, (a,b) in enumerate(zip(got, expected)) if a != b), None))
+    print(f'{path.name}: {len(cases)} software text rasters exact', flush=True)
