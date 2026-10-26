@@ -163,12 +163,15 @@ struct Models {
     /// The textures and materials, no geometry.
     assets: Scene,
     techs: Vec<tech::Tech>,
+    fallback_cabin:Option<String>,
 }
 
 fn load_models(dir: &Path) -> Result<Models, String> {
-    let techs = tech::parse(&fs::read(dir.join("vehicle.tech")).map_err(|e| format!("vehicle.tech: {e}"))?).map_err(|e| e.to_string())?;
+    let data=fs::read(dir.join("vehicle.tech")).map_err(|e|format!("vehicle.tech: {e}"))?;
+    let techs = tech::parse(&data).map_err(|e| e.to_string())?;
+    let fallback_cabin=tech::cabin_fallback_index(&data).ok().and_then(|index|techs.iter().find(|t|t.index==index)).map(|t|t.cabin.clone());
     let (b3d, assets) = scene::load_assets(&dir.join("COMMON/TRUCKS.B3D"))?;
-    Ok(Models { b3d, assets, techs })
+    Ok(Models { b3d, assets, techs, fallback_cabin })
 }
 
 impl Models {
@@ -599,7 +602,7 @@ impl Game {
         let truck_objects = renderer.add_parts(textures, &world.models.assets, &truck_parts(&world.truck));
         let traffic_objects = world.vehicle.traffic().iter().map(|_| HashMap::new()).collect();
         let cockpit=world.models.techs.iter().find(|t|t.index==world.vehicle.params.record)
-            .and_then(|t|match cockpit::Cockpit::load(&mut renderer,&world.game_dir,&t.cabin,t.tank){Ok(c)=>Some(c),Err(e)=>{eprintln!("cockpit: {e}");None}});
+            .and_then(|t|match cockpit::Cockpit::load(&mut renderer,&world.game_dir,&t.cabin,world.models.fallback_cabin.as_deref(),t.tank){Ok(c)=>Some(c),Err(e)=>{eprintln!("cockpit: {e}");None}});
         let mut game = Game { cockpit,renderer, textures, truck_objects, trucks: HashMap::new(), traffic_objects, world, movie: None, movie_mode: None, menu_mode: None, shown_menu: None, menu_buttons: Default::default(), action_index: 0, media_error: None };
         game.place_truck();
         game

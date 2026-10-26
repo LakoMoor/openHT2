@@ -18,8 +18,10 @@ fn transform(axes:[[f32;3];3],pos:[f32;3])->Mat4 {
     Mat4::from_cols(Vec3::from(axes[0]).extend(0.),Vec3::from(axes[1]).extend(0.),Vec3::from(axes[2]).extend(0.),Vec3::from(pos).extend(1.))
 }
 impl Cockpit {
-    pub fn load(renderer:&mut Renderer,game:&Path,prefix:&str,tank:f32)->Result<Self,String> {
+    pub fn load(renderer:&mut Renderer,game:&Path,prefix:&str,fallback:Option<&str>,tank:f32)->Result<Self,String> {
         let (mut model,mut assets)=scene::load_assets(&game.join("COMMON/CABINES.B3D"))?;
+        let prefix=select_prefix(prefix,fallback,|name|model.nodes.iter().any(|n|n.name==format!("{name}Cab")))
+            .ok_or_else(||format!("no original cockpit {prefix}Cab or configured fallback"))?;
         let root=format!("{prefix}Cab");
         if !model.nodes.iter().any(|n|n.name==root){return Err(format!("no original cockpit {root}"));}
         let textures=renderer.upload_textures(&assets);
@@ -66,6 +68,24 @@ impl Cockpit {
             let transformed=transform([[v[0],v[1],v[2]],[v[3],v[4],v[5]],[v[6],v[7],v[8]]],[v[9],v[10],v[11]]);
             // Type-4/36 geometry is in its named space's local coordinates.
             renderer.set_model(*id,mount * transformed);
+        }
+    }
+}
+
+fn select_prefix<'a>(primary:&'a str,fallback:Option<&'a str>,mut exists:impl FnMut(&str)->bool)->Option<&'a str> {
+    if exists(primary){Some(primary)}else{fallback.filter(|name|exists(name))}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn original_cabin_fallback_lookups(){
+        for line in include_str!("../../../tools/emu/golden_cabin_fallback.tsv").lines(){
+            let p:Vec<_>=line.split('\t').collect();let mut requests=Vec::new();
+            let selected=select_prefix(p[0],Some(p[1]),|name|{requests.push(format!("{name}Cab"));name==p[0] && p[2]=="1" || name==p[1] && p[3]=="1"});
+            assert_eq!(requests.join(","),p[4]);
+            assert_eq!(selected.unwrap_or(""),p[5]);
         }
     }
 }

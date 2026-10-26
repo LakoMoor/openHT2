@@ -119,6 +119,19 @@ pub fn parse(d: &[u8]) -> Result<Vec<Tech>> {
     Ok(out)
 }
 
+/// `0x4dde70`: the second cabin lookup uses the record following the
+/// tractor boundary loaded into 0x6ce338 from the vehicle.tech header.
+pub fn cabin_fallback_index(d:&[u8])->Result<usize> {
+    if d.len()<HEADER_LEN {return Err(Error::Eof(d.len()));}
+    let name_len=u32_at(d,0) as usize;
+    let start=name_len.checked_add(16).ok_or_else(||Error::Other("invalid tech header length".into()))?;
+    if start.checked_add(12).is_none_or(|end|end>HEADER_LEN){return Err(Error::Other("invalid tech category header".into()));}
+    let count=u32_at(d,start-4) as usize;
+    let index=(u32_at(d,start+8) as usize).checked_add(1).ok_or_else(||Error::Other("invalid fallback index".into()))?;
+    if index>=count {return Err(Error::Other("fallback cabin record outside vehicle table".into()));}
+    Ok(index)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -159,6 +172,21 @@ mod tests {
             let record=parse(&data).unwrap().remove(0);
             assert_eq!(record.prefix,p[0]);assert_eq!(format!("{}Cab",record.cabin),p[2]);
         }
+    }
+    #[test]
+    fn fallback_header_matches_original_record_address(){
+        for line in include_str!("../../../tools/emu/golden_cabin_fallback.tsv").lines(){
+            let p:Vec<_>=line.split('\t').collect();let boundary=p[6].parse::<u32>().unwrap();
+            let mut d=sample();
+            // Header of the original shipped table has a 13-byte filename,
+            // 43 records and seven category boundaries following the count.
+            d[..4].copy_from_slice(&13u32.to_le_bytes());d[4..17].copy_from_slice(b".\\truck2.tch\0");
+            d[21..25].copy_from_slice(&2416u32.to_le_bytes());d[25..29].copy_from_slice(&43u32.to_le_bytes());
+            d[37..41].copy_from_slice(&boundary.to_le_bytes());
+            assert_eq!(cabin_fallback_index(&d).unwrap(),boundary as usize+1);
+        }
+        let mut d=sample();d[..4].copy_from_slice(&u32::MAX.to_le_bytes());assert!(cabin_fallback_index(&d).is_err());
+        assert!(cabin_fallback_index(&[]).is_err());
     }
 
     #[test]
