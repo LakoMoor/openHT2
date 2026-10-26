@@ -69,6 +69,22 @@ pub trait VehicleModeHooks {
     /// `0x4fc930`, with arguments 3, vehicle+0x330, +0x204, +0x1b0, +0x1bc.
     fn start_physics(&mut self,m:&mut Mem,driver:u32,owner:u32,position:u32,linear:u32,angular:u32);
 }
+
+/// Concrete mode owner using the ported physical driver and the caller's world.
+/// Diagnostic events are retained for the application to display/log.
+pub struct PhysicalMode<'a> {
+    pub world:&'a mut dyn crate::contact::World,
+    pub diagnostics:Vec<(u32,f32)>,
+}
+impl VehicleModeHooks for PhysicalMode<'_> {
+    fn clear_linear_velocity(&mut self,m:&mut Mem,body:u32) {let _=body_linear_velocity(m,body,0x702650);}
+    fn check_velocity(&mut self,m:&mut Mem,vector:u32,limit:f32) {
+        if crate::carv::velocity_diagnostic(m,vector,limit){self.diagnostics.push((vector,limit));}
+    }
+    fn start_physics(&mut self,m:&mut Mem,driver:u32,owner:u32,position:u32,linear:u32,angular:u32) {
+        driver_mode(m,self.world,driver,3,owner,position,linear,angular);
+    }
+}
 /// Complete mode orchestration `0x54ca60`; validation and driver activation
 /// remain explicit subsystem boundaries.
 pub fn vehicle_mode(m:&mut Mem,vehicle:u32,value:i32,h:&mut impl VehicleModeHooks) {

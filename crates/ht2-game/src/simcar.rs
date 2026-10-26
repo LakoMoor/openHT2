@@ -4,6 +4,41 @@
 //! map's rooms ([`crate::world`]); a scene without rooms falls back to the drawn ground
 //! ([`MeshWorld`]).
 
+#[cfg(test)]
+mod mode_integration_tests {
+    use super::*;
+    #[test]
+    #[ignore = "requires HT2_GAME installed game data"]
+    fn physical_mode_runs_existing_driver_on_installed_scene() {
+        let game=std::path::PathBuf::from(std::env::var("HT2_GAME").expect("HT2_GAME"));
+        let world=crate::load_world(&game,"ENV",None).unwrap();
+        let params=&world.truck.params;let data=std::fs::read(game.join("vehicle.tech")).unwrap();
+        let mut car=SimCar::new(&data,params.record,&params.wheel_nodes,&params.add_nodes,&world.ground,
+            world.spawn.0+Vec3::Z*world.spawn.2,world.spawn.1).unwrap();
+        let wrapper=0x1a000000;let room=car.room();
+        let matrix=car.m.read(CAR+0x10,48);car.m.write(wrapper+0x204,&matrix);
+        car.m.set_u32(wrapper+0x5460,CAR);car.m.set_u32(wrapper+0x330,room);
+        for (i,value) in [0.,3.,0.,0.,0.,0.1].into_iter().enumerate(){car.m.set_f32(wrapper+0x1b0+i as u32*4,value);}
+        car.m.set_u32(wrapper+0x2aac,2);
+        with_world(&world.ground,car.rooms,|contact|{
+            let mut backend=ht2_sim::ai_scene::PhysicalMode{world:contact,diagnostics:vec![]};
+            ht2_sim::ai_scene::vehicle_mode(&mut car.m,wrapper,1,&mut backend);
+            assert!(backend.diagnostics.is_empty());
+        });
+        assert_eq!(car.m.u32(wrapper+0x2aac),1);assert_eq!(car.m.u32(CAR+0x2638),3);
+        assert_eq!([0,4,8].map(|o|car.m.f32(CAR+0x40+o)),[0.,3.,0.]);
+        assert_eq!([0,4,8].map(|o|car.m.f32(CAR+0x58+o)),[0.,0.,0.1]);
+        for _ in 0..12 {car.step(&world.ground,1./60.,0.,0.,0);}
+        assert!(car.pos().is_finite());assert!(car.body().is_finite());
+        with_world(&world.ground,car.rooms,|contact|{
+            let mut backend=ht2_sim::ai_scene::PhysicalMode{world:contact,diagnostics:vec![]};
+            ht2_sim::ai_scene::vehicle_mode(&mut car.m,wrapper,2,&mut backend);
+        });
+        assert_eq!(car.m.u32(CAR+0x2638),0);
+        for offset in [0x50d0,0x50e8] {assert_eq!(car.m.read(wrapper+offset,12),vec![0;12]);}
+    }
+}
+
 use crate::ground::Ground;
 use std::collections::HashMap;
 use glam::{Mat4, Vec3};
