@@ -6,6 +6,33 @@ pub trait CameraResetHooks {
     fn update(&mut self,m:&mut Mem,transform:u32);
     fn derive_projection(&mut self,m:&mut Mem,camera:u32);
 }
+pub trait SceneResetHooks: CameraResetHooks {
+    fn destroy_object(&mut self,m:&mut Mem,object:u32);
+}
+/// `0x5d21b0`: unlink without destroying. List roots share the node layout.
+fn unlink(m:&mut Mem,p:u32) {
+    let previous=m.u32(p+4);let next=m.u32(p+8);
+    if previous!=0 {m.set_u32(previous+8,next);}
+    if next!=0 {m.set_u32(next+4,previous);}
+    m.set_u32(p+4,0);m.set_u32(p+8,0);
+}
+/// `0x5c4910`: clear ten typed object lists, then pending scene objects, then
+/// restore the camera. Typed traversal caches next before calling a destructor;
+/// pending traversal reloads the root each time, as in `0x5c33a0`.
+pub fn reset_scene(m:&mut Mem,c:u32,h:&mut impl SceneResetHooks) {
+    for k in 0..10 {
+        let root=c+0x1f28+k*0x20;
+        let mut object=m.u32(root+8);
+        while object!=0 {
+            let next=m.u32(object+8);unlink(m,object);h.destroy_object(m,object);object=next;
+        }
+    }
+    let root=c+0x206c;
+    while m.u32(root+8)!=0 {
+        let object=m.u32(root+8);unlink(m,object);h.destroy_object(m,object);
+    }
+    reset_camera(m,c,h);
+}
 /// `0x5e02f0`: restore scenario camera and both interpolation endpoints.
 pub fn reset_camera(m:&mut Mem,c:u32,h:&mut impl CameraResetHooks) {
     let camera=m.u32(c+0x1e8);
@@ -73,6 +100,27 @@ pub fn reset(m: &mut Mem, controller: u32, hooks: &mut impl ResetHooks) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    impl SceneResetHooks for CameraHooks {
+        fn destroy_object(&mut self,m:&mut Mem,p:u32){assert_eq!(m.u32(p+4),0);assert_eq!(m.u32(p+8),0);self.0.push(p);}
+    }
+    #[test]
+    fn scene_lists_match_original() {
+        for line in include_str!("../../../tools/emu/golden_controller_scene.tsv").lines() {
+            let p:Vec<_>=line.split('\t').collect();let c=0x2a000000;let mut m=Mem::new();
+            let counts:Vec<u32>=p[0].split(',').map(|s|s.parse().unwrap()).collect();
+            let mut at=c+0x4000;
+            for (k,&count) in counts.iter().enumerate() {
+                let root=if k<10 {c+0x1f28+k as u32*0x20}else{c+0x206c};
+                let mut previous=root;
+                for _ in 0..count {m.set_u32(previous+8,at);m.set_u32(at+4,previous);previous=at;at+=0x20;}
+            }
+            let mut h=CameraHooks(vec![]);reset_scene(&mut m,c,&mut h);
+            let expected:Vec<u32>=p[1].split(',').filter(|s|!s.is_empty()).map(|s|s.parse().unwrap()).collect();
+            assert_eq!(h.0,expected);
+            for k in 0..10 {assert_eq!(m.u32(c+0x1f30+k*0x20),0);}
+            assert_eq!(m.u32(c+0x2074),0);
+        }
+    }
     struct CameraHooks(Vec<u32>);
     impl CameraResetHooks for CameraHooks {
         fn prepare(&mut self,_:&mut Mem,a:u32){self.0.push(a);}
