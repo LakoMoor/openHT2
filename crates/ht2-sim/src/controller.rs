@@ -1,6 +1,30 @@
 //! Original scenario-controller reset. Resource destruction and the base reset
 //! remain explicit callbacks, so a caller cannot silently skip their side effects.
 use crate::mem::Mem;
+pub trait CameraResetHooks {
+    fn prepare(&mut self,m:&mut Mem,transform:u32);
+    fn update(&mut self,m:&mut Mem,transform:u32);
+    fn derive_projection(&mut self,m:&mut Mem,camera:u32);
+}
+/// `0x5e02f0`: restore scenario camera and both interpolation endpoints.
+pub fn reset_camera(m:&mut Mem,c:u32,h:&mut impl CameraResetHooks) {
+    let camera=m.u32(c+0x1e8);
+    if camera!=0 {
+        h.prepare(m,c+0x28c);
+        let camera=m.u32(c+0x1e8);
+        m.set_f32(camera+0x58,m.f64(c+0xbe8) as f32);
+        m.set_f32(camera+0x54,m.f64(c+0xbf0) as f32);
+        h.update(m,c+0x28c);
+        let camera=m.u32(c+0x1e8);
+        let projection=m.u32(c+0x2bc);
+        if projection==0 {h.derive_projection(m,camera);}
+        else {m.set_u32(camera+0x4c,projection);}
+    }
+    for (source,dest) in [(0xb58,0x238),(0xb60,0x23c),(0xb68,0x240)] {
+        let v=m.f64(c+source) as f32;
+        m.set_f32(c+dest,v);m.set_f32(c+dest+12,v);
+    }
+}
 pub trait BaseResetHooks {
     fn clear_resources(&mut self,m:&mut Mem,address:u32);
     fn milliseconds(&mut self) -> f64;
@@ -49,6 +73,24 @@ pub fn reset(m: &mut Mem, controller: u32, hooks: &mut impl ResetHooks) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    struct CameraHooks(Vec<u32>);
+    impl CameraResetHooks for CameraHooks {
+        fn prepare(&mut self,_:&mut Mem,a:u32){self.0.push(a);}
+        fn update(&mut self,_:&mut Mem,a:u32){self.0.push(a+1);}
+        fn derive_projection(&mut self,_:&mut Mem,a:u32){self.0.push(a);}
+    }
+    #[test]
+    fn camera_fields_match_original() {
+        for line in include_str!("../../../tools/emu/golden_controller_camera.tsv").lines() {
+            let p:Vec<_>=line.split('\t').collect();let c=0x2a000000;let mut m=Mem::new();
+            m.set_u32(c+0x1e8,if p[0]=="1"{c+0x2000}else{0});m.set_u32(c+0x2bc,p[1].parse().unwrap());
+            for (o,v) in [0xbe8,0xbf0,0xb58,0xb60,0xb68].iter().zip(p[2].split(',')) {m.set_f64(c+o,v.parse().unwrap());}
+            let mut h=CameraHooks(vec![]);reset_camera(&mut m,c,&mut h);
+            let fields=[0x2058,0x2054,0x204c,0x238,0x23c,0x240,0x244,0x248,0x24c].map(|o|m.u32(c+o)).to_vec();
+            let nums=|s:&str|s.split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>();
+            assert_eq!(fields,nums(p[3]));assert_eq!(h.0,nums(p[4]));
+        }
+    }
     struct BaseHooks { time:f64,events:Vec<u32> }
     impl BaseResetHooks for BaseHooks {
         fn clear_resources(&mut self,_:&mut Mem,a:u32){self.events.push(a);}
