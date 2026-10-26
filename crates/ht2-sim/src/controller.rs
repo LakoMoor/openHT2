@@ -1,6 +1,55 @@
 //! Original scenario-controller reset. Resource destruction and the base reset
 //! remain explicit callbacks, so a caller cannot silently skip their side effects.
 use crate::mem::Mem;
+pub trait SchedulerHooks {
+    /// Execute and detach the request; callbacks may enqueue further work.
+    fn execute(&mut self,m:&mut Mem,manager:u32,request:u32);
+}
+pub trait RequestHooks {
+    fn run(&mut self,m:&mut Mem,task:u32);
+    fn remove_task(&mut self,m:&mut Mem,manager:u32,task:u32);
+    fn destroy(&mut self,m:&mut Mem,object:u32);
+}
+/// Core execution of `0x5d38c0`. Debug allocator validation/logging is not
+/// reproduced here; callers own valid task/request records.
+pub fn execute_request(m:&mut Mem,c:u32,r:u32,h:&mut impl RequestHooks) {
+    let task=m.u32(r+12);if task==0 {return;}
+    m.set_u32(task+24,m.u32(r+16));
+    match m.u32(r+20) {
+        0|2=>{
+            let ordinary=m.u32(r+20)==0;
+            if ordinary {m.set_u32(0x720118,task);}else{m.set_u32(task+16,0);}
+            h.run(m,task);
+            if ordinary {m.set_u32(0x720118,0);}
+            // Original re-reads the request's task after callbacks.
+            let task=m.u32(r+12);m.set_u32(task+16,m.u32(task+16).wrapping_add(1));
+            if m.u32(c+12)==r {m.set_u32(c+12,m.u32(r+8));}
+            else if m.u32(c+8)==r {m.set_u32(c+8,m.u32(r+8));}
+            else {unlink(m,r);h.destroy(m,r);return;}
+            let next=m.u32(r+8);if next!=0 {m.set_u32(next+4,0);}
+            h.destroy(m,r);
+        }
+        _=>{h.remove_task(m,c,task);h.destroy(m,task);}
+    }
+}
+/// `0x5d3850`: drain tick requests first, then real-time requests. Re-read each
+/// head and the pointed-to clock after every callback; advance the tick last.
+pub fn scheduler_tick(m:&mut Mem,manager:u32,h:&mut impl SchedulerHooks) {
+    loop {
+        let request=m.u32(manager+12);
+        if request==0 || m.i32(request+16)>m.i32(manager) {break;}
+        h.execute(m,manager,request);
+    }
+    loop {
+        let request=m.u32(manager+8);
+        if request==0 {break;}
+        let clock=m.u32(manager+24);
+        let now=if clock==0 {0}else{(m.f64(clock)*1000.0).trunc() as i32};
+        if m.i32(request+16)>now {break;}
+        h.execute(m,manager,request);
+    }
+    m.set_u32(manager,m.u32(manager).wrapping_add(1));
+}
 /// `0x5d3660`: queue a task request at a relative tick. Requests with the same
 /// task, absolute tick and kind are discarded. Equal ticks use descending task
 /// priority. The head is retained on equal priority; later equal entries are
@@ -152,6 +201,47 @@ pub fn reset(m: &mut Mem, controller: u32, hooks: &mut impl ResetHooks) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    struct Requests(Vec<u32>);
+    impl RequestHooks for Requests {
+        fn run(&mut self,m:&mut Mem,t:u32){self.0.extend([t,m.u32(t+16),m.u32(0x720118)]);}
+        fn remove_task(&mut self,_:&mut Mem,_:u32,t:u32){self.0.extend([2,t]);}
+        fn destroy(&mut self,_:&mut Mem,t:u32){self.0.extend([3,t]);}
+    }
+    #[test]
+    fn request_execution_matches_original() {
+        for line in include_str!("../../../tools/emu/golden_scheduler_request.tsv").lines() {
+            let p:Vec<_>=line.split('\t').collect();let c=0x2a000000;let r=c+0x1000;let t=c+0x2000;let mut m=Mem::new();
+            m.set_u32(r+12,t);m.set_u32(r+16,123);m.set_u32(r+20,p[0].parse().unwrap());m.set_u32(t+16,p[1].parse().unwrap());m.set_u32(c+12,r);
+            let mut h=Requests(vec![]);execute_request(&mut m,c,r,&mut h);
+            let nums=|s:&str|s.split(',').filter(|s|!s.is_empty()).map(|s|s.parse().unwrap()).collect::<Vec<u32>>();
+            assert_eq!(h.0,nums(p[2]));
+            assert_eq!(vec![m.u32(t+16),m.u32(t+24),m.u32(c+12),m.u32(0x720118)],nums(p[3]));
+        }
+    }
+    struct TickHooks(Vec<u32>);
+    impl SchedulerHooks for TickHooks {
+        fn execute(&mut self,m:&mut Mem,c:u32,p:u32){
+            self.0.push(p);let root=if m.u32(c+12)==p {c+12}else{c+8};
+            let next=m.u32(p+8);m.set_u32(root,next);if next!=0 {m.set_u32(next+4,0);}
+        }
+    }
+    #[test]
+    fn scheduler_tick_matches_original() {
+        for line in include_str!("../../../tools/emu/golden_scheduler_tick.tsv").lines() {
+            let p:Vec<_>=line.split('\t').collect();let c=0x2a000000;let mut m=Mem::new();
+            m.set_u32(c,p[0].parse().unwrap());
+            if p[1]!="none" {m.set_u32(c+24,c+0x100);m.set_f64(c+0x100,p[1].parse().unwrap());}
+            for (k,s) in p[2..4].iter().enumerate() {
+                let times:Vec<i32>=s.split(',').filter(|s|!s.is_empty()).map(|s|s.parse().unwrap()).collect();
+                let base=c+0x1000+k as u32*0x1000;
+                if !times.is_empty() {m.set_u32(c+if k==0{12}else{8},base);}
+                for (i,t) in times.iter().enumerate(){let a=base+i as u32*32;m.set_i32(a+16,*t);m.set_u32(a+8,if i+1<times.len(){a+32}else{0});}
+            }
+            let mut h=TickHooks(vec![]);scheduler_tick(&mut m,c,&mut h);
+            let nums=|s:&str|s.split(',').filter(|s|!s.is_empty()).map(|s|s.parse().unwrap()).collect::<Vec<u32>>();
+            assert_eq!(h.0,nums(p[4]));assert_eq!(vec![m.u32(c),m.u32(c+12),m.u32(c+8)],nums(p[5]));
+        }
+    }
     #[test]
     fn scheduler_enqueue_matches_original() {
         for line in include_str!("../../../tools/emu/golden_scheduler_enqueue.tsv").lines() {
