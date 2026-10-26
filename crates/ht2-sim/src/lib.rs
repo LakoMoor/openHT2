@@ -43,3 +43,5 @@ pub mod condition;
 pub mod ai_scene;
 
 pub use tech_rec::TechRec;
+
+pub mod scene_events;
