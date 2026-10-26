@@ -6,6 +6,7 @@ mod vehicle;
 mod audio;
 mod movie;
 mod menu;
+mod camera;
 
 use glam::{Mat4, Vec3};
 use ground::Ground;
@@ -314,8 +315,8 @@ fn load_world(dir: &Path, map: &str, truck: Option<&str>) -> Result<World, Strin
     Ok(World { game_dir: dir.to_path_buf(), ground, vehicle, world_scenes, models, truck: truck_model, spawn: (pos, heading, ride) })
 }
 
-fn chase_view_proj(v: &Vehicle, aspect: f32) -> Mat4 {
-    chase_from(v.pos, v.forward(), aspect)
+fn chase_view_proj(v: &Vehicle, size: (u32,u32)) -> camera::Frame {
+    chase_from(v.pos, v.forward(), size)
 }
 
 /// The 2D layer (stand-in for the original's interface): the instruments at the bottom right
@@ -346,21 +347,23 @@ fn hud(v: &Vehicle, size: (u32, u32), cab: bool) -> Vec<ht2_render::hud::Rect> {
     out
 }
 
-/// From the driver's seat, looking ahead along the body.
-fn cab_view_proj(v: &Vehicle, eye: Vec3, aspect: f32) -> Mat4 {
+/// Stand-in seat pose, looking ahead along the body. Matrix preparation and
+/// projection use the original path; the original camera controller is pending.
+fn cab_view_proj(v: &Vehicle, eye: Vec3, size: (u32,u32)) -> camera::Frame {
     let m = v.model();
     let eye = m.transform_point3(eye);
     let fwd = m.transform_vector3(Vec3::Y).normalize_or(Vec3::Y);
     let up = m.transform_vector3(Vec3::Z).normalize_or(Vec3::Z);
     let target = eye + fwd * 10.0 - up * 0.6;
-    Mat4::perspective_rh(65f32.to_radians(), aspect, 0.1, 6000.0) * Mat4::look_at_rh(eye, target, up)
+    camera::from_pose(eye,target,up,size)
 }
 
-fn chase_from(pos: Vec3, fwd: Vec3, aspect: f32) -> Mat4 {
+/// Stand-in chase pose; original distance, interpolation and collision are pending.
+fn chase_from(pos: Vec3, fwd: Vec3, size: (u32,u32)) -> camera::Frame {
     let fwd = fwd.with_z(0.0).normalize_or(Vec3::Y);
     let eye = pos - fwd * 16.0 + Vec3::Z * 6.5;
     let target = pos + fwd * 10.0 + Vec3::Z * 1.5;
-    Mat4::perspective_rh(60f32.to_radians(), aspect, 0.3, 6000.0) * Mat4::look_at_rh(eye, target, Vec3::Z)
+    camera::from_pose(eye,target,Vec3::Z,size)
 }
 
 /// Looking straight down at the vehicle from `height` metres.
@@ -464,10 +467,10 @@ fn run() -> Result<(), String> {
             // HT2_FOLLOW=k looks at the k-th computer vehicle in the scene instead.
             let follow = std::env::var("HT2_FOLLOW").ok().and_then(|k| k.parse::<usize>().ok()).and_then(|k| v.traffic().into_iter().filter(|p| !p.hidden).nth(k));
             let vp = match follow {
-                Some(p) => chase_from(p.body.w_axis.truncate(), p.body.y_axis.truncate(), aspect),
+                Some(p) => chase_from(p.body.w_axis.truncate(), p.body.y_axis.truncate(), size).combined(),
                 None if overview => overview_view_proj(v, aspect, 1500.0),
-                None if cab => cab_view_proj(v, game.world.truck.cab_eye, aspect),
-                None => chase_view_proj(v, aspect),
+                None if cab => cab_view_proj(v, game.world.truck.cab_eye, size).combined(),
+                None => chase_view_proj(v, size).combined(),
             };
             game.renderer.set_hud(hud(&game.world.vehicle, size, cab));
             let rgba = game.renderer.screenshot(size, vp);
@@ -770,10 +773,9 @@ impl ApplicationHandler for App {
                     Ok(frame) => {
                         let view = frame.texture.create_view(&Default::default());
                         let size = (g.config.width, g.config.height);
-                        let aspect = size.0 as f32 / size.1 as f32;
-                        let vp = if self.cab { cab_view_proj(&g.game.world.vehicle, g.game.world.truck.cab_eye, aspect) } else { chase_view_proj(&g.game.world.vehicle, aspect) };
+                        let vp = if self.cab { cab_view_proj(&g.game.world.vehicle, g.game.world.truck.cab_eye, size) } else { chase_view_proj(&g.game.world.vehicle, size) };
                         g.game.renderer.set_hud(hud(&g.game.world.vehicle, size, self.cab));
-                        g.game.renderer.draw(&view, size, vp);
+                        g.game.renderer.draw_original_view(&view,size,&vp.view,&vp.projection,vp.viewport).expect("camera viewport must fit the surface");
                         let v = &g.game.world.vehicle;
                         let gear = match v.gear { 0 => "R".to_string(), 1 => "N".to_string(), g => (g - 1).to_string() };
                         g.window.set_title(&format!("openHT2 - {:.0} km/h, gear {gear}, {:.0} rpm, fuel {:.1} l", v.speed * 3.6, v.rpm(), v.fuel));
