@@ -11,16 +11,16 @@ E.hook_thiscall(0x5adc70,lambda q:events.extend([3,q.arg(0)]) or 0,1)
 E.hook_thiscall(0x5ae0e0,lambda q:events.append(4) or 0,2)
 E.hook_thiscall(STUB+0x400,lambda q:events.extend([5,q.arg(0)]) or 0,4)
 E.hook_thiscall(0x5eb280,lambda q:events.extend([6,u(scene+0x21dc)]) or 0,4)
-def reflect(q):events.append(7);q.write(q.arg(0),bytes(reversed(range(48))));return q.arg(0)
-E.hook_ret(0x5ac2e0,reflect);rows=[]
-for present in [0,1]:
- for target in [0,1]:
-  for mirror in [0,1]:
-   for flag in [0,256]:
-    for audio in [0,1]:
-     E.set_u32(c+0x1e8,cam if present else 0);E.set_u32(cam+0x4c,obj if target else 0);E.set_u32(c+0xb2c,overlay if mirror else 0);E.set_u32(0x702e8c,flag);E.set_u32(config+0x158,audio);E.set_u32(c+0x224,9);E.write(scene+0x2120,bytes(16));E.write(scene+0x2174,bytes(48));E.set_u32(scene+0x21dc,0)
-     for i in range(4):E.set_u32(c+0xb90+i*4,100+i)
-     events.clear();E.call(0x5df6f0,this=c)
-     fields=[u(scene+0x2120+i*4) for i in range(4)]+[u(scene+0x21dc)]
-     rows.append('\t'.join(map(str,[present,target,mirror,flag,audio]))+'\t'+','.join(map(str,events))+'\t'+','.join(map(str,fields)))
-pathlib.Path(__file__).with_name('golden_controller_scene_pass.tsv').write_text('\n'.join(rows)+'\n');print('32 scene pass branches captured')
+E.write(overlay+0x398,struct.pack('<12f',2,0,0,0,3,0,0,0,4,1,2,3));rows=[]
+for variant in range(8):
+ for present in [0,1]:
+  for target in [0,1]:
+   for mirror in [0,1]:
+    for flag in [0,256]:
+     for audio in [0,1]:
+      E.set_u32(c+0x1e8,cam if present else 0);E.set_u32(cam+0x4c,obj if target else 0);E.set_u32(c+0xb2c,overlay if mirror else 0);E.set_u32(0x702e8c,flag);E.set_u32(config+0x158,audio);E.set_u32(c+0x224,9);E.write(scene+0x2120,bytes(16));E.write(scene+0x2174,bytes(48));E.set_u32(scene+0x21dc,0)
+      for i in range(4):E.set_u32(c+0xb90+i*4,100+i)
+      E.write(overlay+0x398,struct.pack('<12f',variant+1,.5,0,0,3,.25,0,0,4,variant,2,3));events.clear();E.call(0x5df6f0,this=c)
+      fields=[u(scene+0x2120+i*4) for i in range(4)]+[u(scene+0x21dc)]
+      rows.append('\t'.join(map(str,[present,target,mirror,flag,audio]))+'\t'+','.join(map(str,events))+'\t'+','.join(map(str,fields))+'\t'+','.join(str(u(scene+0x2174+i*4)) for i in range(12))+'\t'+str(variant))
+pathlib.Path(__file__).with_name('golden_controller_scene_pass.tsv').write_text('\n'.join(rows)+'\n');print('256 scene pass/matrix combinations captured')
