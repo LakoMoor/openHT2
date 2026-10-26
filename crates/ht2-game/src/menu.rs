@@ -2,6 +2,29 @@
 //! missing; displaying the backdrop is not a complete original menu.
 use std::path::Path;
 
+/// A byte-string draw request from `0x574190`; font is the menu FON and color
+/// is palette entry 6. Palette conversion and company logos belong to composition.
+#[derive(Debug, PartialEq)]
+pub struct RatingText {
+    pub origin: (i32, i32),
+    pub limit: Option<i32>,
+    pub bytes: Vec<u8>,
+}
+
+/// Text columns of one company-rating row. The caller supplies the original
+/// byte-encoded name; the share and fleet are `getPlayerData` +0x68/+0x70.
+pub fn rating_text(origin: (i32, i32), name: &[u8], share: f64, members: i32,
+    fleet: f64) -> [RatingText; 4] {
+    let (x, y) = origin;
+    let percentage = (share * 100.0).trunc() as i32;
+    [
+        RatingText { origin: (x.wrapping_add(0x2d), y.wrapping_add(0x17)), limit: Some(0x46), bytes: name.to_vec() },
+        RatingText { origin: (x.wrapping_add(0x87), y.wrapping_add(0x17)), limit: None, bytes: format!("{percentage}%").into_bytes() },
+        RatingText { origin: (x.wrapping_add(0xdc), y.wrapping_add(0x17)), limit: None, bytes: members.to_string().into_bytes() },
+        RatingText { origin: (x.wrapping_add(0x10e), y.wrapping_add(0x17)), limit: None, bytes: format!("{fleet:4.1}").into_bytes() },
+    ]
+}
+
 /// `0x51f380`, resources initialized by the end-screen constructor in `0x51f...`.
 pub fn background_name(mode: u32, family: u32) -> Result<String, String> {
     let name = match mode { 0 => "BackLoose2", 1 => "BackLoose1", 2 => "BackWin", 5 => "BackLoose5", _ => return Err(format!("menu mode {mode} background not ported")) };
@@ -26,6 +49,22 @@ pub fn background(game: &Path, mode: u32, family: u32) -> Result<ht2_formats::tx
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn rating_columns_match_original() {
+        for line in include_str!("../../../tools/emu/golden_rating_text.tsv").lines() {
+            let p: Vec<_> = line.split('\t').collect();
+            assert_eq!(p.len(), 9);
+            let x = p[0].parse().unwrap();
+            let y = p[1].parse().unwrap();
+            let runs = rating_text((x,y), b"TEST", p[2].parse().unwrap(), p[3].parse().unwrap(), p[4].parse().unwrap());
+            for (run, expected) in runs.iter().zip(&p[5..]) {
+                let fields: Vec<_> = expected.splitn(4, ',').collect();
+                assert_eq!(run.origin, (fields[0].parse().unwrap(), fields[1].parse().unwrap()));
+                assert_eq!(run.limit.unwrap_or(-1), fields[2].parse::<i32>().unwrap());
+                assert_eq!(run.bytes, fields[3].as_bytes());
+            }
+        }
+    }
     #[test]
     fn selects_original_end_screen_names() {
         assert_eq!(background_name(2, 16).unwrap(), "m_16\\BackWin.txr");
