@@ -6,6 +6,29 @@ pub trait ObstacleSourceHooks {
     fn player_kind(&mut self,m:&mut Mem,vehicle:u32)->i32;
     fn world_transform(&mut self,m:&mut Mem,body:u32)->[f32;12];
 }
+
+pub trait SceneCommandHooks:ObstacleSourceHooks {
+    /// Nonzero local +0x120 result of 0x568f60/0x476930 query for message 0x10.
+    fn height_modifier(&mut self,m:&mut Mem)->bool;
+    /// 0x446c80 after identity validation, reached through 0x4ce2e0.
+    fn mark_player(&mut self,m:&mut Mem,player:u32){m.set_u32(player+0x60,m.u32(player+0x60)|0x20000);}
+}
+/// Complete message dispatch of `0x4ce300`; scene-query owners supply the
+/// original query result and world transform. Player identities must be valid.
+pub fn receive_scene_command(m:&mut Mem,command:u32,vehicle:u32,h:&mut impl SceneCommandHooks,heap:&mut impl CommandHeap) {
+    match m.u32(command) {
+        0xcc0=>{let player=m.u32(vehicle+0x509c);h.mark_player(m,player);}
+        0x10=>{
+            let mut height=m.f32(m.u32(command+12));
+            if h.height_modifier(m){height=(height as f64-1.) as f32;}
+            let matrix=h.world_transform(m,vehicle+0x10);
+            // Unordered comparison takes the original mark branch too.
+            if !(matrix[11]>=height){let player=m.u32(vehicle+0x509c);h.mark_player(m,player);}
+        }
+        29=>{receive_obstacle_command(m,command,vehicle,h,heap);}
+        _=>{},
+    }
+}
 /// Command-29 preparation in `0x4ce300`, before queue rotation/allocation.
 /// Returns the subcode and signed plane distance written to the new command.
 pub fn prepare_obstacle_command(m:&mut Mem,command:u32,vehicle:u32,h:&mut impl ObstacleSourceHooks)->Option<(i32,f32)> {
@@ -385,6 +408,30 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_remaining_scene_command_branches() {
+        struct Hooks {modifier:bool,z:f32,trace:Vec<String>}
+        impl ObstacleSourceHooks for Hooks {
+            fn player_kind(&mut self,_:&mut Mem,_:u32)->i32{panic!("unexpected kind query")}
+            fn world_transform(&mut self,_:&mut Mem,body:u32)->[f32;12]{assert_eq!(body,0x2a010010);self.trace.push("world".into());let mut m=crate::matrix::IDENTITY;m[11]=self.z;m}
+        }
+        impl SceneCommandHooks for Hooks {
+            fn height_modifier(&mut self,_:&mut Mem)->bool{self.trace.push("query".into());self.modifier}
+        }
+        struct Heap;
+        impl CommandHeap for Heap {
+            fn allocate(&mut self,_:&mut Mem,_:u32)->u32{panic!("unexpected allocation")}
+            fn release(&mut self,_:&mut Mem,_:u32){panic!("unexpected free")}
+        }
+        for (case,line) in include_str!("../../../tools/emu/golden_scene_command_dispatch.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[..6].iter().map(|x|x.parse().unwrap()).collect();
+            let mut m=Mem::new();let command=0x2a000000;let vehicle=command+0x10000;let data=vehicle+0x10000;let player=data+0x1000;
+            m.set_u32(command,v[0]);m.set_u32(command+12,data);m.set_u32(data,v[2]);m.set_u32(vehicle+0x509c,player);m.set_u32(player+0x60,v[4]);
+            let mut h=Hooks{modifier:v[1]!=0,z:f32::from_bits(v[3]),trace:vec![]};
+            receive_scene_command(&mut m,command,vehicle,&mut h,&mut Heap);
+            assert_eq!(m.u32(player+0x60),v[5],"case {case} flags");assert_eq!(h.trace.join(";"),p[6],"case {case} queries");
+        }
+    }
     #[test]
     fn original_complete_obstacle_delivery() {
         use std::{cell::RefCell,rc::Rc};
