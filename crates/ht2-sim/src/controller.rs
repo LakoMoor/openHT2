@@ -1,9 +1,17 @@
 //! Original scenario-controller reset. Resource destruction and the base reset
 //! remain explicit callbacks, so a caller cannot silently skip their side effects.
 use crate::mem::Mem;
+/// `0x5dbd30`: construct the scenario camera transform, including the added
+/// heading offset at +0xb88, then invert it for scene traversal.
+pub fn camera_matrix(m:&mut Mem,c:u32,destination:u32) {
+    const TEMP:u32=0x2ffd_3000;
+    let (x,y,z)=(m.f64(c+0xb58),m.f64(c+0xb60),m.f64(c+0xb68));
+    let (heading,pitch,roll)=(m.f64(c+0xb70)+m.f64(c+0xb88),m.f64(c+0xb78),m.f64(c+0xb80));
+    crate::matrix::mat_from_euler(m,TEMP,x,y,z,heading,pitch,roll);
+    crate::math::mat_inverse(m,destination,TEMP);
+}
 pub trait ScenePassHooks {
     fn overlay(&mut self,m:&mut Mem,object:u32);
-    fn camera_matrix(&mut self,m:&mut Mem,controller:u32)->[u8;48];
     fn profile(&mut self,begin:bool);
     fn prepare_scene(&mut self,m:&mut Mem,scene:u32,phase:u32);
     fn transform_scene(&mut self,m:&mut Mem,scene:u32);
@@ -11,13 +19,15 @@ pub trait ScenePassHooks {
     fn render(&mut self,m:&mut Mem,controller:u32);
 }
 /// `0x5df6f0`, controller slot 0x64: ordinary and optional reflected scene pass.
-/// Camera lookup and object/render virtual methods remain explicit effects;
-/// the reflected matrix uses the ported original inverse directly.
+/// Camera and reflected matrices use ported original mathematics directly;
+/// object/render virtual methods remain explicit effects.
 pub fn scene_pass(m:&mut Mem,c:u32,audio:bool,h:&mut impl ScenePassHooks) {
     let overlay=m.u32(c+0xb2c);
     if overlay!=0 {h.overlay(m,overlay);}
     if m.u32(c+0x1e8)==0 {return;}
-    let matrix=h.camera_matrix(m,c);h.profile(true);
+    const CAMERA:u32=0x2ffd_3040;
+    camera_matrix(m,c,CAMERA);
+    let matrix:[u8;48]=m.read(CAMERA,48).try_into().unwrap();h.profile(true);
     if m.u32(0x702e8c)&0x100!=0 {h.prepare_scene(m,m.u32(c+0x1d0),m.u32(c+0x224));}
     for offset in [0,4,8,12] {let scene=m.u32(c+0x1d0);m.set_u32(scene+0x2120+offset,m.u32(c+0xb90+offset));}
     let camera=m.u32(c+0x1e8);
@@ -336,14 +346,23 @@ pub fn reset(m: &mut Mem, controller: u32, hooks: &mut impl ResetHooks) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn camera_matrix_matches_original() {
+        for line in include_str!("../../../tools/emu/golden_controller_camera_matrix.tsv").lines() {
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let c=0x2a000000;let out=c+0x10000;
+            for (o,v) in [0xb58,0xb60,0xb68,0xb70,0xb78,0xb80,0xb88].iter().zip(p[0].split(',')){m.set_f64(c+o,v.parse().unwrap());}
+            camera_matrix(&mut m,c,out);
+            let bits:Vec<u32>=p[1].split(',').map(|s|s.parse().unwrap()).collect();
+            assert_eq!((0..12).map(|i|m.u32(out+i*4)).collect::<Vec<_>>(),bits);
+        }
+    }
     struct ScenePass(Vec<u32>);
     impl ScenePassHooks for ScenePass {
         fn overlay(&mut self,_:&mut Mem,_:u32){self.0.push(1);}
-        fn camera_matrix(&mut self,_:&mut Mem,_:u32)->[u8;48]{core::array::from_fn(|i|i as u8)}
         fn profile(&mut self,b:bool){self.0.push(if b{2}else{8});}
         fn prepare_scene(&mut self,_:&mut Mem,_:u32,p:u32){self.0.extend([3,p]);}
         fn transform_scene(&mut self,_:&mut Mem,_:u32){self.0.push(4);}
-        fn update_object(&mut self,_:&mut Mem,_:u32,mode:u32,matrix:&[u8;48],_:u32){assert_eq!(*matrix,core::array::from_fn(|i|i as u8));self.0.extend([5,mode]);}
+        fn update_object(&mut self,_:&mut Mem,_:u32,mode:u32,_:&[u8;48],_:u32){self.0.extend([5,mode]);}
         fn render(&mut self,m:&mut Mem,c:u32){self.0.extend([6,m.u32(m.u32(c+0x1d0)+0x21dc)]);}
     }
     #[test]

@@ -6,7 +6,7 @@ u=lambda a:struct.unpack('<I',E.read(a,4))[0]
 E.set_u32(0x721750,config);E.set_u32(c+0x1d0,scene);E.set_u32(c+0x1e8,cam);E.set_u32(obj,v);E.set_u32(v+0x38,STUB+0x400);E.set_u32(v+0x30,STUB+0x410);E.set_u32(overlay,v)
 E.hook_ret(0x5b6190,lambda q:0);E.hook_ret(0x5b6180,lambda q:0);E.hook_ret(STUB+0x410,lambda q:events.append(1) or 0)
 def matrix(q):q.write(q.arg(0),bytes(range(48)));return q.arg(0)
-E.hook_thiscall(0x5dbd30,matrix,1);E.hook_ret(0x5d2fa0,lambda q:events.append(2) or 0);E.hook_ret(0x5d2fc0,lambda q:events.append(8) or 0)
+E.hook_ret(0x5d2fa0,lambda q:events.append(2) or 0);E.hook_ret(0x5d2fc0,lambda q:events.append(8) or 0)
 E.hook_thiscall(0x5adc70,lambda q:events.extend([3,q.arg(0)]) or 0,1)
 E.hook_thiscall(0x5ae0e0,lambda q:events.append(4) or 0,2)
 E.hook_thiscall(STUB+0x400,lambda q:events.extend([5,q.arg(0)]) or 0,4)
