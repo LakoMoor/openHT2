@@ -9,12 +9,20 @@ pub trait ObstacleSourceHooks {
 /// Command-29 preparation in `0x4ce300`, before queue rotation/allocation.
 /// Returns the subcode and signed plane distance written to the new command.
 pub fn prepare_obstacle_command(m:&mut Mem,command:u32,vehicle:u32,h:&mut impl ObstacleSourceHooks)->Option<(i32,f32)> {
+    let state=obstacle_subcode(m,command,vehicle,h)?;
+    Some((state,obstacle_distance(m,command,vehicle,h)))
+}
+fn obstacle_subcode(m:&mut Mem,command:u32,vehicle:u32,h:&mut impl ObstacleSourceHooks)->Option<i32> {
     if m.u32(command)!=29 {return None;}
     let controller=m.u32(0x696338);if controller==0 {return None;}
     if h.player_kind(m,vehicle)==5 && m.u32(vehicle+0x55a4)!=0 {return None;}
+    let controller=m.u32(0x696338);
     let code=m.i32(command+4);let mut state=m.u32(controller+0x24);
     if code%10!=0 {state^=1;}
     match code/10 {1|3=>state^=1,4=>state=1,_=>{}}
+    Some(state as i32)
+}
+fn obstacle_distance(m:&mut Mem,command:u32,vehicle:u32,h:&mut impl ObstacleSourceHooks)->f32 {
     let plane=m.u32(command+12);let mut distance=100.;
     if plane!=0 {
         let a:[f64;4]=std::array::from_fn(|i|m.f32(plane+i as u32*4) as f64);
@@ -32,7 +40,15 @@ pub fn prepare_obstacle_command(m:&mut Mem,command:u32,vehicle:u32,h:&mut impl O
         }
         distance=if positive {distance.abs()}else{-distance.abs()};
     }
-    Some((state as i32,distance))
+    distance
+}
+
+/// Complete command-29 branch of 0x4ce300. Other message types are not handled.
+pub fn receive_obstacle_command(m:&mut Mem,command:u32,vehicle:u32,h:&mut impl ObstacleSourceHooks,heap:&mut impl CommandHeap)->bool {
+    let Some(state)=obstacle_subcode(m,command,vehicle,h) else{return false};
+    let temporary=heap.allocate(m,4);
+    let distance=obstacle_distance(m,command,vehicle,h);
+    queue_prepared_obstacle(m,vehicle,state,distance,temporary,heap);true
 }
 
 pub trait CommandHeap {
@@ -369,6 +385,32 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_complete_obstacle_delivery() {
+        use std::{cell::RefCell,rc::Rc};
+        struct Source {kind:i32,matrix:[f32;12],trace:Rc<RefCell<Vec<String>>>}
+        impl ObstacleSourceHooks for Source {
+            fn player_kind(&mut self,_:&mut Mem,v:u32)->i32{assert_eq!(v,0x2a010000);self.trace.borrow_mut().push("kind".into());self.kind}
+            fn world_transform(&mut self,_:&mut Mem,b:u32)->[f32;12]{assert_eq!(b,0x2a010010);self.trace.borrow_mut().push("world".into());self.matrix}
+        }
+        struct Heap {fail:bool,calls:usize,trace:Rc<RefCell<Vec<String>>>}
+        impl CommandHeap for Heap {
+            fn allocate(&mut self,_:&mut Mem,bytes:u32)->u32{self.trace.borrow_mut().push(format!("alloc:{bytes}"));let a=[0x2a022000,if self.fail{0}else{0x2a022100},0x2a022200][self.calls];self.calls+=1;a}
+            fn release(&mut self,_:&mut Mem,a:u32){self.trace.borrow_mut().push(format!("free:{a}"));}
+        }
+        let parse=|s:&str|s.split(',').map(|x|x.parse::<i64>().unwrap()).collect::<Vec<_>>();
+        for (case,line) in include_str!("../../../tools/emu/golden_obstacle_receive.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let v=parse(p[0]);let mut m=Mem::new();let command=0x2a000000;let vehicle=command+0x10000;let controller=vehicle+0x10000;let plane=controller+0x1000;
+            m.set_u32(command,29);m.set_u32(command+4,v[3] as u32);m.set_u32(command+12,if v[5]!=0{plane}else{0});m.set_u32(0x696338,if v[0]!=0{controller}else{0});m.set_u32(controller+0x24,v[4] as u32);m.set_u32(vehicle+0x55a4,v[2] as u32);
+            m.set_f32(0x702624,1.);for (i,value) in parse(p[2]).into_iter().enumerate(){m.set_u32(plane+i as u32*4,value as u32);}
+            m.set_u32(vehicle+0x5570,v[7] as u32);m.set_u32(vehicle+0x5574,v[8] as u32);m.set_u32(0x2a022400+12,0x2a022440);
+            for (a,n) in [(0x2a022000,4),(0x2a022100,16),(0x2a022200,4)]{m.write(a,&vec![0xcd;n]);}
+            let trace=Rc::new(RefCell::new(vec![]));let mut source=Source{kind:v[1] as i32,matrix:parse(p[1]).into_iter().map(|x|f32::from_bits(x as u32)).collect::<Vec<_>>().try_into().unwrap(),trace:trace.clone()};let mut heap=Heap{fail:v[6]!=0,calls:0,trace:trace.clone()};
+            receive_obstacle_command(&mut m,command,vehicle,&mut source,&mut heap);
+            let actual=[vehicle+0x5570,vehicle+0x5574,0x2a022000,0x2a022100,0x2a022104,0x2a022108,0x2a02210c,0x2a022200].map(|a|m.u32(a)).to_vec();
+            assert_eq!(actual,parse(p[3]).into_iter().map(|x|x as u32).collect::<Vec<_>>(),"case {case} queue");assert_eq!(trace.borrow().join(";"),p[4],"case {case} order");
+        }
+    }
     #[test]
     fn original_obstacle_queue_rotation() {
         struct Heap {fail:bool,calls:usize,trace:Vec<String>}
