@@ -9,9 +9,31 @@ pub trait ObstacleSourceHooks {
 
 pub trait SceneCommandHooks:ObstacleSourceHooks {
     /// Nonzero local +0x120 result of 0x568f60/0x476930 query for message 0x10.
-    fn height_modifier(&mut self,m:&mut Mem)->bool;
+    fn height_modifier(&mut self,m:&mut Mem)->bool {human_height_modifier(m)}
     /// 0x446c80 after identity validation, reached through 0x4ce2e0.
     fn mark_player(&mut self,m:&mut Mem,player:u32){m.set_u32(player+0x60,m.u32(player+0x60)|0x20000);}
+}
+
+/// `0x476930` / `0x4769e0`: copy nineteen 16-byte player records. Return -1
+/// when +0x204 has no owner, leaving the destination untouched. Preserve word
+/// order and re-read the owner's data pointer at every record.
+pub fn player_records(m:&mut Mem,player:u32,buffer:u32,write:bool)->i32 {
+    if m.u32(player+0x204)==0 {return -1;}
+    for record in 0..19 {
+        let data=m.u32(m.u32(player+0x204)+0x10)+record*16;
+        let (source,destination)=if write {(buffer+record*16,data)}else{(data,buffer+record*16)};
+        for word in 0..4 {let value=m.u32(source+word*4);m.set_u32(destination+word*4,value);}
+    }
+    0
+}
+/// Query sequence 0x568f60 + 0x476930 used by the height-message branch.
+pub fn human_height_modifier(m:&mut Mem)->bool {
+    let scenario=m.u32(0x6d2078);let human=if scenario!=0 {m.u32(scenario+0x268)}else{0};
+    let player=if human!=0 {m.u32(human+0x509c)}else{m.u32(0x68b990)};
+    const OUTPUT:u32=0x2ffd_4c00;
+    for record in 0..19 {m.set_u32(OUTPUT+record*16,0);m.set_u32(OUTPUT+record*16+8,0);m.set_u32(OUTPUT+record*16+12,0x3ff00000);}
+    player_records(m,player,OUTPUT,false);
+    m.u32(OUTPUT+0x120)!=0
 }
 /// Complete message dispatch of `0x4ce300`; scene-query owners supply the
 /// original query result and world transform. Player identities must be valid.
@@ -408,6 +430,27 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_player_record_copy_order() {
+        let bytes=|s:&str|(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect::<Vec<_>>();
+        for (case,line) in include_str!("../../../tools/emu/golden_player_records.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let player=0x2a000000;let owner=player+0x1000;let data=player+0x2000;let external=data+0x1000;
+            m.write(data-16,&bytes(p[3]));m.write(external,&bytes(p[4]));m.set_u32(player+0x204,if p[0]=="1"{owner}else{0});m.set_u32(owner+0x10,data);
+            let result=player_records(&mut m,player,p[2].parse().unwrap(),p[1]=="1");
+            assert_eq!(result as u32,p[7].parse::<u32>().unwrap(),"case {case} result");
+            assert_eq!(m.read(data-16,352),bytes(p[5]),"case {case} internal");assert_eq!(m.read(external,304),bytes(p[6]),"case {case} external");
+        }
+    }
+    #[test]
+    fn human_height_query_selects_human_or_fallback_records() {
+        let mut m=Mem::new();let scenario=0x2a000000;let human=scenario+0x10000;let player=human+0x10000;let fallback=player+0x10000;let owner=fallback+0x10000;let data=owner+0x1000;
+        m.set_u32(0x6d2078,scenario);m.set_u32(scenario+0x268,human);m.set_u32(human+0x509c,player);m.set_u32(0x68b990,fallback);
+        m.set_u32(fallback+0x204,owner);m.set_u32(owner+0x10,data);m.set_u32(data+0x120,1);
+        assert!(!human_height_modifier(&mut m)); // Human has no records: default retained.
+        m.set_u32(scenario+0x268,0);assert!(human_height_modifier(&mut m));
+        m.set_u32(0x6d2078,0);assert!(human_height_modifier(&mut m));
+        m.set_u32(data+0x120,0);assert!(!human_height_modifier(&mut m));
+    }
     #[test]
     fn original_remaining_scene_command_branches() {
         struct Hooks {modifier:bool,z:f32,trace:Vec<String>}
