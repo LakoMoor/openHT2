@@ -3,11 +3,35 @@
 use crate::globals::VEC_UP;
 use crate::mem::Mem;
 
-/// `0x4e28b0`: 1 if any component of the vector at `v` lies outside `-limit..=limit`, else 0.
+/// `0x4e28b0`: 1 for components outside `-limit..=limit` or unordered comparisons.
 pub fn fn_004e28b0(m: &Mem, v: u32, limit: f32) -> u32 {
     let (x, y, z) = (m.f32(v), m.f32(v + 4), m.f32(v + 8));
-    let out = limit < x || limit < y || limit < z || limit < -x || limit < -y || limit < -z;
+    let out = limit.is_nan() || x.is_nan() || y.is_nan() || z.is_nan()
+        || limit < x || limit < y || limit < z || limit < -x || limit < -y || limit < -z;
     out as u32
+}
+
+/// Diagnostic predicate of `0x4e2821`: Z is explicitly zeroed in its local
+/// copy before calling 0x4e28b0. Caller owns diagnostic text/output.
+pub fn velocity_diagnostic(m:&Mem,v:u32,limit:f32)->bool {
+    let (x,y)=(m.f32(v),m.f32(v+4));
+    limit.is_nan() || x.is_nan() || y.is_nan() || limit<x || limit<y || limit<0. || limit < -x || limit < -y
+}
+
+#[cfg(test)]
+mod velocity_validation_tests {
+    use super::*;
+    #[test]
+    fn original_velocity_checks() {
+        for (case,line) in include_str!("../../../tools/emu/golden_velocity_validation.tsv").lines().enumerate(){
+            let p:Vec<u32>=line.split('\t').map(|v|v.parse().unwrap()).collect();let mut m=Mem::new();let v=0x2a000000;
+            for i in 0..3 {m.set_u32(v+i*4,p[i as usize]);}
+            let before=m.read(v,12);
+            assert_eq!(fn_004e28b0(&m,v,f32::from_bits(p[3])),p[4],"case {case} xyz");
+            assert_eq!(u32::from(velocity_diagnostic(&m,v,f32::from_bits(p[3]))),p[5],"case {case} xy");
+            assert_eq!(m.read(v,12),before);
+        }
+    }
 }
 
 /// `0x4f0000`: 1 if the vehicle is not upright: the up axis of its matrix points less than 0.17

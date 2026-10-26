@@ -29,7 +29,7 @@ pub fn driver_mode(m:&mut Mem,world:&mut dyn crate::contact::World,driver:u32,mo
 }
 
 pub trait VehicleModeHooks {
-    fn excessive_velocity(&mut self,m:&mut Mem,vector:u32,limit:f32)->bool;
+    fn excessive_velocity(&mut self,m:&mut Mem,vector:u32,limit:f32)->bool {crate::carv::fn_004e28b0(m,vector,limit)!=0}
     fn clear_linear_velocity(&mut self,m:&mut Mem,body:u32);
     fn check_velocity(&mut self,m:&mut Mem,vector:u32,limit:f32);
     /// `0x4fc930`, with arguments 3, vehicle+0x330, +0x204, +0x1b0, +0x1bc.
