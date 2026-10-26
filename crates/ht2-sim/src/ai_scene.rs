@@ -1,6 +1,18 @@
 //! Operations bridging scene vehicles and the trajectory AI.
 use crate::mem::Mem;
 
+/// State-changing part of `0x5812a0`. Returns the XY diagnostic predicate;
+/// diagnostic formatting/output do not alter the body state.
+pub fn body_linear_velocity(m:&mut Mem,body:u32,vector:u32)->bool {
+    // Preserve sequential loads even if the caller's vector overlaps the body.
+    for i in 0..3 {let value=m.u32(vector+i*4);m.set_u32(body+0x1a0+i*4,value);}
+    let diagnostic=crate::carv::velocity_diagnostic(m,body+0x1a0,150.);
+    for i in 0..3 {m.set_u32(body+0xce4+i*4,m.u32(body+0x1a0+i*4));}
+    let speed=crate::math::vec_len(m,body+0x1a0) as f32;
+    m.set_f32(body+0x378,speed);m.set_f32(body+0xd84,speed);
+    diagnostic
+}
+
 trait DriverSetup {
     fn place(&mut self,m:&mut Mem,driver:u32,owner:u32,position:u32);
     fn linear(&mut self,m:&mut Mem,driver:u32,vector:u32);
@@ -30,7 +42,7 @@ pub fn driver_mode(m:&mut Mem,world:&mut dyn crate::contact::World,driver:u32,mo
 
 pub trait VehicleModeHooks {
     fn excessive_velocity(&mut self,m:&mut Mem,vector:u32,limit:f32)->bool {crate::carv::fn_004e28b0(m,vector,limit)!=0}
-    fn clear_linear_velocity(&mut self,m:&mut Mem,body:u32);
+    fn clear_linear_velocity(&mut self,m:&mut Mem,body:u32) {let _=body_linear_velocity(m,body,0x702650);}
     fn check_velocity(&mut self,m:&mut Mem,vector:u32,limit:f32);
     /// `0x4fc930`, with arguments 3, vehicle+0x330, +0x204, +0x1b0, +0x1bc.
     fn start_physics(&mut self,m:&mut Mem,driver:u32,owner:u32,position:u32,linear:u32,angular:u32);
@@ -96,7 +108,11 @@ pub trait PhysicsHooks:TrajectoryHooks {
     /// 0x437520 position followed by 0x439320 direction lookup.
     fn player_direction(&mut self,m:&mut Mem,player:u32)->[f32;3];
     /// Body virtual +0x90/+0x94, both called with the trailing argument zero.
-    fn linear_velocity(&mut self,m:&mut Mem,body:u32,value:[f32;3]);
+    fn linear_velocity(&mut self,m:&mut Mem,body:u32,value:[f32;3]) {
+        const VECTOR:u32=0x2ffd_4b30;
+        for (i,v) in value.into_iter().enumerate(){m.set_f32(VECTOR+i as u32*4,v);}
+        let _=body_linear_velocity(m,body,VECTOR);
+    }
     fn angular_velocity(&mut self,m:&mut Mem,body:u32,value:[f32;3]);
     /// 0x58f2d0.
     fn motion(&mut self,m:&mut Mem,body:u32,value:i32) {motion(m,body,value);}
@@ -148,6 +164,17 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_body_linear_velocity_state() {
+        for (case,line) in include_str!("../../../tools/emu/golden_body_velocity.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let body=0x2a000000;let source=p[0].parse::<u32>().unwrap();
+            for (i,value) in p[1].split(',').enumerate(){m.set_u32(source+i as u32*4,value.parse().unwrap());}
+            let diagnostic=body_linear_velocity(&mut m,body,source);
+            let offsets=[0x1a0,0x1a4,0x1a8,0xce4,0xce8,0xcec,0x378,0xd84];
+            assert_eq!(offsets.map(|o|m.u32(body+o)).to_vec(),p[2].split(',').map(|v|v.parse::<u32>().unwrap()).collect::<Vec<_>>(),"case {case} state");
+            assert_eq!(u32::from(diagnostic),p[3].parse::<u32>().unwrap(),"case {case} diagnostic");
+        }
+    }
     #[test]
     fn original_driver_activation_dispatch() {
         struct Setup(Vec<String>);
