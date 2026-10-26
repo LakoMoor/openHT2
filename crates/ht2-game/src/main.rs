@@ -154,6 +154,7 @@ struct Truck {
     /// interiors of `COMMON/CABINES.B3D`, is not ported): left of the middle, 0.5 m under the
     /// roof of the front 3 m of the body, 1.2 m behind its front.
     cab_eye: Vec3,
+    cab_tilt:f32,
 }
 
 /// The vehicle models (`COMMON/TRUCKS.B3D`, all of them in one file with their textures) and
@@ -245,13 +246,8 @@ impl Models {
         let positions: Vec<Vec3> = wheels.iter().map(|w| w.mount.w_axis.truncate()).collect();
         let (wheel_nodes, add_nodes) = self.nodes(&t.prefix);
         let params = truck_params(t, &positions, wheel_nodes, add_nodes)?;
-        let cab_eye = {
-            let verts = || body.iter().flat_map(|b| b.verts.iter().map(|v| v.pos));
-            let front = verts().map(|p| p[1]).fold(f32::MIN, f32::max);
-            let roof = verts().filter(|p| front - 3.0 < p[1]).map(|p| p[2]).fold(f32::MIN, f32::max);
-            Vec3::new(-0.45, front - 1.2, roof - 0.5)
-        };
-        Ok(Truck { params, body, wheel_parts, wheels, ride_height: -low, cab_eye })
+        let cab_eye=Vec3::from(t.driver_seat);
+        Ok(Truck { params, body, wheel_parts, wheels, ride_height: -low, cab_eye, cab_tilt:t.driver_tilt })
     }
 }
 
@@ -353,12 +349,12 @@ fn hud(v: &Vehicle, size: (u32, u32), cab: bool) -> Vec<ht2_render::hud::Rect> {
 
 /// Stand-in seat pose, looking ahead along the body. Matrix preparation and
 /// projection use the original path; the original camera controller is pending.
-fn cab_view_proj(v: &Vehicle, eye: Vec3, size: (u32,u32)) -> camera::Frame {
+fn cab_view_proj(v: &Vehicle, eye: Vec3, tilt:f32, size: (u32,u32)) -> camera::Frame {
     let m = v.model();
     let eye = m.transform_point3(eye);
     let fwd = m.transform_vector3(Vec3::Y).normalize_or(Vec3::Y);
     let up = m.transform_vector3(Vec3::Z).normalize_or(Vec3::Z);
-    let target = eye + fwd * 10.0 - up * 0.6;
+    let target = eye + (fwd*tilt.cos()+up*tilt.sin())*10.;
     // Original cabin setup 0x4de2a0 sets +0x58=1.6, +0x54=1.2.
     camera::from_pose_with_lens(eye,target,up,size,[1.6,1.2])
 }
@@ -475,7 +471,7 @@ fn run() -> Result<(), String> {
             let vp = match follow {
                 Some(p) => chase_from(p.body.w_axis.truncate(), p.body.y_axis.truncate(), size).combined(),
                 None if overview => overview_view_proj(v, aspect, 1500.0),
-                None if cab => cab_view_proj(v, game.world.truck.cab_eye, size).combined(),
+                None if cab => cab_view_proj(v, game.world.truck.cab_eye,game.world.truck.cab_tilt, size).combined(),
                 None => chase_view_proj(v, size).combined(),
             };
             game.place_cockpit(cockpit_visible);
@@ -610,13 +606,15 @@ impl Game {
 
     /// Move the body and wheels to where the vehicle currently is.
     fn place_cockpit(&mut self,cab:bool) {
+        for id in &self.truck_objects {self.renderer.set_visible(*id,!cab || self.cockpit.is_none());}
         let Some(cockpit)=&self.cockpit else{return};
         if !cab {cockpit.hide(&mut self.renderer);return;}
         let v=&self.world.vehicle;let m=v.model();
         let eye=m.transform_point3(self.world.truck.cab_eye);
         let forward=m.transform_vector3(Vec3::Y).normalize_or(Vec3::Y);
         let up=m.transform_vector3(Vec3::Z).normalize_or(Vec3::Z);
-        cockpit.update(&mut self.renderer,cockpit::mount(eye,eye+forward*10.-up*0.6,up),v.speed*3.6,v.engine_rev,v.fuel,v.steering_position());
+        let tilt=self.world.truck.cab_tilt;
+        cockpit.update(&mut self.renderer,cockpit::mount(eye,eye+(forward*tilt.cos()+up*tilt.sin())*10.,up),v.speed*3.6,v.engine_rev,v.fuel,v.steering_position());
     }
 
     fn place_truck(&mut self) {
@@ -794,7 +792,7 @@ impl ApplicationHandler for App {
                     Ok(frame) => {
                         let view = frame.texture.create_view(&Default::default());
                         let size = (g.config.width, g.config.height);
-                        let vp = if self.cab { cab_view_proj(&g.game.world.vehicle, g.game.world.truck.cab_eye, size) } else { chase_view_proj(&g.game.world.vehicle, size) };
+                        let vp = if self.cab { cab_view_proj(&g.game.world.vehicle, g.game.world.truck.cab_eye,g.game.world.truck.cab_tilt, size) } else { chase_view_proj(&g.game.world.vehicle, size) };
                         g.game.renderer.set_hud(if self.cab && g.game.cockpit.is_some(){Vec::new()}else{hud(&g.game.world.vehicle, size, self.cab)});
                         g.game.renderer.draw_original_view(&view,size,&vp.view,&vp.projection,vp.viewport).expect("camera viewport must fit the surface");
                         let v = &g.game.world.vehicle;

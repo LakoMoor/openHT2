@@ -19,6 +19,9 @@ pub struct Tech {
     pub prefix: String,
     /// Cabin node prefix at record offset 2322, used by `0x4dde70`.
     pub cabin: String,
+    /// Initial camera position and X tilt, copied by `0x531cc0`.
+    pub driver_seat:[f32;3],
+    pub driver_tilt:f32,
     pub mass: f32,
     pub wheel_radius: f32,
     /// Fuel tank, litres.
@@ -93,6 +96,8 @@ pub fn parse(d: &[u8]) -> Result<Vec<Tech>> {
             name,
             prefix: text(r, 2302, 20),
             cabin: text(r, 2322, 20),
+            driver_seat:[f32_at(r,396),f32_at(r,400),f32_at(r,404)],
+            driver_tilt:f32_at(r,408),
             mass: f32_at(r, 96),
             wheel_radius: f32_at(r, 100),
             tank: f32_at(r, 108),
