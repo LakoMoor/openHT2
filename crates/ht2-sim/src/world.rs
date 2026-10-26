@@ -385,11 +385,19 @@ pub struct AiPlayer {
     pub vehicle_flags: u32,
     pub alarmed: bool,
     /// For a player in the scene (`0x41a9d0`): `+0x1c0` the filter its speed goes through (at
-    /// rest at 1), `+0x3c8` whether it is at full speed, `+0x3d0` how hard it slows down (its
+    /// rest at 1), `+0x3d0` whether it is at full speed, `+0x3d8` how hard it slows down (its
     /// speed may not exceed the one it has, less v²/2/(this + 0.1) a second).
     pub ramp: SpeedFilter,
     pub full_speed: bool,
     pub drag: f64,
+}
+
+impl AiPlayer {
+    /// `0x447180` on an already validated identity: prescribe scene obstacle
+    /// feedback used by trajectory speed calculation `0x41a9d0`.
+    pub fn prescribe_obstacle(&mut self,clear:bool,distance:f64) {
+        self.full_speed=clear;self.drag=distance;
+    }
 }
 
 /// What the AI world asks the game to do with its scene (`xLoadEntities`, `0x424550`): the
@@ -2798,6 +2806,33 @@ fn draws_between(a: &AiRng, b: &AiRng) -> usize {
 #[cfg(test)]
 mod victory_tests {
     use super::*;
+
+    #[test]
+    fn scene_obstacle_feedback_reaches_trajectory_player() {
+        use crate::{ai_scene,mem::Mem};
+        struct Heap(Vec<u32>);
+        impl ai_scene::CommandHeap for Heap {
+            fn allocate(&mut self,m:&mut Mem,bytes:u32)->u32{m.alloc(bytes)}
+            fn release(&mut self,_:&mut Mem,address:u32){self.0.push(address);}
+        }
+        let vehicle=Vehicle{id:"test".into(),model:String::new(),colour:0,kind:1,roles:vec![9],price:0.,power:0.,trailers:vec![],liquid:false};
+        let mut lists=Categories::default();lists.lists[9]=vec![0];
+        let mut world=World::new(std::rc::Rc::new(RoadNet::default()),vec![],vec![vehicle],lists,vec![],AiRng::default(),0);
+        let player=world.new_player(9);world.players.push(player);
+        let mut m=Mem::new();let scene=0x2a000000;let driver=scene+0x10000;let id=scene+0x20000;let flags=scene+0x30000;
+        let source=scene+0x40000;let data=source+0x100;let mut heap=Heap(vec![]);
+        m.set_u32(scene+0x5460,driver);
+        for (offset,value) in [(0,29),(4,0),(8,1),(12,data)]{m.set_u32(source+offset,value);}
+        m.set_f32(data,12.5);ai_scene::replace_command(&mut m,scene+0x5570,source,0,&mut heap);
+        ai_scene::update_obstacle_command(&mut m,scene,id,flags,&mut ai_scene::PlayerObstacle{heap:&mut heap,player_id:id,player:&mut world.players[0]});
+        assert!(!world.players[0].full_speed);assert_eq!(world.players[0].drag,12.5);assert_eq!(heap.0.len(),2);
+        ai_scene::update_obstacle_command(&mut m,scene,id,flags,&mut ai_scene::PlayerObstacle{heap:&mut heap,player_id:id,player:&mut world.players[0]});
+        assert!(world.players[0].full_speed);assert_eq!(world.players[0].drag,-1.);
+        // Physical mode suppresses trajectory feedback, as in the original tail.
+        m.set_u32(flags,1);world.players[0].prescribe_obstacle(false,7.);
+        ai_scene::update_obstacle_command(&mut m,scene,id,flags,&mut ai_scene::PlayerObstacle{heap:&mut heap,player_id:id,player:&mut world.players[0]});
+        assert!(!world.players[0].full_speed);assert_eq!(world.players[0].drag,7.);
+    }
 
     #[test]
     fn dealer_accepts_role_seven_only_after_expansion() {

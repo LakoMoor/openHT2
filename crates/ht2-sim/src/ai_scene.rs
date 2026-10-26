@@ -45,6 +45,20 @@ impl<H:CommandHeap> ObstacleHooks for OwnedObstacle<'_,H> {
     fn consume(&mut self,m:&mut Mem,commands:u32){replace_command(m,commands,0,0,self.heap);}
     fn publish(&mut self,m:&mut Mem,player:u32,clear:bool,distance:f64){publish_obstacle(m,player,clear,distance);}
 }
+
+/// Bridge a validated scene player ID to its actual trajectory-world player.
+pub struct PlayerObstacle<'a,H:CommandHeap> {
+    pub heap:&'a mut H,
+    pub player_id:u32,
+    pub player:&'a mut crate::world::AiPlayer,
+}
+impl<H:CommandHeap> ObstacleHooks for PlayerObstacle<'_,H> {
+    fn consume(&mut self,m:&mut Mem,commands:u32){replace_command(m,commands,0,0,self.heap);}
+    fn publish(&mut self,m:&mut Mem,player:u32,clear:bool,distance:f64){
+        assert_eq!(player,self.player_id,"scene player identity mismatch");
+        publish_obstacle(m,player,clear,distance);self.player.prescribe_obstacle(clear,distance);
+    }
+}
 /// Command/obstacle tail `0x4cfb51..0x4cfbf7` of the common AI update.
 pub fn update_obstacle_command(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl ObstacleHooks) {
     let driver=m.u32(vehicle+0x5460);m.set_f64(driver+0x40b0,-1.);
