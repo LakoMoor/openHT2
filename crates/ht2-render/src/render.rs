@@ -338,6 +338,23 @@ impl Renderer {
 
     /// Draw every object with the combined `proj * view` matrix.
     pub fn draw(&mut self, target: &wgpu::TextureView, size: (u32, u32), view_proj: Mat4) {
+        self.draw_region(target,size,view_proj,None);
+    }
+
+    /// Draw the scene with an explicitly prepared viewport. HUD and movie layers
+    /// retain their full-surface coordinates. Invalid regions are reported before
+    /// issuing GPU commands instead of silently changing the original viewport.
+    pub fn draw_viewport(&mut self,target:&wgpu::TextureView,size:(u32,u32),view_proj:Mat4,
+        viewport:[u32;4])->Result<(),String> {
+        let [x,y,w,h]=viewport;
+        if w==0 || h==0 || x.checked_add(w).is_none_or(|end|end>size.0)
+            || y.checked_add(h).is_none_or(|end|end>size.1) {
+            return Err("scene viewport is outside the render target".into());
+        }
+        self.draw_region(target,size,view_proj,Some(viewport));Ok(())
+    }
+
+    fn draw_region(&mut self, target: &wgpu::TextureView, size: (u32, u32), view_proj: Mat4, viewport:Option<[u32;4]>) {
         let mut movie_encoder = self.device.create_command_encoder(&Default::default());
         if self.movie.draw(&mut movie_encoder, target, size) {
             self.queue.submit([movie_encoder.finish()]);
@@ -369,6 +386,7 @@ impl Renderer {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+            if let Some([x,y,w,h])=viewport {pass.set_viewport(x as f32,y as f32,w as f32,h as f32,0.,1.);}
             for blended in [false, true] {
                 pass.set_pipeline(if blended { &self.pipeline_blend } else { &self.pipeline });
                 for o in self.objects.iter().filter(|o| o.visible) {

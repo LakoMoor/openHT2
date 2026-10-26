@@ -266,6 +266,25 @@ pub fn screen_input(game: &Path, mode: u32, family: u32, size: (u32, u32),
 mod tests {
     use super::*;
     #[test]
+    #[ignore = "requires GPU"]
+    fn renderer_accepts_prepared_scene_viewport() {
+        let instance=wgpu::Instance::default();
+        let (_,device,queue)=pollster::block_on(ht2_render::request_device(&instance,None)).unwrap();
+        let mut renderer=ht2_render::Renderer::new(device,queue,wgpu::TextureFormat::Rgba8Unorm);
+        let target=renderer.device.create_texture(&wgpu::TextureDescriptor {
+            label:Some("prepared viewport integration"),size:wgpu::Extent3d{width:64,height:48,depth_or_array_layers:1},
+            mip_level_count:1,sample_count:1,dimension:wgpu::TextureDimension::D2,format:wgpu::TextureFormat::Rgba8Unorm,
+            usage:wgpu::TextureUsages::RENDER_ATTACHMENT,view_formats:&[],
+        });
+        let view=target.create_view(&Default::default());
+        renderer.device.push_error_scope(wgpu::ErrorFilter::Validation);
+        renderer.draw_viewport(&view,(64,48),glam::Mat4::IDENTITY,[7,5,40,30]).unwrap();
+        assert!(renderer.draw_viewport(&view,(64,48),glam::Mat4::IDENTITY,[63,0,2,2]).is_err());
+        assert!(renderer.draw_viewport(&view,(64,48),glam::Mat4::IDENTITY,[0,0,0,2]).is_err());
+        renderer.device.poll(wgpu::Maintain::Wait);
+        assert!(pollster::block_on(renderer.device.pop_error_scope()).is_none());
+    }
+    #[test]
     fn routed_click_requires_capture_and_inside_release() {
         let rects=[(0,0,20,20),(30,0,50,20),(60,0,80,20)];
         let mut b=Buttons::default();

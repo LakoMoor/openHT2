@@ -1,6 +1,31 @@
 //! Matrix-stack and clipping state of `0x5ae0e0`. Device viewport/transform
 //! uploads at the end of that function are handled by the rendering backend.
 use crate::{mem::Mem,matrix,math};
+/// Numeric commands emitted by `0x5adea0`. Matrices retain Direct3D's original
+/// row-vector layout; a backend must explicitly convert its coordinate system.
+pub struct ProjectionState {
+    pub viewport:[u32;4],
+    pub matrix:[f32;16],
+}
+pub fn projection(m:&mut Mem,scene:u32,clip:[i32;4])->ProjectionState {
+    let x=(m.i32(scene+0x7a0)>>20).wrapping_add(clip[0]);
+    let y=(m.i32(scene+0x7a4)>>20).wrapping_add(clip[1]);
+    let half_w=(m.i32(scene+0x7a8)>>20).wrapping_add(1);
+    let half_h=(m.i32(scene+0x7ac)>>20).wrapping_add(1);
+    for (o,v) in [(0x2164,x),(0x2168,y),(0x216c,half_w),(0x2170,half_h)]{m.set_i32(scene+o,v);}
+    let width=(half_w.wrapping_mul(2) as u32).min(clip[2].wrapping_sub(clip[0]) as u32);
+    let height=(half_h.wrapping_mul(2) as u32).min(clip[3].wrapping_sub(clip[1]) as u32);
+    let mut out=[0.0;16];
+    let near=m.f64(scene+0x2110);
+    if near<=0.0001 {out[0]=1.;out[5]=1.;out[10]=1.;out[15]=1.;}
+    else {
+        let p=scene+0x10a0+m.u32(scene+0x2024)*48;
+        out[0]=m.f32(p);out[5]=m.f32(p+32);out[8]=m.f32(p+12);out[9]=m.f32(p+20);out[11]=1.;
+        let far=m.f64(scene+0x2118);let range=far-near;
+        out[10]=(far/range) as f32;out[14]=(-(near*far/range)) as f32;
+    }
+    ProjectionState{viewport:[x as u32,y as u32,width,height],matrix:out}
+}
 pub fn setup(m:&mut Mem,scene:u32,model:u32,view:u32,software:bool) {
     const S:u32=0x2ffd_4000;
     let (scaled,scale,combined)=(S,S+48,S+96);
@@ -36,6 +61,21 @@ pub fn setup(m:&mut Mem,scene:u32,model:u32,view:u32,software:bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_projection_commands() {
+        for line in include_str!("../../../tools/emu/golden_scene_projection.tsv").lines(){
+            let p:Vec<_>=line.split('\t').collect();let c=0x2a000000;let mut m=Mem::new();
+            let nums=|s:&str|s.split(',').map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>();
+            for (i,v)in nums(p[0]).iter().enumerate(){m.set_u32(c+0x7a0+i as u32*4,*v);}
+            m.set_f64(c+0x2110,p[1].parse().unwrap());m.set_f64(c+0x2118,p[2].parse().unwrap());m.set_u32(c+0x2024,1);
+            for (i,v)in nums(p[3]).iter().enumerate(){m.set_u32(c+0x10d0+i as u32*4,*v);}
+            let clip:Vec<i32>=p[4].split(',').map(|s|s.parse().unwrap()).collect();
+            let result=projection(&mut m,c,clip.try_into().unwrap());
+            assert_eq!(result.viewport.to_vec(),nums(p[5]));
+            assert_eq!(result.matrix.map(|v|v.to_bits()).to_vec(),nums(p[6]));
+            assert_eq!([0x2164,0x2168,0x216c,0x2170].map(|o|m.u32(c+o)).to_vec(),nums(p[7]));
+        }
+    }
     #[test]
     fn original_scene_setup_bits() {
         for line in include_str!("../../../tools/emu/golden_scene_setup.tsv").lines(){
