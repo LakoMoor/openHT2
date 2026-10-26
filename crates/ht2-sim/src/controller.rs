@@ -10,6 +10,40 @@ pub fn camera_matrix(m:&mut Mem,c:u32,destination:u32) {
     crate::matrix::mat_from_euler(m,TEMP,x,y,z,heading,pitch,roll);
     crate::math::mat_inverse(m,destination,TEMP);
 }
+
+/// `0x5df3d0`: read the desired camera pose, follow angles within 0.001 rad,
+/// and retain the target translation as the next interpolation endpoint.
+pub fn follow_camera_transform(m:&mut Mem,c:u32,transform:u32) {
+    let mat=core::array::from_fn(|i|m.f32(transform+i as u32*4));
+    crate::chassis::fn_005de950(m,mat,c+0xb58,c+0xb60,c+0xb68,0x720c80,0x7212a8,0x720b58);
+    let target=m.f64(0x720c80);let mut delta=target-m.f64(c+0xb70);
+    if delta>3.1415926 {delta-=6.2831852;}
+    if delta< -3.1415926 {delta+=6.2831852;}
+    if delta>0.001 {m.set_f64(c+0xb70,target-0.001);}
+    if delta< -0.001 {m.set_f64(c+0xb70,target+0.001);}
+    for (global,offset) in [(0x7212a8,0xb78),(0x720b58,0xb80)] {
+        let target=m.f64(global);
+        if target-m.f64(c+offset)>0.001 {m.set_f64(c+offset,target-0.001);}
+        if target-m.f64(c+offset)< -0.001 {m.set_f64(c+offset,target+0.001);}
+    }
+    let position=m.read(transform+36,12);m.write(c+0x244,&position);
+}
+
+/// `0x5df560`: follow a desired pose, install the resulting camera-node
+/// orientation and translation, then attach its scene object.
+pub fn set_camera_target(m:&mut Mem,c:u32,object:u32,transform:u32) {
+    follow_camera_transform(m,c,transform);
+    const S:u32=0x2ffd_4600;
+    let (rz,rx,ry,product,result)=(S,S+48,S+96,S+144,S+192);
+    crate::matrix::mat_rot_z(m,rz,m.f64(c+0xb70) as f32);
+    crate::matrix::mat_rot_x(m,rx,(-m.f64(c+0xb78)) as f32);
+    crate::matrix::mat_rot_y(m,ry,m.f64(c+0xb80) as f32);
+    crate::matrix::mat_mul(m,product,ry,rx);
+    crate::matrix::mat_mul(m,result,product,rz);
+    let translation=m.read(transform+36,12);m.write(result+36,&translation);
+    let bytes=m.read(result,48);let node=m.u32(c+0x268);m.write(node+0x40,&bytes);
+    let camera=m.u32(c+0x1e8);m.set_u32(camera+0x4c,object);
+}
 pub trait ScenePassHooks {
     fn overlay(&mut self,m:&mut Mem,object:u32);
     fn profile(&mut self,begin:bool);
@@ -347,6 +381,26 @@ pub fn reset(m: &mut Mem, controller: u32, hooks: &mut impl ResetHooks) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn camera_tracking_matches_original() {
+        use crate::{mem::Mem,globals};
+        for (case,line) in include_str!("../../../tools/emu/golden_camera_tracking.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();globals::install_constants(&mut m);
+            let c=0x2a000000;let mat=c+0x10000;
+            for (i,v) in p[0].split(',').enumerate(){m.set_u32(mat+i as u32*4,v.parse().unwrap());}
+            for (o,v) in [0xb70,0xb78,0xb80].into_iter().zip(p[1].split(',')){m.set_f64(c+o,v.parse().unwrap());}
+            super::follow_camera_transform(&mut m,c,mat);
+            let mut actual=Vec::new();
+            for o in [0xb58,0xb60,0xb68,0xb70,0xb78,0xb80]{actual.push(m.f64(c+o).to_bits());}
+            actual.extend([0x244,0x248,0x24c].map(|o|m.u32(c+o) as u64));
+            assert_eq!(actual,p[2].split(',').map(|v|v.parse::<u64>().unwrap()).collect::<Vec<_>>(),"case {case}");
+            for (o,v) in [0xb70,0xb78,0xb80].into_iter().zip(p[1].split(',')){m.set_f64(c+o,v.parse().unwrap());}
+            let camera=c+0x20000;let node=c+0x30000;m.set_u32(c+0x1e8,camera);m.set_u32(c+0x268,node);
+            super::set_camera_target(&mut m,c,0x12345678,mat);
+            let mut installed=(0..12).map(|i|m.u32(node+0x40+i*4)).collect::<Vec<_>>();installed.push(m.u32(camera+0x4c));
+            assert_eq!(installed,p[3].split(',').map(|v|v.parse::<u32>().unwrap()).collect::<Vec<_>>(),"installed case {case}");
+        }
+    }
     use super::*;
     #[test]
     fn camera_matrix_matches_original() {

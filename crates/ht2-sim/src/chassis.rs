@@ -593,14 +593,16 @@ pub fn fn_005de950(m: &mut Mem, mat: [f32; 12], p13: u32, p14: u32, p15: u32, p1
     mx::mat_rot_x(m, S + 0x60, ang);
     mx::transform(m, S + 0x50, S + 0x10, S + 0x60);
     let d = v3(m, S + 0x50);
+    // Original CRT 0x61dd70/0x61ee00 use this sqrt/atan2 sequence;
+    // host acos/asin can differ in the last bit of the stored double.
     if d[2] < 0.5 {
-        let a = d[2].acos();
+        let a = ((1.0+d[2])*(1.0-d[2])).sqrt().atan2(d[2]);
         m.set_f64(p18, a);
         if d[0] < 0.0 {
             m.set_f64(p18, -a);
         }
     } else {
-        let a = d[0].asin();
+        let a = d[0].atan2(((1.0+d[0])*(1.0-d[0])).sqrt());
         m.set_f64(p18, a);
         if d[2] < 0.0 {
             m.set_f64(p18, 3.1415926 - a);

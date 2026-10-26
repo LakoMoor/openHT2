@@ -262,13 +262,13 @@ pub fn dir_to_angles(m: &mut Mem, x: f32, y: f32, z: f32) -> (f32, f32) {
     let (nx, ny, nz) = (n[0], n[1], n[2].clamp(-1.0, 1.0));
     let polar = r(nz.acos());
     let mut azimuth = 0.0f32;
-    if 0.001f64 as f32 <= polar && 0.001f64 as f32 <= 3.1415926f64 as f32 - polar {
+    if 0.001 <= polar as f64 && 0.001 <= 3.1415926 - polar as f64 {
         let s = (polar as f64).sin();
         let q = r(nx / s) as f64;
         azimuth = r(q.clamp(-1.0, 1.0).acos());
     }
     if ny < 0.0 {
-        azimuth = 6.2831852f64 as f32 - azimuth;
+        azimuth = (6.2831852 - azimuth as f64) as f32;
     }
     (azimuth, polar)
 }
