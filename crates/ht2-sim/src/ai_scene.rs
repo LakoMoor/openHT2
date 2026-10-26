@@ -1,6 +1,32 @@
 //! Operations bridging scene vehicles and the trajectory AI.
 use crate::mem::Mem;
 
+pub trait CommandHeap {
+    fn allocate(&mut self,m:&mut Mem,bytes:u32)->u32;
+    fn release(&mut self,m:&mut Mem,address:u32);
+}
+/// `0x4cfc30`: replace one of two owned commands with a deep copy.
+/// Allocation/free remain explicit; Mem itself has a non-freeing bump allocator.
+pub fn replace_command(m:&mut Mem,commands:u32,source:u32,slot:u32,heap:&mut impl CommandHeap) {
+    if slot>=2 {return;}
+    let target=commands+slot*4;let old=m.u32(target);
+    if old!=0 {
+        let data=m.u32(old+12);if data!=0 {heap.release(m,data);}
+        heap.release(m,old);
+    }
+    let copy=if source==0 {0}else{
+        let object=heap.allocate(m,16);
+        if object!=0 {
+            for offset in [0,4,8] {m.set_u32(object+offset,m.u32(source+offset));}
+            let count=m.u32(object+8);let data=heap.allocate(m,count.wrapping_mul(4));
+            m.set_u32(object+12,data);let input=m.u32(source+12);
+            for i in 0..(count&0x3fffffff) {m.set_u32(data+i*4,m.u32(input+i*4));}
+        }
+        object
+    };
+    m.set_u32(target,copy);
+}
+
 pub trait ObstacleHooks {
     /// 0x4cfc30 with null command and slot 0, on the two-slot command owner.
     fn consume(&mut self,m:&mut Mem,commands:u32);
@@ -263,6 +289,31 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_owned_command_replacement() {
+        struct Heap {outer_fail:bool,inner_fail:bool,calls:usize,trace:Vec<String>}
+        impl CommandHeap for Heap {
+            fn allocate(&mut self,_:&mut Mem,bytes:u32)->u32 {
+                self.calls+=1;self.trace.push(format!("alloc:{bytes}"));
+                if self.calls==1 {if self.outer_fail {0}else{0x2a003000}}else if self.inner_fail {0}else{0x2a004000}
+            }
+            fn release(&mut self,_:&mut Mem,address:u32){self.trace.push(format!("free:{address}"));}
+        }
+        for (case,line) in include_str!("../../../tools/emu/golden_ai_commands.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|x|x.parse().unwrap()).collect();
+            let mut m=Mem::new();let owner=0x2a000000;let old=owner+0x1000;let source=owner+0x2000;let input=source+0x100;
+            for slot in 0..2 {m.set_u32(owner+slot*4,if v[1]!=0 {old}else{0});}
+            m.set_u32(old+12,if v[2]!=0 {old+0x100}else{0});
+            for (i,value) in [v[6],v[7],v[8],input].into_iter().enumerate(){m.set_u32(source+i as u32*4,value);}
+            for (i,value) in p[1].split(',').enumerate(){m.set_u32(input+i as u32*4,value.parse().unwrap());}
+            m.write(owner+0x3000,&[0xcd;16]);m.write(owner+0x4000,&[0xcd;32]);
+            let mut heap=Heap{outer_fail:v[4]!=0,inner_fail:v[5]!=0,calls:0,trace:vec![]};
+            replace_command(&mut m,owner,if v[3]!=0 {source}else{0},v[0],&mut heap);
+            let actual=(0..2).map(|i|m.u32(owner+i*4)).chain((0..4).map(|i|m.u32(owner+0x3000+i*4))).chain((0..8).map(|i|m.u32(owner+0x4000+i*4))).collect::<Vec<_>>();
+            assert_eq!(actual,p[2].split(',').map(|x|x.parse::<u32>().unwrap()).collect::<Vec<_>>(),"case {case} copy");
+            assert_eq!(heap.trace.join(";"),p[3],"case {case} heap order");
+        }
+    }
     #[test]
     fn original_obstacle_command_tail() {
         struct Hooks(Vec<String>);
