@@ -2808,6 +2808,35 @@ mod victory_tests {
     use super::*;
 
     #[test]
+    fn published_obstacle_reduces_actual_trajectory_advance() {
+        let room=ht2_formats::way::Room{name:"test".into(),nodes:vec![],segments:vec![ht2_formats::way::Segment {
+            kind:0,value:0.5,flag:1,width:[8.,8.],points:vec![[0.,0.,0.],[1000.,0.,0.]],
+        }]};
+        let net=std::rc::Rc::new(RoadNet::build(&[vec![room]]));assert_eq!(net.roads.len(),1);
+        let vehicle=Vehicle{id:"test".into(),model:String::new(),colour:0,kind:1,roles:vec![9],price:0.,power:0.,trailers:vec![],liquid:false};
+        let mut lists=Categories::default();lists.lists[9]=vec![0];
+        let mut world=World::new(net.clone(),vec![],vec![vehicle],lists,vec![],AiRng::default(),0);
+        let mut player=world.new_player(9);let mut place=net.road_start(0);place.node=None;
+        player.place=Some(Spot::Road(place));player.velocity=[20.,0.,0.];player.driven=false;
+        world.loaded.insert(player.object.unwrap());
+        world.players=vec![player.clone(),player.clone(),player];
+        world.players[0].prescribe_obstacle(true,-1.);
+        world.players[1].prescribe_obstacle(false,12.5);
+        world.players[2].prescribe_obstacle(false,12.5);
+        // Out-of-scene trajectory movement must ignore scene-only feedback.
+        world.players[2].object=None;
+        let position=|p:&AiPlayer|match p.place.unwrap(){Spot::Road(place)=>net.coordinates(&place),_=>panic!("road")};
+        let start=position(&world.players[0]);
+        for i in 0..3 {world.move_player(i,0.1);}
+        let distance=|p:&AiPlayer|{let end=position(p);((end[0]-start[0]).powi(2)+(end[1]-start[1]).powi(2)+(end[2]-start[2]).powi(2)).sqrt()};
+        let free=distance(&world.players[0]);let limited=distance(&world.players[1]);let distant=distance(&world.players[2]);
+        assert!((free-2.).abs()<1e-8,"free distance {free}");
+        let cap=20.-20.*20.*0.5/(12.5+0.1)*0.1;
+        assert!((limited-cap*0.1).abs()<1e-8,"limited distance {limited}");
+        assert!(limited<free);assert!((distant-free).abs()<1e-8);
+    }
+
+    #[test]
     fn scene_obstacle_feedback_reaches_trajectory_player() {
         use crate::{ai_scene,mem::Mem};
         struct Heap(Vec<u32>);
