@@ -1,6 +1,42 @@
 //! Original scenario-controller reset. Resource destruction and the base reset
 //! remain explicit callbacks, so a caller cannot silently skip their side effects.
 use crate::mem::Mem;
+pub trait ScenePassHooks {
+    fn overlay(&mut self,m:&mut Mem,object:u32);
+    fn camera_matrix(&mut self,m:&mut Mem,controller:u32)->[u8;48];
+    fn profile(&mut self,begin:bool);
+    fn prepare_scene(&mut self,m:&mut Mem,scene:u32,phase:u32);
+    fn transform_scene(&mut self,m:&mut Mem,scene:u32);
+    fn update_object(&mut self,m:&mut Mem,object:u32,mode:u32,matrix:&[u8;48],scene:u32);
+    fn render(&mut self,m:&mut Mem,controller:u32);
+    fn reflection_matrix(&mut self,m:&mut Mem,object:u32)->[u8;48];
+}
+/// `0x5df6f0`, controller slot 0x64: ordinary and optional reflected scene pass.
+/// Matrix calculation and object/render virtual methods remain explicit effects.
+pub fn scene_pass(m:&mut Mem,c:u32,audio:bool,h:&mut impl ScenePassHooks) {
+    let overlay=m.u32(c+0xb2c);
+    if overlay!=0 {h.overlay(m,overlay);}
+    if m.u32(c+0x1e8)==0 {return;}
+    let matrix=h.camera_matrix(m,c);h.profile(true);
+    if m.u32(0x702e8c)&0x100!=0 {h.prepare_scene(m,m.u32(c+0x1d0),m.u32(c+0x224));}
+    for offset in [0,4,8,12] {let scene=m.u32(c+0x1d0);m.set_u32(scene+0x2120+offset,m.u32(c+0xb90+offset));}
+    let camera=m.u32(c+0x1e8);
+    if camera!=0 && m.u32(camera+0x4c)!=0 {
+        let scene=m.u32(c+0x1d0);h.transform_scene(m,scene);
+        let camera=m.u32(c+0x1e8);let object=if camera==0 {0}else{m.u32(camera+0x4c)};
+        h.update_object(m,object,if audio{1}else{5},&matrix,m.u32(c+0x1d0));
+    }
+    h.render(m,c);
+    let overlay=m.u32(c+0xb2c);
+    if overlay!=0 {
+        let scene=m.u32(c+0x1d0);m.set_u32(scene+0x21dc,1);
+        let reflection=h.reflection_matrix(m,overlay);
+        let scene=m.u32(c+0x1d0);m.write(scene+0x2174,&reflection);
+        h.render(m,c);
+        let scene=m.u32(c+0x1d0);m.set_u32(scene+0x21dc,0);
+    }
+    h.profile(false);
+}
 /// Runtime for the original recurring internal tasks. Effects are supplied by
 /// the game controller; task completion schedules its next tick internally.
 pub trait InternalEffects {
@@ -300,6 +336,29 @@ pub fn reset(m: &mut Mem, controller: u32, hooks: &mut impl ResetHooks) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    struct ScenePass(Vec<u32>);
+    impl ScenePassHooks for ScenePass {
+        fn overlay(&mut self,_:&mut Mem,_:u32){self.0.push(1);}
+        fn camera_matrix(&mut self,_:&mut Mem,_:u32)->[u8;48]{core::array::from_fn(|i|i as u8)}
+        fn profile(&mut self,b:bool){self.0.push(if b{2}else{8});}
+        fn prepare_scene(&mut self,_:&mut Mem,_:u32,p:u32){self.0.extend([3,p]);}
+        fn transform_scene(&mut self,_:&mut Mem,_:u32){self.0.push(4);}
+        fn update_object(&mut self,_:&mut Mem,_:u32,mode:u32,matrix:&[u8;48],_:u32){assert_eq!(*matrix,core::array::from_fn(|i|i as u8));self.0.extend([5,mode]);}
+        fn render(&mut self,m:&mut Mem,c:u32){self.0.extend([6,m.u32(m.u32(c+0x1d0)+0x21dc)]);}
+        fn reflection_matrix(&mut self,_:&mut Mem,_:u32)->[u8;48]{self.0.push(7);core::array::from_fn(|i|47-i as u8)}
+    }
+    #[test]
+    fn scene_pass_matches_original() {
+        for line in include_str!("../../../tools/emu/golden_controller_scene_pass.tsv").lines() {
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let c=0x2a000000;let scene=c+0x10000;let cam=c+0x20000;
+            m.set_u32(c+0x1d0,scene);m.set_u32(c+0x1e8,if p[0]=="1"{cam}else{0});m.set_u32(cam+0x4c,if p[1]=="1"{c+0x30000}else{0});
+            m.set_u32(c+0xb2c,if p[2]=="1"{c+0x50000}else{0});m.set_u32(0x702e8c,p[3].parse().unwrap());m.set_u32(c+0x224,9);
+            for i in 0..4 {m.set_u32(c+0xb90+i*4,100+i);}
+            let mut h=ScenePass(vec![]);scene_pass(&mut m,c,p[4]=="1",&mut h);
+            let nums=|s:&str|s.split(',').filter(|s|!s.is_empty()).map(|s|s.parse().unwrap()).collect::<Vec<u32>>();
+            assert_eq!(h.0,nums(p[5]));assert_eq!([0x2120,0x2124,0x2128,0x212c,0x21dc].map(|o|m.u32(scene+o)).to_vec(),nums(p[6]));
+        }
+    }
     struct Effects(Vec<u32>);
     impl InternalEffects for Effects {
         fn call(&mut self,m:&mut Mem,c:u32,s:u32){self.0.extend([s,m.u32(c+0x224)]);}
