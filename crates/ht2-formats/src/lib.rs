@@ -5,6 +5,7 @@
 pub mod b3d;
 pub mod avi;
 pub mod font;
+pub mod msk;
 pub mod res;
 pub mod sdte;
 pub mod sexpr;

@@ -1,5 +1,5 @@
 //! End-menu backgrounds and company-rating text from the user's game data.
-//! Buttons, logos and multiplayer outcomes still require porting.
+//! Buttons and multiplayer outcomes still require porting.
 use std::path::Path;
 
 /// Original `0x574310`: at most 60 eligible companies, descending share, with
@@ -64,21 +64,24 @@ pub fn background_name(mode: u32, family: u32) -> Result<String, String> {
 }
 pub fn background(game: &Path, mode: u32, family: u32) -> Result<ht2_formats::txr::Texture, String> {
     let name = background_name(mode, family)?;
+    ht2_formats::txr::decode(&resource(game, family, &name)?).map_err(|e| e.to_string())
+}
+fn resource(game: &Path, family: u32, name: &str) -> Result<Vec<u8>, String> {
     let path = game.join("COMMON").join(format!("esc{family}.RES"));
     let data = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     let archive = ht2_formats::res::Res::parse(&data).map_err(|e| e.to_string())?;
     for section in &archive.sections {
         if let ht2_formats::res::Section::Files { entries, .. } = section {
             if let Some(entry) = entries.iter().find(|e| e.name().eq_ignore_ascii_case(&name)) {
-                return ht2_formats::txr::decode(entry.data).map_err(|e| format!("{name}: {e}"));
+                return Ok(entry.data.to_vec());
             }
         }
     }
-    Err(format!("menu texture missing: {name}"))
+    Err(format!("menu resource missing: {name}"))
 }
 
 /// Centered backdrop and rating text, following the single-player branch of
-/// `0x51f760`. Logos, buttons and multiplayer outcomes are not yet composed.
+/// `0x51f760`. Buttons and multiplayer outcomes are not yet composed.
 pub fn screen(game: &Path, mode: u32, family: u32, size: (u32, u32),
     world: Option<&ht2_sim::world::World>) -> Result<Vec<u8>, String> {
     let t = background(game, mode, family)?;
@@ -122,6 +125,27 @@ pub fn screen(game: &Path, mode: u32, family: u32, size: (u32, u32),
                 if mask != 0 { pixel.copy_from_slice(&[0, 255, 0, 255]); }
             }
         }
+        if p.flags & 0x1000 != 0 {
+            if let Some(logo) = p.logo.filter(|&i| i < 8) {
+                let bytes = resource(game, family, &format!("m_{family}\\icon{}.msk", logo + 1))?;
+                let mask = ht2_formats::msk::Mask::parse(&bytes).map_err(|e| e.to_string())?;
+                let (x, y) = (0x26e - ox, 0x1b8 - oy + row as i32 * 0x21);
+                for dy in 0..i32::from(mask.height) {
+                    for dx in 0..i32::from(mask.width) {
+                        let (px, py) = (x + dx, y + dy);
+                        if px < 0 || py < 0 || px >= w as i32 || py >= h as i32 { continue; }
+                        if let Some(v) = mask.pixels[dy as usize * usize::from(mask.width) + dx as usize] {
+                            // Resource families 15/16 carry RGB555/RGB565 respectively.
+                            let (r, g, b) = if family == 15 { ((v >> 10) & 31, (v >> 5) & 31, v & 31) }
+                                else { ((v >> 11) & 31, (v >> 5) & 63, v & 31) };
+                            let rgb = [(r * 255 / 31) as u8, (g * 255 / if family == 15 { 31 } else { 63 }) as u8, (b * 255 / 31) as u8, 255];
+                            let dst = (py as usize * w as usize + px as usize) * 4;
+                            rgba[dst..dst + 4].copy_from_slice(&rgb);
+                        }
+                    }
+                }
+            }
+        }
     }
     Ok(rgba)
 }
@@ -141,6 +165,8 @@ mod tests {
         world.players[0].name = Some(0);
         world.players[0].share = 0.51;
         world.players[0].fleet = 5100.0;
+        world.players[0].flags |= 0x1000;
+        world.players[0].logo = Some(0);
         let mut ai = world.players[0].clone();
         ai.kind = 2;
         ai.share = 0.49;
