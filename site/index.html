@@ -5,41 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>openHT2 — свободный движок Дальнобойщиков 2</title>
 <meta name="description" content="Свободная реализация движка Hard Truck 2 / Дальнобойщики 2 на Rust и wgpu.">
-<style>
-  :root { --bg:#fafaf7; --fg:#1d1d1b; --muted:#66655f; --accent:#c2410c; --card:#fff; --line:#e4e2da; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#161614; --fg:#ecebe6; --muted:#9a988f; --accent:#fb923c; --card:#1f1f1c; --line:#33322e; }
-  }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; }
-  main { max-width:760px; margin:0 auto; padding:48px 16px 64px; }
-  h1 { font-size:2.4rem; line-height:1.15; margin:0 0 .4em; }
-  h1 span { color:var(--accent); }
-  h2 { margin:2.2em 0 .6em; font-size:1.3rem; }
-  p.lead { font-size:1.15rem; color:var(--muted); margin-top:0; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:4px 20px; }
-  ul.status { list-style:none; margin:0; padding:0; }
-  ul.status li { padding:10px 0; border-bottom:1px solid var(--line); display:flex; gap:12px; }
-  ul.status li:last-child { border-bottom:0; }
-  .tag { flex:none; width:5.5em; font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; padding-top:.2em; color:var(--muted); }
-  .done .tag { color:var(--accent); font-weight:600; }
-  code, pre { font-family:ui-monospace,Consolas,monospace; font-size:.9rem; }
-  pre { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; }
-  a { color:var(--accent); }
-  .shots { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin:0; }
-  .shots figure { margin:0; background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
-  .shots img { display:block; width:100%; aspect-ratio:4/3; object-fit:cover; }
-  .shots figcaption { padding:8px 12px 10px; font-size:.85rem; color:var(--muted); }
-  p.note { font-size:.85rem; color:var(--muted); margin-top:.8em; }
-  footer { margin-top:3em; color:var(--muted); font-size:.9rem; }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main>
+<nav class="nav" aria-label="Основная навигация"><a class="brand" href="#">open<span>HT2</span></a><a href="#gallery">Галерея</a><a href="#progress">Разработка</a><a href="https://github.com/LakoMoor/openHT2">GitHub ↗</a></nav>
+<main><section class="hero"><div><div class="eyebrow">Дальнобойщики 2 · Новый движок</div>
   <h1>open<span>HT2</span></h1>
   <p class="lead">Свободная реализация движка <b>Hard Truck 2 / «Дальнобойщики 2»</b> на Rust и wgpu. Цель — 1:1 совместимость с оригиналом.</p>
 
-  <h2>Статус</h2>
+<div class="actions"><a class="button" href="#gallery">Скриншоты</a><a class="button secondary" href="https://github.com/LakoMoor/openHT2">Исходный код</a></div><p class="note">В разработке. Для запуска нужны файлы установленной игры.</p></div><figure class="hero-figure"><img class="hero-image" src="img/current-chase.jpg" width="1024" height="768" alt="ЗИЛ у аэропорта в текущей версии openHT2" fetchpriority="high"><figcaption>ENV / аэропорт · текущий порт</figcaption></figure></section><div class="metrics"><div><strong>Rust + wgpu</strong><span>Новый движок, знакомый мир</span></div><div><strong>39 районов</strong><span>Открытый мир прототипа</span></div><div><strong>1:1</strong><span>Цель совместимости с оригиналом</span></div></div>
+  <h2 id="progress">Разработка движка</h2><p class="note">Отмечены перенесённые части; полная игра и интеграция всех систем ещё в работе.</p><details><summary>Подробный статус переноса</summary>
   <div class="card">
     <ul class="status">
       <li class="done"><span class="tag">готово</span><span>Чтение <code>.RES</code> (141 из 141 файлов), <code>.way</code> (41 из 41), <code>.b3d</code> (45 из 45) и текстур <code>.txr</code></span></li>
@@ -85,26 +60,26 @@
     </ul>
   </div>
 
-  <h2>Скриншоты</h2>
+</details><div class="section-head"><h2 id="gallery">Галерея скриншотов</h2><p>Кадры из openHT2: текущая сборка, открытый мир и история переноса. Нажмите на снимок, чтобы рассмотреть детали.</p></div><div class="filters" role="group" aria-label="Фильтр галереи"><button data-filter="all" aria-pressed="true">Все кадры</button><button data-filter="new" aria-pressed="false">Новые</button><button data-filter="world" aria-pressed="false">Мир и локации</button><button data-filter="traffic" aria-pressed="false">Техника и ИИ</button></div><p id="gallery-count" aria-live="polite"></p>
   <p>Это работа самого движка openHT2 на данных установленной копии игры: открытый мир, гоночная трасса, грузовик, комбинат и арена.</p>
-  <div class="shots">
-    <figure><img src="img/ai_models.jpg" alt="Легковая и тягач Scania из мира ИИ на дороге ENV" loading="lazy"><figcaption>Машины мира ИИ со своими моделями из каталога <code>evehicles.sch</code>: у каждой своя запись <code>vehicle.tech</code> для перенесённой физики</figcaption></figure>
-    <figure><img src="img/ai_world.jpg" alt="Машина мира ИИ на дороге ENV" loading="lazy"><figcaption>Машина из мира ИИ оригинала: «призрак», появившийся на кольце 320 м вокруг игрока и едущий своим маршрутом</figcaption></figure>
-    <figure><img src="img/ai_follow.jpg" alt="Камера за машиной потока ИИ на серпантине" loading="lazy"><figcaption>Камера за одной из машин потока: маршрут к случайному узлу назначения — перенесённые генератор, выбор назначения и поиск пути модуля дорог</figcaption></figure>
-    <figure><img src="img/env_overview.jpg" alt="Вид сверху на район старта" loading="lazy"><figcaption>Район старта сверху: аэропорт и дороги к городам; узлы городов размечаются по <code>mod_*.sch</code>, как в оригинале</figcaption></figure>
-    <figure><img src="img/traffic.jpg" alt="Машина ИИ едет по своей полосе" loading="lazy"><figcaption>Машина ИИ ведёт себя по перенесённому коду водителя <code>SecondCar</code></figcaption></figure>
-    <figure><img src="img/ported.jpg" alt="ЗИЛ едет по дороге у аэропорта" loading="lazy"><figcaption>ЗИЛ на перенесённой физике оригинала (<code>_Car_V</code>), за рулём — перенесённый водитель ИИ; полосы треугольников (бит 0x80 формата) рисуются как в оригинале</figcaption></figure>
-    <figure><img src="img/airport.jpg" alt="Старт в аэропорту: ЗИЛ с тентом" loading="lazy"><figcaption>Старт из <code>GAME.CNF</code>: аэропорт, ЗИЛ</figcaption></figure>
-    <figure><img src="img/track.jpg" alt="Грузовик едет по трассе" loading="lazy"><figcaption>Езда по трассе, физика по числам <code>vehicle.tech</code></figcaption></figure>
-    <figure><img src="img/world.jpg" alt="Вид сверху на открытый мир" loading="lazy"><figcaption>Открытый мир из 39 районов, вид сверху</figcaption></figure>
-    <figure><img src="img/kamaz.jpg" alt="Модель КамАЗ" loading="lazy"><figcaption>КамАЗ, собранный из ссылок на детали</figcaption></figure>
-    <figure><img src="img/combinat.jpg" alt="Промышленный комбинат" loading="lazy"><figcaption>Комбинат из <code>ENV/aa.b3d</code></figcaption></figure>
-    <figure><img src="img/stadium.jpg" alt="Арена со стадионом" loading="lazy"><figcaption>Арена из <code>MTB/tb.b3d</code></figcaption></figure>
-    <figure><img src="img/race.jpg" alt="Гоночная трасса" loading="lazy"><figcaption>Трасса из <code>MENV/dr.b3d</code></figcaption></figure>
+  <div class="shots"><figure data-category="new"><a href="img/current-chase.jpg"><img src="img/current-chase.jpg" alt="Камера за грузовиком" loading="lazy" width="1024" height="768"></a><figcaption><span class="badge">НОВОЕ</span><b>Камера за грузовиком</b><br>ЗИЛ у аэропорта. Текущий порт матриц и проекции; положение камеры пока временное.</figcaption></figure><figure data-category="new"><a href="img/current-cab.jpg"><img src="img/current-cab.jpg" alt="Вид из кабины" loading="lazy" width="1024" height="768"></a><figcaption><span class="badge">НОВОЕ</span><b>Вид из кабины</b><br>Аэропорт ENV с места водителя. Точка глаз и интерфейс пока временные.</figcaption></figure><figure data-category="new"><a href="img/current-overview.jpg"><img src="img/current-overview.jpg" alt="Дороги вокруг аэропорта" loading="lazy" width="1024" height="768"></a><figcaption><span class="badge">НОВОЕ</span><b>Дороги вокруг аэропорта</b><br>Свежий обзор района старта. Отладочная камера сверху.</figcaption></figure><figure data-category="new"><a href="img/current-road.jpg"><img src="img/current-road.jpg" alt="Первые метры пути" loading="lazy" width="1024" height="768"></a><figcaption><span class="badge">НОВОЕ</span><b>Первые метры пути</b><br>ЗИЛ после восьми секунд движения на перенесённой физике.</figcaption></figure>
+    <figure data-category="traffic"><a href="img/ai_models.jpg"><img src="img/ai_models.jpg" alt="Легковая и тягач Scania из мира ИИ на дороге ENV" loading="lazy" width="1024" height="768"></a><figcaption>Машины мира ИИ со своими моделями из каталога <code>evehicles.sch</code>: у каждой своя запись <code>vehicle.tech</code> для перенесённой физики</figcaption></figure>
+    <figure data-category="traffic"><a href="img/ai_world.jpg"><img src="img/ai_world.jpg" alt="Машина мира ИИ на дороге ENV" loading="lazy" width="1024" height="768"></a><figcaption>Машина из мира ИИ оригинала: «призрак», появившийся на кольце 320 м вокруг игрока и едущий своим маршрутом</figcaption></figure>
+    <figure data-category="traffic"><a href="img/ai_follow.jpg"><img src="img/ai_follow.jpg" alt="Камера за машиной потока ИИ на серпантине" loading="lazy" width="1024" height="768"></a><figcaption>Камера за одной из машин потока: маршрут к случайному узлу назначения — перенесённые генератор, выбор назначения и поиск пути модуля дорог</figcaption></figure>
+    <figure data-category="world"><a href="img/env_overview.jpg"><img src="img/env_overview.jpg" alt="Вид сверху на район старта" loading="lazy" width="1024" height="768"></a><figcaption>Район старта сверху: аэропорт и дороги к городам; узлы городов размечаются по <code>mod_*.sch</code>, как в оригинале</figcaption></figure>
+    <figure data-category="traffic"><a href="img/traffic.jpg"><img src="img/traffic.jpg" alt="Машина ИИ едет по своей полосе" loading="lazy" width="1024" height="768"></a><figcaption>Машина ИИ ведёт себя по перенесённому коду водителя <code>SecondCar</code></figcaption></figure>
+    <figure data-category="traffic"><a href="img/ported.jpg"><img src="img/ported.jpg" alt="ЗИЛ едет по дороге у аэропорта" loading="lazy" width="1024" height="768"></a><figcaption>ЗИЛ на перенесённой физике оригинала (<code>_Car_V</code>), за рулём — перенесённый водитель ИИ; полосы треугольников (бит 0x80 формата) рисуются как в оригинале</figcaption></figure>
+    <figure data-category="world"><a href="img/airport.jpg"><img src="img/airport.jpg" alt="Старт в аэропорту: ЗИЛ с тентом" loading="lazy" width="1024" height="768"></a><figcaption>Старт из <code>GAME.CNF</code>: аэропорт, ЗИЛ</figcaption></figure>
+    <figure data-category="traffic"><a href="img/track.jpg"><img src="img/track.jpg" alt="Грузовик едет по трассе" loading="lazy" width="1024" height="768"></a><figcaption>Езда по трассе, физика по числам <code>vehicle.tech</code></figcaption></figure>
+    <figure data-category="world"><a href="img/world.jpg"><img src="img/world.jpg" alt="Вид сверху на открытый мир" loading="lazy" width="1024" height="768"></a><figcaption>Открытый мир из 39 районов, вид сверху</figcaption></figure>
+    <figure data-category="traffic"><a href="img/kamaz.jpg"><img src="img/kamaz.jpg" alt="Модель КамАЗ" loading="lazy" width="1024" height="768"></a><figcaption>КамАЗ, собранный из ссылок на детали</figcaption></figure>
+    <figure data-category="world"><a href="img/combinat.jpg"><img src="img/combinat.jpg" alt="Промышленный комбинат" loading="lazy" width="1024" height="768"></a><figcaption>Комбинат из <code>ENV/aa.b3d</code></figcaption></figure>
+    <figure data-category="world"><a href="img/stadium.jpg"><img src="img/stadium.jpg" alt="Арена со стадионом" loading="lazy" width="1024" height="768"></a><figcaption>Арена из <code>MTB/tb.b3d</code></figcaption></figure>
+    <figure data-category="world"><a href="img/race.jpg"><img src="img/race.jpg" alt="Гоночная трасса" loading="lazy" width="1024" height="768"></a><figcaption>Трасса из <code>MENV/dr.b3d</code></figcaption></figure>
   </div>
   <p class="note">Модели, текстуры и сцены на скриншотах принадлежат правообладателям оригинальной игры и показаны только для иллюстрации работы движка. В репозиторий они не входят.</p>
 
-  <p>Ширина текста из FON сверена с king.exe: 1470 проверок на семи шрифтах,
+  <details class="technical"><summary>Технические проверки и последние изменения</summary><p>Ширина текста из FON сверена с king.exe: 1470 проверок на семи шрифтах,
   включая переносы строк и оба режима ширины. Программные маски строк совпали
   побайтово в 2520 проверках. Колонки строки рейтинга сверены на 640 командах
   вывода; порядок компаний и строка игрока совпали на 320 таблицах.
@@ -140,7 +115,7 @@
   их подключение к постоянному состоянию игрового кадра продолжается.
   Интеграция игровых эффектов продолжается.</p>
 
-  <h2>Как это работает</h2>
+</details>  <h2>Как это работает</h2>
   <p>openHT2 — это замена движка, а не отдельная игра. Он читает файлы вашей установленной копии игры и ничего в них не изменяет. Код и ассеты оригинала в проект не входят: форматы описываются clean-room, по самим файлам данных.</p>
 
   <h2>Попробовать</h2>
@@ -155,5 +130,5 @@ cargo run --release -p ht2-tool -- res-ls "&lt;папка игры&gt;/ENV/aa.re
     Проект независимый и неофициальный, не связан с правообладателями игры. Лицензия AGPL-3.0-only.
   </footer>
 </main>
-</body>
+<dialog id="viewer" aria-label="Просмотр скриншота"><div class="viewer-top"><span id="viewer-counter"></span><button id="viewer-close" autofocus aria-label="Закрыть просмотр">Закрыть ✕</button></div><img id="viewer-image" alt=""><div class="viewer-bottom"><button id="viewer-prev" aria-label="Предыдущий скриншот">←</button><p id="viewer-caption"></p><button id="viewer-next" aria-label="Следующий скриншот">→</button></div></dialog><script src="gallery.js" defer></script></body>
 </html>
