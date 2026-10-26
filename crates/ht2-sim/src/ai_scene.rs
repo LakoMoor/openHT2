@@ -1,13 +1,31 @@
 //! Operations bridging scene vehicles and the trajectory AI.
 use crate::mem::Mem;
 
+/// `0x58f230`: disable one named movement bit; other values do nothing.
+pub fn disable_movement(m:&mut Mem,body:u32,value:i32) {
+    if matches!(value,1|2|4|8) {m.set_u32(body+0x4ac,m.u32(body+0x4ac)&!(value as u32));}
+}
+/// `0x58f290`: returns whether the original emits its invalid-detail diagnostic.
+/// The write still occurs after that diagnostic returns.
+pub fn collision_detail(m:&mut Mem,body:u32,value:i32)->bool {
+    if matches!(value,0|1) {m.set_i32(body+0xf88,value);false}
+    else {m.set_i32(body+0xf8c,value);!(0..=3).contains(&value)}
+}
+/// `0x58f2d0`: value 3 preserves +0xf88; all calls clear +0xf8c.
+pub fn motion(m:&mut Mem,body:u32,value:i32) {
+    if matches!(value,0|1|2) {m.set_i32(body+0xf88,value);}
+    m.set_u32(body+0xf8c,0);
+}
+
 pub trait TrajectoryHooks {
     /// `0x54ca60`, on the complete vehicle object.
     fn mode(&mut self,m:&mut Mem,vehicle:u32,value:i32);
     /// `0x58f230`, on vehicle+0x10.
-    fn movement(&mut self,m:&mut Mem,body:u32,value:i32);
+    fn movement(&mut self,m:&mut Mem,body:u32,value:i32) {disable_movement(m,body,value);}
     /// `0x58f290`, on vehicle+0x10.
-    fn collision_detail(&mut self,m:&mut Mem,body:u32,value:i32);
+    fn collision_detail(&mut self,m:&mut Mem,body:u32,value:i32) {
+        assert!(!collision_detail(m,body,value),"invalid collision detail");
+    }
     /// `0x57de90`; deliberately read twice, after the mode changes.
     fn world_transform(&mut self,m:&mut Mem,body:u32)->[f32;12];
     /// `0x43f690`, after copying the player's identity with 0x41d300.
@@ -23,7 +41,7 @@ pub trait PhysicsHooks:TrajectoryHooks {
     fn linear_velocity(&mut self,m:&mut Mem,body:u32,value:[f32;3]);
     fn angular_velocity(&mut self,m:&mut Mem,body:u32,value:[f32;3]);
     /// 0x58f2d0.
-    fn motion(&mut self,m:&mut Mem,body:u32,value:i32);
+    fn motion(&mut self,m:&mut Mem,body:u32,value:i32) {motion(m,body,value);}
 }
 
 /// `0x4cf080`: restore physical velocity and activate the body. Snapshot and
@@ -72,6 +90,22 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_body_mode_fields() {
+        for (case,line) in include_str!("../../../tools/emu/golden_body_modes.tsv").lines().enumerate(){
+            let p:Vec<i64>=line.split('\t').map(|v|v.parse().unwrap()).collect();
+            let mut m=Mem::new();let body=0x2a000000;let offsets=[0x4ac,0xf88,0xf8c];
+            for (offset,value) in offsets.into_iter().zip(&p[2..5]){m.set_u32(body+offset,*value as u32);}
+            let diagnostic=match p[0] {
+                0x58f230=>{disable_movement(&mut m,body,p[1] as i32);false},
+                0x58f290=>collision_detail(&mut m,body,p[1] as i32),
+                0x58f2d0=>{motion(&mut m,body,p[1] as i32);false},
+                _=>unreachable!(),
+            };
+            assert_eq!(offsets.map(|o|m.u32(body+o)).to_vec(),p[5..8].iter().map(|v|*v as u32).collect::<Vec<_>>(),"case {case}");
+            assert_eq!(i64::from(diagnostic),p[8],"case {case} diagnostic");
+        }
+    }
     struct Hooks {matrices:[[f32;12];2],reads:usize,trace:Vec<String>,speed:f64,direction:[f32;3]}
     impl TrajectoryHooks for Hooks {
         fn mode(&mut self,_:&mut Mem,v:u32,value:i32){assert_eq!(v,0x2a000000);self.trace.push(format!("mode:{value}"));}
