@@ -1,5 +1,41 @@
 //! Cabin needle transforms from the cabin branch of `0x53d1f0`.
 use crate::{mem::Mem,matrix};
+/// `0x4de990`: view transform before cabin suspension. Scenario matrices
+/// +0x1d8 and +0x5f0 are supplied by their original owners.
+pub fn cabin_view(m:&mut Mem,dst:u32,ignore_tilt:bool) {
+    const S:u32=0x2ffd_4900;
+    let (result,translation,rotation,tilt,temporary)=(S,S+48,S+96,S+144,S+192);
+    matrix::put12(m,result,&matrix::IDENTITY);
+    let scenario=m.u32(0x6d2078);
+    if scenario==0 || m.u32(scenario+0x268)==0 {
+        let bytes=m.read(result,48);m.write(dst,&bytes);return;
+    }
+    let vehicle=m.u32(scenario+0x268);
+    let height=if m.u32(vehicle+0x51a8)!=0 {m.f32(vehicle+0x4f48)}else{0.};
+    let up:[f32;3]=core::array::from_fn(|i|m.f32(0x702630+i as u32*4));
+    matrix::mat_translation(m,translation,height*up[0],height*up[1],height*up[2]);
+    if m.u32(0x6cec68)!=0 {
+        let angle=-m.f32(0x696d10);
+        matrix::put12(m,tilt,&matrix::IDENTITY);
+        if !ignore_tilt {
+            let factor=if (angle as f64).abs()<=core::f64::consts::FRAC_PI_2 {(angle as f64).cos()}else{0.};
+            matrix::mat_rot_x(m,tilt,(m.f32(scenario+200) as f64*factor) as f32);
+        }
+        matrix::mat_rot_z(m,rotation,angle);
+        matrix::mat_mul(m,temporary,tilt,rotation);
+        matrix::mat_mul(m,result,temporary,translation);
+    }else{
+        let angle=match m.i32(scenario+0x574){1=>Some(0x3f060a92),2=>Some(0x3fc90fdb),-2=>Some(0xbfc90fdb),-1=>Some(0xbf3ba866),_=>None};
+        if let Some(bits)=angle {
+            matrix::mat_rot_z(m,rotation,f32::from_bits(bits));
+            matrix::mat_mul(m,result,rotation,translation);
+        }else {let bytes=m.read(translation,48);m.write(result,&bytes);}
+        matrix::mat_rot_x(m,tilt,(height as f64 * -0.25) as f32);
+        matrix::mat_mul(m,temporary,scenario+0x1d8,tilt);
+        matrix::mat_mul(m,result,temporary,result);
+    }
+    matrix::mat_mul(m,dst,scenario+0x5f0,result);
+}
 #[derive(Debug,PartialEq,Eq)]
 pub struct KeyCommand {pub node:u32,pub value:i32,pub digit:bool}
 /// Key commands emitted by the cabin branch of `0x53d1f0`. Missing nodes
@@ -30,6 +66,18 @@ pub fn cabin_needles(m:&mut Mem,bases:[u32;3],destinations:[u32;3],speed:f32,rev
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_cabin_view_transforms(){
+        for (case,line) in include_str!("../../../tools/emu/golden_cabin_view.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let f:Vec<i64>=p[0].split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();crate::globals::install_constants(&mut m);
+            let s=0x2a000000;let v=s+0x10000;let out=v+0x10000;
+            m.set_u32(0x6d2078,if f[0]!=0{s}else{0});m.set_u32(s+0x268,if f[1]!=0{v}else{0});m.set_u32(0x6cec68,f[2] as u32);
+            m.set_i32(s+0x574,f[4] as i32);m.set_u32(v+0x51a8,f[5] as u32);m.set_u32(0x696d10,f[6] as u32);m.set_u32(v+0x4f48,f[7] as u32);m.set_u32(s+200,f[8] as u32);
+            for (o,data) in [(0x1d8,p[1]),(0x5f0,p[2])]{for (i,value) in data.split(',').enumerate(){m.set_u32(s+o+i as u32*4,value.parse().unwrap());}}
+            cabin_view(&mut m,out,f[3]!=0);
+            assert_eq!((0..12).map(|i|m.u32(out+i*4)).collect::<Vec<_>>(),p[3].split(',').map(|v|v.parse::<u32>().unwrap()).collect::<Vec<_>>(),"case {case}");
+        }
+    }
     #[test]
     fn original_cabin_key_commands(){
         for line in include_str!("../../../tools/emu/golden_cabin_keys.tsv").lines(){
