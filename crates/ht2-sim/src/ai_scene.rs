@@ -1,6 +1,28 @@
 //! Operations bridging scene vehicles and the trajectory AI.
 use crate::mem::Mem;
 
+/// State-changing part of `0x581430`. Components within +/-10 are copied;
+/// larger finite vectors up to +/-10000 are normalized to length 10. Beyond
+/// that bound the previous angular velocity is retained. Returns XY diagnostic.
+pub fn body_angular_velocity(m:&mut Mem,body:u32,vector:u32)->bool {
+    let mut diagnostic=false;
+    if crate::carv::fn_004e28b0(m,vector,10.)==0 {
+        for i in 0..3 {let value=m.u32(vector+i*4);m.set_u32(body+0x1ac+i*4,value);}
+    }else if crate::carv::fn_004e28b0(m,vector,10000.)==0 {
+        const UNIT:u32=0x2ffd_4b50;
+        crate::matrix::vec_unit(m,UNIT,vector);
+        for i in 0..3 {m.set_f32(body+0x1ac+i*4,(m.f32(UNIT+i*4) as f64*10.) as f32);}
+    }else{diagnostic=crate::carv::velocity_diagnostic(m,vector,10000.);}
+    let weighted:[f64;3]=std::array::from_fn(|i|(m.f32(body+0x1ac+i as u32*4) as f64*m.f32(body+0x194+i as u32*4) as f64) as f32 as f64);
+    let momentum:[f32;3]=std::array::from_fn(|axis|{
+        let f=|i:usize|m.f32(body+0x1f4+(i*3+axis) as u32*4) as f64;
+        ((f(2)*weighted[2]+f(1)*weighted[1])+f(0)*weighted[0]) as f32
+    });
+    for (i,value) in momentum.into_iter().enumerate(){m.set_f32(body+0x1b8+i as u32*4,value);}
+    for i in 0..6 {m.set_u32(body+0xcf0+i*4,m.u32(body+0x1ac+i*4));}
+    diagnostic
+}
+
 /// State-changing part of `0x5812a0`. Returns the XY diagnostic predicate;
 /// diagnostic formatting/output do not alter the body state.
 pub fn body_linear_velocity(m:&mut Mem,body:u32,vector:u32)->bool {
@@ -113,7 +135,11 @@ pub trait PhysicsHooks:TrajectoryHooks {
         for (i,v) in value.into_iter().enumerate(){m.set_f32(VECTOR+i as u32*4,v);}
         let _=body_linear_velocity(m,body,VECTOR);
     }
-    fn angular_velocity(&mut self,m:&mut Mem,body:u32,value:[f32;3]);
+    fn angular_velocity(&mut self,m:&mut Mem,body:u32,value:[f32;3]) {
+        const VECTOR:u32=0x2ffd_4b40;
+        for (i,v) in value.into_iter().enumerate(){m.set_f32(VECTOR+i as u32*4,v);}
+        let _=body_angular_velocity(m,body,VECTOR);
+    }
     /// 0x58f2d0.
     fn motion(&mut self,m:&mut Mem,body:u32,value:i32) {motion(m,body,value);}
 }
@@ -164,6 +190,20 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_body_angular_velocity_state() {
+        for (case,line) in include_str!("../../../tools/emu/golden_body_angular_velocity.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let body=0x2a000000;let source=p[0].parse::<u32>().unwrap();
+            for (field,index) in [(body+0x1ac,1),(body+0x194,2),(body+0x1f4,3),(source,4)] {
+                for (i,value) in p[index].split(',').enumerate(){m.set_u32(field+i as u32*4,value.parse().unwrap());}
+            }
+            let diagnostic=body_angular_velocity(&mut m,body,source);
+            let actual=(0..6).map(|i|m.u32(body+0x1ac+i*4)).chain((0..6).map(|i|m.u32(body+0xcf0+i*4))).collect::<Vec<_>>();
+            let expected=p[5].split(',').map(|v|v.parse::<u32>().unwrap()).collect::<Vec<_>>();
+            for (i,(a,b)) in actual.into_iter().zip(expected).enumerate(){assert!(a==b || f32::from_bits(a).is_nan() && f32::from_bits(b).is_nan(),"case {case} word {i}: {a} != {b}");}
+            assert_eq!(u32::from(diagnostic),p[6].parse::<u32>().unwrap(),"case {case} diagnostic");
+        }
+    }
     #[test]
     fn original_body_linear_velocity_state() {
         for (case,line) in include_str!("../../../tools/emu/golden_body_velocity.tsv").lines().enumerate(){
