@@ -36,5 +36,6 @@ pub mod tech_system;
 pub mod tech_rec;
 pub mod world;
 pub mod game_message;
+pub mod controller;
 
 pub use tech_rec::TechRec;
