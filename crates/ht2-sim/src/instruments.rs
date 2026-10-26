@@ -11,6 +11,17 @@ pub fn police_radar_signal(m:&mut Mem,police:u32,player:u32,flags:u32,distance:f
     }
 }
 
+/// Activity and radar phase of `0x4d1360`, starting at 0x4d1492. `police`
+/// is the subobject at vehicle+0x10. Geometry/distance gathering is caller-owned.
+pub fn police_radar_phase(m:&mut Mem,police:u32,player:u32,flags:u32,distance:f64) {
+    let driver=m.u32(police+0x5450);
+    m.set_u32(driver+0x4068,m.u32(driver+0x4068)&!2);
+    if !(crate::condition::fn_00557090(m,police-0x10) as f64>0.3) {
+        m.set_u32(police+0x5594,0);m.set_u32(driver+0x4074,0);
+        m.set_u32(driver+0x4068,m.u32(driver+0x4068)|1);
+    }else{police_radar_signal(m,police,player,flags,distance);}
+}
+
 /// Radar prefix of viewer update `0x538370`, through signal reset at 0x538529.
 /// Sound is returned as gain; geometry commands retain their original node IDs.
 pub fn radar_panel(m:&mut Mem,viewer:u32)->(Vec<KeyCommand>,Option<f32>) {
