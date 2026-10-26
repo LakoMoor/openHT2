@@ -1,6 +1,33 @@
 //! Operations bridging scene vehicles and the trajectory AI.
 use crate::mem::Mem;
 
+trait DriverSetup {
+    fn place(&mut self,m:&mut Mem,driver:u32,owner:u32,position:u32);
+    fn linear(&mut self,m:&mut Mem,driver:u32,vector:u32);
+    fn angular(&mut self,m:&mut Mem,driver:u32,vector:u32);
+}
+fn driver_mode_inner(m:&mut Mem,driver:u32,mode:i32,owner:u32,position:u32,linear:u32,angular:u32,h:&mut impl DriverSetup) {
+    match mode {
+        0|1=>m.set_i32(driver+0x2638,mode),
+        2|3=>{
+            h.place(m,driver,owner,position);h.linear(m,driver,linear);h.angular(m,driver,angular);
+            m.set_i32(driver+0x2638,mode);
+        }
+        _=>{},
+    }
+}
+/// `0x4fc930`: activate the physical driver using the existing original
+/// placement and velocity setters. Repeated modes 2/3 still perform setup.
+pub fn driver_mode(m:&mut Mem,world:&mut dyn crate::contact::World,driver:u32,mode:i32,owner:u32,position:u32,linear:u32,angular:u32) {
+    struct Setup<'a>(&'a mut dyn crate::contact::World);
+    impl DriverSetup for Setup<'_> {
+        fn place(&mut self,m:&mut Mem,d:u32,o:u32,p:u32){crate::ctor::fn_004f1240(m,self.0,d,2,o,p);}
+        fn linear(&mut self,m:&mut Mem,d:u32,v:u32){crate::ctor::fn_004f1dd0(m,d,v);}
+        fn angular(&mut self,m:&mut Mem,d:u32,v:u32){crate::ctor::fn_004f1ef0(m,d,v);}
+    }
+    driver_mode_inner(m,driver,mode,owner,position,linear,angular,&mut Setup(world));
+}
+
 pub trait VehicleModeHooks {
     fn excessive_velocity(&mut self,m:&mut Mem,vector:u32,limit:f32)->bool;
     fn clear_linear_velocity(&mut self,m:&mut Mem,body:u32);
@@ -121,6 +148,23 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_driver_activation_dispatch() {
+        struct Setup(Vec<String>);
+        impl DriverSetup for Setup {
+            fn place(&mut self,m:&mut Mem,d:u32,o:u32,p:u32){assert_eq!(d,0x2a000000);self.0.push(format!("place:2,{o},{p}"));m.set_u32(d+0x2638,0x12340003);}
+            fn linear(&mut self,m:&mut Mem,d:u32,v:u32){assert_eq!(d,0x2a000000);self.0.push(format!("linear:{v}"));m.set_u32(d+0x2638,0x12340001);}
+            fn angular(&mut self,m:&mut Mem,d:u32,v:u32){assert_eq!(d,0x2a000000);self.0.push(format!("angular:{v}"));m.set_u32(d+0x2638,0x12340001);}
+        }
+        for (case,line) in include_str!("../../../tools/emu/golden_driver_mode.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let v:Vec<i64>=p[0].split(',').map(|x|x.parse().unwrap()).collect();
+            let mut m=Mem::new();let driver=0x2a000000;m.set_u32(driver+0x2638,v[1] as u32);
+            let mut setup=Setup(vec![]);
+            driver_mode_inner(&mut m,driver,v[0] as i32,v[2] as u32,v[3] as u32,v[4] as u32,v[5] as u32,&mut setup);
+            assert_eq!(m.u32(driver+0x2638),p[1].parse::<u32>().unwrap(),"case {case} mode");
+            assert_eq!(setup.0.join(";"),p[2],"case {case} setup order");
+        }
+    }
     struct ModeHooks {excessive:bool,trace:Vec<String>}
     impl VehicleModeHooks for ModeHooks {
         fn excessive_velocity(&mut self,_:&mut Mem,v:u32,limit:f32)->bool {assert_eq!((v,limit),(0x2a0001b0,100.));self.trace.push("excessive".into());self.excessive}
