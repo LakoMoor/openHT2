@@ -2,6 +2,37 @@
 //! Buttons and multiplayer outcomes still require porting.
 use std::path::Path;
 
+/// `0x51ef...` builds groups by prepending children; `0x5bdee0` lays them out.
+pub fn button_positions(widths: &[i32], winning: bool) -> Vec<i32> {
+    let gap = if winning { 0x91 } else { 0x122 } - widths[0];
+    let mut x = 0;
+    widths.iter().map(|&w| { let at = x; x += w + gap; at }).collect()
+}
+
+fn compose_buttons(game: &Path, mode: u32, family: u32, size: (u32,u32),
+    offset: (i32,i32), rgba: &mut [u8]) -> Result<(), String> {
+    let names: &[&str] = if mode == 2 { &["ow_rest", "ow_cont", "ow_main"] }
+        else { &["o_rest", "o_main"] };
+    let textures: Vec<_> = names.iter().map(|name| {
+        let data = resource(game, family, &format!("m_{family}\\{name}_a.txr"))?;
+        ht2_formats::txr::decode(&data).map_err(|e| e.to_string())
+    }).collect::<Result<_,String>>()?;
+    let widths: Vec<_> = textures.iter().map(|t| t.width as i32 - 1).collect();
+    for (t, x) in textures.iter().zip(button_positions(&widths, mode == 2)) {
+        let (x,y) = (0x24d - offset.0 + x, 0x2af - offset.1);
+        for dy in 0..t.height as i32 {
+            for dx in 0..t.width as i32 {
+                let (px,py) = (x+dx,y+dy);
+                if px < 0 || py < 0 || px >= size.0 as i32 || py >= size.1 as i32 { continue; }
+                let src = (dy as usize * t.width as usize + dx as usize)*4;
+                let dst = (py as usize * size.0 as usize + px as usize)*4;
+                rgba[dst..dst+4].copy_from_slice(&t.rgba[src..src+4]);
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Original `0x574310`: at most 60 eligible companies, descending share, with
 /// the human first on ties. Reserve the final visible row for the human if needed.
 pub fn rating_rows(players: &[(u32, u32, f64)], human: usize, limit: usize) -> Vec<usize> {
@@ -101,6 +132,7 @@ pub fn screen(game: &Path, mode: u32, family: u32, size: (u32, u32),
             }
         }
     }
+    compose_buttons(game, mode, family, size, (ox,oy), &mut rgba)?;
     if !matches!(mode, 1 | 2 | 5) { return Ok(rgba); }
     let Some(world) = world else { return Ok(rgba) };
     let Some(human) = world.players.iter().position(|p| p.kind == 1) else { return Ok(rgba) };
@@ -153,6 +185,14 @@ pub fn screen(game: &Path, mode: u32, family: u32, size: (u32, u32),
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn button_layout_matches_original() {
+        for line in include_str!("../../../tools/emu/golden_end_buttons.tsv").lines() {
+            let p: Vec<_> = line.split('\t').collect();
+            let nums = |s: &str| s.split(',').map(|x| x.parse::<i32>().unwrap()).collect::<Vec<_>>();
+            assert_eq!(button_positions(&nums(p[1]), p[0] == "1"), nums(p[2]));
+        }
+    }
     #[test]
     #[ignore = "requires HT2_GAME game data and GPU"]
     fn render_rating_from_world() {
