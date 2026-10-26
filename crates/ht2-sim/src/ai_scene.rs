@@ -1,6 +1,40 @@
 //! Operations bridging scene vehicles and the trajectory AI.
 use crate::mem::Mem;
 
+trait ModeDispatch {
+    fn enter_needed(&mut self,m:&mut Mem,vehicle:u32)->bool;
+    fn leave_needed(&mut self,m:&mut Mem,vehicle:u32)->bool;
+    fn enter(&mut self,m:&mut Mem,vehicle:u32,player:u32,flags:u32);
+    fn leave(&mut self,m:&mut Mem,vehicle:u32,player:u32,flags:u32);
+}
+fn update_physics_mode_inner(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl ModeDispatch) {
+    if m.u32(flags)&1!=0 {
+        if h.leave_needed(m,vehicle){h.leave(m,vehicle,player,flags);}
+    }else if h.enter_needed(m,vehicle){h.enter(m,vehicle,player,flags);}
+    let driver=m.u32(vehicle+0x5460);
+    m.set_u32(driver+0x4078,u32::from(m.u32(flags)&0x80==0));
+}
+/// Mode block `0x4cf7e8..0x4cf861` of the common AI vehicle update.
+/// Call for AI vehicles after the earlier trajectory synchronization; this is
+/// not a replacement for the full 0x4cf620 update or its human early return.
+pub fn update_physics_mode(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl PhysicsHooks) {
+    struct Dispatch<'a,H>(&'a mut H);
+    impl<H:PhysicsHooks> Dispatch<'_,H> {
+        fn positions(&mut self,m:&mut Mem,v:u32)->([f32;3],[f32;3]) {
+            let human=m.u32(m.u32(0x6d2078)+0x268);
+            let a=self.0.world_transform(m,human+0x10);let b=self.0.world_transform(m,v+0x10);
+            (a[9..].try_into().unwrap(),b[9..].try_into().unwrap())
+        }
+    }
+    impl<H:PhysicsHooks> ModeDispatch for Dispatch<'_,H> {
+        fn enter_needed(&mut self,m:&mut Mem,v:u32)->bool {let(a,b)=self.positions(m,v);crate::ai::fn_004cedd0(a,b)}
+        fn leave_needed(&mut self,m:&mut Mem,v:u32)->bool {let(a,b)=self.positions(m,v);crate::ai::fn_004cee70(m,v,a,b)}
+        fn enter(&mut self,m:&mut Mem,v:u32,p:u32,f:u32){enter_physics(m,v,p,f,true,self.0);}
+        fn leave(&mut self,m:&mut Mem,v:u32,p:u32,f:u32){leave_physics(m,v,p,f,self.0);}
+    }
+    update_physics_mode_inner(m,vehicle,player,flags,&mut Dispatch(h));
+}
+
 /// State-changing part of `0x581430`. Components within +/-10 are copied;
 /// larger finite vectors up to +/-10000 are normalized to length 10. Beyond
 /// that bound the previous angular velocity is retained. Returns XY diagnostic.
@@ -206,6 +240,26 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_mode_dispatch_block() {
+        struct Dispatch {enter:bool,leave:bool,flags:u32,driver:u32,trace:Vec<String>}
+        impl ModeDispatch for Dispatch {
+            fn enter_needed(&mut self,_:&mut Mem,v:u32)->bool {assert_eq!(v,0x2a000000);self.trace.push("enter?".into());self.enter}
+            fn leave_needed(&mut self,_:&mut Mem,v:u32)->bool {assert_eq!(v,0x2a000000);self.trace.push("leave?".into());self.leave}
+            fn enter(&mut self,m:&mut Mem,v:u32,p:u32,f:u32){self.trace.push(format!("enter:{v},{p},{f},1"));m.set_u32(f,self.flags);m.set_u32(v+0x5460,self.driver);}
+            fn leave(&mut self,m:&mut Mem,v:u32,p:u32,f:u32){self.trace.push(format!("leave:{v},{p},{f}"));m.set_u32(f,self.flags);m.set_u32(v+0x5460,self.driver);}
+        }
+        for (case,line) in include_str!("../../../tools/emu/golden_ai_mode_dispatch.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|x|x.parse().unwrap()).collect();
+            let mut m=Mem::new();let vehicle=0x2a000000;let flags=vehicle+0x10000;let drivers=[vehicle+0x30000,vehicle+0x40000];
+            m.set_u32(flags,v[0]);m.set_u32(vehicle+0x5460,drivers[0]);
+            for (d,value) in drivers.into_iter().zip(&v[5..]){m.set_u32(d+0x4078,*value);}
+            let mut h=Dispatch{enter:v[1]!=0,leave:v[2]!=0,flags:v[3],driver:v[4],trace:vec![]};
+            update_physics_mode_inner(&mut m,vehicle,0x12345678,flags,&mut h);
+            assert_eq!([m.u32(flags),m.u32(vehicle+0x5460),m.u32(drivers[0]+0x4078),m.u32(drivers[1]+0x4078)].to_vec(),p[1].split(',').map(|x|x.parse::<u32>().unwrap()).collect::<Vec<_>>(),"case {case}");
+            assert_eq!(h.trace.join(";"),p[2],"case {case} calls");
+        }
+    }
     #[test]
     fn original_body_angular_velocity_state() {
         for (case,line) in include_str!("../../../tools/emu/golden_body_angular_velocity.tsv").lines().enumerate(){

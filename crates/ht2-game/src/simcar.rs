@@ -36,6 +36,34 @@ mod mode_integration_tests {
         });
         assert_eq!(car.m.u32(CAR+0x2638),0);
         for offset in [0x50d0,0x50e8] {assert_eq!(car.m.read(wrapper+offset,12),vec![0;12]);}
+
+        // Compose distance decisions, transition setters, mode owner and driver.
+        // Scene/AI query fixtures are explicit; collision world and physics are real.
+        struct Owner<'a>{backend:ht2_sim::ai_scene::PhysicalMode<'a>,pose:[f32;12],human:[f32;12]}
+        impl ht2_sim::ai_scene::TrajectoryHooks for Owner<'_> {
+            fn mode(&mut self,m:&mut Mem,v:u32,value:i32){ht2_sim::ai_scene::vehicle_mode(m,v,value,&mut self.backend);}
+            fn world_transform(&mut self,_:&mut Mem,body:u32)->[f32;12] {if body==0x1a000010 {self.pose}else{assert_eq!(body,0x1b000010);self.human}}
+            fn publish_flags(&mut self,_:&mut Mem,player:u32,_:u32){assert_eq!(player,0x12345678);}
+        }
+        impl ht2_sim::ai_scene::PhysicsHooks for Owner<'_> {
+            fn player_speed(&mut self,_:&mut Mem,player:u32)->f64 {assert_eq!(player,0x12345678);3.}
+            fn player_direction(&mut self,_:&mut Mem,player:u32)->[f32;3] {assert_eq!(player,0x12345678);[0.,1.,0.]}
+        }
+        let pose: [f32;12]=std::array::from_fn(|i|car.m.f32(CAR+0x10+i as u32*4));
+        let flags=wrapper+0x10000;let scenario=0x1c000000;
+        car.m.set_u32(0x6d2078,scenario);car.m.set_u32(scenario+0x268,0x1b000000);
+        car.m.set_u32(flags,0);
+        with_world(&world.ground,car.rooms,|contact|{
+            let mut human=pose;human[9]+=30.;
+            let mut owner=Owner{backend:ht2_sim::ai_scene::PhysicalMode{world:contact,diagnostics:vec![]},pose,human};
+            ht2_sim::ai_scene::update_physics_mode(&mut car.m,wrapper,0x12345678,flags,&mut owner);
+            assert_eq!(car.m.u32(flags)&1,1);assert_eq!(car.m.u32(CAR+0x2638),3);
+            assert_eq!(car.m.u32(CAR+0x4078),1);
+            owner.human[9]=pose[9]+400.;
+            ht2_sim::ai_scene::update_physics_mode(&mut car.m,wrapper,0x12345678,flags,&mut owner);
+            assert_eq!(car.m.u32(flags)&1,0);assert_eq!(car.m.u32(CAR+0x2638),0);
+            assert!(owner.backend.diagnostics.is_empty());
+        });
     }
 }
 
