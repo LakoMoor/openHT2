@@ -2,6 +2,51 @@
 //! Buttons and multiplayer outcomes still require porting.
 use std::path::Path;
 
+#[derive(Default)]
+pub struct Buttons {
+    pub cursor: Option<(i32,i32)>,
+    pub captured: Option<usize>,
+    pub bits: [u32;3],
+    /// Routed actions awaiting their original menu transition implementation.
+    pub action: Option<u32>,
+}
+impl Buttons {
+    pub fn event(&mut self, rects: &[(i32,i32,i32,i32)], message: u32) {
+        let inside = |i: usize| self.cursor.is_some_and(|(x,y)| {
+            let r = rects[i]; x >= r.0 && y >= r.1 && x <= r.2 && y <= r.3
+        });
+        let target = self.captured.or_else(|| (0..rects.len()).find(|&i| inside(i)));
+        if let Some(i) = target {
+            let hit = inside(i);
+            if message == 0x200 { button_move(&mut self.bits[i],self.captured == Some(i),hit); }
+            else {
+                let id = if rects.len() == 3 { [0xa8,0xac,0xa3][i] } else { [0xa8,0xa3][i] };
+                let routed = button_mouse(id,false,&mut self.bits[i],message,hit);
+                if message == 0x201 { self.captured = Some(i); }
+                if message == 0x202 {
+                    if self.captured == Some(i) && routed & 0xe000 == 0x8000 { self.action = Some(id); }
+                    self.captured = None;
+                }
+            }
+        }
+    }
+}
+
+pub fn button_rects(game: &Path, mode: u32, family: u32, size: (u32,u32)) -> Result<Vec<(i32,i32,i32,i32)>,String> {
+    let t = background(game,mode,family)?;
+    let offset = ((t.width as i32-size.0 as i32)/2,(t.height as i32-size.1 as i32)/2);
+    let names: &[&str] = if mode == 2 { &["ow_rest","ow_cont","ow_main"] } else { &["o_rest","o_main"] };
+    let sizes: Vec<_> = names.iter().map(|n| {
+        let b = resource(game,family,&format!("m_{family}\\{n}_a.txr"))?;
+        let t = ht2_formats::txr::decode(&b).map_err(|e|e.to_string())?;
+        Ok((t.width as i32-1,t.height as i32-1))
+    }).collect::<Result<_,String>>()?;
+    let widths: Vec<_> = sizes.iter().map(|p|p.0).collect();
+    Ok(button_positions(&widths,mode==2).iter().zip(sizes).map(|(x,(w,h))| {
+        let (x,y)=(589-offset.0+x,687-offset.1);(x,y,x+w,y+h)
+    }).collect())
+}
+
 /// Mouse-message branch of the original button (`0x5bfa80`). `inside` comes
 /// from the widget's hit test; the returned word is the original routed message.
 pub fn button_mouse(id: u32, disabled: bool, bits: &mut u32, message: u32,
@@ -36,7 +81,7 @@ pub fn button_positions(widths: &[i32], winning: bool) -> Vec<i32> {
 }
 
 fn compose_buttons(game: &Path, mode: u32, family: u32, size: (u32,u32),
-    offset: (i32,i32), rgba: &mut [u8]) -> Result<(), String> {
+    offset: (i32,i32), rgba: &mut [u8], input: Option<&Buttons>) -> Result<(), String> {
     let names: &[&str] = if mode == 2 { &["ow_rest", "ow_cont", "ow_main"] }
         else { &["o_rest", "o_main"] };
     let textures: Vec<_> = names.iter().map(|name| {
@@ -44,7 +89,12 @@ fn compose_buttons(game: &Path, mode: u32, family: u32, size: (u32,u32),
         ht2_formats::txr::decode(&data).map_err(|e| e.to_string())
     }).collect::<Result<_,String>>()?;
     let widths: Vec<_> = textures.iter().map(|t| t.width as i32 - 1).collect();
-    for (t, x) in textures.iter().zip(button_positions(&widths, mode == 2)) {
+    for (i,(base, x)) in textures.iter().zip(button_positions(&widths, mode == 2)).enumerate() {
+        let pressed = input.is_some_and(|b|b.bits[i]&2!=0);
+        let alternate = if pressed {
+            Some(ht2_formats::txr::decode(&resource(game,family,&format!("m_{family}\\{}_ap.txr",names[i]))?).map_err(|e|e.to_string())?)
+        } else { None };
+        let t = alternate.as_ref().unwrap_or(base);
         let (x,y) = (0x24d - offset.0 + x, 0x2af - offset.1);
         for dy in 0..t.height as i32 {
             for dx in 0..t.width as i32 {
@@ -141,6 +191,10 @@ fn resource(game: &Path, family: u32, name: &str) -> Result<Vec<u8>, String> {
 /// `0x51f760`. Buttons and multiplayer outcomes are not yet composed.
 pub fn screen(game: &Path, mode: u32, family: u32, size: (u32, u32),
     world: Option<&ht2_sim::world::World>) -> Result<Vec<u8>, String> {
+    screen_input(game,mode,family,size,world,None)
+}
+pub fn screen_input(game: &Path, mode: u32, family: u32, size: (u32, u32),
+    world: Option<&ht2_sim::world::World>, input: Option<&Buttons>) -> Result<Vec<u8>, String> {
     let t = background(game, mode, family)?;
     let (w, h) = size;
     if w == 0 || h == 0 || w > 8192 || h > 8192 { return Err("unsupported menu surface size".into()); }
@@ -158,7 +212,7 @@ pub fn screen(game: &Path, mode: u32, family: u32, size: (u32, u32),
             }
         }
     }
-    compose_buttons(game, mode, family, size, (ox,oy), &mut rgba)?;
+    compose_buttons(game, mode, family, size, (ox,oy), &mut rgba,input)?;
     if !matches!(mode, 1 | 2 | 5) { return Ok(rgba); }
     let Some(world) = world else { return Ok(rgba) };
     let Some(human) = world.players.iter().position(|p| p.kind == 1) else { return Ok(rgba) };
@@ -212,6 +266,26 @@ pub fn screen(game: &Path, mode: u32, family: u32, size: (u32, u32),
 mod tests {
     use super::*;
     #[test]
+    fn routed_click_requires_capture_and_inside_release() {
+        let rects=[(0,0,20,20),(30,0,50,20),(60,0,80,20)];
+        let mut b=Buttons::default();
+        b.cursor=Some((40,10));
+        b.event(&rects,0x202);
+        assert_eq!(b.action,None);
+        b.event(&rects,0x201);
+        assert_eq!(b.bits[1]&2,2);
+        b.cursor=Some((90,10));
+        b.event(&rects,0x200);
+        assert_eq!(b.bits[1]&2,0);
+        b.event(&rects,0x202);
+        assert_eq!(b.action,None);
+        b.cursor=Some((40,10));
+        b.event(&rects,0x201);
+        b.event(&rects,0x202);
+        assert_eq!(b.action,Some(0xac));
+        assert_eq!(b.captured,None);
+    }
+    #[test]
     fn button_mouse_matches_original() {
         for line in include_str!("../../../tools/emu/golden_button_mouse.txt").lines() {
             let p: Vec<u32> = line.split_whitespace().map(|s| s.parse().unwrap()).collect();
@@ -254,6 +328,10 @@ mod tests {
         ai.fleet = 4900.0;
         world.players.push(ai);
         let rgba = screen(game, 2, 16, (800,600), Some(&world)).unwrap();
+        let mut buttons=Buttons::default();
+        buttons.bits[1]=2;
+        let pressed=screen_input(game,2,16,(800,600),Some(&world),Some(&buttons)).unwrap();
+        assert_ne!(pressed,rgba);
         let base = screen(game, 2, 16, (800,600), None).unwrap();
         assert!(rgba.chunks_exact(4).zip(base.chunks_exact(4)).filter(|(a,b)| a != b).count() > 100);
         let t = background(game, 2, 16).unwrap();

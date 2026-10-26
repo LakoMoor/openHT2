@@ -488,6 +488,7 @@ struct Game {
     movie_mode: Option<u32>,
     menu_mode: Option<u32>,
     shown_menu: Option<u32>,
+    menu_buttons: menu::Buttons,
     action_index: usize,
     media_error: Option<String>,
     renderer: Renderer,
@@ -571,7 +572,7 @@ impl Game {
             if let Some(mode) = self.menu_mode {
                 // The renderer uses full-colour output. Family 16 is provisional until
                 // the original graphics-config choice (0x568fd0) is exposed in settings.
-                let result = menu::screen(&self.world.game_dir, mode, 16, size, self.world.vehicle.rating_world())
+                let result = menu::screen_input(&self.world.game_dir, mode, 16, size, self.world.vehicle.rating_world(),Some(&self.menu_buttons))
                     .and_then(|rgba| self.renderer.set_movie_frame(size, &rgba));
                 match result {
                     Ok(()) => self.shown_menu = Some(mode),
@@ -589,7 +590,7 @@ impl Game {
         let textures = renderer.upload_textures(&world.models.assets);
         let truck_objects = renderer.add_parts(textures, &world.models.assets, &truck_parts(&world.truck));
         let traffic_objects = world.vehicle.traffic().iter().map(|_| HashMap::new()).collect();
-        let mut game = Game { renderer, textures, truck_objects, trucks: HashMap::new(), traffic_objects, world, movie: None, movie_mode: None, menu_mode: None, shown_menu: None, action_index: 0, media_error: None };
+        let mut game = Game { renderer, textures, truck_objects, trucks: HashMap::new(), traffic_objects, world, movie: None, movie_mode: None, menu_mode: None, shown_menu: None, menu_buttons: Default::default(), action_index: 0, media_error: None };
         game.place_truck();
         game
     }
@@ -675,7 +676,43 @@ impl ApplicationHandler for App {
     fn window_event(&mut self, el: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => el.exit(),
+            WindowEvent::CursorMoved { position, .. } => {
+                if let Some(g) = self.gfx.as_mut().filter(|g|g.game.menu_mode.is_some()) {
+                    g.game.menu_buttons.cursor=Some((position.x as i32,position.y as i32));
+                    let mode=g.game.menu_mode.unwrap();
+                    if let Ok(rects)=menu::button_rects(&g.game.world.game_dir,mode,16,(g.config.width,g.config.height)) {
+                        g.game.menu_buttons.event(&rects,0x200);
+                        g.game.shown_menu=None;
+                    }
+                }
+            }
+            WindowEvent::MouseInput { state, button: winit::event::MouseButton::Left, .. } => {
+                if let Some(g) = self.gfx.as_mut().filter(|g|g.game.menu_mode.is_some()) {
+                    let mode=g.game.menu_mode.unwrap();
+                    if let Ok(rects)=menu::button_rects(&g.game.world.game_dir,mode,16,(g.config.width,g.config.height)) {
+                        g.game.menu_buttons.event(&rects,if state.is_pressed(){0x201}else{0x202});
+                        g.game.shown_menu=None;
+                        if let Some(action)=g.game.menu_buttons.action.take() {
+                            if action==0xac {
+                                // 0x51fd70: continue closes the end screen and resumes
+                                // the existing world; it does not create a new game.
+                                g.game.menu_mode=None;
+                                g.game.renderer.clear_movie();
+                                g.game.menu_buttons=Default::default();
+                                self.keys.clear();
+                            } else {
+                                g.game.menu_buttons.action=Some(action);
+                                eprintln!("menu action {action:#x}: original transition not yet ported");
+                            }
+                        }
+                    }
+                }
+            }
             WindowEvent::KeyboardInput { event, .. } => {
+                if self.gfx.as_ref().is_some_and(|g|g.game.menu_mode.is_some()) {
+                    self.keys.clear();
+                    return;
+                }
                 if event.state.is_pressed() {
                     if let Some(g) = self.gfx.as_mut().filter(|g| g.game.movie.is_some()) {
                         let ch = event.text.as_ref().and_then(|s| s.chars().next()).and_then(|c| u16::try_from(c as u32).ok())
