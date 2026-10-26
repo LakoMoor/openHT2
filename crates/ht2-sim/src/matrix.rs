@@ -198,6 +198,22 @@ pub fn mat_apply(m: &mut Mem, mat: u32, t: u32) {
     transform_in_place(m, mat + 36, t);
 }
 
+/// `0x5f25c0`: resolve a transform node's local-to-world matrix. A parent
+/// forces mode 2; the return value is inherited from the root's mode 1.
+/// Invalid root modes preserve the supplied output before child composition.
+pub fn node_world_transform(m:&mut Mem,node:u32,dst:u32)->bool {
+    let mut chain=Vec::new();let mut current=node;
+    loop {
+        let parent=m.u32(current+0x2c);
+        if parent==0 {break;}
+        m.set_u32(current+0x38,2);chain.push(current);current=parent;
+    }
+    let mode=m.u32(current+0x38);
+    if mode<=2 {let bytes=m.read(current+0x40,48);m.write(dst,&bytes);}
+    for child in chain.into_iter().rev(){mat_mul(m,dst,child+0x40,dst);}
+    mode==1
+}
+
 /// `0x5abc40`: a translation by `(x, y, z)`.
 pub fn mat_translation(m: &mut Mem, dst: u32, x: f32, y: f32, z: f32) {
     let mut o = [0.0f32; 12];
@@ -332,4 +348,25 @@ pub fn line_plane(m: &mut Mem, dst: u32, p2: u32, p3: u32, p4: u32, p5: u32) {
     let t = (num / den) as f32;
     vec_scale(m, S + 0x30, S, t);
     vec_add(m, dst, p4, S + 0x30);
+}
+
+#[cfg(test)]
+mod hierarchy_tests {
+    use super::*;
+    #[test]
+    fn original_node_world_chains() {
+        for (case,line) in include_str!("../../../tools/emu/golden_node_transform.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let base=0x2a000000;let out=base+0x10000;
+            let nodes:Vec<_>=p[0].split(';').collect();
+            for (i,node) in nodes.iter().enumerate(){
+                let values:Vec<u32>=node.split(',').map(|v|v.parse().unwrap()).collect();let ptr=base+i as u32*0x100;
+                m.set_u32(ptr+0x38,values[0]);m.set_u32(ptr+0x2c,if i+1<nodes.len(){ptr+0x100}else{0});
+                for (k,v) in values[1..].iter().enumerate(){m.set_u32(ptr+0x40+k as u32*4,*v);}
+            }
+            for (i,v) in p[1].split(',').enumerate(){m.set_u32(out+i as u32*4,v.parse().unwrap());}
+            assert_eq!(node_world_transform(&mut m,base,out),p[2]=="1","case {case}");
+            assert_eq!((0..12).map(|i|m.u32(out+i*4)).collect::<Vec<_>>(),p[3].split(',').map(|v|v.parse::<u32>().unwrap()).collect::<Vec<_>>(),"case {case}");
+            assert_eq!((0..nodes.len()).map(|i|m.u32(base+i as u32*0x100+0x38)).collect::<Vec<_>>(),p[4].split(',').map(|v|v.parse::<u32>().unwrap()).collect::<Vec<_>>(),"case {case}");
+        }
+    }
 }

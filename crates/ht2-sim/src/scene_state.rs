@@ -1,6 +1,14 @@
 //! Matrix-stack and clipping state of `0x5ae0e0`. Device viewport/transform
 //! uploads at the end of that function are handled by the rendering backend.
 use crate::{mem::Mem,matrix,math};
+/// Complete transform lookup and matrix preparation of `0x5eb4b0`.
+/// The surface owner supplies the original clip rectangle (`0x5b6710`).
+pub fn prepare_camera_node(m:&mut Mem,camera:u32,scene:u32,clip:[i32;4]) {
+    const WORLD:u32=0x2ffd_4500;
+    matrix::put12(m,WORLD,&matrix::IDENTITY);
+    matrix::node_world_transform(m,m.u32(camera+0x50),WORLD);
+    prepare_camera(m,camera,WORLD,scene,clip);
+}
 /// Matrix/clip portion of `0x5eb4b0`. `world_transform` is the result of
 /// the camera node's hierarchy lookup (`0x5f25c0`), supplied by its owner.
 pub fn prepare_camera(m:&mut Mem,camera:u32,world_transform:u32,scene:u32,clip:[i32;4]) {
@@ -109,7 +117,8 @@ mod tests {
             m.set_u32(scene+0x210c,p[4].parse().unwrap());m.set_f64(scene+0x2130,p[5].parse().unwrap());m.set_f64(scene+0x2138,p[6].parse().unwrap());
             m.set_u32(0x720908,1);m.set_f64(scene+0x2110,1.);m.set_f64(scene+0x2148,250.);m.set_i32(scene+0x7a8,100<<19);
             let clip=p[7].split(',').map(|v|v.parse::<i32>().unwrap()).collect::<Vec<_>>().try_into().unwrap();
-            prepare_camera(&mut m,camera,transform,scene,clip);
+            let bytes=m.read(transform,48);m.write(transform+0x40,&bytes);m.set_u32(transform+0x2c,0);m.set_u32(transform+0x38,1);m.set_u32(camera+0x50,transform);
+            prepare_camera_node(&mut m,camera,scene,clip);
             for (base,expected) in [(scene+0x1070,p[8]),(scene+0x10d0,p[9])]{
                 assert_eq!((0..12).map(|i|m.u32(base+i*4)).collect::<Vec<_>>(),expected.split(',').map(|v|v.parse::<u32>().unwrap()).collect::<Vec<_>>(),"case {case}");
             }
