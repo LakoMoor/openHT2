@@ -40,6 +40,8 @@ pub struct Poly {
 
 #[derive(Debug)]
 pub enum Data {
+    /// Type 21: number of case lists and the initial signed selection.
+    Switch { cases: i32, key: i32 },
     /// Types 6, 7, 36, 37: a vertex pool used by polygons below it.
     Verts(Vec<Vertex>),
     /// Types 8, 35: polygons indexing the vertex pool.
@@ -304,7 +306,8 @@ impl R<'_> {
                 data = Data::Wall { surface, params, points };
             }
             21 => {
-                self.skip(4 + 2)?;
+                self.skip(4)?;
+                data = Data::Switch { cases: self.u32()? as i32, key: self.u32()? as i32 };
                 children = self.children(depth)?;
             }
             23 => {
@@ -528,6 +531,15 @@ impl B3d {
         batches
     }
 
+    /// Extract geometry using current switch states. Unspecified switches retain
+    /// their file state; `refer_` switches read the referenced node's state.
+    pub fn triangles_with_switches<'a>(&'a self, only: Option<&'a str>, keys:&'a [(&'a str,i32)]) -> Vec<Batch> {
+        let mut ctx=self.context(only,&[]);ctx.keys=keys;
+        let mut batches=Vec::new();
+        for n in &self.nodes {collect(n,&Xf::IDENTITY,&[],&ctx,only.is_none(),0,false,&mut batches);}
+        batches
+    }
+
     /// Geometry of one prototype group in its own coordinates, without any link transform.
     pub fn group_triangles(&self, group: &str) -> Vec<Batch> {
         let ctx = self.context(None, &[]);
@@ -556,13 +568,14 @@ impl B3d {
     }
 
     fn context<'a>(&'a self, only: Option<&'a str>, skip: &'a [&'a str]) -> Ctx<'a> {
-        let mut ctx = Ctx { spaces: HashMap::new(), defs: HashMap::new(), targets: HashSet::new(), only, skip };
+        let mut ctx = Ctx { spaces: HashMap::new(), defs: HashMap::new(), targets: HashSet::new(), only, skip, keys:&[] };
         index(&self.nodes, &mut ctx);
         ctx
     }
 }
 
 struct Ctx<'a> {
+    keys: &'a [(&'a str,i32)],
     skip: &'a [&'a str],
     spaces: HashMap<&'a str, Xf>,
     /// First block of each name, in file order.
@@ -666,14 +679,21 @@ fn collect(n: &Node, xf: &Xf, pool: &[Vertex], ctx: &Ctx, emit: bool, depth: u32
         }
         _ => {}
     }
-    // A switch (type 21, e.g. `refer_GeometryKey`: intact or damaged, lights on or off) draws
-    // the child list its key selects, a level-of-detail block (type 10) the near list or the
-    // far one; drawn here: list 0, the default state and the near detail (stand-in for the
-    // keys and the distance test).
+    // Switch render dispatch 0x5f9630 reads a referenced key when present, clamps
+    // only the upper bound to its own case count; an invalid case draws nothing.
+    let selected=if n.kind==21 {switch_key(n,ctx)}else{0};
+    // LOD still uses the near list (stand-in for the distance test).
     let one_list = matches!(n.kind, 10 | 21);
-    for c in n.children.iter().filter(|c| !one_list || c.list == 0) {
+    for c in n.children.iter().filter(|c| !one_list || c.list as i64 == selected as i64) {
         collect(c, xf, pool, ctx, emit, depth, false, out);
     }
+}
+
+fn switch_key(n:&Node,ctx:&Ctx)->i32 {
+    let source=n.name.strip_prefix("refer_").and_then(|name|ctx.defs.get(name).copied()).unwrap_or(n);
+    let key=ctx.keys.iter().find(|(name,_)|*name==source.name).map(|(_,key)|*key)
+        .unwrap_or_else(||match source.data {Data::Switch{key,..}=>key,_=>0});
+    match n.data {Data::Switch{cases,..}=>key.min(cases),_=>key}
 }
 
 /// The shape of a collision item placed in the scene.
@@ -796,6 +816,43 @@ mod tests {
         assert_eq!(m.nodes[0].name, "root");
         assert_eq!(m.nodes[0].children[0].name, "kid");
         assert!(m.triangles().is_empty());
+    }
+
+    #[test]
+    fn switch_header_preserves_signed_state_and_empty_cases() {
+        let mut bytes=words(&[333]);bytes.extend(name32("LampKey"));
+        bytes.extend(words(&[21,0,0,0,0,4,u32::MAX,0,555]));
+        let node=R{d:&bytes,o:0}.block(0).unwrap();
+        assert!(matches!(node.data,Data::Switch{cases:4,key:-1}));
+        assert!(node.children.is_empty());
+    }
+
+    #[test]
+    fn switch_geometry_matches_original_dispatch() {
+        fn node(name:&str,kind:u32,data:Data,children:Vec<Node>,list:u32)->Node {
+            Node{name:name.into(),kind,data,children,list,names:vec![]}
+        }
+        for (case,line) in include_str!("../../../tools/emu/golden_switch_draw.tsv").lines().enumerate() {
+            let p:Vec<i32>=line.split('\t').map(|v|v.parse().unwrap()).collect();
+            if p[4]==0 {assert_eq!(p[5],0);assert_eq!(p[7],0);continue;}
+            assert_eq!((p[5],p[7]),(1,1));
+            let children=(0..p[0] as u32).map(|list| {
+                let poly=Poly{format:0,material:list,verts:(0..3).map(|index|PolyVert{index,uv:None}).collect()};
+                let verts=[[0.,0.,0.],[1.,0.,0.],[0.,1.,0.]].map(|pos|Vertex{pos,uv:[0.;2]}).to_vec();
+                node("",6,Data::Verts(verts),vec![node("",8,Data::Polys(vec![poly]),vec![],0)],list)
+            }).collect();
+            let switch=node(if p[3]!=0 {"refer_LampKey"}else{"LocalKey"},21,Data::Switch{cases:p[0],key:p[1]},children,0);
+            let source=node("LampKey",21,Data::Switch{cases:8,key:p[2]},vec![],0);
+            let model=B3d{materials:vec![],nodes:vec![switch,source]};
+            let expected=if p[6]>=0 && p[6]<p[0] {vec![p[6] as u32]}else{vec![]};
+            assert_eq!(model.triangles().iter().map(|b|b.material).collect::<Vec<_>>(),expected,"case {case}");
+            let source_name=if p[3]!=0 {"LampKey"}else{"LocalKey"};
+            let state=if p[3]!=0 {p[2]}else{p[1]};
+            assert_eq!(model.triangles_with_switches(None,&[(source_name,state)]).iter().map(|b|b.material).collect::<Vec<_>>(),expected);
+            let overridden=model.triangles_with_switches(None,&[(source_name,0)]);
+            assert_eq!(overridden.len(),usize::from(p[0]>0));
+            if !overridden.is_empty(){assert_eq!(overridden[0].material,0);}
+        }
     }
 
     #[test]

@@ -83,6 +83,7 @@ fn b3d_ls(data: &[u8]) -> Result<(), String> {
         for n in ns {
             let extra = match &n.data {
                 b3d::Data::Space { axes, pos } => format!(" axes={axes:?} pos={pos:?}"),
+                b3d::Data::Switch { cases, key } => format!(" cases={cases} key={key}"),
                 _ => String::new(),
             };
             println!("{:indent$}[{}] {} {:?}{extra}", "", n.kind, n.name, n.names, indent = depth * 2);
