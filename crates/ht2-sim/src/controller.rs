@@ -1,6 +1,24 @@
 //! Original scenario-controller reset. Resource destruction and the base reset
 //! remain explicit callbacks, so a caller cannot silently skip their side effects.
 use crate::mem::Mem;
+pub trait FrameEndHooks {
+    fn apply_palette(&mut self,m:&mut Mem,controller:u32);
+    fn refresh_surface(&mut self,m:&mut Mem,controller:u32);
+    fn finish_frame(&mut self,m:&mut Mem,controller:u32);
+    fn update_audio(&mut self,m:&mut Mem);
+    /// Original optional view_key recording, bracketed by pause-clock updates.
+    fn record_camera(&mut self,m:&mut Mem,controller:u32);
+}
+/// `0x5de7d0`, internal task 0: palette refresh, frame completion, audio and
+/// optional camera recording. Recording itself remains an explicit subsystem.
+pub fn finish_frame(m:&mut Mem,c:u32,audio:bool,record_camera:bool,h:&mut impl FrameEndHooks) {
+    if m.u32(c+0xc14)!=0 {
+        h.apply_palette(m,c);h.refresh_surface(m,c);m.set_u32(c+0xc14,0);
+    }
+    h.finish_frame(m,c);
+    if audio {h.update_audio(m);}
+    if record_camera {h.record_camera(m,c);}
+}
 pub trait SchedulerHooks {
     /// Execute and detach the request; callbacks may enqueue further work.
     fn execute(&mut self,m:&mut Mem,manager:u32,request:u32);
@@ -201,6 +219,24 @@ pub fn reset(m: &mut Mem, controller: u32, hooks: &mut impl ResetHooks) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    struct FrameEnd(Vec<u32>);
+    impl FrameEndHooks for FrameEnd {
+        fn apply_palette(&mut self,_:&mut Mem,_:u32){self.0.push(1);}
+        fn refresh_surface(&mut self,_:&mut Mem,_:u32){self.0.push(2);}
+        fn finish_frame(&mut self,_:&mut Mem,_:u32){self.0.push(3);}
+        fn update_audio(&mut self,_:&mut Mem){self.0.push(4);}
+        fn record_camera(&mut self,_:&mut Mem,_:u32){self.0.push(5);}
+    }
+    #[test]
+    fn frame_end_order_matches_original() {
+        for line in include_str!("../../../tools/emu/golden_controller_frame_end.tsv").lines() {
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let c=0x2a000000;
+            m.set_u32(c+0xc14,p[0].parse().unwrap());let mut h=FrameEnd(vec![]);
+            finish_frame(&mut m,c,p[1]=="1",false,&mut h);
+            assert_eq!(m.u32(c+0xc14),0);
+            assert_eq!(h.0,p[2].split(',').map(|s|s.parse().unwrap()).collect::<Vec<u32>>());
+        }
+    }
     struct Requests(Vec<u32>);
     impl RequestHooks for Requests {
         fn run(&mut self,m:&mut Mem,t:u32){self.0.extend([t,m.u32(t+16),m.u32(0x720118)]);}
