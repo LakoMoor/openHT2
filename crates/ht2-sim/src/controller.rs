@@ -1,6 +1,31 @@
 //! Original scenario-controller reset. Resource destruction and the base reset
 //! remain explicit callbacks, so a caller cannot silently skip their side effects.
 use crate::mem::Mem;
+/// `0x5de0a0`: creation order of the controller's internal tasks. Registration
+/// and activation are separate from execution by the task scheduler.
+pub fn internal_tasks(flags:u32,extra:bool)->Vec<i32> {
+    let mut tasks=vec![400,0,20,30,10];
+    if flags&0x100!=0 {tasks.extend([21,31,11]);}
+    if extra {tasks.push(40);}
+    tasks
+}
+pub trait TaskHooks {
+    fn call(&mut self,m:&mut Mem,controller:u32,slot:u32);
+    fn complete(&mut self,m:&mut Mem,task:u32);
+}
+/// `0x5de430`: dispatch and complete an internal task, including unknown IDs.
+pub fn execute_task(m:&mut Mem,task:u32,h:&mut impl TaskHooks) {
+    let c=m.u32(task+0x20);let id=m.i32(task+0x24);
+    let slot=match id {
+        0=>Some(0xb8),400=>Some(0xb4),40=>Some(0xac),
+        10|11=>{m.set_u32(c+0x224,u32::from(id==11));Some(0x6c)},
+        20|21=>{m.set_u32(c+0x224,u32::from(id==21));Some(0x64)},
+        30|31=>{m.set_u32(c+0x224,u32::from(id==31));Some(0x68)},
+        _=>None,
+    };
+    if let Some(slot)=slot {h.call(m,c,slot);}
+    h.complete(m,task);
+}
 pub trait CameraResetHooks {
     fn prepare(&mut self,m:&mut Mem,transform:u32);
     fn update(&mut self,m:&mut Mem,transform:u32);
@@ -100,6 +125,25 @@ pub fn reset(m: &mut Mem, controller: u32, hooks: &mut impl ResetHooks) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    struct Tasks(Vec<u32>);
+    impl TaskHooks for Tasks {
+        fn call(&mut self,_:&mut Mem,_:u32,s:u32){self.0.push(s);}
+        fn complete(&mut self,_:&mut Mem,_:u32){self.0.push(1);}
+    }
+    #[test]
+    fn internal_dispatch_matches_original() {
+        assert_eq!(internal_tasks(0,false),[400,0,20,30,10]);
+        assert_eq!(internal_tasks(0,true),[400,0,20,30,10,40]);
+        assert_eq!(internal_tasks(0x100,false),[400,0,20,30,10,21,31,11]);
+        assert_eq!(internal_tasks(0x100,true),[400,0,20,30,10,21,31,11,40]);
+        for line in include_str!("../../../tools/emu/golden_controller_tasks.tsv").lines() {
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let task=0x10000000;let c=task+0x1000;
+            m.set_u32(task+0x20,c);m.set_i32(task+0x24,p[0].parse().unwrap());m.set_u32(c+0x224,p[1].parse().unwrap());
+            let mut h=Tasks(vec![]);execute_task(&mut m,task,&mut h);
+            assert_eq!(m.u32(c+0x224),p[2].parse::<u32>().unwrap());
+            assert_eq!(h.0,p[3].split(',').map(|s|s.parse().unwrap()).collect::<Vec<u32>>());
+        }
+    }
     impl SceneResetHooks for CameraHooks {
         fn destroy_object(&mut self,m:&mut Mem,p:u32){assert_eq!(m.u32(p+4),0);assert_eq!(m.u32(p+8),0);self.0.push(p);}
     }
