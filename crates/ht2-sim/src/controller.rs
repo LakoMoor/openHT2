@@ -1,6 +1,33 @@
 //! Original scenario-controller reset. Resource destruction and the base reset
 //! remain explicit callbacks, so a caller cannot silently skip their side effects.
 use crate::mem::Mem;
+/// `0x5d3660`: queue a task request at a relative tick. Requests with the same
+/// task, absolute tick and kind are discarded. Equal ticks use descending task
+/// priority. The head is retained on equal priority; later equal entries are
+/// inserted before the existing request (the original's asymmetric tie rule).
+pub fn enqueue(m:&mut Mem,manager:u32,request:u32)->bool {
+    if request==0 || m.u32(request+12)==0 {return false;}
+    let time=m.u32(request+16).wrapping_add(m.u32(manager));m.set_u32(request+16,time);
+    let task=m.u32(request+12);let kind=m.u32(request+20);
+    let mut node=m.u32(manager+12);
+    while node!=0 {
+        if m.u32(node+12)==task && m.u32(node+16)==time && m.u32(node+20)==kind {return false;}
+        node=m.u32(node+8);
+    }
+    let priority=m.i32(task+20);let mut previous=0;node=m.u32(manager+12);
+    if node!=0 && (m.i32(node+16)<time as i32 ||
+        (m.u32(node+16)==time && priority<=m.i32(m.u32(node+12)+20))) {
+        previous=node;node=m.u32(node+8);
+    }
+    while node!=0 && (m.i32(node+16)<time as i32 ||
+        (m.u32(node+16)==time && m.i32(m.u32(node+12)+20)>priority)) {
+        previous=node;node=m.u32(node+8);
+    }
+    m.set_u32(request+4,previous);m.set_u32(request+8,node);
+    if node!=0 {m.set_u32(node+4,request);}
+    if previous==0 {m.set_u32(manager+12,request);}else{m.set_u32(previous+8,request);}
+    true
+}
 /// `0x5de0a0`: creation order of the controller's internal tasks. Registration
 /// and activation are separate from execution by the task scheduler.
 pub fn internal_tasks(flags:u32,extra:bool)->Vec<i32> {
@@ -125,6 +152,22 @@ pub fn reset(m: &mut Mem, controller: u32, hooks: &mut impl ResetHooks) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn scheduler_enqueue_matches_original() {
+        for line in include_str!("../../../tools/emu/golden_scheduler_enqueue.tsv").lines() {
+            let p:Vec<_>=line.split('\t').collect();let c=0x2a000000;let mut m=Mem::new();m.set_u32(c,p[0].parse().unwrap());
+            let mut rejected=Vec::new();
+            for (i,s) in p[1].split(';').enumerate() {
+                let v:Vec<u32>=s.split(',').map(|s|s.parse().unwrap()).collect();let task=c+0x1000+v[0]*0x100;let req=c+0x10000+i as u32*0x20;
+                m.set_u32(task+20,v[1]);m.set_u32(req+12,task);m.set_u32(req+16,v[2]);m.set_u32(req+20,v[3]);
+                if !enqueue(&mut m,c,req){rejected.push(i as u32);}
+            }
+            let mut got=Vec::new();let mut node=m.u32(c+12);let mut previous=0;
+            while node!=0 {assert_eq!(m.u32(node+4),previous);got.push((node-c-0x10000)/0x20);previous=node;node=m.u32(node+8);}
+            let nums=|s:&str|s.split(',').filter(|s|!s.is_empty()).map(|s|s.parse().unwrap()).collect::<Vec<u32>>();
+            assert_eq!(got,nums(p[2]));assert_eq!(rejected,nums(p[3]));
+        }
+    }
     struct Tasks(Vec<u32>);
     impl TaskHooks for Tasks {
         fn call(&mut self,_:&mut Mem,_:u32,s:u32){self.0.push(s);}
