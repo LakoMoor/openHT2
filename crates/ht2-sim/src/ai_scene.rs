@@ -39,6 +39,26 @@ pub trait CommandHeap {
     fn allocate(&mut self,m:&mut Mem,bytes:u32)->u32;
     fn release(&mut self,m:&mut Mem,address:u32);
 }
+
+/// Queue rotation/allocation of the command-29 branch in `0x4ce300`.
+/// The temporary payload allocation precedes the geometric preparation in the
+/// original; callers which need that ordering can allocate it before preparing.
+pub fn queue_prepared_obstacle(m:&mut Mem,vehicle:u32,subcode:i32,distance:f32,temporary:u32,heap:&mut impl CommandHeap) {
+    m.set_f32(temporary,distance);
+    let old=m.u32(vehicle+0x5574);
+    if old!=0 {
+        let data=m.u32(old+12);if data!=0 {heap.release(m,data);}
+        heap.release(m,old);
+    }
+    m.set_u32(vehicle+0x5574,m.u32(vehicle+0x5570));
+    let copy=heap.allocate(m,16);
+    if copy!=0 {
+        m.set_u32(copy,29);m.set_i32(copy+4,subcode);m.set_u32(copy+8,1);
+        let payload=heap.allocate(m,4);m.set_u32(copy+12,payload);m.set_u32(payload,m.u32(temporary));
+    }
+    m.set_u32(vehicle+0x5570,copy);
+    if temporary!=0 {heap.release(m,temporary);}
+}
 /// `0x4cfc30`: replace one of two owned commands with a deep copy.
 /// Allocation/free remain explicit; Mem itself has a non-freeing bump allocator.
 pub fn replace_command(m:&mut Mem,commands:u32,source:u32,slot:u32,heap:&mut impl CommandHeap) {
@@ -349,6 +369,25 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_obstacle_queue_rotation() {
+        struct Heap {fail:bool,calls:usize,trace:Vec<String>}
+        impl CommandHeap for Heap {
+            fn allocate(&mut self,_:&mut Mem,bytes:u32)->u32 {self.calls+=1;self.trace.push(format!("alloc:{bytes}"));if self.calls==1 {if self.fail {0}else{0x2a040000}}else{0x2a040100}}
+            fn release(&mut self,_:&mut Mem,address:u32){self.trace.push(format!("free:{address}"));}
+        }
+        for (case,line) in include_str!("../../../tools/emu/golden_obstacle_queue.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|x|x.parse().unwrap()).collect();
+            let mut m=Mem::new();let vehicle=0x2a000000;let temporary=vehicle+0x10000;let copy=vehicle+0x40000;
+            m.set_u32(vehicle+0x5570,v[0]);m.set_u32(vehicle+0x5574,v[1]);m.set_u32(vehicle+0x31000+12,v[2]);
+            m.write(copy,&[0xcd;16]);m.write(copy+0x100,&[0xcd;4]);
+            let mut heap=Heap{fail:v[5]!=0,calls:0,trace:vec![]};
+            queue_prepared_obstacle(&mut m,vehicle,v[3] as i32,f32::from_bits(v[4]),temporary,&mut heap);
+            let actual=[vehicle+0x5570,vehicle+0x5574,temporary,copy,copy+4,copy+8,copy+12,copy+0x100].map(|a|m.u32(a)).to_vec();
+            assert_eq!(actual,p[1].split(',').map(|x|x.parse::<u32>().unwrap()).collect::<Vec<_>>(),"case {case} queue");
+            assert_eq!(heap.trace.join(";"),p[2],"case {case} allocation/free");
+        }
+    }
     #[test]
     fn original_obstacle_source_preparation() {
         struct Source {kind:i32,transform:[f32;12]}
