@@ -1,6 +1,19 @@
 //! Matrix-stack and clipping state of `0x5ae0e0`. Device viewport/transform
 //! uploads at the end of that function are handled by the rendering backend.
 use crate::{mem::Mem,matrix,math};
+/// Hardware view upload at the end of `0x5ae0e0`, in Direct3D row-vector layout.
+/// The original rounds each 3x4 product before packing it into a 4x4 matrix.
+pub fn device_view(m:&mut Mem,model:u32)->[f32;16] {
+    const S:u32=0x2ffd_4100;
+    let (rotation,scale,combined,result)=(S,S+48,S+96,S+144);
+    matrix::mat_rot_x(m,rotation,f32::from_bits(0xbfc90fda));
+    matrix::put12(m,scale,&[1.,0.,0.,0.,1.,0.,0.,0.,-1.,0.,0.,0.]);
+    matrix::mat_mul(m,combined,model,rotation);
+    matrix::mat_mul(m,result,combined,scale);
+    let mut out=[0.;16];
+    for row in 0..4 {for col in 0..3 {out[row*4+col]=m.f32(result+(row*3+col) as u32*4);}}
+    out[15]=1.;out
+}
 /// Numeric commands emitted by `0x5adea0`. Matrices retain Direct3D's original
 /// row-vector layout; a backend must explicitly convert its coordinate system.
 pub struct ProjectionState {
@@ -61,6 +74,15 @@ pub fn setup(m:&mut Mem,scene:u32,model:u32,view:u32,software:bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_hardware_view_uploads() {
+        for line in include_str!("../../../tools/emu/golden_scene_device_view.tsv").lines(){
+            let (input,expected)=line.split_once('\t').unwrap();
+            let mut m=Mem::new();let model=0x2a000000;
+            for (i,v) in input.split(',').enumerate(){m.set_u32(model+i as u32*4,v.parse().unwrap());}
+            assert_eq!(device_view(&mut m,model).map(f32::to_bits).to_vec(),expected.split(',').map(|v|v.parse::<u32>().unwrap()).collect::<Vec<_>>());
+        }
+    }
     #[test]
     fn original_projection_commands() {
         for line in include_str!("../../../tools/emu/golden_scene_projection.tsv").lines(){
