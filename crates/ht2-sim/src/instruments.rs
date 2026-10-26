@@ -1,5 +1,24 @@
 //! Cabin needle transforms from the cabin branch of `0x53d1f0`.
 use crate::{mem::Mem,matrix};
+/// Rectangle passed to the scene by `0x532330`. Original table indices are
+/// signed view modes; arithmetic preserves the original 32-bit wrapping.
+pub fn view_rectangle(m:&Mem,scenario:u32)->[i32;4] {
+    let surface=m.u32(scenario+0x24);let width=m.i32(surface+0x100);let height=m.i32(surface+0x104);
+    let mode=m.i32(scenario+0x574);let shift=(mode as u32).wrapping_mul(4);
+    let (x_offset,y_offset)=if mode==0 {(0x560,0x564)}else{(0x558,0x55c)};
+    let mut x=m.i32(0x696bf8u32.wrapping_add(shift)).wrapping_add(m.i32(scenario+x_offset));
+    let mut top=((height.wrapping_sub(480) as f64*0.2061855670103093
+        +m.i32(0x696c0cu32.wrapping_add(shift)) as f64)+m.i32(scenario+y_offset) as f64).trunc() as i64 as i32;
+    let mut bottom=m.i32(0x696c20u32.wrapping_add(shift)).wrapping_add(top);
+    if width>=780 && height>=580 {top=top.wrapping_add(50);bottom=bottom.wrapping_add(50);}
+    if x<0 {x=0;}
+    if top<m.i32(0x672d7c){top=m.i32(0x672d7c);}
+    if bottom<=top {bottom=top.wrapping_add(1);}
+    if bottom>height {bottom=height;}
+    if x<0 {x=0;}
+    let right=if x<width || x.wrapping_add(1)<width {width}else{x.wrapping_add(1)};
+    [x,top,right,bottom]
+}
 /// `0x4de990`: view transform before cabin suspension. Scenario matrices
 /// +0x1d8 and +0x5f0 are supplied by their original owners.
 pub fn cabin_view(m:&mut Mem,dst:u32,ignore_tilt:bool) {
@@ -66,6 +85,17 @@ pub fn cabin_needles(m:&mut Mem,bases:[u32;3],destinations:[u32;3],speed:f32,rev
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_view_rectangles(){
+        for line in include_str!("../../../tools/emu/golden_view_rectangle.tsv").lines(){
+            let p:Vec<_>=line.split('\t').collect();let v:Vec<i32>=p[0].split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let s=0x2a000000;let surface=s+0x10000;
+            m.set_u32(s+0x24,surface);m.set_i32(surface+0x100,v[0]);m.set_i32(surface+0x104,v[1]);m.set_i32(s+0x574,v[2]);
+            for (o,value) in [0x558,0x55c,0x560,0x564].into_iter().zip(&v[3..7]){m.set_i32(s+o,*value);}
+            for (address,value) in [0x696bf8u32,0x696c0c,0x696c20].into_iter().zip(&v[7..10]){m.set_i32(address.wrapping_add((v[2] as u32).wrapping_mul(4)),*value);}
+            m.set_i32(0x672d7c,v[10]);
+            assert_eq!(view_rectangle(&m,s).to_vec(),p[1].split(',').map(|s|s.parse::<i32>().unwrap()).collect::<Vec<_>>());
+        }
+    }
     #[test]
     fn original_cabin_view_transforms(){
         for (case,line) in include_str!("../../../tools/emu/golden_cabin_view.tsv").lines().enumerate(){
