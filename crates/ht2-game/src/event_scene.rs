@@ -12,10 +12,11 @@ pub struct EventScene {
     references:Vec<(u32,String)>,
     nodes:HashMap<String,u32>,
     links:Vec<(u32,String,String)>,
+    groups:Vec<(u32,String)>,
 }
 impl EventScene {
     pub fn from_node(node:&Node)->Result<Self,String> {
-        let mut out=Self{memory:Mem::new(),root:0,next:0x4200_0000,switches:HashMap::new(),references:Vec::new(),nodes:HashMap::new(),links:Vec::new()};
+        let mut out=Self{memory:Mem::new(),root:0,next:0x4200_0000,switches:HashMap::new(),references:Vec::new(),nodes:HashMap::new(),links:Vec::new(),groups:Vec::new()};
         out.root=out.add(node)?;
         for (address,name) in &out.references {
             let target=out.switches.get(name).copied().ok_or_else(||format!("unresolved event switch reference: {name}"))?;
@@ -26,6 +27,12 @@ impl EventScene {
             let transform=out.nodes.get(space).copied().ok_or_else(||format!("unresolved event space: {space}"))?;
             if out.memory.u32(transform+0x10)!=6 {return Err(format!("event link space is not a space: {space}"));}
             out.memory.set_u32(*address+0x40,target);out.memory.set_u32(*address+0x44,transform);
+        }
+        for (address,name) in &out.groups {
+            if name.is_empty() {continue;}
+            let space=out.nodes.get(name).copied().ok_or_else(||format!("unresolved event group space: {name}"))?;
+            if out.memory.u32(space+0x10)!=6 {return Err(format!("event group space is not a space: {name}"));}
+            out.memory.set_u32(*address+0x3c,space);
         }
         Ok(out)
     }
@@ -48,6 +55,13 @@ impl EventScene {
         let (kind,lists)=match (&n.data,n.kind) {
             (_,19)=>(15,1),
             (_,2)=>(7,3),
+            (_,4)=>{
+                let space=n.names.first().ok_or_else(||format!("missing event group space name: {}",n.name))?;
+                self.groups.push((node,space.clone()));(4,1)
+            }
+            (_,5) if n.name.starts_with("env")=>(23,0),
+            (_,5) if n.name.starts_with("lamp")=>(21,1),
+            (_,5)=>(5,1),
             (Data::Space{axes,pos,flag},24)=>{
                 let matrix=axes.iter().flatten().chain(pos.iter()).copied().collect::<Vec<_>>();
                 for (i,value) in matrix.iter().enumerate(){self.memory.set_f32(node+0x40+i as u32*4,*value);}
@@ -75,7 +89,7 @@ impl EventScene {
             // Point predicate rejects these two volume kinds, so no payload is read.
             (Data::Collision{..},23)=>{self.volume(node,0x40,6,&[]);(9,0)}
             (Data::Wall{..},20)=>{self.volume(node,0x40,7,&[]);(9,0)}
-            (_,4|5|21|6|7|36|37)=>return Err(format!("event adapter requires reference/state binding: {} (B3D {})",n.name,n.kind)),
+            (_,21|36|37)=>return Err(format!("event adapter requires reference/state binding: {} (B3D {})",n.name,n.kind)),
             // Other runtime classes are ignored by 0x5dbf00, including spaces,
             // geometry and cameras. Their children must not be searched either.
             _=>(0,0),
@@ -127,7 +141,7 @@ mod tests {
     }
     #[test]
     fn b3d_point_events_match_native_pipeline() {
-        for data in [include_str!("../../../tools/emu/golden_b3d_event_pipeline.tsv"),include_str!("../../../tools/emu/golden_b3d_switch_events.tsv"),include_str!("../../../tools/emu/golden_b3d_refer_events.tsv"),include_str!("../../../tools/emu/golden_b3d_link_events.tsv")] {
+        for data in [include_str!("../../../tools/emu/golden_b3d_event_pipeline.tsv"),include_str!("../../../tools/emu/golden_b3d_switch_events.tsv"),include_str!("../../../tools/emu/golden_b3d_refer_events.tsv"),include_str!("../../../tools/emu/golden_b3d_link_events.tsv"),include_str!("../../../tools/emu/golden_b3d_group_events.tsv")] {
         for (case,line) in data.lines().enumerate(){
             let p:Vec<_>=line.split('\t').collect();let bytes=(0..p[0].len()).step_by(2).map(|i|u8::from_str_radix(&p[0][i..i+2],16).unwrap()).collect::<Vec<_>>();
             let b3d=ht2_formats::b3d::parse(&bytes).unwrap();let mut scene=EventScene::from_node(&b3d.nodes[0]).unwrap();

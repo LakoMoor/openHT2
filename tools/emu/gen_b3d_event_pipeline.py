@@ -2,7 +2,8 @@
 File/heap boundaries and child parsing replaced; native child tables/traversal/math run.
 """
 import pathlib,random,struct,sys
-link="--link" in sys.argv
+group="--group" in sys.argv
+link="--link" in sys.argv or group
 refer="--refer" in sys.argv
 switch="--switch" in sys.argv or refer
 from emu import Emu,OBJ_BASE,STUB
@@ -44,6 +45,8 @@ for case in range(100):
  if link:
   space=base+0x400;ln=base+0x500;matrix=[0,1,0,-1,0,0,0,0,1,r.uniform(-8,8),r.uniform(-8,8),r.uniform(-8,8)]
   e.set_u32(space+0x10,6);e.set_u32(space+0x38,1);e.write(space+0x40,f(matrix));e.set_u32(ln+0x10,17);e.set_u32(ln+0x40,branch);e.set_u32(ln+0x44,space);e.set_u32(ln+8,space);e.set_u32(base+0x600,ln)
+ if group:
+  e.set_u32(ln,vt);variant=case%4;gkind=[4,5,23,21][variant];e.set_u32(ln+0x10,gkind);e.set_u32(ln+0x3c,space if variant==0 else 0);e.set_u32(ln+0x30,base+0x620);e.set_u32(ln+0x34,1);e.set_u32(base+0x620,branch)
  if refer:
   source=base+0x400;e.set_u32(source,vt);e.set_u32(source+0x10,18);e.set_u32(source+0x38,key);e.set_u32(branch+0x38,99);e.set_u32(branch+0x3c,source)
   e.set_u32(branch+8,source)
@@ -56,6 +59,11 @@ for case in range(100):
   branchblock=w(333)+name('Branch')+w(bk)+body+blocks[0]+w(444)+blocks[1]+w(555)
   linkblock=w(333)+name('Placed')+w(18)+f([0,0,0,100])+name('Space')+name('Branch')+w(555)
   spaceblock=w(333)+name('Space')+w(24)+f(matrix)+w(1,1)+branchblock+w(555)
+  if group:
+   label=['PlacedGroup','NormalGroup','envIgnored','lampGroup'][variant]
+   groupbody=f([0,0,0,100])+name('Space' if variant==0 else 'NotUsedForEvents')+(name('Unused') if variant==0 else b'')+w(1)
+   linkblock=w(333)+name(label)+w(4 if variant==0 else 5)+groupbody+branchblock+w(555)
+   spaceblock=w(333)+name('Space')+w(24)+f(matrix)+w(1,0,555)
   nodes=w(111,333)+name('Room')+w(19,2)+linkblock+spaceblock+w(555,222)
  mats=w(0);offset=7;length=offset+len(nodes)//4
  b3d=b'b3d\0'+w(length,6,1,offset,len(nodes)//4)+mats+nodes
@@ -64,5 +72,6 @@ for case in range(100):
   key=(case+1)%4;e.set_u32(source+0x38 if refer else branch+0x38,key);trace.clear();e.call(0x5dbec0,[base,3.,4.,5.,STUB+0x200,456],'ifffii');result+='\t'+str(key)+'\t'+';'.join(trace)
  if refer:result+='\tSource'
  rows.append(result)
-pathlib.Path(__file__).with_name('golden_b3d_link_events.tsv' if link else 'golden_b3d_refer_events.tsv' if refer else 'golden_b3d_switch_events.tsv' if switch else 'golden_b3d_event_pipeline.tsv').write_text('\n'.join(rows)+'\n')
+pathlib.Path(__file__).with_name('golden_b3d_group_events.tsv' if group else 'golden_b3d_link_events.tsv' if link else 'golden_b3d_refer_events.tsv' if refer else 'golden_b3d_switch_events.tsv' if switch else 'golden_b3d_event_pipeline.tsv').write_text('\n'.join(rows)+'\n')
 print('100 B3D event pipelines captured')
+
