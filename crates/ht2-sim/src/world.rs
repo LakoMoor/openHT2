@@ -1762,6 +1762,19 @@ impl World {
         self.players[k].object.is_some_and(|id| self.loaded.remove(&id))
     }
 
+    /// Stand-in for the ghost portion of 0x4466a0 until all player removal
+    /// side effects are ported. Other player kinds stay pending for their owner.
+    fn remove_pending_ghosts(&mut self)->Vec<SceneChange> {
+        let mut changes=Vec::new();
+        for k in 0..self.players.len() {
+            if self.players[k].kind!=8 || !self.players[k].scene_remove_pending {continue;}
+            let mut player=self.players[k].clone();self.trace_away(&mut player);
+            if self.unload(k) {changes.push(SceneChange::Unload(k));}
+            let player=&mut self.players[k];player.kind=0;player.place=None;player.route.clear();player.scene_remove_pending=false;
+        }
+        changes
+    }
+
     /// `0x4842f0`: how sharply a route turns where its roads meet: the smallest cosine between
     /// the way one road is left and the next is entered (1 for a route of one road).
     fn route_turn(&self, route: &[RouteStep]) -> f64 {
@@ -2594,6 +2607,8 @@ impl World {
                 }
             }
         }
+        // Original 0x446af0 runs here, after scheduled tasks and before moves.
+        changes.extend(self.remove_pending_ghosts());
         if let Some(r) = self.debug_rng_at_moves.take() {
             self.rng = r;
         }
@@ -2821,6 +2836,20 @@ pub fn drain_delayed_player_list(m:&mut crate::mem::Mem,mut delete:impl FnMut(&m
 #[cfg(test)]
 mod victory_tests {
     use super::*;
+
+    #[test]
+    fn tick_removes_marked_scene_ghost_and_preserves_other_kinds() {
+        let vehicle=Vehicle{id:"test".into(),model:String::new(),colour:0,kind:1,roles:vec![7,9],price:0.,power:0.,trailers:vec![],liquid:false};
+        let mut lists=Categories::default();lists.lists[8]=vec![0];lists.lists[9]=vec![0];
+        let mut w=World::new(std::rc::Rc::new(RoadNet::default()),vec![],vec![vehicle],lists,vec![],AiRng::default(),0);
+        let mut ghost=w.new_player(8);ghost.scene_remove_pending=true;let object=ghost.object.unwrap();w.loaded.insert(object);
+        let mut other=w.new_player(7);other.scene_remove_pending=true;
+        w.players=vec![ghost,other];w.first_load=false;
+        let changes=w.tick(0.,&mut |_,_|false);
+        assert_eq!(w.players[0].kind,0);assert!(!w.players[0].scene_remove_pending);assert!(!w.loaded.contains(&object));
+        assert!(changes.iter().any(|c|matches!(c,SceneChange::Unload(0))));
+        assert_eq!(w.players[1].kind,7);assert!(w.players[1].scene_remove_pending);
+    }
 
     #[test]
     fn original_delayed_player_scan_restarts_after_deletion() {
