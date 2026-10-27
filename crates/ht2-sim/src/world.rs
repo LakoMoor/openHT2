@@ -2939,6 +2939,18 @@ mod victory_tests {
     use super::*;
 
     #[test]
+    fn typed_world_competitor_and_company_flags_match_original() {
+        let vehicle=Vehicle{id:"test".into(),model:String::new(),colour:0,kind:1,roles:vec![9],price:0.,power:0.,trailers:vec![],liquid:false};
+        let mut lists=Categories::default();lists.lists[9]=vec![0];
+        let mut w=World::new(std::rc::Rc::new(RoadNet::default()),vec![],vec![vehicle],lists,vec![],AiRng::default(),0);let player=w.new_player(9);w.players.push(player);
+        for (case,line) in include_str!("../../../tools/emu/golden_player_derived_flags.tsv").lines().enumerate() {
+            let fields:Vec<_>=line.split('\t').collect();let v:Vec<u32>=fields[0].split(',').map(|x|x.parse().unwrap()).collect();let expected:u32=fields[1].parse().unwrap();
+            let p=&mut w.players[0];p.flags=v[0];p.tracked=v[1]!=0;p.boss=if v[2]!=0 {Some(1)}else{None};p.members=if v[3]!=0 {vec![1]}else{vec![]};
+            w.mirror_tracked(0);assert_eq!(w.players[0].flags&0x1880,expected&0x1880,"case {case}");assert_eq!(w.players[0].flags&!0x1880,v[0]&!0x1880,"case {case} unrelated flags");
+        }
+    }
+
+    #[test]
     fn original_player_cargo_lookup() {
         use crate::mem::Mem;
         for (case,line) in include_str!("../../../tools/emu/golden_cargo_lookup.tsv").lines().enumerate(){

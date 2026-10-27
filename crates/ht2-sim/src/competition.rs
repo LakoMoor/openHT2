@@ -33,11 +33,12 @@ impl World {
             }
             self.players[k].tracked = true;
         }
-        // 0x477210: flag 0x80 while a competitor
+        // Refresh the derived fields represented by the typed world.
         self.mirror_tracked(k);
     }
 
-    /// The part of `0x477210` that is kept: flag 0x80 while the player is a competitor.
+    /// Represented part of 0x477210: competitor and company flags. Cargo and
+    /// human-vehicle bits need additional original instance state.
     pub(crate) fn mirror_tracked(&mut self, k: usize) {
         let p = &mut self.players[k];
         if p.tracked {
@@ -45,6 +46,8 @@ impl World {
         } else {
             p.flags &= !0x80;
         }
+        if p.boss.is_some() {p.flags |= 0x800;} else {p.flags &= !0x800;}
+        if !p.members.is_empty() {p.flags |= 0x1000;} else {p.flags &= !0x1000;}
     }
 
     /// `0x417530`: player `k` is a competitor no more.
