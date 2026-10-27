@@ -31,6 +31,11 @@ mod mode_integration_tests {
         let owner=&car.ai_world.as_ref().unwrap().players[player];assert!(!owner.full_speed);assert_eq!(owner.drag,100.);
         for i in 0..3 {assert_eq!(car.m.u32(0x721298+i*4),car.m.u32(body+0x34+i*4));}
         heap.clear_vehicle(&mut car.m,wrapper);
+        let event=Node{name:"Remove".into(),kind:13,names:vec![],data:Data::CollisionVolume{sphere:[0.;4],volume_kind:0,geometry:vec![],surface:[0xcc0,0],params:vec![]},children:vec![],list:0};
+        let room=Node{name:"Room".into(),kind:19,names:vec![],data:Data::Other,children:vec![event],list:0};
+        let scene=crate::event_scene::EventScene::from_node(&room).unwrap();car.bind_event_scene(&scene,wrapper,"Room").unwrap();
+        assert!(car.update_traffic_scene_events(0,wrapper,id,flags,&mut heap));
+        assert!(car.ai_world.as_ref().unwrap().players[player].scene_remove_pending);assert_ne!(car.m.u32(id+0x60)&0x20000,0);
     }
     #[test]
     #[ignore="requires HT2_GAME installed game data"]
@@ -645,15 +650,20 @@ impl SimCar {
         let Some(owner)=self.slot_player.get(slot).copied().flatten() else{return false};
         let Some(player)=self.ai_world.as_mut().and_then(|world|world.players.get_mut(owner)) else{return false};
         if self.m.u32(vehicle+0x509c)!=player_id {return false;}
-        struct Source{vehicle:u32,kind:i32,pose:[f32;12]}
+        struct Source{vehicle:u32,player_id:u32,kind:i32,pose:[f32;12],remove:bool}
         impl ht2_sim::ai_scene::ObstacleSourceHooks for Source {
             fn player_kind(&mut self,_:&mut Mem,vehicle:u32)->i32 {assert_eq!(vehicle,self.vehicle);self.kind}
             fn world_transform(&mut self,_:&mut Mem,body:u32)->[f32;12]{assert_eq!(body,self.vehicle+0x10);self.pose}
         }
-        impl ht2_sim::ai_scene::SceneCommandHooks for Source {}
+        impl ht2_sim::ai_scene::SceneCommandHooks for Source {
+            fn mark_player(&mut self,m:&mut Mem,player:u32){
+                assert_eq!(player,self.player_id);m.set_u32(player+0x60,m.u32(player+0x60)|0x20000);self.remove=true;
+            }
+        }
         let pose=std::array::from_fn(|i|self.m.f32(body+0x10+i as u32*4));
-        let mut source=Source{vehicle,kind:player.kind as i32,pose};
-        heap.update_player(&mut self.m,vehicle,player_id,player,flags,&mut source);true
+        let mut source=Source{vehicle,player_id,kind:player.kind as i32,pose,remove:false};
+        heap.update_player(&mut self.m,vehicle,player_id,player,flags,&mut source);
+        player.scene_remove_pending|=source.remove;true
     }
 
     pub fn pos(&self) -> Vec3 {

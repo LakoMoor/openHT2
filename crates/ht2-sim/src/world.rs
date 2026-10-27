@@ -390,6 +390,9 @@ pub struct AiPlayer {
     pub ramp: SpeedFilter,
     pub full_speed: bool,
     pub drag: f64,
+    /// `+0x60` bit 0x20000: the scene requested delayed player removal.
+    /// The delayed-removal pass is not yet connected to this flag.
+    pub scene_remove_pending: bool,
 }
 
 impl AiPlayer {
@@ -760,7 +763,7 @@ impl World {
             _ => {}
         }
         let name = if kind == 1 { None } else { self.pick_name(kind) };
-        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, race_index: 0, laps: 0, race_progress: 0.0, advancement: 0.0, behind: false, shadow: false, comp_count: 0, comp_place: 0, comp_told: -1, wins: 0, police_score: 0.0, mafia_score: 0.0, scores: [0.0; 3], offence_flags: 0, hide: false, for_mafia: false, target: None, waypoints: Vec::new(), until: f64::MAX, town: -1, order: -1, loads: Vec::new(), money: 40000.0, earned: 0.0, earning: 2.0, share: 0.0, fleet: 0.0, won: false, rating: 10000.0, licences: Vec::new(), boss: None, members: Vec::new(), salary: 0.0, advance: 0.0, company_balance: 0.0, logo: None, vehicle_flags: 0, alarmed: false, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0 }
+        AiPlayer { kind, vehicle, trailer, name, place: None, route: Vec::new(), parked: None, state: 0, last_pos: [0.0; 3], speed: 20.0, speed2: 0.0, velocity: [0.0; 3], filters: [SpeedFilter::new(1e-4), SpeedFilter::new(1e-3)], driven: false, born: 0.0, flags: u32::from(kind == 1), object: Some(self.next_object()), tracked: false, dealer: None, race_index: 0, laps: 0, race_progress: 0.0, advancement: 0.0, behind: false, shadow: false, comp_count: 0, comp_place: 0, comp_told: -1, wins: 0, police_score: 0.0, mafia_score: 0.0, scores: [0.0; 3], offence_flags: 0, hide: false, for_mafia: false, target: None, waypoints: Vec::new(), until: f64::MAX, town: -1, order: -1, loads: Vec::new(), money: 40000.0, earned: 0.0, earning: 2.0, share: 0.0, fleet: 0.0, won: false, rating: 10000.0, licences: Vec::new(), boss: None, members: Vec::new(), salary: 0.0, advance: 0.0, company_balance: 0.0, logo: None, vehicle_flags: 0, alarmed: false, ramp: SpeedFilter::new(0.01).at(1.0), full_speed: true, drag: 1000.0, scene_remove_pending: false }
     }
 
     /// `traceToArbitraryDestination` (`0x417820`): random destinations (`0x456140`) until there
