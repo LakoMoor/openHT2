@@ -1,6 +1,25 @@
 //! Operations bridging scene vehicles and the trajectory AI.
 use crate::mem::Mem;
 
+pub trait UpdateStartHooks {
+    fn player_flags(&mut self,m:&mut Mem,player:u32)->u32;
+    fn lost_trajectory(&mut self,m:&mut Mem);
+}
+/// Prelude `0x4cf620..0x4cf746`. False is the human early return; callers
+/// must skip the subsequent AI trajectory, mode and event blocks in that case.
+/// The stock 0x4cef50 stub always returns zero and has no side effects.
+pub fn begin_vehicle_update(m:&mut Mem,vehicle:u32,flags:u32,h:&mut impl UpdateStartHooks)->bool {
+    let player=m.u32(vehicle+0x509c);
+    if player!=m.u32(0x68b990) {let value=h.player_flags(m,player);m.set_u32(flags,value);}
+    if m.u32(m.u32(0x6d2078)+0x268)==vehicle {return false;}
+    let player=m.u32(vehicle+0x509c);
+    if player!=m.u32(0x68b990) && m.rd8(flags)&4==0 && m.u32(player+0x18)==m.u32(player+0x1c) {h.lost_trajectory(m);}
+    let hour=m.f64(m.u32(0x6f33ac)+0x58);
+    let night=!(hour<=22.) || !(hour>=6.);
+    let lights=if night {let player=m.u32(vehicle+0x509c);h.player_flags(m,player)&4==0}else{false};
+    m.set_u32(vehicle+0x51b8,u32::from(lights));true
+}
+
 pub trait ObstacleSourceHooks {
     /// Kind from the original 0x43fc40 snapshot query.
     fn player_kind(&mut self,m:&mut Mem,vehicle:u32)->i32;
@@ -453,6 +472,25 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn original_vehicle_update_prelude() {
+        use super::*;
+        struct Hooks{flags:u32,trace:Vec<&'static str>}
+        impl UpdateStartHooks for Hooks {
+            fn player_flags(&mut self,_:&mut Mem,_:u32)->u32{self.trace.push("flags");self.flags}
+            fn lost_trajectory(&mut self,_:&mut Mem){self.trace.push("lost");}
+        }
+        for (case,line) in include_str!("../../../tools/emu/golden_vehicle_update_start.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let get=|i:usize|p[i].parse::<u32>().unwrap();let mut m=Mem::new();
+            let vehicle=0x1a000000;let player=0x1b000000;let scenario=0x1c000000;let clock=0x1d000000;let flags=0x1e000000;
+            m.set_u32(vehicle+0x509c,player);m.set_u32(0x68b990,if get(1)!=0 {player}else{0});m.set_u32(0x6d2078,scenario);m.set_u32(scenario+0x268,if get(0)!=0 {vehicle}else{0});
+            m.set_u32(player+0x18,123);m.set_u32(player+0x1c,if get(2)!=0 {123}else{124});m.set_u32(0x6f33ac,clock);
+            let raw=(0..16).step_by(2).map(|i|u8::from_str_radix(&p[6][i..i+2],16).unwrap()).collect::<Vec<_>>();m.write(clock+0x58,&raw);
+            m.set_u32(flags,get(4));m.set_u32(vehicle+0x51b8,get(5));let mut h=Hooks{flags:get(3),trace:vec![]};
+            assert_eq!(begin_vehicle_update(&mut m,vehicle,flags,&mut h),get(0)==0,"return {case}");
+            assert_eq!(m.u32(flags),get(7),"flags {case}");assert_eq!(m.u32(vehicle+0x51b8),get(8),"lights {case}");assert_eq!(h.trace.join(";"),p[9],"trace {case}");
+        }
+    }
     use super::*;
     #[test]
     fn original_player_record_copy_order() {
