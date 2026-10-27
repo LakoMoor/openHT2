@@ -16,8 +16,17 @@ pub struct EventScene {
 }
 impl EventScene {
     pub fn from_node(node:&Node)->Result<Self,String> {
+        Self::from_nodes(std::slice::from_ref(node),&node.name)
+    }
+    /// Build all supplied definitions before resolving links. The selected root
+    /// alone is visited by query; other roots can supply spaces and key owners.
+    pub fn from_nodes(nodes:&[Node],root_name:&str)->Result<Self,String> {
         let mut out=Self{memory:Mem::new(),root:0,next:0x4200_0000,switches:HashMap::new(),references:Vec::new(),nodes:HashMap::new(),links:Vec::new(),groups:Vec::new()};
-        out.root=out.add(node)?;
+        for node in nodes {
+            let address=out.add(node)?;
+            if out.root==0 && node.name==root_name {out.root=address;}
+        }
+        if out.root==0 {return Err(format!("event root not found: {root_name}"));}
         for (address,name) in &out.references {
             let target=out.switches.get(name).copied().ok_or_else(||format!("unresolved event switch reference: {name}"))?;
             out.memory.set_u32(*address+0x3c,target);
@@ -89,7 +98,7 @@ impl EventScene {
             // Point predicate rejects these two volume kinds, so no payload is read.
             (Data::Collision{..},23)=>{self.volume(node,0x40,6,&[]);(9,0)}
             (Data::Wall{..},20)=>{self.volume(node,0x40,7,&[]);(9,0)}
-            (_,21|36|37)=>return Err(format!("event adapter requires reference/state binding: {} (B3D {})",n.name,n.kind)),
+            (_,21)=>return Err(format!("event adapter requires reference/state binding: {} (B3D {})",n.name,n.kind)),
             // Other runtime classes are ignored by 0x5dbf00, including spaces,
             // geometry and cameras. Their children must not be searched either.
             _=>(0,0),
@@ -143,8 +152,15 @@ mod tests {
     fn b3d_point_events_match_native_pipeline() {
         for data in [include_str!("../../../tools/emu/golden_b3d_event_pipeline.tsv"),include_str!("../../../tools/emu/golden_b3d_switch_events.tsv"),include_str!("../../../tools/emu/golden_b3d_refer_events.tsv"),include_str!("../../../tools/emu/golden_b3d_link_events.tsv"),include_str!("../../../tools/emu/golden_b3d_group_events.tsv")] {
         for (case,line) in data.lines().enumerate(){
+            for separate_definitions in [false,true] {
             let p:Vec<_>=line.split('\t').collect();let bytes=(0..p[0].len()).step_by(2).map(|i|u8::from_str_radix(&p[0][i..i+2],16).unwrap()).collect::<Vec<_>>();
-            let b3d=ht2_formats::b3d::parse(&bytes).unwrap();let mut scene=EventScene::from_node(&b3d.nodes[0]).unwrap();
+            let mut b3d=ht2_formats::b3d::parse(&bytes).unwrap();
+            if separate_definitions {
+                let children=&mut b3d.nodes[0].children;
+                if children.len()!=2 || !matches!(children[1].kind,21|24) {continue;}
+                let definition=children.remove(1);b3d.nodes.push(definition);
+            }
+            let mut scene=EventScene::from_nodes(&b3d.nodes,&b3d.nodes[0].name).unwrap();
             if p.len()>4 {assert!(scene.set_switch("refer_Source",99));}
             let mut commands=Commands(Vec::new());scene.query([3.,4.,5.],456,&mut commands);
             let actual=commands.0.iter().map(|(kind,sub,params)|format!("{kind},{sub},{}",params.iter().map(|x|x.to_string()).collect::<Vec<_>>().join(","))).collect::<Vec<_>>().join(";");
@@ -154,6 +170,7 @@ mod tests {
                 let mut commands=Commands(Vec::new());scene.query([3.,4.,5.],456,&mut commands);
                 let actual=commands.0.iter().map(|(kind,sub,params)|format!("{kind},{sub},{}",params.iter().map(|x|x.to_string()).collect::<Vec<_>>().join(","))).collect::<Vec<_>>().join(";");
                 assert_eq!(actual,p[3],"updated case {case}");
+            }
             }
         }
         }
