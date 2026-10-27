@@ -139,6 +139,17 @@ impl EventScene {
     pub fn query(&mut self,point:[f32;3],user:u32,hooks:&mut impl EventHooks) {
         scene_events::query(&mut self.memory,self.root,point,0,user,hooks);
     }
+    /// Install owned scene records into the simulation address space once.
+    /// Scene addresses stay stable, so callbacks can pass payloads directly to
+    /// the vehicle command receiver without copying or a second address space.
+    pub fn install(&self,m:&mut Mem) {
+        const BASE:u32=0x4200_0000;
+        m.write(BASE,&self.memory.read(BASE,(self.next-BASE) as usize));
+    }
+    pub fn query_in(&self,m:&mut Mem,root_name:&str,point:[f32;3],user:u32,hooks:&mut impl EventHooks)->Result<(),String> {
+        let root=self.nodes.get(root_name).copied().ok_or_else(||format!("event query root not found: {root_name}"))?;
+        scene_events::query(m,root,point,0,user,hooks);Ok(())
+    }
     /// Update the owning switch key. Event traversal reads it on each query;
     /// unlike rendering, it does not clamp the selection to the case count.
     pub fn set_switch(&mut self,name:&str,key:i32)->bool {
@@ -150,6 +161,30 @@ impl EventScene {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn b3d_event_reaches_vehicle_receiver_in_shared_memory() {
+        use ht2_sim::ai_scene::{self,ObstacleSourceHooks,SceneCommandHooks,CommandHeap};
+        struct Receiver;
+        impl ObstacleSourceHooks for Receiver {
+            fn player_kind(&mut self,_:&mut Mem,_:u32)->i32 {0}
+            fn world_transform(&mut self,_:&mut Mem,_:u32)->[f32;12]{[1.,0.,0.,0.,1.,0.,0.,0.,1.,0.,0.,2.]}
+        }
+        impl SceneCommandHooks for Receiver {fn height_modifier(&mut self,_:&mut Mem)->bool{false}}
+        impl CommandHeap for Receiver {
+            fn allocate(&mut self,m:&mut Mem,bytes:u32)->u32{m.alloc(bytes)}
+            fn release(&mut self,_:&mut Mem,_:u32){}
+        }
+        impl EventHooks for Receiver {
+            fn event(&mut self,m:&mut Mem,_:u32,command:u32,vehicle:u32){ai_scene::receive_scene_command(m,command,vehicle,&mut Receiver,self);}
+        }
+        let event=Node{name:"Height".into(),kind:13,names:vec![],data:Data::CollisionVolume{sphere:[0.;4],volume_kind:0,geometry:vec![],surface:[16,0],params:vec![3f32.to_bits()]},children:vec![],list:0};
+        let room=Node{name:"Room".into(),kind:19,names:vec![],data:Data::Other,children:vec![event],list:0};
+        let scene=EventScene::from_node(&room).unwrap();let mut m=Mem::new();scene.install(&mut m);
+        let vehicle=0x1a000000;let player=0x1b000000;m.set_u32(vehicle+0x509c,player);
+        scene.query_in(&mut m,"Room",[0.,0.,2.],vehicle,&mut Receiver).unwrap();
+        assert_eq!(m.u32(player+0x60),0x20000);
+        assert!(scene.query_in(&mut m,"Missing",[0.;3],vehicle,&mut Receiver).is_err());
+    }
     #[test]
     fn optional_names_match_native_resolver() {
         for line in include_str!("../../../tools/emu/golden_optional_event_names.tsv").lines(){
@@ -182,6 +217,14 @@ mod tests {
         let scene=EventScene::from_map_files(std::path::Path::new(&game),&files,&files[0].nodes[0].name).unwrap();
         assert!(scene.switches.contains_key("ILLUM_LEVEL_14"));
         assert!(scene.root!=0);
+        let mut memory=Mem::new();scene.install(&mut memory);
+        let mut rooms=scene.nodes.iter().filter(|(_,address)|scene.memory.u32(**address+0x10)==15).map(|(name,_)|name.clone()).collect::<Vec<_>>();rooms.sort();
+        assert!(!rooms.is_empty());let mut delivered=0;
+        for name in &rooms {
+            let mut commands=Commands(Vec::new());
+            scene.query_in(&mut memory,name,[0.,0.,0.],456,&mut commands).unwrap();delivered+=commands.0.len();
+        }
+        println!("installed ENV: {} room queries, {delivered} commands at origin",rooms.len());
     }
     #[test]
     fn b3d_point_events_match_native_pipeline() {
