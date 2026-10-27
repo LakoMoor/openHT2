@@ -2882,6 +2882,23 @@ pub fn remove_competitor_record(m:&mut crate::mem::Mem,player:u32,mut refresh:im
     m.wr8(player+0x1f0,0);m.set_u32(player+0x20c,0);m.set_u32(player+0x210,0);m.set_u32(player+0x214,u32::MAX);
     refresh(m,player);m.wr8(player+0x368,1);
 }
+
+/// 0x477210: refresh derived player flags. `cargo` represents the original
+/// 0x4777b0 lookup, including its diagnostics and possible side effects.
+pub fn refresh_player_flags(m:&mut crate::mem::Mem,player:u32,mut cargo:impl FnMut(&mut crate::mem::Mem,u32)->u32) {
+    fn bit(m:&mut crate::mem::Mem,p:u32,mask:u32,on:bool) {let flags=m.u32(p+0x60);m.set_u32(p+0x60,if on {flags|mask}else{flags&!mask});}
+    bit(m,player,0x80,m.rd8(player+0x1f0)!=0);
+    bit(m,player,0x800,m.u32(player+0xb0)!=m.u32(0x68b990));
+    bit(m,player,0x1000,m.u32(player+0xa0)!=m.u32(player+0xa4));
+    let has_cargo=cargo(m,player+8)!=0;
+    let route=m.u32(player+0x18)!=m.u32(player+0x1c);
+    let vehicle=m.u32(player+0x204);
+    let attachment=(has_cargo||route) && vehicle!=0 && m.u32(m.u32(vehicle+0x10)+0x80)!=0;
+    bit(m,player,0x2000,attachment);
+    let human=m.u32(player+0x5c)==1;
+    let engine=human && m.rd8(m.u32(player+0x204)+0x28)&1!=0;
+    bit(m,player,0x2000000,engine);
+}
 pub struct OwnedVehiclePlayerReferences<'a,H:ReferenceVectorHeap>(pub &'a mut H);
 impl<H:ReferenceVectorHeap> VehiclePlayerReferences for OwnedVehiclePlayerReferences<'_,H> {
     fn assign(&mut self,m:&mut crate::mem::Mem,d:u32,s:u32){assign_player_reference(m,d,s,self.0);}
@@ -2908,6 +2925,28 @@ pub fn clear_vehicle_player(m:&mut crate::mem::Mem,vehicle:u32,player:u32,h:&mut
 #[cfg(test)]
 mod victory_tests {
     use super::*;
+
+    #[test]
+    fn original_derived_player_flags() {
+        use crate::mem::Mem;
+        for (case,line) in include_str!("../../../tools/emu/golden_player_derived_flags.tsv").lines().enumerate(){
+            let parts:Vec<_>=line.split('\t').collect();let v:Vec<u32>=parts[0].split(',').map(|x|x.parse().unwrap()).collect();
+            let p=0x2a000000;let fallback=p+0x10000;let truck=p+0x20000;let tech=p+0x30000;let mut m=Mem::new();m.set_u32(0x68b990,fallback);
+            m.set_u32(p+0x60,v[0]);m.wr8(p+0x1f0,v[1] as u8);m.set_u32(p+0xb0,if v[2]!=0 {p+0x40000}else{fallback});m.set_u32(p+0xa0,0x111);m.set_u32(p+0xa4,0x111+v[3]*4);
+            m.set_u32(p+0x18,0x222);m.set_u32(p+0x1c,0x222+v[5]*12);m.set_u32(p+0x204,if v[6]!=0 || v[8]!=0 {truck}else{0});m.set_u32(truck+0x10,tech);m.set_u32(truck+0x28,v[9]);m.set_u32(tech+0x80,v[7]);m.set_u32(p+0x5c,if v[8]!=0 {1}else{8});
+            let mut trace=vec![];refresh_player_flags(&mut m,p,|_,id|{assert_eq!(id,p+8);trace.push("cargo");v[4]});
+            assert_eq!(m.u32(p+0x60),parts[1].parse::<u32>().unwrap(),"case {case} flags");assert_eq!(trace.join(";"),parts[2],"case {case} calls");
+        }
+    }
+    #[test]
+    fn competitor_removal_refreshes_derived_flags() {
+        use crate::mem::Mem;
+        let mut m=Mem::new();let p=0x2a000000;let list=p+0x1000;let fallback=p+0x2000;
+        m.set_u32(0x68a980,list);m.set_u32(0x68a984,list+4);m.set_u32(list,p);m.set_u32(0x68b990,fallback);m.set_u32(p+0xb0,fallback);
+        m.wr8(p+0x1f0,1);m.set_u32(p+0x60,0x80);m.set_u32(p+0x5c,8);
+        remove_competitor_record(&mut m,p,|m,p|refresh_player_flags(m,p,|_,_|0));
+        assert_eq!(m.u32(0x68a984),list);assert_eq!(m.rd8(p+0x1f0),0);assert_eq!(m.u32(p+0x60)&0x80,0);assert_eq!(m.rd8(p+0x368),1);
+    }
 
     #[test]
     fn original_remove_competitor_record() {
