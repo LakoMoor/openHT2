@@ -74,4 +74,3 @@ for case in range(100):
  rows.append(result)
 pathlib.Path(__file__).with_name('golden_b3d_group_events.tsv' if group else 'golden_b3d_link_events.tsv' if link else 'golden_b3d_refer_events.tsv' if refer else 'golden_b3d_switch_events.tsv' if switch else 'golden_b3d_event_pipeline.tsv').write_text('\n'.join(rows)+'\n')
 print('100 B3D event pipelines captured')
-
