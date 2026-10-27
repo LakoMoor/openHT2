@@ -2833,9 +2833,57 @@ pub fn drain_delayed_player_list(m:&mut crate::mem::Mem,mut delete:impl FnMut(&m
     }
 }
 
+/// Boundaries for copying and destroying the owned vectors within a 16-byte
+/// player-reference record (0x42bfe0 and 0x44b090).
+pub trait VehiclePlayerReferences {
+    fn assign(&mut self,m:&mut crate::mem::Mem,destination:u32,source:u32);
+    fn destroy(&mut self,m:&mut crate::mem::Mem,vector:u32);
+}
+
+/// 0x4464c0: remove the first matching player from each vehicle sub-list.
+/// Record assignment and vector destruction remain with the heap owner.
+pub fn clear_vehicle_player(m:&mut crate::mem::Mem,vehicle:u32,player:u32,h:&mut impl VehiclePlayerReferences) {
+    if vehicle==0{return;}
+    let mut group=m.u32(vehicle+0x1c);
+    while group!=m.u32(vehicle+0x20) {
+        let mut record=m.u32(group+0x78);let end=m.u32(group+0x7c);
+        while record!=end && m.u32(record)!=player {record=record.wrapping_add(16);}
+        if record!=end {
+            let mut source=record+16;
+            while source<end {h.assign(m,record,source);record=source;source+=16;}
+            let last=m.u32(group+0x7c)-16;m.set_u32(group+0x7c,last);h.destroy(m,last+4);
+        }
+        group+=0x90;
+    }
+}
+
 #[cfg(test)]
 mod victory_tests {
     use super::*;
+
+    #[test]
+    fn original_vehicle_player_reference_removal() {
+        use crate::mem::Mem;
+        struct Hooks;
+        impl VehiclePlayerReferences for Hooks {
+            fn assign(&mut self,m:&mut Mem,d:u32,s:u32){let bytes=m.read(s,16);m.write(d,&bytes);}
+            fn destroy(&mut self,_:&mut Mem,_:u32){}
+        }
+        for (case,line) in include_str!("../../../tools/emu/golden_clear_vehicle_player.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let count:u32=p[0].parse().unwrap();let obj=0x2a000000;let groups=obj+0x1000;let data=obj+0x10000;let mut m=Mem::new();
+            m.set_u32(obj+0x1c,groups);m.set_u32(obj+0x20,groups+count*0x90);
+            for j in 0..4u32 {
+                let row:Vec<u32>=p[2+j as usize].split(',').filter(|s|!s.is_empty()).map(|s|s.parse().unwrap()).collect();let base=data+j*0x100;
+                m.set_u32(groups+j*0x90+0x78,base);m.set_u32(groups+j*0x90+0x7c,base+row.len() as u32*16);
+                for (k,&id) in row.iter().enumerate(){for t in 0..4 {m.set_u32(base+k as u32*16+t*4,if t==0 {id}else{(j+1)*1000+k as u32*10+t});}}
+            }
+            clear_vehicle_player(&mut m,if p[1]=="1" {0}else{obj},0x12345678,&mut Hooks);
+            for j in 0..4u32 {let base=data+j*0x100;let length=(m.u32(groups+j*0x90+0x7c)-base)/16;
+                let actual=(0..length).flat_map(|k|(0..4).map(move |t|(k,t))).map(|(k,t)|m.u32(base+k*16+t*4).to_string()).collect::<Vec<_>>().join(",");
+                assert_eq!(actual,p[6+j as usize],"case {case}, list {j}");
+            }
+        }
+    }
 
     #[test]
     fn tick_removes_marked_scene_ghost_and_preserves_other_kinds() {
