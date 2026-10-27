@@ -2,15 +2,17 @@
 //! whose references/state are not connected yet, instead of inventing traversal.
 use ht2_formats::b3d::{Data,Node};
 use ht2_sim::{mem::Mem,scene_events::{self,EventHooks}};
+use std::collections::HashMap;
 
 pub struct EventScene {
     memory:Mem,
     root:u32,
     next:u32,
+    switches:HashMap<String,u32>,
 }
 impl EventScene {
     pub fn from_node(node:&Node)->Result<Self,String> {
-        let mut out=Self{memory:Mem::new(),root:0,next:0x4200_0000};
+        let mut out=Self{memory:Mem::new(),root:0,next:0x4200_0000,switches:HashMap::new()};
         out.root=out.add(node)?;Ok(out)
     }
     fn alloc(&mut self,bytes:u32)->u32 {let p=self.next;self.next+=(bytes+15)&!15;p}
@@ -31,6 +33,13 @@ impl EventScene {
         let (kind,lists)=match (&n.data,n.kind) {
             (_,19)=>(15,1),
             (_,2)=>(7,3),
+            (Data::Switch{cases,key},21)=>{
+                if n.name.starts_with("refer_") {return Err(format!("event switch requires reference binding: {}",n.name));}
+                let lists=usize::try_from(*cases).map_err(|_|format!("negative switch case count in {}",n.name))?;
+                if lists>65536 {return Err(format!("switch case count too large in {}",n.name));}
+                self.memory.set_i32(node+0x38,*key);
+                self.switches.entry(n.name.clone()).or_insert(node);(18,lists)
+            }
             (Data::Split{plane},9|22)=>{self.volume(node,0x38,5,plane);(8,2)}
             (Data::VolumeBranch{volume_kind,geometry,..},10|11)=>{self.volume(node,0x38,*volume_kind,geometry);(8,2)}
             (Data::CollisionVolume{volume_kind,geometry,surface,params,..},13..=17)=>{
@@ -65,6 +74,12 @@ impl EventScene {
     pub fn query(&mut self,point:[f32;3],user:u32,hooks:&mut impl EventHooks) {
         scene_events::query(&mut self.memory,self.root,point,0,user,hooks);
     }
+    /// Update the owning switch key. Event traversal reads it on each query;
+    /// unlike rendering, it does not clamp the selection to the case count.
+    pub fn set_switch(&mut self,name:&str,key:i32)->bool {
+        let Some(node)=self.switches.get(name).copied() else{return false;};
+        self.memory.set_i32(node+0x38,key);true
+    }
 }
 
 #[cfg(test)]
@@ -84,12 +99,20 @@ mod tests {
     }
     #[test]
     fn b3d_point_events_match_native_pipeline() {
-        for (case,line) in include_str!("../../../tools/emu/golden_b3d_event_pipeline.tsv").lines().enumerate(){
+        for data in [include_str!("../../../tools/emu/golden_b3d_event_pipeline.tsv"),include_str!("../../../tools/emu/golden_b3d_switch_events.tsv")] {
+        for (case,line) in data.lines().enumerate(){
             let p:Vec<_>=line.split('\t').collect();let bytes=(0..p[0].len()).step_by(2).map(|i|u8::from_str_radix(&p[0][i..i+2],16).unwrap()).collect::<Vec<_>>();
             let b3d=ht2_formats::b3d::parse(&bytes).unwrap();let mut scene=EventScene::from_node(&b3d.nodes[0]).unwrap();
             let mut commands=Commands(Vec::new());scene.query([3.,4.,5.],456,&mut commands);
             let actual=commands.0.iter().map(|(kind,sub,params)|format!("{kind},{sub},{}",params.iter().map(|x|x.to_string()).collect::<Vec<_>>().join(","))).collect::<Vec<_>>().join(";");
             assert_eq!(actual,p[1],"case {case}");
+            if p.len()>2 {
+                assert!(scene.set_switch("Branch",p[2].parse().unwrap()));
+                let mut commands=Commands(Vec::new());scene.query([3.,4.,5.],456,&mut commands);
+                let actual=commands.0.iter().map(|(kind,sub,params)|format!("{kind},{sub},{}",params.iter().map(|x|x.to_string()).collect::<Vec<_>>().join(","))).collect::<Vec<_>>().join(";");
+                assert_eq!(actual,p[3],"updated case {case}");
+            }
+        }
         }
     }
 }

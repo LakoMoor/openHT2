@@ -1,7 +1,8 @@
 """B3D fixtures + native volume loaders and complete point traversal.
 File/heap boundaries and child parsing replaced; native child tables/traversal/math run.
 """
-import pathlib,random,struct
+import pathlib,random,struct,sys
+switch="--switch" in sys.argv
 from emu import Emu,OBJ_BASE,STUB
 r=random.Random(0xb3de);e=Emu();base=OBJ_BASE;vt=base+0x800;cursor=0;raw=b'';heap=base+0x10000;trace=[]
 w=lambda *x:struct.pack('<'+'I'*len(x),*x)
@@ -24,6 +25,8 @@ for case in range(100):
  bk=10+case%2;vk=1 if bk==10 else 3;geometry=[r.uniform(-5,5) for _ in range(4 if bk==10 else 8)]
  if bk==11:geometry=[0,0,0,0,0,1,r.uniform(0,10),r.uniform(0,10)]
  body=f([0,0,0,100]+geometry)+w(2);raw=body;cursor=0;e.set_u32(branch+0x38,vk);e.call(0x5f8ed0,[123,0,0],'iii',this=branch)
+ if switch:
+  bk=21;key=case%4;body=f([0,0,0,100])+w(2,key,2);e.set_u32(branch+0x38,key)
  blocks=[]
  for i,n in enumerate(events):
   kind=r.choice([12,13,14,15,16,17]);vk=5 if kind==12 else kind-13
@@ -32,7 +35,7 @@ for case in range(100):
   params=[r.getrandbits(32) for _ in range(i+1)];surface=[29,case*10+i]
   eb=f([0,0,0,100]+geo)+w(*surface,len(params),*params);raw=eb;cursor=0;e.set_u32(n+0x40,vk);e.call(0x5f9300,[123,0,0],'iii',this=n)
   e.set_u32(n+0x10,9);blocks.append(w(333)+name('Event'+str(i))+w(kind)+eb+w(555))
- for n,kind in [(base,15),(branch,8)]:e.set_u32(n,vt);e.set_u32(n+0x10,kind)
+ for n,kind in [(base,15),(branch,18 if switch else 8)]:e.set_u32(n,vt);e.set_u32(n+0x10,kind)
  e.set_u32(base+0x30,base+0x600);e.set_u32(base+0x34,1);e.set_u32(base+0x600,branch)
  e.set_u32(branch+0x30,base+0x610);e.set_u32(branch+0x34,2)
  for i,n in enumerate(events):e.set_u32(base+0x610+i*4,n)
@@ -40,6 +43,9 @@ for case in range(100):
  nodes=w(111,333)+name('Room')+w(19,1,333)+name('Branch')+w(bk)+body+blocks[0]+w(444)+blocks[1]+w(555,555,222)
  mats=w(0);offset=7;length=offset+len(nodes)//4
  b3d=b'b3d\0'+w(length,6,1,offset,len(nodes)//4)+mats+nodes
- rows.append(b3d.hex()+'\t'+';'.join(trace))
-pathlib.Path(__file__).with_name('golden_b3d_event_pipeline.tsv').write_text('\n'.join(rows)+'\n')
+ result=b3d.hex()+'\t'+';'.join(trace)
+ if switch:
+  key=(case+1)%4;e.set_u32(branch+0x38,key);trace.clear();e.call(0x5dbec0,[base,3.,4.,5.,STUB+0x200,456],'ifffii');result+='\t'+str(key)+'\t'+';'.join(trace)
+ rows.append(result)
+pathlib.Path(__file__).with_name('golden_b3d_switch_events.tsv' if switch else 'golden_b3d_event_pipeline.tsv').write_text('\n'.join(rows)+'\n')
 print('100 B3D event pipelines captured')
