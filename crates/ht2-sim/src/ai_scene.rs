@@ -47,6 +47,29 @@ pub fn trajectory_motion(m:&mut Mem,vehicle:u32,direction:[f32;3]) {
     for i in 0..3 {m.set_f32(vehicle+0x50d0+i*4,(m.f32(INPUT+16+i*4) as f64*18.) as f32);}
     for i in 0..3 {let value=m.u32(0x702650+i*4);m.set_u32(vehicle+0x50e8+i*4,value);}
 }
+/// `0x4cf96d..0x4cfa3a`: translation vector used to smooth lateral
+/// displacement in the trajectory frame. `inverse` is the already-inverted
+/// trajectory pose; its owner supplies a valid matrix and frame clock.
+pub fn trajectory_lateral_translation(m:&Mem,vehicle:u32,driver:u32,inverse:u32,lane:i32)->[f32;3] {
+    let x=m.f32(vehicle+0x50c4) as f64;let y=m.f32(vehicle+0x50c8) as f64;let z=m.f32(vehicle+0x50cc) as f64;
+    let old=((m.f32(inverse+24) as f64*z+m.f32(inverse+12) as f64*y)+m.f32(inverse) as f64*x)+m.f32(inverse+36) as f64;
+    let dt=m.f64(m.u32(0x696ca0)+0xb90);
+    let decay=(0.2f32 as f64).powf(dt*10.);
+    let desired=(lane as f64+0.5)*m.f64(driver+0x40a8);
+    let offset=decay*old+(1.-decay)*desired;
+    std::array::from_fn(|i|(offset*m.f32(0x702640+i as u32*4) as f64) as f32)
+}
+/// `0x4cf958..0x4cfa62`: compose the road pose with the smoothed lateral
+/// translation and store the resulting scene trajectory matrix at +0x50a0.
+/// The road pose itself and lane selection are provided by the AI world.
+pub fn trajectory_sync_pose(m:&mut Mem,vehicle:u32,driver:u32,road_pose:u32,lane:i32) {
+    const S:u32=0x2ffd_4e80;
+    crate::math::mat_inverse(m,S,road_pose);
+    let offset=trajectory_lateral_translation(m,vehicle,driver,S,lane);
+    crate::matrix::put12(m,S+48,&crate::matrix::IDENTITY);
+    for (i,v) in offset.into_iter().enumerate(){m.set_f32(S+48+36+i as u32*4,v);}
+    crate::matrix::mat_mul(m,vehicle+0x50a0,S+48,road_pose);
+}
 
 pub trait SceneCommandHooks:ObstacleSourceHooks {
     /// Nonzero local +0x120 result of 0x568f60/0x476930 query for message 0x10.
@@ -494,6 +517,28 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn original_trajectory_sync_pose() {
+        use super::*;
+        let decode=|s:&str|(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect::<Vec<_>>();
+        for (case,line) in include_str!("../../../tools/emu/golden_trajectory_sync_pose.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let data=decode(p[0]);let mut m=Mem::new();let vehicle=0x1a000000;let pose=0x1b000000;let driver=0x1c000000;let clock=0x1d000000;
+            m.write(pose,&data[..48]);m.write(vehicle+0x50c4,&data[48..]);m.set_u32(0x696ca0,clock);m.write(clock+0xb90,&decode(p[1]));m.write(driver+0x40a8,&decode(p[2]));m.set_f32(0x702640,1.);
+            trajectory_sync_pose(&mut m,vehicle,driver,pose,p[3].parse().unwrap());
+            assert_eq!(m.read(vehicle+0x50a0,48),decode(p[4]),"case {case}");
+        }
+    }
+    #[test]
+    fn original_trajectory_lateral_translation() {
+        use super::*;
+        let decode=|s:&str|(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect::<Vec<_>>();
+        for (case,line) in include_str!("../../../tools/emu/golden_trajectory_lateral.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let data=decode(p[0]);let mut m=Mem::new();let vehicle=0x1a000000;let inverse=0x1b000000;let driver=0x1c000000;let clock=0x1d000000;
+            m.write(inverse,&data[..48]);m.write(vehicle+0x50c4,&data[48..]);m.set_u32(0x696ca0,clock);m.write(clock+0xb90,&decode(p[1]));m.write(driver+0x40a8,&decode(p[2]));m.set_f32(0x702640,1.);
+            let actual=trajectory_lateral_translation(&m,vehicle,driver,inverse,p[3].parse().unwrap());
+            assert_eq!(actual.iter().flat_map(|x|x.to_le_bytes()).collect::<Vec<_>>(),decode(p[4]),"case {case}");
+        }
+    }
     #[test]
     fn original_trajectory_motion_writes() {
         use super::*;
