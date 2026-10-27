@@ -9,6 +9,7 @@ mod menu;
 mod camera;
 mod cockpit;
 mod event_scene;
+mod event_heap;
 
 use glam::{Mat4, Vec3};
 use ground::Ground;
