@@ -27,6 +27,10 @@ mod mode_integration_tests {
         car.slot_player[0]=Some(player);car.ai_world.as_mut().unwrap().players[player].flags=0;
         car.step_traffic(&world.ground,1./60.);
         assert_ne!(car.m.f64(physical+ai::LANE_WIDTH),3.141592653589793,"ordinary owner recalculates lane width");
+        car.slot_player[0]=Some(player);car.ai_world.as_mut().unwrap().players[player].flags=4;
+        car.m.set_f32(physical+0x270c,0.5);car.m.set_f32(physical+0x2710,0.);car.m.set_u32(physical+0x271c,123);
+        car.step_traffic(&world.ground,1./60.);
+        assert_eq!(car.m.f32(physical+0x270c),0.);assert_eq!(car.m.f32(physical+0x2710),1.);assert_eq!(car.m.u32(physical+0x271c),0);
     }
     #[test]
     #[ignore="requires HT2_GAME installed game data"]

@@ -451,8 +451,9 @@ impl Driver {
 /// and the vehicles `others` (addresses, the driver's own among them). `owner` are the flags of
 /// the owner (`0x43f620`), `dt` the frame time. Not ported: the checks of `0x4d3880` (what is
 /// right in front when stuck or turning round), the horn of `0x4d6340`, the vehicle the camera
-/// follows and owners flagged 4 (full brake).
+/// follows. An owner flagged 4 takes the original full-brake early return.
 pub fn drive(m: &mut Mem, this: u32, net: &RoadNet, rng: &mut AiRng, drv: &mut Driver, owner: u32, race_index:i32, dt: f64, others: &[u32]) {
+    if owner_brake_override(m,this,owner) {return;}
     // The owner clears the stop distance before each run (`0x4cfb51`); stop objects (not
     // ported) set it.
     m.set_f64(this + OBSTACLE, -1.0);
@@ -612,6 +613,16 @@ pub fn drive(m: &mut Mem, this: u32, net: &RoadNet, rng: &mut AiRng, drv: &mut D
         }
         _ => {}
     }
+}
+
+/// Original flag-4 branch at `0x4d67db..0x4d67f9`. The enclosing game loop
+/// still performs the vehicle physics step after this early return.
+pub fn owner_brake_override(m:&mut Mem,driver:u32,owner:u32)->bool {
+    if owner&4==0 {return false;}
+    m.set_u32(driver+0x2710,1f32.to_bits());
+    m.set_u32(driver+0x270c,0);
+    m.set_u32(driver+0x271c,0);
+    true
 }
 
 /// Length (`tech +0x554`, `0x697dbc`) and width (`tech +0x550`, `0x697db8`) of a vehicle.
@@ -818,6 +829,15 @@ pub fn fn_004d57c0(flags: &mut u32, lane: i32, right: f64, left: f64, lane_width
 #[cfg(test)]
 mod preferred_lane_tests {
     use super::*;
+    #[test]
+    fn owner_brake_override_matches_original() {
+        let decode=|s:&str|(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect::<Vec<_>>();
+        for (case,line) in include_str!("../../../tools/emu/golden_owner_brake.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let driver=0x1a000000;m.write(driver+0x270c,&decode(p[1]));
+            assert_eq!(owner_brake_override(&mut m,driver,p[0].parse().unwrap()),p[2]=="1","branch {case}");
+            assert_eq!(m.read(driver+0x270c,20),decode(p[3]),"pedals {case}");
+        }
+    }
     #[test]
     fn original_lane_decisions_and_width() {
         for (case,line) in include_str!("../../../tools/emu/golden_preferred_lane.tsv").lines().enumerate(){
