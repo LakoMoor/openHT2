@@ -2840,6 +2840,38 @@ pub trait VehiclePlayerReferences {
     fn destroy(&mut self,m:&mut crate::mem::Mem,vector:u32);
 }
 
+/// Allocation boundary for the byte vectors nested in vehicle references.
+pub trait ReferenceVectorHeap {
+    fn allocate(&mut self,m:&mut crate::mem::Mem,size:u32)->u32;
+    fn release(&mut self,m:&mut crate::mem::Mem,address:u32,size:u32);
+}
+/// 0x42bfe0: assign the identity and deep-copy its byte vector, reusing the
+/// destination capacity when possible. Valid vectors and allocations are
+/// supplied by the owner, as in the native call sites.
+pub fn assign_player_reference(m:&mut crate::mem::Mem,destination:u32,source:u32,heap:&mut impl ReferenceVectorHeap) {
+    let id=m.u32(source);m.set_u32(destination,id);
+    if destination==source{return;}
+    let input=m.u32(source+4);let size=m.u32(source+8)-input;
+    let old=m.u32(destination+4);let capacity=m.u32(destination+12)-old;
+    if size>capacity {
+        let new=heap.allocate(m,size);let data=m.read(input,size as usize);m.write(new,&data);
+        if capacity!=0 {heap.release(m,old,capacity);}
+        m.set_u32(destination+4,new);m.set_u32(destination+8,new+size);m.set_u32(destination+12,new+size);
+    }else{
+        let data=m.read(input,size as usize);m.write(old,&data);m.set_u32(destination+8,old+size);
+    }
+}
+/// 0x44b090: release the vector's allocation without modifying its fields.
+pub fn destroy_reference_vector(m:&mut crate::mem::Mem,vector:u32,heap:&mut impl ReferenceVectorHeap) {
+    let start=m.u32(vector);let size=m.u32(vector+8)-start;
+    if size!=0 {heap.release(m,start,size);}
+}
+pub struct OwnedVehiclePlayerReferences<'a,H:ReferenceVectorHeap>(pub &'a mut H);
+impl<H:ReferenceVectorHeap> VehiclePlayerReferences for OwnedVehiclePlayerReferences<'_,H> {
+    fn assign(&mut self,m:&mut crate::mem::Mem,d:u32,s:u32){assign_player_reference(m,d,s,self.0);}
+    fn destroy(&mut self,m:&mut crate::mem::Mem,v:u32){destroy_reference_vector(m,v,self.0);}
+}
+
 /// 0x4464c0: remove the first matching player from each vehicle sub-list.
 /// Record assignment and vector destruction remain with the heap owner.
 pub fn clear_vehicle_player(m:&mut crate::mem::Mem,vehicle:u32,player:u32,h:&mut impl VehiclePlayerReferences) {
@@ -2860,6 +2892,27 @@ pub fn clear_vehicle_player(m:&mut crate::mem::Mem,vehicle:u32,player:u32,h:&mut
 #[cfg(test)]
 mod victory_tests {
     use super::*;
+
+    #[test]
+    fn original_player_reference_assignment() {
+        use crate::mem::Mem;
+        struct Heap(Vec<String>);
+        impl ReferenceVectorHeap for Heap {
+            fn allocate(&mut self,_:&mut Mem,size:u32)->u32{self.0.push(format!("alloc:{size}"));0x2a003000}
+            fn release(&mut self,_:&mut Mem,_:u32,size:u32){self.0.push(format!("free:{size}"));}
+        }
+        for (case,line) in include_str!("../../../tools/emu/golden_player_reference_assign.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|x|x.parse().unwrap()).collect();
+            let dst=0x2a000000;let src=dst+0x100;let db=dst+0x1000;let sb=dst+0x2000;let new=dst+0x3000;let mut m=Mem::new();
+            for (o,x) in [(0,111),(4,db),(8,db+v[1]),(12,db+v[0])] {m.set_u32(dst+o,x);}
+            for (o,x) in [(0,222),(4,sb),(8,sb+v[2]),(12,sb+v[2])] {m.set_u32(src+o,x);}
+            m.write(db,&(0u8..32).collect::<Vec<_>>());m.write(sb,&(64u8..96).collect::<Vec<_>>());
+            let mut heap=Heap(vec![]);assign_player_reference(&mut m,dst,if v[3]!=0 {dst}else{src},&mut heap);
+            assert_eq!((0..4).map(|i|m.u32(dst+i*4)).collect::<Vec<_>>(),p[1].split(',').map(|x|x.parse().unwrap()).collect::<Vec<u32>>(),"case {case} vector");
+            for (address,expected) in [(db,p[2]),(new,p[3])] {assert_eq!(m.read(address,32).iter().map(|x|format!("{x:02x}")).collect::<String>(),expected,"case {case} bytes");}
+            assert_eq!(heap.0.join(";"),p[4],"case {case} heap");
+        }
+    }
 
     #[test]
     fn original_vehicle_player_reference_removal() {
