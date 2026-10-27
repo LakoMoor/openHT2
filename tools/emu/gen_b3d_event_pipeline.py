@@ -2,7 +2,8 @@
 File/heap boundaries and child parsing replaced; native child tables/traversal/math run.
 """
 import pathlib,random,struct,sys
-switch="--switch" in sys.argv
+refer="--refer" in sys.argv
+switch="--switch" in sys.argv or refer
 from emu import Emu,OBJ_BASE,STUB
 r=random.Random(0xb3de);e=Emu();base=OBJ_BASE;vt=base+0x800;cursor=0;raw=b'';heap=base+0x10000;trace=[]
 w=lambda *x:struct.pack('<'+'I'*len(x),*x)
@@ -39,13 +40,20 @@ for case in range(100):
  e.set_u32(base+0x30,base+0x600);e.set_u32(base+0x34,1);e.set_u32(base+0x600,branch)
  e.set_u32(branch+0x30,base+0x610);e.set_u32(branch+0x34,2)
  for i,n in enumerate(events):e.set_u32(base+0x610+i*4,n)
+ if refer:
+  source=base+0x400;e.set_u32(source,vt);e.set_u32(source+0x10,18);e.set_u32(source+0x38,key);e.set_u32(branch+0x38,99);e.set_u32(branch+0x3c,source)
+  e.set_u32(branch+8,source)
  trace.clear();e.call(0x5dbec0,[base,3.,4.,5.,STUB+0x200,456],'ifffii')
- nodes=w(111,333)+name('Room')+w(19,1,333)+name('Branch')+w(bk)+body+blocks[0]+w(444)+blocks[1]+w(555,555,222)
+ nodes=w(111,333)+name('Room')+w(19,2 if refer else 1,333)+name('refer_Source' if refer else 'Branch')+w(bk)+body+blocks[0]+w(444)+blocks[1]+w(555,555,222)
+ if refer:
+  extra=w(333)+name('Source')+w(21)+f([0,0,0,100])+w(0,key,0,555)
+  nodes=nodes[:-8]+extra+w(555,222)
  mats=w(0);offset=7;length=offset+len(nodes)//4
  b3d=b'b3d\0'+w(length,6,1,offset,len(nodes)//4)+mats+nodes
  result=b3d.hex()+'\t'+';'.join(trace)
  if switch:
-  key=(case+1)%4;e.set_u32(branch+0x38,key);trace.clear();e.call(0x5dbec0,[base,3.,4.,5.,STUB+0x200,456],'ifffii');result+='\t'+str(key)+'\t'+';'.join(trace)
+  key=(case+1)%4;e.set_u32(source+0x38 if refer else branch+0x38,key);trace.clear();e.call(0x5dbec0,[base,3.,4.,5.,STUB+0x200,456],'ifffii');result+='\t'+str(key)+'\t'+';'.join(trace)
+ if refer:result+='\tSource'
  rows.append(result)
-pathlib.Path(__file__).with_name('golden_b3d_switch_events.tsv' if switch else 'golden_b3d_event_pipeline.tsv').write_text('\n'.join(rows)+'\n')
+pathlib.Path(__file__).with_name('golden_b3d_refer_events.tsv' if refer else 'golden_b3d_switch_events.tsv' if switch else 'golden_b3d_event_pipeline.tsv').write_text('\n'.join(rows)+'\n')
 print('100 B3D event pipelines captured')

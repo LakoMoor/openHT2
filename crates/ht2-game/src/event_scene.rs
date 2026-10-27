@@ -9,11 +9,17 @@ pub struct EventScene {
     root:u32,
     next:u32,
     switches:HashMap<String,u32>,
+    references:Vec<(u32,String)>,
 }
 impl EventScene {
     pub fn from_node(node:&Node)->Result<Self,String> {
-        let mut out=Self{memory:Mem::new(),root:0,next:0x4200_0000,switches:HashMap::new()};
-        out.root=out.add(node)?;Ok(out)
+        let mut out=Self{memory:Mem::new(),root:0,next:0x4200_0000,switches:HashMap::new(),references:Vec::new()};
+        out.root=out.add(node)?;
+        for (address,name) in &out.references {
+            let target=out.switches.get(name).copied().ok_or_else(||format!("unresolved event switch reference: {name}"))?;
+            out.memory.set_u32(*address+0x3c,target);
+        }
+        Ok(out)
     }
     fn alloc(&mut self,bytes:u32)->u32 {let p=self.next;self.next+=(bytes+15)&!15;p}
     fn words(&mut self,words:&[u32])->u32 {
@@ -34,7 +40,7 @@ impl EventScene {
             (_,19)=>(15,1),
             (_,2)=>(7,3),
             (Data::Switch{cases,key},21)=>{
-                if n.name.starts_with("refer_") {return Err(format!("event switch requires reference binding: {}",n.name));}
+                if let Some(target)=n.name.strip_prefix("refer_") {self.references.push((node,target.to_owned()));}
                 let lists=usize::try_from(*cases).map_err(|_|format!("negative switch case count in {}",n.name))?;
                 if lists>65536 {return Err(format!("switch case count too large in {}",n.name));}
                 self.memory.set_i32(node+0x38,*key);
@@ -96,18 +102,21 @@ mod tests {
     fn unresolved_binding_is_reported() {
         let node=Node{name:"LinkedGroup".into(),kind:18,names:vec!["Space".into(),"Group".into()],data:Data::Other,children:vec![],list:0};
         assert!(EventScene::from_node(&node).err().unwrap().contains("LinkedGroup"));
+        let node=Node{name:"refer_Missing".into(),kind:21,names:vec![],data:Data::Switch{cases:0,key:0},children:vec![],list:0};
+        assert!(EventScene::from_node(&node).err().unwrap().contains("Missing"));
     }
     #[test]
     fn b3d_point_events_match_native_pipeline() {
-        for data in [include_str!("../../../tools/emu/golden_b3d_event_pipeline.tsv"),include_str!("../../../tools/emu/golden_b3d_switch_events.tsv")] {
+        for data in [include_str!("../../../tools/emu/golden_b3d_event_pipeline.tsv"),include_str!("../../../tools/emu/golden_b3d_switch_events.tsv"),include_str!("../../../tools/emu/golden_b3d_refer_events.tsv")] {
         for (case,line) in data.lines().enumerate(){
             let p:Vec<_>=line.split('\t').collect();let bytes=(0..p[0].len()).step_by(2).map(|i|u8::from_str_radix(&p[0][i..i+2],16).unwrap()).collect::<Vec<_>>();
             let b3d=ht2_formats::b3d::parse(&bytes).unwrap();let mut scene=EventScene::from_node(&b3d.nodes[0]).unwrap();
+            if p.len()>4 {assert!(scene.set_switch("refer_Source",99));}
             let mut commands=Commands(Vec::new());scene.query([3.,4.,5.],456,&mut commands);
             let actual=commands.0.iter().map(|(kind,sub,params)|format!("{kind},{sub},{}",params.iter().map(|x|x.to_string()).collect::<Vec<_>>().join(","))).collect::<Vec<_>>().join(";");
             assert_eq!(actual,p[1],"case {case}");
             if p.len()>2 {
-                assert!(scene.set_switch("Branch",p[2].parse().unwrap()));
+                assert!(scene.set_switch(if p.len()>4 {p[4]}else{"Branch"},p[2].parse().unwrap()));
                 let mut commands=Commands(Vec::new());scene.query([3.,4.,5.],456,&mut commands);
                 let actual=commands.0.iter().map(|(kind,sub,params)|format!("{kind},{sub},{}",params.iter().map(|x|x.to_string()).collect::<Vec<_>>().join(","))).collect::<Vec<_>>().join(";");
                 assert_eq!(actual,p[3],"updated case {case}");
