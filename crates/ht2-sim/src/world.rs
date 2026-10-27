@@ -2911,6 +2911,12 @@ pub fn player_cargo(m:&mut crate::mem::Mem,id:u32,mut diagnostic:impl FnMut(&mut
     let header=list(m,id,&mut diagnostic);if m.u32(header)==m.u32(header+4) {return 0;}
     let header=list(m,id,&mut diagnostic);m.u32(header)
 }
+
+/// Complete 0x417530 flag refresh with the native cargo lookup. The caller
+/// supplies the diagnostic service for an invalid vehicle identity.
+pub fn remove_competitor_with_cargo(m:&mut crate::mem::Mem,player:u32,mut diagnostic:impl FnMut(&mut crate::mem::Mem)) {
+    remove_competitor_record(m,player,|m,player|refresh_player_flags(m,player,|m,id|player_cargo(m,id,&mut diagnostic)));
+}
 pub struct OwnedVehiclePlayerReferences<'a,H:ReferenceVectorHeap>(pub &'a mut H);
 impl<H:ReferenceVectorHeap> VehiclePlayerReferences for OwnedVehiclePlayerReferences<'_,H> {
     fn assign(&mut self,m:&mut crate::mem::Mem,d:u32,s:u32){assign_player_reference(m,d,s,self.0);}
@@ -2975,12 +2981,25 @@ mod victory_tests {
         }
     }
     #[test]
+    fn original_derived_flags_with_native_cargo() {
+        use crate::mem::Mem;
+        for (case,line) in include_str!("../../../tools/emu/golden_player_flags_native_cargo.tsv").lines().enumerate(){
+            let parts:Vec<_>=line.split('\t').collect();let v:Vec<u32>=parts[0].split(',').map(|x|x.parse().unwrap()).collect();
+            let p=0x2a000000;let fallback=p+0x10000;let truck=p+0x20000;let tech=p+0x30000;let mut m=Mem::new();m.set_u32(0x68b990,fallback);
+            m.set_u32(p+0x60,v[0]);m.wr8(p+0x1f0,v[1] as u8);m.set_u32(p+0xb0,if v[2]!=0 {p+0x40000}else{fallback});m.set_u32(p+0xa0,0x111);m.set_u32(p+0xa4,0x111+v[3]*4);
+            m.set_u32(p+0x18,0x222);m.set_u32(p+0x1c,0x222+v[5]*12);m.set_u32(p+0x204,if v[6]!=0 || v[8]!=0 {truck}else{0});m.set_u32(truck+0x10,tech);m.set_u32(truck+0x28,v[9]);m.set_u32(tech+0x80,v[7]);m.set_u32(p+0x5c,if v[8]!=0 {1}else{8});
+            m.set_u32(p+0x208,0);m.set_u32(truck+4,1);m.set_u32(truck+0x1c,0x2a050000);m.set_u32(truck+0x20,0x2a050000+v[4]*0x90);let mut trace=vec![];refresh_player_flags(&mut m,p,|m,id|player_cargo(m,id,|_|trace.push("diagnostic")));
+            assert_eq!(m.u32(p+0x60),parts[1].parse::<u32>().unwrap(),"case {case} flags");assert_eq!(trace.join(";"),parts[2],"case {case} calls");
+        }
+    }
+    #[test]
     fn competitor_removal_refreshes_derived_flags() {
         use crate::mem::Mem;
         let mut m=Mem::new();let p=0x2a000000;let list=p+0x1000;let fallback=p+0x2000;
         m.set_u32(0x68a980,list);m.set_u32(0x68a984,list+4);m.set_u32(list,p);m.set_u32(0x68b990,fallback);m.set_u32(p+0xb0,fallback);
         m.wr8(p+0x1f0,1);m.set_u32(p+0x60,0x80);m.set_u32(p+0x5c,8);
-        remove_competitor_record(&mut m,p,|m,p|refresh_player_flags(m,p,|_,_|0));
+        let truck=p+0x3000;m.set_u32(p+0x204,truck);m.set_u32(truck+4,1);m.set_u32(truck+0x1c,0x12340000);m.set_u32(truck+0x20,0x12340000);
+        remove_competitor_with_cargo(&mut m,p,|_|panic!("unexpected diagnostic"));
         assert_eq!(m.u32(0x68a984),list);assert_eq!(m.rd8(p+0x1f0),0);assert_eq!(m.u32(p+0x60)&0x80,0);assert_eq!(m.rd8(p+0x368),1);
     }
     #[test]
