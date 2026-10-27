@@ -9,6 +9,27 @@ mod mode_integration_tests {
     use super::*;
     #[test]
     #[ignore="requires HT2_GAME installed game data"]
+    fn traffic_slot_passes_its_owner_flags_to_driver() {
+        let game=std::path::PathBuf::from(std::env::var("HT2_GAME").unwrap());
+        let world=crate::load_world(&game,"ENV",None).unwrap();let net=&world.ground.roads;
+        let params=&world.truck.params;let data=std::fs::read(game.join("vehicle.tech")).unwrap();
+        let mut car=SimCar::new(&data,params.record,&params.wheel_nodes,&params.add_nodes,&world.ground,world.spawn.0+Vec3::Z*world.spawn.2,world.spawn.1).unwrap();
+        let pos=world.spawn.0;let place=net.nearest([pos.x as f64,pos.y as f64,pos.z as f64]).unwrap();
+        let ai_world=ht2_sim::world::World::new_game(&game,&game.join("ENV"),net.clone(),1.,Some(ht2_sim::road::Spot::Road(place)));
+        let player=ai_world.players.iter().position(|p|p.kind!=0 && p.kind!=1).unwrap();
+        car.set_ai_world(ai_world,1,&[]);let physical=car.traffic[0].0;
+        assert!(car.place_car(&world.ground,physical,place,params.record as i32));
+        car.traffic[0].1=ai::Driver::new(place);car.slot_player[0]=Some(player);
+        {let p=&mut car.ai_world.as_mut().unwrap().players[player];p.flags=0x4000;p.race_index=1;}
+        car.m.set_f64(physical+ai::LANE_WIDTH,3.141592653589793);
+        car.step_traffic(&world.ground,1./60.);
+        assert_eq!(car.m.f64(physical+ai::LANE_WIDTH),3.141592653589793,"special owner preserves lane width");
+        car.slot_player[0]=Some(player);car.ai_world.as_mut().unwrap().players[player].flags=0;
+        car.step_traffic(&world.ground,1./60.);
+        assert_ne!(car.m.f64(physical+ai::LANE_WIDTH),3.141592653589793,"ordinary owner recalculates lane width");
+    }
+    #[test]
+    #[ignore="requires HT2_GAME installed game data"]
     fn current_physics_pose_drives_installed_event_query() {
         let game=std::path::PathBuf::from(std::env::var("HT2_GAME").unwrap());
         let world=crate::load_world(&game,"ENV",None).unwrap();
@@ -260,7 +281,7 @@ impl SimCar {
         globals::install_clock(m, CLOCK, self.time, dt as f64);
         if let Some(drv) = &mut self.autopilot {
             let others: Vec<u32> = std::iter::once(CAR).chain(self.traffic.iter().map(|(c, _)| *c)).collect();
-            ai::drive(m, CAR, &ground.roads, &mut self.rng, drv, 0, dt as f64, &others);
+            ai::drive(m, CAR, &ground.roads, &mut self.rng, drv, 0, 0, dt as f64, &others);
             with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, CAR));
             self.step_traffic(ground, dt);
             return;
@@ -302,11 +323,13 @@ impl SimCar {
         let m = &mut self.m;
         let active: Vec<bool> = (0..self.traffic.len()).map(|k| self.ai_world.is_none() || self.slot_player.get(k).copied().flatten().is_some()).collect();
         let others: Vec<u32> = std::iter::once(CAR).chain(self.traffic.iter().zip(&active).filter(|(_, a)| **a).map(|((c, _), _)| *c)).collect();
-        for ((car, drv), on) in self.traffic.iter_mut().zip(&active) {
+        for (slot,((car, drv), on)) in self.traffic.iter_mut().zip(&active).enumerate() {
             if !on {
                 continue;
             }
-            ai::drive(m, *car, &ground.roads, &mut self.rng, drv, 0, dt as f64, &others);
+            let owner=self.ai_world.as_ref().and_then(|world|self.slot_player.get(slot).copied().flatten().and_then(|i|world.players.get(i)));
+            let (flags,race_index)=owner.map_or((0,0),|p|(p.flags,p.race_index as i32));
+            ai::drive(m, *car, &ground.roads, &mut self.rng, drv, flags, race_index, dt as f64, &others);
             with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, *car));
         }
         self.sync_ai(ground);

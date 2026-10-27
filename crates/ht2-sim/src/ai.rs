@@ -299,10 +299,12 @@ pub fn fn_004d60c0(m: &mut Mem, this: u32, target: f64, slope: f64) {
 /// 0x4000 use their race index at scene-owner+0x509c -> player+0x2d8 and do
 /// not modify the stored lane width.
 pub fn fn_004d4620(m: &mut Mem, this: u32, owner: u32, width: f64) -> i32 {
-    if owner & 0x4000 != 0 {
-        let player=m.u32(m.u32(this+0x40c0)+0x509c);
-        return fn_004d43a0(m.i32(player+0x2d8));
-    }
+    let index=if owner & 0x4000 != 0 {let player=m.u32(m.u32(this+0x40c0)+0x509c);m.i32(player+0x2d8)}else{0};
+    lane_for_owner(m,this,owner,index,width)
+}
+/// Equivalent lane decision when the owner lives in typed AI-world state.
+pub fn lane_for_owner(m:&mut Mem,this:u32,owner:u32,race_index:i32,width:f64)->i32 {
+    if owner & 0x4000 != 0 {return fn_004d43a0(race_index);}
     let n = ((width + 1.75) * 0.285714286) as i32;
     let mut lane = 0;
     if n != 0 {
@@ -450,7 +452,7 @@ impl Driver {
 /// the owner (`0x43f620`), `dt` the frame time. Not ported: the checks of `0x4d3880` (what is
 /// right in front when stuck or turning round), the horn of `0x4d6340`, the vehicle the camera
 /// follows and owners flagged 4 (full brake).
-pub fn drive(m: &mut Mem, this: u32, net: &RoadNet, rng: &mut AiRng, drv: &mut Driver, owner: u32, dt: f64, others: &[u32]) {
+pub fn drive(m: &mut Mem, this: u32, net: &RoadNet, rng: &mut AiRng, drv: &mut Driver, owner: u32, race_index:i32, dt: f64, others: &[u32]) {
     // The owner clears the stop distance before each run (`0x4cfb51`); stop objects (not
     // ported) set it.
     m.set_f64(this + OBSTACLE, -1.0);
@@ -474,7 +476,7 @@ pub fn drive(m: &mut Mem, this: u32, net: &RoadNet, rng: &mut AiRng, drv: &mut D
     let (side, width, other_half, seg_flags) = net.lateral(&p, back, front);
     m.set_f64(this + LATERAL, side);
     let (road, slope) = net.heading(&p, back);
-    let lane = fn_004d4620(m, this, owner, width);
+    let lane = lane_for_owner(m, this, owner, race_index, width);
     // 0x4d6340: the vehicles around pick the lane and the speed to follow.
     let lw = m.f64(this + LANE_WIDTH);
     m.set_i32(this + 0x4060, ((width + other_half) / (lw * 0.5)) as i32);
@@ -826,6 +828,10 @@ mod preferred_lane_tests {
             let actual=fn_004d4620(&mut m,driver,p[0].parse().unwrap(),width);
             assert_eq!(actual as u32,p[5].parse::<u32>().unwrap(),"lane {case}");
             assert_eq!(m.read(driver+0x40a8,8),decode(p[6]),"width {case}");
+            m.write(driver+0x40a8,&decode(p[4]));
+            let typed=lane_for_owner(&mut m,driver,p[0].parse().unwrap(),p[1].parse().unwrap(),width);
+            assert_eq!(typed as u32,p[5].parse::<u32>().unwrap(),"typed lane {case}");
+            assert_eq!(m.read(driver+0x40a8,8),decode(p[6]),"typed width {case}");
         }
     }
 }
