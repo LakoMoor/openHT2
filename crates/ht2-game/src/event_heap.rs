@@ -24,8 +24,9 @@ impl EventHeap {
     /// Explicit scene-event portion of the original AI update. Earlier motion
     /// synchronization/mode decisions remain the scene vehicle owner's job.
     pub fn update(&mut self,m:&mut Mem,vehicle:u32,player:u32,flags:u32,source:&mut impl SceneCommandHooks) {
+        let driver=m.u32(vehicle+0x5460);
         ai_scene::query_vehicle_commands(m,vehicle,source,self);
-        ai_scene::update_obstacle_command(m,vehicle,player,flags,&mut ai_scene::OwnedObstacle{heap:self});
+        ai_scene::update_obstacle_command_cached(m,vehicle,driver,player,flags,&mut ai_scene::OwnedObstacle{heap:self});
     }
     pub fn clear_vehicle(&mut self,m:&mut Mem,vehicle:u32) {
         for slot in 0..2 {ai_scene::replace_command(m,vehicle+0x5570,0,slot,self);}
@@ -35,6 +36,20 @@ impl EventHeap {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn event_query_preserves_driver_captured_before_callbacks() {
+        struct Source {vehicle:u32,driver:u32}
+        impl ai_scene::ObstacleSourceHooks for Source {
+            fn player_kind(&mut self,_:&mut Mem,_:u32)->i32{0}
+            fn world_transform(&mut self,m:&mut Mem,_:u32)->[f32;12]{m.set_u32(self.vehicle+0x5460,self.driver);ht2_sim::matrix::IDENTITY}
+        }
+        impl SceneCommandHooks for Source {}
+        let mut m=Mem::new();let mut heap=EventHeap::default();let vehicle=0x1a000000;let root=0x42000000;let player=0x1b000000;let driver=0x1c000000;let other=0x1c010000;let flags=0x1d000000;
+        m.set_u32(vehicle+0x13c,root);m.set_u32(root+0x10,9);m.set_u32(root+0x30,29);m.set_u32(vehicle+0x5460,driver);m.set_u32(0x696338,0x1e000000);
+        heap.update(&mut m,vehicle,player,flags,&mut Source{vehicle,driver:other});
+        assert_eq!(m.f64(driver+0x40b0),-1.);assert_eq!(m.f64(other+0x40b0),100.);
+        assert_eq!(m.f64(player+0x3d8),-1.);assert_eq!(m.rd8(player+0x3d0),1);
+    }
     #[test]
     fn persistent_owner_queries_delivers_and_consumes() {
         struct Source;
