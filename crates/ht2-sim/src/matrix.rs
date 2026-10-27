@@ -119,8 +119,9 @@ pub fn vec_sub_in_place(m: &mut Mem, v: u32, out: u32, w: u32) {
 /// `0x5ab400`: `dst = v / |v|`, or the zero vector at `0x702650` when `|v| < 1e-5`.
 pub fn vec_unit(m: &mut Mem, dst: u32, v: u32) {
     let a = get3(m, v);
-    let len = r((a[2] * a[2] + a[1] * a[1] + a[0] * a[0]).sqrt()) as f64;
-    if len < 1e-5f64 as f32 as f64 {
+    let len = r((a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt()) as f64;
+    // The threshold is a double constant; unordered also takes the zero path.
+    if !(len >= 1e-5f64) {
         let z = get3(m, 0x702650);
         put3(m, dst, z);
     } else {

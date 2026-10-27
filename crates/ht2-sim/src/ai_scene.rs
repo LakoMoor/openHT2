@@ -37,6 +37,16 @@ pub fn reference_world_pose(m:&mut Mem,vehicle:u32,h:&mut impl ObstacleSourceHoo
     ];
     for i in 0..3 {a[9+i]=(rotated[i] as f64+a[9+i] as f64) as f32;}a
 }
+/// Numeric motion writes `0x4cfa7f..0x4cfaef`: normalize trajectory direction,
+/// multiply each stored component by 18, and clear angular velocity from the
+/// original zero-vector global. Direction lookup and lane publication are separate.
+pub fn trajectory_motion(m:&mut Mem,vehicle:u32,direction:[f32;3]) {
+    const INPUT:u32=0x2ffd_4e00;
+    for (i,value) in direction.into_iter().enumerate(){m.set_f32(INPUT+i as u32*4,value);}
+    crate::matrix::vec_unit(m,INPUT+16,INPUT);
+    for i in 0..3 {m.set_f32(vehicle+0x50d0+i*4,(m.f32(INPUT+16+i*4) as f64*18.) as f32);}
+    for i in 0..3 {let value=m.u32(0x702650+i*4);m.set_u32(vehicle+0x50e8+i*4,value);}
+}
 
 pub trait SceneCommandHooks:ObstacleSourceHooks {
     /// Nonzero local +0x120 result of 0x568f60/0x476930 query for message 0x10.
@@ -484,6 +494,17 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn original_trajectory_motion_writes() {
+        use super::*;
+        let decode=|s:&str|(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect::<Vec<_>>();
+        for (case,line) in include_str!("../../../tools/emu/golden_trajectory_motion.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let raw=decode(p[0]);let mut m=Mem::new();m.write(0x702650,&decode(p[1]));
+            let direction=std::array::from_fn(|i|f32::from_le_bytes(raw[i*4..i*4+4].try_into().unwrap()));
+            trajectory_motion(&mut m,0x1a000000,direction);
+            assert_eq!(m.read(0x1a0050d0,12),decode(p[2]),"linear {case}");assert_eq!(m.read(0x1a0050e8,12),decode(p[3]),"angular {case}");
+        }
+    }
     #[test]
     fn original_reference_world_pose() {
         use super::*;
