@@ -21,6 +21,22 @@ pub fn query_vehicle_events(m:&mut Mem,vehicle:u32,h:&mut (impl ObstacleSourceHo
     let root=crate::scene_events::root(m,vehicle+0x110);
     crate::scene_events::query(m,root,[matrix[9],matrix[10],matrix[11]],0x4ce300,vehicle,h);
 }
+/// Synchronous event delivery to the original vehicle callback. Scene records,
+/// vehicle state and heap allocations must share `m`.
+pub fn query_vehicle_commands(m:&mut Mem,vehicle:u32,source:&mut impl SceneCommandHooks,heap:&mut impl CommandHeap) {
+    struct Receiver<'a,S,H>{source:&'a mut S,heap:&'a mut H}
+    impl<S:SceneCommandHooks,H> ObstacleSourceHooks for Receiver<'_,S,H> {
+        fn player_kind(&mut self,m:&mut Mem,vehicle:u32)->i32{self.source.player_kind(m,vehicle)}
+        fn world_transform(&mut self,m:&mut Mem,body:u32)->[f32;12]{self.source.world_transform(m,body)}
+    }
+    impl<S:SceneCommandHooks,H:CommandHeap> crate::scene_events::EventHooks for Receiver<'_,S,H> {
+        fn event(&mut self,m:&mut Mem,callback:u32,command:u32,user:u32){
+            debug_assert_eq!(callback,0x4ce300);
+            receive_scene_command(m,command,user,self.source,self.heap);
+        }
+    }
+    query_vehicle_events(m,vehicle,&mut Receiver{source,heap});
+}
 
 /// `0x476930` / `0x4769e0`: copy nineteen 16-byte player records. Return -1
 /// when +0x204 has no owner, leaving the destination untouched. Preserve word

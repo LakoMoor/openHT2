@@ -63,6 +63,7 @@ impl EventScene {
     }
     fn alloc(&mut self,bytes:u32)->u32 {let p=self.next;self.next+=(bytes+15)&!15;p}
     fn words(&mut self,words:&[u32])->u32 {
+        if words.is_empty(){return 0;}
         let p=self.alloc(words.len() as u32*4);
         for (i,v) in words.iter().enumerate(){self.memory.set_u32(p+i as u32*4,*v);}p
     }
@@ -167,6 +168,35 @@ impl EventScene {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn empty_payload_event_reaches_driver_and_player_obstacle_state() {
+        use ht2_sim::ai_scene::{self,ObstacleSourceHooks,SceneCommandHooks,CommandHeap};
+        struct Source;
+        impl ObstacleSourceHooks for Source {
+            fn player_kind(&mut self,_:&mut Mem,_:u32)->i32{0}
+            fn world_transform(&mut self,_:&mut Mem,_:u32)->[f32;12]{ht2_sim::matrix::IDENTITY}
+        }
+        impl SceneCommandHooks for Source {}
+        struct Heap(Vec<u32>);
+        impl CommandHeap for Heap {
+            fn allocate(&mut self,m:&mut Mem,bytes:u32)->u32{m.alloc(bytes)}
+            fn release(&mut self,_:&mut Mem,address:u32){assert!(!self.0.contains(&address));self.0.push(address);}
+        }
+        let event=Node{name:"Obstacle".into(),kind:13,names:vec![],data:Data::CollisionVolume{sphere:[0.;4],volume_kind:0,geometry:vec![],surface:[29,0],params:vec![]},children:vec![],list:0};
+        let room=Node{name:"Room".into(),kind:19,names:vec![],data:Data::Other,children:vec![event],list:0};
+        let scene=EventScene::from_node(&room).unwrap();let mut m=Mem::new();scene.install(&mut m);
+        let vehicle=0x1a000000;let player=0x1b000000;let driver=0x1c000000;let flags=0x1d000000;
+        scene.bind_vehicle(&mut m,vehicle,"Room").unwrap();m.set_u32(vehicle+0x5460,driver);m.set_u32(0x696338,0x1e000000);
+        let mut heap=Heap(Vec::new());
+        ai_scene::query_vehicle_commands(&mut m,vehicle,&mut Source,&mut heap);
+        let command=m.u32(vehicle+0x5570);assert_ne!(command,0);assert_eq!(m.u32(command),29);
+        assert_eq!(m.f32(m.u32(command+12)),100.);
+        ai_scene::update_obstacle_command(&mut m,vehicle,player,flags,&mut ai_scene::OwnedObstacle{heap:&mut heap});
+        assert_eq!(m.f64(driver+0x40b0),100.);assert_eq!(m.rd8(player+0x3d0),0);assert_eq!(m.f64(player+0x3d8),100.);
+        assert_eq!(m.u32(vehicle+0x5570),0);assert_eq!(heap.0.len(),3);
+        ai_scene::update_obstacle_command(&mut m,vehicle,player,flags,&mut ai_scene::OwnedObstacle{heap:&mut heap});
+        assert_eq!(m.rd8(player+0x3d0),1);assert_eq!(m.f64(player+0x3d8),-1.);assert_eq!(heap.0.len(),3);
+    }
     #[test]
     fn b3d_event_reaches_vehicle_receiver_in_shared_memory() {
         use ht2_sim::ai_scene::{self,ObstacleSourceHooks,SceneCommandHooks,CommandHeap};
