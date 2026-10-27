@@ -9,6 +9,31 @@ mod mode_integration_tests {
     use super::*;
     #[test]
     #[ignore="requires HT2_GAME installed game data"]
+    fn traffic_event_bridge_uses_slot_pose_and_live_owner() {
+        use ht2_formats::b3d::{Data,Node};
+        let game=std::path::PathBuf::from(std::env::var("HT2_GAME").unwrap());
+        let world=crate::load_world(&game,"ENV",None).unwrap();let net=&world.ground.roads;
+        let params=&world.truck.params;let data=std::fs::read(game.join("vehicle.tech")).unwrap();
+        let mut car=SimCar::new(&data,params.record,&params.wheel_nodes,&params.add_nodes,&world.ground,world.spawn.0+Vec3::Z*world.spawn.2,world.spawn.1).unwrap();
+        let pos=world.spawn.0;let place=net.nearest([pos.x as f64,pos.y as f64,pos.z as f64]).unwrap();
+        let ai_world=ht2_sim::world::World::new_game(&game,&game.join("ENV"),net.clone(),1.,Some(ht2_sim::road::Spot::Road(place)));
+        let player=ai_world.players.iter().position(|p|p.kind!=0 && p.kind!=1 && p.kind!=5).unwrap();
+        car.set_ai_world(ai_world,1,&[]);let body=car.traffic[0].0;assert!(car.place_car(&world.ground,body,place,params.record as i32));
+        car.slot_player[0]=Some(player);
+        let event=Node{name:"Obstacle".into(),kind:13,names:vec![],data:Data::CollisionVolume{sphere:[0.;4],volume_kind:0,geometry:vec![],surface:[29,0],params:vec![]},children:vec![],list:0};
+        let room=Node{name:"Room".into(),kind:19,names:vec![],data:Data::Other,children:vec![event],list:0};
+        let scene=crate::event_scene::EventScene::from_node(&room).unwrap();let wrapper=0x1a000000;let driver=0x1b000000;let id=0x1c000000;let flags=0x1d000000;
+        car.bind_event_scene(&scene,wrapper,"Room").unwrap();car.m.set_u32(wrapper+0x5460,driver);car.m.set_u32(wrapper+0x509c,id);car.m.set_u32(0x696338,0x1e000000);
+        let mut heap=crate::event_heap::EventHeap::default();
+        assert!(!car.update_traffic_scene_events(1,wrapper,id,flags,&mut heap));
+        assert!(!car.update_traffic_scene_events(0,wrapper,id+4,flags,&mut heap));
+        assert!(car.update_traffic_scene_events(0,wrapper,id,flags,&mut heap));
+        let owner=&car.ai_world.as_ref().unwrap().players[player];assert!(!owner.full_speed);assert_eq!(owner.drag,100.);
+        for i in 0..3 {assert_eq!(car.m.u32(0x721298+i*4),car.m.u32(body+0x34+i*4));}
+        heap.clear_vehicle(&mut car.m,wrapper);
+    }
+    #[test]
+    #[ignore="requires HT2_GAME installed game data"]
     fn traffic_slot_passes_its_owner_flags_to_driver() {
         let game=std::path::PathBuf::from(std::env::var("HT2_GAME").unwrap());
         let world=crate::load_world(&game,"ENV",None).unwrap();let net=&world.ground.roads;
@@ -609,6 +634,26 @@ impl SimCar {
         }
         let pose=std::array::from_fn(|i|self.m.f32(CAR+0x10+i as u32*4));
         ht2_sim::ai_scene::query_vehicle_events(&mut self.m,vehicle,&mut Query{pose,vehicle,hooks});
+    }
+
+    /// Deliver a traffic vehicle's scene events to its current AI-world owner.
+    /// The caller supplies the installed scene wrapper, player identity and
+    /// flags, and owns its command heap for the wrapper's entire lifetime.
+    /// This is an explicit bridge, not yet the game's automatic scene pass.
+    pub fn update_traffic_scene_events(&mut self,slot:usize,vehicle:u32,player_id:u32,flags:u32,heap:&mut crate::event_heap::EventHeap)->bool {
+        let Some(&(body,_))=self.traffic.get(slot) else{return false};
+        let Some(owner)=self.slot_player.get(slot).copied().flatten() else{return false};
+        let Some(player)=self.ai_world.as_mut().and_then(|world|world.players.get_mut(owner)) else{return false};
+        if self.m.u32(vehicle+0x509c)!=player_id {return false;}
+        struct Source{vehicle:u32,kind:i32,pose:[f32;12]}
+        impl ht2_sim::ai_scene::ObstacleSourceHooks for Source {
+            fn player_kind(&mut self,_:&mut Mem,vehicle:u32)->i32 {assert_eq!(vehicle,self.vehicle);self.kind}
+            fn world_transform(&mut self,_:&mut Mem,body:u32)->[f32;12]{assert_eq!(body,self.vehicle+0x10);self.pose}
+        }
+        impl ht2_sim::ai_scene::SceneCommandHooks for Source {}
+        let pose=std::array::from_fn(|i|self.m.f32(body+0x10+i as u32*4));
+        let mut source=Source{vehicle,kind:player.kind as i32,pose};
+        heap.update_player(&mut self.m,vehicle,player_id,player,flags,&mut source);true
     }
 
     pub fn pos(&self) -> Vec3 {
