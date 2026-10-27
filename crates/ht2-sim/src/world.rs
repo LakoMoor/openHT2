@@ -2806,9 +2806,38 @@ fn draws_between(a: &AiRng, b: &AiRng) -> usize {
     usize::MAX
 }
 
+/// Original 0x446af0 list traversal. `delete` implements 0x4466a0 and must
+/// unlink or clear the selected record; it may change any list links/flags.
+/// After every deletion the original starts again from the current list head.
+pub fn drain_delayed_player_list(m:&mut crate::mem::Mem,mut delete:impl FnMut(&mut crate::mem::Mem,u32)) {
+    loop {
+        let head=m.u32(0x68b990);let mut node=m.u32(head);
+        while node!=head && m.u32(node+0x60)&0x20000==0 {node=m.u32(node);}
+        if node==head {return;}
+        delete(m,node);
+    }
+}
+
 #[cfg(test)]
 mod victory_tests {
     use super::*;
+
+    #[test]
+    fn original_delayed_player_scan_restarts_after_deletion() {
+        use crate::mem::Mem;
+        for (case,line) in include_str!("../../../tools/emu/golden_delayed_player_scan.tsv").lines().enumerate(){
+            let parts:Vec<_>=line.split('\t').collect();let inputs:Vec<u32>=parts[0].split(',').map(|x|x.parse().unwrap()).collect();
+            let head=0x2a000000;let nodes:Vec<u32>=(0..6).map(|i|head+0x1000+i*0x100).collect();let mut m=Mem::new();m.set_u32(0x68b990,head);m.set_u32(head,nodes[0]);
+            for (i,&node) in nodes.iter().enumerate(){m.set_u32(node,nodes.get(i+1).copied().unwrap_or(head));m.set_u32(node+0x60,if inputs[0]>>i&1!=0 {0x20000}else{0});}
+            let mut trace=vec![];drain_delayed_player_list(&mut m,|m,node|{
+                trace.push(nodes.iter().position(|&n|n==node).unwrap().to_string());let mut prev=head;
+                while m.u32(prev)!=node {prev=m.u32(prev);}
+                m.set_u32(prev,m.u32(node));
+                if inputs[1]!=0 && trace.len()==1 {m.set_u32(nodes[0]+0x60,m.u32(nodes[0]+0x60)|0x20000);}
+            });
+            assert_eq!(trace.join(","),parts[1],"case {case}");
+        }
+    }
 
     #[test]
     fn published_obstacle_reduces_actual_trajectory_advance() {
