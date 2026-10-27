@@ -49,7 +49,9 @@ impl World {
 
     /// `0x417530`: player `k` is a competitor no more.
     pub(crate) fn untrack(&mut self, k: usize) {
-        self.competitor_list.retain(|&c| c != k);
+        if let Some(index) = self.competitor_list.iter().position(|&c| c == k) {
+            self.competitor_list.remove(index);
+        }
         let p = &mut self.players[k];
         p.tracked = false;
         p.comp_count = 0;
