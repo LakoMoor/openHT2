@@ -146,7 +146,7 @@ impl Scene {
             fn add(n: &Node, fi: usize, nodes: &mut Vec<SNode>, b: &mut Builder, names: &mut HashMap<String, u32>, spaces: &mut HashMap<String, [f32; 12]>, rooms: &mut HashMap<String, u32>, refs: &mut Vec<(u32, String, usize)>, links: &mut Vec<(u32, String, String, usize)>, portals: &mut Vec<(u32, String)>) -> u32 {
                 let id = nodes.len() as u32;
                 nodes.push(SNode { name: n.name.clone(), lists: Vec::new(), op: Op::Nothing });
-                if let Data::Space { axes, pos } = &n.data {
+                if let Data::Space { axes, pos, .. } = &n.data {
                     let mut t = [0.0f32; 12];
                     for (i, a) in axes.iter().enumerate() {
                         t[3 * i..3 * i + 3].copy_from_slice(a);

@@ -82,7 +82,7 @@ fn b3d_ls(data: &[u8]) -> Result<(), String> {
     fn walk(ns: &[b3d::Node], depth: usize) {
         for n in ns {
             let extra = match &n.data {
-                b3d::Data::Space { axes, pos } => format!(" axes={axes:?} pos={pos:?}"),
+                b3d::Data::Space { axes, pos, flag } => format!(" axes={axes:?} pos={pos:?} flag={flag}"),
                 b3d::Data::Switch { cases, key } => format!(" cases={cases} key={key}"),
                 b3d::Data::VolumeBranch { volume_kind, geometry, .. } =>
                     format!(" branch_volume={volume_kind} geometry={geometry:?}"),

@@ -10,14 +10,22 @@ pub struct EventScene {
     next:u32,
     switches:HashMap<String,u32>,
     references:Vec<(u32,String)>,
+    nodes:HashMap<String,u32>,
+    links:Vec<(u32,String,String)>,
 }
 impl EventScene {
     pub fn from_node(node:&Node)->Result<Self,String> {
-        let mut out=Self{memory:Mem::new(),root:0,next:0x4200_0000,switches:HashMap::new(),references:Vec::new()};
+        let mut out=Self{memory:Mem::new(),root:0,next:0x4200_0000,switches:HashMap::new(),references:Vec::new(),nodes:HashMap::new(),links:Vec::new()};
         out.root=out.add(node)?;
         for (address,name) in &out.references {
             let target=out.switches.get(name).copied().ok_or_else(||format!("unresolved event switch reference: {name}"))?;
             out.memory.set_u32(*address+0x3c,target);
+        }
+        for (address,space,group) in &out.links {
+            let target=out.nodes.get(group).copied().ok_or_else(||format!("unresolved event group: {group}"))?;
+            let transform=out.nodes.get(space).copied().ok_or_else(||format!("unresolved event space: {space}"))?;
+            if out.memory.u32(transform+0x10)!=6 {return Err(format!("event link space is not a space: {space}"));}
+            out.memory.set_u32(*address+0x40,target);out.memory.set_u32(*address+0x44,transform);
         }
         Ok(out)
     }
@@ -36,9 +44,19 @@ impl EventScene {
     }
     fn add(&mut self,n:&Node)->Result<u32,String> {
         let node=self.alloc(0x80);
+        self.nodes.entry(n.name.clone()).or_insert(node);
         let (kind,lists)=match (&n.data,n.kind) {
             (_,19)=>(15,1),
             (_,2)=>(7,3),
+            (Data::Space{axes,pos,flag},24)=>{
+                let matrix=axes.iter().flatten().chain(pos.iter()).copied().collect::<Vec<_>>();
+                for (i,value) in matrix.iter().enumerate(){self.memory.set_f32(node+0x40+i as u32*4,*value);}
+                self.memory.set_u32(node+0x38,if *flag==1 {1}else{0});(6,1)
+            }
+            (_,18)=>{
+                if n.names.len()!=2 {return Err(format!("missing event link names: {}",n.name));}
+                self.links.push((node,n.names[0].clone(),n.names[1].clone()));(17,0)
+            }
             (Data::Switch{cases,key},21)=>{
                 if let Some(target)=n.name.strip_prefix("refer_") {self.references.push((node,target.to_owned()));}
                 let lists=usize::try_from(*cases).map_err(|_|format!("negative switch case count in {}",n.name))?;
@@ -57,7 +75,7 @@ impl EventScene {
             // Point predicate rejects these two volume kinds, so no payload is read.
             (Data::Collision{..},23)=>{self.volume(node,0x40,6,&[]);(9,0)}
             (Data::Wall{..},20)=>{self.volume(node,0x40,7,&[]);(9,0)}
-            (_,4|5|18|21|6|7|36|37)=>return Err(format!("event adapter requires reference/state binding: {} (B3D {})",n.name,n.kind)),
+            (_,4|5|21|6|7|36|37)=>return Err(format!("event adapter requires reference/state binding: {} (B3D {})",n.name,n.kind)),
             // Other runtime classes are ignored by 0x5dbf00, including spaces,
             // geometry and cameras. Their children must not be searched either.
             _=>(0,0),
@@ -69,7 +87,9 @@ impl EventScene {
                 if child.list as usize>=lists {return Err(format!("invalid child list {} in {}",child.list,n.name));}
                 let id=self.add(child)?;let list=child.list as usize;
                 if tails[list]==0 {heads[list]=id;}else{self.memory.set_u32(tails[list]+8,id);self.memory.set_u32(id+4,tails[list]);}
-                self.memory.set_u32(id+0x2c,node);tails[list]=id;
+                // Transform hierarchy follows spaces, not room/group ownership.
+                if self.memory.u32(id+0x10)!=6 || kind==6 {self.memory.set_u32(id+0x2c,node);}
+                tails[list]=id;
             }
             let table=self.words(&heads);self.memory.set_u32(node+0x30,table);self.memory.set_u32(node+0x34,lists as u32);
         }
@@ -101,13 +121,13 @@ mod tests {
     #[test]
     fn unresolved_binding_is_reported() {
         let node=Node{name:"LinkedGroup".into(),kind:18,names:vec!["Space".into(),"Group".into()],data:Data::Other,children:vec![],list:0};
-        assert!(EventScene::from_node(&node).err().unwrap().contains("LinkedGroup"));
+        assert!(EventScene::from_node(&node).err().unwrap().contains("Group"));
         let node=Node{name:"refer_Missing".into(),kind:21,names:vec![],data:Data::Switch{cases:0,key:0},children:vec![],list:0};
         assert!(EventScene::from_node(&node).err().unwrap().contains("Missing"));
     }
     #[test]
     fn b3d_point_events_match_native_pipeline() {
-        for data in [include_str!("../../../tools/emu/golden_b3d_event_pipeline.tsv"),include_str!("../../../tools/emu/golden_b3d_switch_events.tsv"),include_str!("../../../tools/emu/golden_b3d_refer_events.tsv")] {
+        for data in [include_str!("../../../tools/emu/golden_b3d_event_pipeline.tsv"),include_str!("../../../tools/emu/golden_b3d_switch_events.tsv"),include_str!("../../../tools/emu/golden_b3d_refer_events.tsv"),include_str!("../../../tools/emu/golden_b3d_link_events.tsv")] {
         for (case,line) in data.lines().enumerate(){
             let p:Vec<_>=line.split('\t').collect();let bytes=(0..p[0].len()).step_by(2).map(|i|u8::from_str_radix(&p[0][i..i+2],16).unwrap()).collect::<Vec<_>>();
             let b3d=ht2_formats::b3d::parse(&bytes).unwrap();let mut scene=EventScene::from_node(&b3d.nodes[0]).unwrap();

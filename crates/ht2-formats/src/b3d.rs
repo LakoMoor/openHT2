@@ -52,7 +52,7 @@ pub enum Data {
     /// Type 28: camera-facing sprite polygons with their own vertices.
     Sprites(Vec<(u32, Vec<Vertex>)>),
     /// Type 24: local transform (three axis vectors and an origin).
-    Space { axes: [Vec3; 3], pos: Vec3 },
+    Space { axes: [Vec3; 3], pos: Vec3, flag:u32 },
     /// Type 23: a collision mesh. `surface` and `params` are the surface record the original hands
     /// to the vehicle on contact (type, kind, then the parameter words); `polys` are its polygons.
     Collision { surface: [u32; 2], params: Vec<u32>, polys: Vec<Vec<Vec3>> },
@@ -344,8 +344,8 @@ impl R<'_> {
             24 => {
                 let axes = [self.vec3()?, self.vec3()?, self.vec3()?];
                 let pos = self.vec3()?;
-                self.skip(1)?; // flag
-                data = Data::Space { axes, pos };
+                let flag=self.u32()?;
+                data = Data::Space { axes, pos, flag };
                 children = self.children(depth)?;
             }
             25 => self.skip(1 + 2 + 3 + 3 + 5)?,
@@ -607,7 +607,7 @@ struct Ctx<'a> {
 fn index<'a>(ns: &'a [Node], ctx: &mut Ctx<'a>) {
     for n in ns {
         match (&n.data, n.kind, n.names.as_slice()) {
-            (Data::Space { axes, pos }, _, _) => {
+            (Data::Space { axes, pos, .. }, _, _) => {
                 ctx.spaces.insert(&n.name, Xf { axes: *axes, pos: *pos });
             }
             (_, 18, [_, group]) => {
