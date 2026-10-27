@@ -20,6 +20,14 @@ impl CommandHeap for EventHeap {
         self.free.entry(size).or_default().push(address);
     }
 }
+impl ht2_sim::world::ReferenceVectorHeap for EventHeap {
+    fn allocate(&mut self,m:&mut Mem,bytes:u32)->u32 {CommandHeap::allocate(self,m,bytes)}
+    fn release(&mut self,m:&mut Mem,address:u32,bytes:u32) {
+        let expected=bytes.max(1).checked_add(15).expect("reference allocation overflow")&!15;
+        assert_eq!(self.live.get(&address),Some(&expected),"reference free size or owner mismatch");
+        CommandHeap::release(self,m,address);
+    }
+}
 impl EventHeap {
     /// Explicit scene-event portion of the original AI update. Earlier motion
     /// synchronization/mode decisions remain the scene vehicle owner's job.
@@ -57,6 +65,22 @@ impl EventHeap {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn reference_cleanup_reuses_owned_vector_blocks() {
+        use ht2_sim::world::{clear_vehicle_player,OwnedVehiclePlayerReferences,ReferenceVectorHeap};
+        let mut m=Mem::new();let mut heap=EventHeap::default();let vehicle=0x1a000000;let group=0x1b000000;let records=0x1c000000;
+        m.set_u32(vehicle+0x1c,group);m.set_u32(vehicle+0x20,group+0x90);m.set_u32(group+0x78,records);m.set_u32(group+0x7c,records+48);
+        for (i,len) in [4u32,24,8].into_iter().enumerate(){
+            let p=ReferenceVectorHeap::allocate(&mut heap,&mut m,len);let record=records+i as u32*16;
+            m.set_u32(record,if i==0 {123}else{456+i as u32});m.set_u32(record+4,p);m.set_u32(record+8,p+len);m.set_u32(record+12,p+len);m.write(p,&vec![i as u8+1;len as usize]);
+        }
+        clear_vehicle_player(&mut m,vehicle,123,&mut OwnedVehiclePlayerReferences(&mut heap));
+        assert_eq!(m.u32(group+0x7c),records+32);assert_eq!(m.u32(records),457);assert_eq!(m.u32(records+16),458);
+        let first=m.u32(records+4);let second=m.u32(records+20);assert_eq!(m.read(first,24),vec![2;24]);assert_eq!(m.read(second,8),vec![3;8]);
+        assert_eq!(heap.live.len(),2);
+        for i in 0..2 {ht2_sim::world::destroy_reference_vector(&mut m,records+i*16+4,&mut heap);}
+        assert!(heap.live.is_empty());assert_eq!(heap.free.values().map(Vec::len).sum::<usize>(),4);
+    }
     #[test]
     #[ignore="requires HT2_GAME installed game data"]
     fn scene_commands_update_live_world_player_and_reuse_heap() {
