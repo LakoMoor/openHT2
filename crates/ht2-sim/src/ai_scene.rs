@@ -623,6 +623,49 @@ mod tests {
         }
     }
     #[test]
+    fn original_complete_vehicle_update_trajectory_and_human() {
+        use super::*;
+        struct Hooks {trace:Vec<&'static str>,value:u32,swap:bool,other:u32}
+        impl UpdateStartHooks for Hooks {
+            fn player_flags(&mut self,_:&mut Mem,_:u32)->u32{self.trace.push("flags");self.value}
+            fn lost_trajectory(&mut self,_:&mut Mem){panic!("unexpected lost trajectory")}
+        }
+        impl TrajectoryHooks for Hooks {
+            fn mode(&mut self,_:&mut Mem,_:u32,_:i32){panic!("unexpected mode transition")}
+            fn world_transform(&mut self,_:&mut Mem,body:u32)->[f32;12]{self.trace.push("world");let mut pose=crate::matrix::IDENTITY;if body==0x2a010010 {pose[9]=90.;}pose}
+            fn publish_flags(&mut self,_:&mut Mem,_:u32,_:u32){panic!("unexpected mode transition")}
+        }
+        impl PhysicsHooks for Hooks {
+            fn player_speed(&mut self,_:&mut Mem,_:u32)->f64{unreachable!()}
+            fn player_direction(&mut self,_:&mut Mem,_:u32)->[f32;3]{unreachable!()}
+        }
+        impl TrajectoryStateHooks for Hooks {
+            fn position(&mut self,_:&mut Mem,_:u32)->[u32;8]{self.trace.push("place");[0;8]}
+            fn segment_width(&mut self,_:&mut Mem,_:[u32;8])->f64{self.trace.push("width");4.}
+            fn choose_lane(&mut self,_:&mut Mem,_:u32,_:f64)->i32{self.trace.push("lane");1}
+            fn road_pose(&mut self,_:&mut Mem,_:u32,_:[u32;8])->[f32;12]{self.trace.push("pose");crate::matrix::IDENTITY}
+            fn tangent(&mut self,_:&mut Mem,_:[u32;8])->[f32;3]{self.trace.push("tangent");[1.,0.,0.]}
+            fn publish_lane(&mut self,_:&mut Mem,_:u32,_:i32){self.trace.push("publish_lane");}
+        }
+        impl ObstacleHooks for Hooks {
+            fn consume(&mut self,m:&mut Mem,commands:u32){self.trace.push("consume");m.set_u32(commands,0);}
+            fn publish(&mut self,_:&mut Mem,_:u32,_:bool,_:f64){self.trace.push("publish");}
+        }
+        impl SceneVehicleUpdateHooks for Hooks {
+            fn query_commands(&mut self,m:&mut Mem,v:u32){self.trace.push("world");self.trace.push("events");if self.swap {m.set_u32(v+0x5460,self.other);}}
+        }
+        for (case,line) in include_str!("../../../tools/emu/golden_ai_vehicle_update_trajectory.tsv").lines().enumerate(){
+            let fields:Vec<_>=line.split('\t').collect();let input:Vec<u32>=fields[0].split(',').map(|v|v.parse().unwrap()).collect();
+            let v=0x2a000000;let human=v+0x10000;let driver=v+0x20000;let other=v+0x30000;let flags=v+0x40000;let player=v+0x50000;let scenario=v+0x60000;let clock=v+0x70000;let cmd=v+0x90000;let data=cmd+0x100;
+            let mut m=Mem::new();crate::matrix::put12(&mut m,0x7025f0,&crate::matrix::IDENTITY);m.set_u32(0x6d2078,scenario);m.set_u32(0x6f33ac,clock);m.set_u32(0x696ca0,clock);m.set_u32(0x68b990,0x1234);
+            m.set_u32(scenario+0x268,if input[0]!=0 {v}else{human});m.set_f64(clock+0x58,input[3] as f64);m.set_u32(v+0x509c,player);m.set_u32(player+0x1c,1);m.set_u32(v+0x5460,driver);m.set_u32(v+0x51b8,0x123);m.set_u32(driver+0x4078,0x234);m.set_f64(driver+0x40b0,42.);m.set_f64(other+0x40b0,43.);
+            m.set_f32(0x702640,1.);m.set_f64(clock+0xb90,0.1);m.set_f64(driver+0x40a8,2.);m.set_u32(v+0x5570,cmd);m.set_u32(cmd,29);m.set_u32(cmd+12,data);m.set_f32(data,12.);
+            let mut hooks=Hooks{trace:vec![],value:input[2],swap:input[1]!=0,other};let result=update_scene_vehicle(&mut m,v,flags,&mut hooks);
+            let actual=vec![result as u64,m.u32(flags) as u64,m.u32(v+0x51b8) as u64,m.u32(driver+0x4078) as u64,m.u32(v+0x5460) as u64,m.u32(v+0x5570) as u64,m.f64(driver+0x40b0).to_bits(),m.f64(other+0x40b0).to_bits()];
+            assert_eq!(actual,fields[1].split(',').map(|x|x.parse::<u64>().unwrap()).collect::<Vec<_>>(),"case {case} state");let pose=(0..96).map(|i|format!("{:02x}",m.rd8(v+0x50a0+i))).collect::<String>();assert_eq!(pose,fields[2],"case {case} pose");assert_eq!(hooks.trace.join(";"),fields[3],"case {case} trace");
+        }
+    }
+    #[test]
     fn complete_scene_update_orders_world_callbacks_and_uses_cached_driver() {
         use super::*;
         struct Hooks {trace:Vec<&'static str>,other:u32}
