@@ -290,7 +290,13 @@ impl<H:CommandHeap> ObstacleHooks for PlayerObstacle<'_,H> {
 }
 /// Command/obstacle tail `0x4cfb51..0x4cfbf7` of the common AI update.
 pub fn update_obstacle_command(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl ObstacleHooks) {
-    let driver=m.u32(vehicle+0x5460);m.set_f64(driver+0x40b0,-1.);
+    let driver=m.u32(vehicle+0x5460);
+    update_obstacle_command_cached(m,vehicle,driver,player,flags,h);
+}
+
+/// Tail with the driver pointer captured before trajectory and scene callbacks.
+pub fn update_obstacle_command_cached(m:&mut Mem,vehicle:u32,driver:u32,player:u32,flags:u32,h:&mut impl ObstacleHooks) {
+    m.set_f64(driver+0x40b0,-1.);
     let command=m.u32(vehicle+0x5570);
     if m.u32(vehicle+0x5574)==0 && command!=0 && m.u32(command)==29 {
         let distance=m.f32(m.u32(command+12));
@@ -319,7 +325,7 @@ fn update_physics_mode_inner(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut 
     m.set_u32(driver+0x4078,u32::from(m.u32(flags)&0x80==0));
 }
 /// Mode block `0x4cf7e8..0x4cf861` of the common AI vehicle update.
-/// Call for AI vehicles after the earlier trajectory synchronization; this is
+/// Call for AI vehicles before trajectory synchronization; this is
 /// not a replacement for the full 0x4cf620 update or its human early return.
 pub fn update_physics_mode(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl PhysicsHooks) {
     struct Dispatch<'a,H>(&'a mut H);
@@ -333,10 +339,40 @@ pub fn update_physics_mode(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut im
     impl<H:PhysicsHooks> ModeDispatch for Dispatch<'_,H> {
         fn enter_needed(&mut self,m:&mut Mem,v:u32)->bool {let(a,b)=self.positions(m,v);crate::ai::fn_004cedd0(a,b)}
         fn leave_needed(&mut self,m:&mut Mem,v:u32)->bool {let(a,b)=self.positions(m,v);crate::ai::fn_004cee70(m,v,a,b)}
-        fn enter(&mut self,m:&mut Mem,v:u32,p:u32,f:u32){enter_physics(m,v,p,f,true,self.0);}
-        fn leave(&mut self,m:&mut Mem,v:u32,p:u32,f:u32){leave_physics(m,v,p,f,self.0);}
+        fn enter(&mut self,m:&mut Mem,v:u32,_p:u32,f:u32){enter_physics(m,v,m.u32(v+0x509c),f,true,self.0);}
+        fn leave(&mut self,m:&mut Mem,v:u32,_p:u32,f:u32){leave_physics(m,v,m.u32(v+0x509c),f,self.0);}
     }
     update_physics_mode_inner(m,vehicle,player,flags,&mut Dispatch(h));
+}
+
+/// Services owned by the scene, physics and trajectory worlds during 0x4cf620.
+/// `query_commands` must synchronously deliver events before returning.
+pub trait SceneVehicleUpdateHooks:UpdateStartHooks+PhysicsHooks+TrajectoryStateHooks+ObstacleHooks {
+    fn query_commands(&mut self,m:&mut Mem,vehicle:u32);
+}
+
+/// Common scene-vehicle update (0x4cf620), with external world services supplied
+/// by the owner. The human path returns success without running the AI blocks.
+pub fn update_scene_vehicle(m:&mut Mem,vehicle:u32,flags:u32,h:&mut impl SceneVehicleUpdateHooks)->u32 {
+    if !begin_vehicle_update(m,vehicle,flags,h) {return 1;}
+    struct Reference<'a,H>(&'a mut H);
+    impl<H:PhysicsHooks> ObstacleSourceHooks for Reference<'_,H> {
+        fn player_kind(&mut self,_:&mut Mem,_:u32)->i32 {unreachable!()}
+        fn world_transform(&mut self,m:&mut Mem,body:u32)->[f32;12] {self.0.world_transform(m,body)}
+    }
+    let _=reference_world_pose(m,vehicle,&mut Reference(h));
+    update_physics_mode(m,vehicle,m.u32(vehicle+0x509c),flags,h);
+    let driver=m.u32(vehicle+0x5460);
+    sync_trajectory_state(m,vehicle,flags,h);
+    h.query_commands(m,vehicle);
+    // 0x41d300 copies the identity after the consume callback.
+    struct LatePlayer<'a,H>{hooks:&'a mut H,vehicle:u32}
+    impl<H:ObstacleHooks> ObstacleHooks for LatePlayer<'_,H> {
+        fn consume(&mut self,m:&mut Mem,commands:u32){self.hooks.consume(m,commands);}
+        fn publish(&mut self,m:&mut Mem,_:u32,clear:bool,distance:f64){self.hooks.publish(m,m.u32(self.vehicle+0x509c),clear,distance);}
+    }
+    update_obstacle_command_cached(m,vehicle,driver,0,flags,&mut LatePlayer{hooks:h,vehicle});
+    1
 }
 
 /// State-changing part of `0x581430`. Components within +/-10 are copied;
@@ -543,6 +579,50 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn complete_scene_update_orders_world_callbacks_and_uses_cached_driver() {
+        use super::*;
+        struct Hooks {trace:Vec<&'static str>,other:u32}
+        impl UpdateStartHooks for Hooks {
+            fn player_flags(&mut self,_:&mut Mem,_:u32)->u32 {self.trace.push("flags");0}
+            fn lost_trajectory(&mut self,_:&mut Mem){self.trace.push("lost");}
+        }
+        impl TrajectoryHooks for Hooks {
+            fn mode(&mut self,_:&mut Mem,_:u32,_:i32){panic!("unexpected transition")}
+            fn world_transform(&mut self,_:&mut Mem,body:u32)->[f32;12] {
+                self.trace.push("world");let mut a=crate::matrix::IDENTITY;
+                if body==0x2a010010 {a[9]=90.;}a
+            }
+            fn publish_flags(&mut self,_:&mut Mem,_:u32,_:u32){panic!("unexpected transition")}
+        }
+        impl PhysicsHooks for Hooks {
+            fn player_speed(&mut self,_:&mut Mem,_:u32)->f64 {unreachable!()}
+            fn player_direction(&mut self,_:&mut Mem,_:u32)->[f32;3] {unreachable!()}
+        }
+        impl TrajectoryStateHooks for Hooks {
+            fn position(&mut self,_:&mut Mem,_:u32)->[u32;8] {self.trace.push("place");[0;8]}
+            fn segment_width(&mut self,_:&mut Mem,_:[u32;8])->f64 {self.trace.push("width");4.}
+            fn choose_lane(&mut self,_:&mut Mem,_:u32,_:f64)->i32 {self.trace.push("lane");0}
+            fn road_pose(&mut self,_:&mut Mem,_:u32,_:[u32;8])->[f32;12] {self.trace.push("pose");crate::matrix::IDENTITY}
+            fn tangent(&mut self,_:&mut Mem,_:[u32;8])->[f32;3] {self.trace.push("tangent");[1.,0.,0.]}
+            fn publish_lane(&mut self,_:&mut Mem,_:u32,_:i32){self.trace.push("publish_lane");}
+        }
+        impl ObstacleHooks for Hooks {
+            fn consume(&mut self,m:&mut Mem,commands:u32){self.trace.push("consume");m.set_u32(commands,0);m.set_u32(0x2a00509c,0x2a090000);}
+            fn publish(&mut self,_:&mut Mem,player:u32,clear:bool,distance:f64){self.trace.push("publish");assert_eq!((player,clear,distance),(0x2a090000,true,-1.));}
+        }
+        impl SceneVehicleUpdateHooks for Hooks {
+            fn query_commands(&mut self,m:&mut Mem,v:u32){self.trace.push("events");m.set_u32(v+0x5460,self.other);}
+        }
+        let mut m=Mem::new();let v=0x2a000000;let human=0x2a010000;let driver=0x2a020000;let flags=0x2a030000;let player=0x2a040000;let scenario=0x2a050000;let clock=0x2a060000;let command=0x2a070000;let data=command+0x100;let other=0x2a080000;
+        m.set_u32(0x6d2078,scenario);m.set_u32(scenario+0x268,human);m.set_u32(0x6f33ac,clock);m.set_f64(clock+0x58,12.);m.set_u32(0x696ca0,clock);
+        m.set_u32(v+0x509c,player);m.set_u32(player+0x1c,1);m.set_u32(v+0x5460,driver);m.set_u32(v+0x5570,command);m.set_u32(command,29);m.set_u32(command+12,data);m.set_f32(data,12.);
+        crate::matrix::put12(&mut m,0x7025f0,&crate::matrix::IDENTITY);m.set_f32(0x702640,1.);m.set_f64(driver+0x40a8,2.);
+        let mut h=Hooks{trace:vec![],other};assert_eq!(update_scene_vehicle(&mut m,v,flags,&mut h),1);
+        assert_eq!(h.trace,["flags","world","world","world","place","width","lane","pose","tangent","publish_lane","events","consume","publish"]);
+        assert_eq!(m.f64(driver+0x40b0),-1.);assert_eq!(m.f64(other+0x40b0),12.);
+        h.trace.clear();m.set_u32(scenario+0x268,v);assert_eq!(update_scene_vehicle(&mut m,v,flags,&mut h),1);assert_eq!(h.trace,["flags"]);
+    }
     #[test]
     fn original_trajectory_sync_block() {
         use super::*;
@@ -816,6 +896,24 @@ mod tests {
             m.set_u32(command,v[2] as u32);m.set_u32(command+4,v[3] as u32);m.set_u32(command+12,data);m.set_u32(data,v[4] as u32);m.set_u32(flags,v[5] as u32);
             let mut h=Hooks(vec![]);update_obstacle_command(&mut m,vehicle,0x12345678,flags,&mut h);
             assert_eq!(vec![m.f64(driver+0x40b0).to_bits(),m.u32(vehicle+0x5570) as u64],p[1].split(',').map(|x|x.parse::<u64>().unwrap()).collect::<Vec<_>>(),"case {case} state");
+            assert_eq!(h.0.join(";"),p[2],"case {case} calls");
+        }
+    }
+    #[test]
+    fn original_obstacle_tail_with_changed_driver() {
+        struct Hooks(Vec<String>);
+        impl ObstacleHooks for Hooks {
+            fn consume(&mut self,m:&mut Mem,commands:u32){self.0.push("consume".into());m.set_u32(commands,0);}
+            fn publish(&mut self,_:&mut Mem,player:u32,clear:bool,distance:f64){let bits=distance.to_bits();self.0.push(format!("publish:{player},{},{},{}",u32::from(clear),bits as u32,(bits>>32) as u32));}
+        }
+        for (case,line) in include_str!("../../../tools/emu/golden_ai_obstacle_cached.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let v:Vec<i64>=p[0].split(',').map(|x|x.parse().unwrap()).collect();
+            let mut m=Mem::new();let vehicle=0x2a000000;let driver=vehicle+0x10000;let other=vehicle+0x50000;let flags=vehicle+0x20000;let command=vehicle+0x30000;let data=command+0x100;
+            m.set_u32(vehicle+0x5460,if v[6]!=0 {other}else{driver});m.set_f64(other+0x40b0,42.);
+            m.set_u32(vehicle+0x5570,if v[0]!=0 {command}else{0});m.set_u32(vehicle+0x5574,v[1] as u32);
+            m.set_u32(command,v[2] as u32);m.set_u32(command+4,v[3] as u32);m.set_u32(command+12,data);m.set_u32(data,v[4] as u32);m.set_u32(flags,v[5] as u32);
+            let mut h=Hooks(vec![]);update_obstacle_command_cached(&mut m,vehicle,driver,0x12345678,flags,&mut h);
+            assert_eq!(vec![m.f64(driver+0x40b0).to_bits(),m.f64(other+0x40b0).to_bits(),m.u32(vehicle+0x5570) as u64],p[1].split(',').map(|x|x.parse::<u64>().unwrap()).collect::<Vec<_>>(),"case {case} state");
             assert_eq!(h.0.join(";"),p[2],"case {case} calls");
         }
     }
