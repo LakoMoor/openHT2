@@ -3030,6 +3030,19 @@ mod victory_tests {
     }
 
     #[test]
+    fn original_competitor_removal_with_native_flag_refresh() {
+        use crate::mem::Mem;
+        for (case,line) in include_str!("../../../tools/emu/golden_remove_competitor_native_flags.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let ids:Vec<u32>=p[0].split(',').filter(|x|!x.is_empty()).map(|x|x.parse().unwrap()).collect();
+            let player=0x2a000000;let arr=player+0x10000;let mut m=Mem::new();m.set_u32(0x68a980,arr);m.set_u32(0x68a984,arr+ids.len() as u32*4);
+            for (i,id) in ids.iter().enumerate(){m.set_u32(arr+i as u32*4,*id);}m.set_u32(player+0x60,p[1].parse().unwrap());m.wr8(player+0x1f0,p[2].parse().unwrap());m.set_u32(player+0x20c,123);m.set_u32(player+0x210,456);m.set_u32(player+0x214,789);m.wr8(player+0x368,7);
+            let fallback=player+0x50000;let truck=player+0x20000;m.set_u32(0x68b990,fallback);m.set_u32(player+0x5c,8);m.set_u32(player+0xb0,fallback);m.set_u32(player+0x204,truck);m.set_u32(truck+4,1);m.set_u32(truck+0x1c,player+0x30000);m.set_u32(truck+0x20,player+0x30000);let mut trace=vec![];remove_competitor_with_cargo(&mut m,player,|_|trace.push("diagnostic"));
+            let count=(m.u32(0x68a984)-arr)/4;let actual=(0..count).map(|i|m.u32(arr+i*4).to_string()).collect::<Vec<_>>().join(",");assert_eq!(actual,p[3],"case {case} list");
+            let state=[m.rd8(player+0x1f0) as u32,m.u32(player+0x20c),m.u32(player+0x210),m.u32(player+0x214),m.u32(player+0x60),m.rd8(player+0x368) as u32];assert_eq!(state.iter().map(u32::to_string).collect::<Vec<_>>().join(","),p[4],"case {case} fields");assert_eq!(trace.join(";"),p[5]);
+        }
+    }
+
+    #[test]
     fn original_player_reference_assignment() {
         use crate::mem::Mem;
         struct Heap(Vec<String>);
