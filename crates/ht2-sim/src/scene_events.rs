@@ -3,10 +3,18 @@
 use crate::{mem::Mem,math,matrix};
 const POINT:u32=0x721298;
 pub trait EventHooks {
-    fn child(&mut self,m:&mut Mem,node:u32,index:i32)->u32;
+    /// Default virtual +0x40 implementation for nodes with the original
+    /// +0x30 table / +0x34 count layout (0x4b9b70).
+    fn child(&mut self,m:&mut Mem,node:u32,index:i32)->u32 {child_list(m,node,index)}
     /// Native volume receiver is node+0x38 for branches, node+0x40 for events.
     fn contains(&mut self,m:&mut Mem,volume:u32,point:u32)->bool {contains(m,volume,point)}
     fn event(&mut self,m:&mut Mem,callback:u32,command:u32,user:u32);
+}
+/// Original signed upper-bound check. There is no lower-bound check: preserve
+/// negative indexing into the owner's table, including 32-bit address wrapping.
+pub fn child_list(m:&Mem,node:u32,index:i32)->u32 {
+    if index>=m.i32(node+0x34) {return 0;}
+    m.u32(m.u32(node+0x30).wrapping_add((index as u32).wrapping_mul(4)))
 }
 /// `0x5f88d0`: point against an unconditional volume, sphere, cylinder or
 /// plane. Outside-sphere/cylinder forms use strict comparisons. The cylinder
@@ -71,6 +79,15 @@ pub fn visit(m:&mut Mem,node:u32,h:&mut impl EventHooks) {
 mod tests {
     use super::*;
     #[test]
+    fn native_child_lists() {
+        for (case,line) in include_str!("../../../tools/emu/golden_scene_children.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();
+            let raw=(0..p[2].len()).step_by(2).map(|i|u8::from_str_radix(&p[2][i..i+2],16).unwrap()).collect::<Vec<_>>();
+            m.write(0x21e0,&raw);m.set_u32(0x1030,0x2200);m.set_i32(0x1034,p[0].parse().unwrap());
+            assert_eq!(child_list(&m,0x1000,p[1].parse().unwrap()),p[3].parse::<u32>().unwrap(),"case {case}");
+        }
+    }
+    #[test]
     fn native_point_volumes() {
         for (case,line) in include_str!("../../../tools/emu/golden_event_volumes.tsv").lines().enumerate(){
             let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();
@@ -79,19 +96,19 @@ mod tests {
             assert_eq!(contains(&m,0x1000,0x2020),p[2]=="1","case {case}, kind {}",p[0]);
         }
     }
-    struct Hooks(Vec<u32>,bool);
+    struct Hooks(Vec<u32>,bool,bool);
     impl EventHooks for Hooks {
-        fn child(&mut self,m:&mut Mem,n:u32,i:i32)->u32 {if (0..2).contains(&i){m.u32(n+0x50+i as u32*4)}else{0}}
+        fn child(&mut self,m:&mut Mem,n:u32,i:i32)->u32 {if self.2 {child_list(m,n,i)}else if (0..2).contains(&i){m.u32(n+0x50+i as u32*4)}else{0}}
         fn contains(&mut self,m:&mut Mem,v:u32,p:u32)->bool {if self.1 {contains(m,v,p)}else{m.u32(v)!=0}}
         fn event(&mut self,m:&mut Mem,c:u32,n:u32,u:u32){self.0.extend([c,n,u,m.u32(POINT),m.u32(POINT+4),m.u32(POINT+8)]);m.set_f32(POINT,m.f32(POINT)+1.);}
     }
     #[test]
     fn native_event_traversal() {
-        for (data,native) in [(include_str!("../../../tools/emu/golden_scene_events.tsv"),false),(include_str!("../../../tools/emu/golden_scene_events_native_volumes.tsv"),true)] {
+        for (data,native,children) in [(include_str!("../../../tools/emu/golden_scene_events.tsv"),false,false),(include_str!("../../../tools/emu/golden_scene_events_native_volumes.tsv"),true,false),(include_str!("../../../tools/emu/golden_scene_events_native_children.tsv"),true,true)] {
         for (case,line) in data.lines().enumerate(){
             let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();
             let bytes=(0..p[0].len()).step_by(2).map(|i|u8::from_str_radix(&p[0][i..i+2],16).unwrap()).collect::<Vec<_>>();m.write(0x2a000000,&bytes);
-            let mut h=Hooks(Vec::new(),native);query(&mut m,0x2a000000,[3.,4.,5.],123,456,&mut h);
+            let mut h=Hooks(Vec::new(),native,children);query(&mut m,0x2a000000,[3.,4.,5.],123,456,&mut h);
             let expected=p[1].split(',').filter(|x|!x.is_empty()).map(|x|x.parse::<u32>().unwrap()).collect::<Vec<_>>();
             assert_eq!(h.0,expected,"trace {case}");
             let point=(0..3).map(|i|m.u32(POINT+i*4).to_string()).collect::<Vec<_>>().join(",");assert_eq!(point,p[2],"point {case}");
