@@ -111,9 +111,21 @@ fn to_node(m: &Mem, rec: u32, p: [f32; 3]) -> [f32; 3] {
 
 /// `0x5f88d0` for a plane volume: is `p` strictly on the front side?
 fn plane_inside(m: &Mem, vol: u32, p: [f32; 3]) -> bool {
-    let pl = m.u32(vol + 8);
-    let v = p[0] * m.f32(pl) + m.f32(pl + 4) * p[1] + m.f32(pl + 8) * p[2] + m.f32(pl + 12);
-    v > 0.0
+    ht2_sim::scene_events::contains_point(m,vol,p)
+}
+
+#[cfg(test)]
+mod plane_tests {
+    use super::*;
+    #[test]
+    fn collision_split_side_matches_native_near_plane() {
+        for (case,line) in include_str!("../../../tools/emu/golden_split_side.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let bytes=(0..p[0].len()).step_by(2).map(|i|u8::from_str_radix(&p[0][i..i+2],16).unwrap()).collect::<Vec<_>>();
+            let mut m=Mem::new();m.set_u32(0x1000,5);m.set_u32(0x1008,0x2000);m.write(0x2000,&bytes);
+            let point=std::array::from_fn(|i|m.f32(0x2010+i as u32*4));
+            assert_eq!(plane_inside(&m,0x1000,point),p[1]=="1","case {case}");
+        }
+    }
 }
 
 impl Scene {

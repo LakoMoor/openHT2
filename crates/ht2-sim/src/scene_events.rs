@@ -12,11 +12,15 @@ pub trait EventHooks {
 /// plane. Outside-sphere/cylinder forms use strict comparisons. The cylinder
 /// variants have different intermediate f32 stores in the original.
 pub fn contains(m:&Mem,volume:u32,point:u32)->bool {
+    contains_point(m,volume,std::array::from_fn(|i|m.f32(point+i as u32*4)))
+}
+/// Same predicate for a caller-owned point, without scratch-memory writes.
+pub fn contains_point(m:&Mem,volume:u32,point:[f32;3])->bool {
     let kind=m.u32(volume);
     if kind==0 {return true;}
     if kind>5 {return false;}
     let data=m.u32(volume+8);
-    let p=std::array::from_fn::<_,3,_>(|i|m.f32(point+i as u32*4) as f64);
+    let p=point.map(|x|x as f64);
     let a=std::array::from_fn::<_,8,_>(|i|m.f32(data+i as u32*4) as f64);
     if kind==5 {return ((p[2]*a[2]+p[1]*a[1])+p[0]*a[0])+a[3]>0.;}
     let d=std::array::from_fn::<_,3,_>(|i|(p[i]-a[i]) as f32 as f64);
