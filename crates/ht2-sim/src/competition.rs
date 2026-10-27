@@ -34,12 +34,12 @@ impl World {
             self.players[k].tracked = true;
         }
         // Refresh the derived fields represented by the typed world.
-        self.mirror_tracked(k);
+        self.refresh_represented_flags(k);
     }
 
     /// Represented part of 0x477210: competitor and company flags. Cargo and
     /// human-vehicle bits need additional original instance state.
-    pub(crate) fn mirror_tracked(&mut self, k: usize) {
+    pub(crate) fn refresh_represented_flags(&mut self, k: usize) {
         let p = &mut self.players[k];
         if p.tracked {
             p.flags |= 0x80;
@@ -60,7 +60,7 @@ impl World {
         p.comp_count = 0;
         p.comp_place = 0;
         p.comp_told = -1;
-        self.mirror_tracked(k);
+        self.refresh_represented_flags(k);
     }
 
     /// `0x4256f0`: all competitors are let go, none has arrived, and how many there will be and
@@ -70,7 +70,7 @@ impl World {
         self.competitor_list.clear();
         for k in 0..self.players.len() {
             self.players[k].tracked = false;
-            self.mirror_tracked(k);
+            self.refresh_represented_flags(k);
         }
         self.draw_competition();
     }

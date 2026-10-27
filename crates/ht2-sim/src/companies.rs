@@ -138,9 +138,9 @@ impl World {
             self.players[b].money = v + before + self.players[e].money;
             self.players[e].money = 0.0;
         }
-        self.players[e].flags &= !0x800;
+        self.refresh_represented_flags(b);
+        self.refresh_represented_flags(e);
         if self.players[b].members.is_empty() {
-            self.players[b].flags &= !0x1000;
             self.companies = self.companies.saturating_sub(1);
             if self.players[b].kind != 1 {
                 if let Some(l) = self.players[b].logo.take() {
@@ -190,9 +190,9 @@ impl World {
             self.cancel_hiring(e, now);
         }
         self.players[e].company_balance = 0.0;
-        // 0x477210: 0x800 works for a company, 0x1000 has employees
-        self.players[e].flags |= 0x800;
-        self.players[b].flags |= 0x1000;
+        // 0x477210 refreshes both players after the membership changes.
+        self.refresh_represented_flags(b);
+        self.refresh_represented_flags(e);
         if self.players[b].members.len() == 1 {
             self.companies += 1;
             if self.players[b].logo.is_none() {
