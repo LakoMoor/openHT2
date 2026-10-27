@@ -1769,8 +1769,11 @@ impl World {
         for k in 0..self.players.len() {
             if self.players[k].kind!=8 || !self.players[k].scene_remove_pending {continue;}
             let mut player=self.players[k].clone();self.trace_away(&mut player);
+            // 0x417530 removes only the first matching entry.
+            if let Some(index)=self.competitor_list.iter().position(|&id|id==k) {self.competitor_list.remove(index);}
             if self.unload(k) {changes.push(SceneChange::Unload(k));}
-            let player=&mut self.players[k];player.kind=0;player.place=None;player.route.clear();player.scene_remove_pending=false;
+            let player=&mut self.players[k];player.tracked=false;player.comp_count=0;player.comp_place=0;player.comp_told=-1;
+            player.kind=0;player.place=None;player.route.clear();player.scene_remove_pending=false;
         }
         changes
     }
@@ -2866,6 +2869,19 @@ pub fn destroy_reference_vector(m:&mut crate::mem::Mem,vector:u32,heap:&mut impl
     let start=m.u32(vector);let size=m.u32(vector+8)-start;
     if size!=0 {heap.release(m,start,size);}
 }
+
+/// 0x417530: remove the first matching ID from the competitor array and
+/// reset its tracking fields. Refresh 0x477210 remains an explicit boundary.
+pub fn remove_competitor_record(m:&mut crate::mem::Mem,player:u32,mut refresh:impl FnMut(&mut crate::mem::Mem,u32)) {
+    let mut p=m.u32(0x68a980);let end=m.u32(0x68a984);
+    while p!=end && m.u32(p)!=player {p+=4;}
+    if p!=end {
+        while p+4<end {m.set_u32(p,m.u32(p+4));p+=4;}
+        m.set_u32(0x68a984,end-4);
+    }
+    m.wr8(player+0x1f0,0);m.set_u32(player+0x20c,0);m.set_u32(player+0x210,0);m.set_u32(player+0x214,u32::MAX);
+    refresh(m,player);m.wr8(player+0x368,1);
+}
 pub struct OwnedVehiclePlayerReferences<'a,H:ReferenceVectorHeap>(pub &'a mut H);
 impl<H:ReferenceVectorHeap> VehiclePlayerReferences for OwnedVehiclePlayerReferences<'_,H> {
     fn assign(&mut self,m:&mut crate::mem::Mem,d:u32,s:u32){assign_player_reference(m,d,s,self.0);}
@@ -2892,6 +2908,19 @@ pub fn clear_vehicle_player(m:&mut crate::mem::Mem,vehicle:u32,player:u32,h:&mut
 #[cfg(test)]
 mod victory_tests {
     use super::*;
+
+    #[test]
+    fn original_remove_competitor_record() {
+        use crate::mem::Mem;
+        for (case,line) in include_str!("../../../tools/emu/golden_remove_competitor.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let ids:Vec<u32>=p[0].split(',').filter(|x|!x.is_empty()).map(|x|x.parse().unwrap()).collect();
+            let player=0x2a000000;let arr=player+0x10000;let mut m=Mem::new();m.set_u32(0x68a980,arr);m.set_u32(0x68a984,arr+ids.len() as u32*4);
+            for (i,id) in ids.iter().enumerate(){m.set_u32(arr+i as u32*4,*id);}m.set_u32(player+0x60,p[1].parse().unwrap());m.wr8(player+0x1f0,p[2].parse().unwrap());m.set_u32(player+0x20c,123);m.set_u32(player+0x210,456);m.set_u32(player+0x214,789);m.wr8(player+0x368,7);
+            let mut trace=vec![];remove_competitor_record(&mut m,player,|_,_|trace.push("refresh"));
+            let count=(m.u32(0x68a984)-arr)/4;let actual=(0..count).map(|i|m.u32(arr+i*4).to_string()).collect::<Vec<_>>().join(",");assert_eq!(actual,p[3],"case {case} list");
+            let state=[m.rd8(player+0x1f0) as u32,m.u32(player+0x20c),m.u32(player+0x210),m.u32(player+0x214),m.u32(player+0x60),m.rd8(player+0x368) as u32];assert_eq!(state.iter().map(u32::to_string).collect::<Vec<_>>().join(","),p[4],"case {case} fields");assert_eq!(trace.join(";"),p[5]);
+        }
+    }
 
     #[test]
     fn original_player_reference_assignment() {
@@ -2943,11 +2972,12 @@ mod victory_tests {
         let vehicle=Vehicle{id:"test".into(),model:String::new(),colour:0,kind:1,roles:vec![7,9],price:0.,power:0.,trailers:vec![],liquid:false};
         let mut lists=Categories::default();lists.lists[8]=vec![0];lists.lists[9]=vec![0];
         let mut w=World::new(std::rc::Rc::new(RoadNet::default()),vec![],vec![vehicle],lists,vec![],AiRng::default(),0);
-        let mut ghost=w.new_player(8);ghost.scene_remove_pending=true;let object=ghost.object.unwrap();w.loaded.insert(object);
+        let mut ghost=w.new_player(8);ghost.scene_remove_pending=true;ghost.tracked=true;ghost.comp_count=5;ghost.comp_place=3;ghost.comp_told=2;let object=ghost.object.unwrap();w.loaded.insert(object);
         let mut other=w.new_player(7);other.scene_remove_pending=true;
-        w.players=vec![ghost,other];w.first_load=false;
+        w.players=vec![ghost,other];w.competitor_list=vec![1,0,0,1];w.first_load=false;
         let changes=w.tick(0.,&mut |_,_|false);
         assert_eq!(w.players[0].kind,0);assert!(!w.players[0].scene_remove_pending);assert!(!w.loaded.contains(&object));
+        assert_eq!(w.competitor_list,vec![1,0,1]);assert!(!w.players[0].tracked);assert_eq!((w.players[0].comp_count,w.players[0].comp_place,w.players[0].comp_told),(0,0,-1));
         assert!(changes.iter().any(|c|matches!(c,SceneChange::Unload(0))));
         assert_eq!(w.players[1].kind,7);assert!(w.players[1].scene_remove_pending);
     }
