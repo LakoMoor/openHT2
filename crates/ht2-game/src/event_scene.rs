@@ -21,6 +21,16 @@ impl EventScene {
     /// Build all supplied definitions before resolving links. The selected root
     /// alone is visited by query; other roots can supply spaces and key owners.
     pub fn from_nodes(nodes:&[Node],root_name:&str)->Result<Self,String> {
+        Self::from_roots(nodes.iter(),root_name)
+    }
+    /// COMMON contains shared key owners (including ILLUM_LEVEL_00..15).
+    /// Load definitions without requiring renderable triangles or textures.
+    pub fn from_map_files(game:&std::path::Path,files:&[ht2_formats::b3d::B3d],root_name:&str)->Result<Self,String> {
+        let path=game.join("COMMON").join("COMMON.B3D");
+        let common=ht2_formats::b3d::parse(&std::fs::read(&path).map_err(|e|format!("{}: {e}",path.display()))?).map_err(|e|e.to_string())?;
+        Self::from_roots(common.nodes.iter().chain(files.iter().flat_map(|f|f.nodes.iter())),root_name)
+    }
+    fn from_roots<'a>(nodes:impl IntoIterator<Item=&'a Node>,root_name:&str)->Result<Self,String> {
         let mut out=Self{memory:Mem::new(),root:0,next:0x4200_0000,switches:HashMap::new(),references:Vec::new(),nodes:HashMap::new(),links:Vec::new(),groups:Vec::new()};
         for node in nodes {
             let address=out.add(node)?;
@@ -32,9 +42,9 @@ impl EventScene {
             out.memory.set_u32(*address+0x3c,target);
         }
         for (address,space,group) in &out.links {
-            let target=out.nodes.get(group).copied().ok_or_else(||format!("unresolved event group: {group}"))?;
-            let transform=out.nodes.get(space).copied().ok_or_else(||format!("unresolved event space: {space}"))?;
-            if out.memory.u32(transform+0x10)!=6 {return Err(format!("event link space is not a space: {space}"));}
+            let target=if group.trim_matches(' ').is_empty(){0}else{out.nodes.get(group).copied().ok_or_else(||format!("unresolved event group: {group}"))?};
+            let transform=if space.trim_matches(' ').is_empty(){0}else{out.nodes.get(space).copied().ok_or_else(||format!("unresolved event space: {space}"))?};
+            if transform!=0 && out.memory.u32(transform+0x10)!=6 {return Err(format!("event link space is not a space: {space}"));}
             out.memory.set_u32(*address+0x40,target);out.memory.set_u32(*address+0x44,transform);
         }
         for (address,name) in &out.groups {
@@ -147,6 +157,15 @@ mod tests {
         assert!(EventScene::from_node(&node).err().unwrap().contains("Group"));
         let node=Node{name:"refer_Missing".into(),kind:21,names:vec![],data:Data::Switch{cases:0,key:0},children:vec![],list:0};
         assert!(EventScene::from_node(&node).err().unwrap().contains("Missing"));
+    }
+    #[test]
+    #[ignore="requires HT2_GAME installed game data"]
+    fn installed_scene_reports_world_binding_after_common() {
+        let game=std::env::var("HT2_GAME").expect("HT2_GAME");
+        let (_,_,files)=crate::load_scenes(std::path::Path::new(&game),"ENV").unwrap();
+        assert!(!files.is_empty());
+        let error=EventScene::from_map_files(std::path::Path::new(&game),&files,&files[0].nodes[0].name).err().expect("runtime world binding is not installed yet");
+        assert_eq!(error,"unresolved event space: $$world");
     }
     #[test]
     fn b3d_point_events_match_native_pipeline() {
