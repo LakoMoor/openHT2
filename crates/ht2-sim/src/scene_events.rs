@@ -16,6 +16,11 @@ pub fn child_list(m:&Mem,node:u32,index:i32)->u32 {
     if index>=m.i32(node+0x34) {return 0;}
     m.u32(m.u32(node+0x30).wrapping_add((index as u32).wrapping_mul(4)))
 }
+/// `0x5ef640`: follow ownership parents to the root of the scene tree.
+pub fn root(m:&Mem,node:u32)->u32 {
+    let mut current=node;
+    loop {let parent=m.u32(current+0x2c);if parent==0{return current;}current=parent;}
+}
 /// `0x5f88d0`: point against an unconditional volume, sphere, cylinder or
 /// plane. Outside-sphere/cylinder forms use strict comparisons. The cylinder
 /// variants have different intermediate f32 stores in the original.
@@ -78,6 +83,27 @@ pub fn visit(m:&mut Mem,node:u32,h:&mut impl EventHooks) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn vehicle_query_uses_original_root_and_world_origin() {
+        struct Hooks{matrix:[f32;12],output:Vec<u32>}
+        impl crate::ai_scene::ObstacleSourceHooks for Hooks {
+            fn player_kind(&mut self,_:&mut Mem,_:u32)->i32{unreachable!()}
+            fn world_transform(&mut self,_:&mut Mem,body:u32)->[f32;12]{assert_eq!(body,0x2a000010);self.matrix}
+        }
+        impl EventHooks for Hooks {
+            fn event(&mut self,m:&mut Mem,callback:u32,command:u32,user:u32){self.output=vec![command-0x30,m.u32(POINT),m.u32(POINT+4),m.u32(POINT+8),callback,user];}
+        }
+        for (case,line) in include_str!("../../../tools/emu/golden_vehicle_event_query.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let depth=p[0].parse::<u32>().unwrap();let mut m=Mem::new();let v=0x2a000000;
+            let mut root=v+0x110;
+            for i in 0..depth{let parent=v+0x2000+(i+1)*128;m.set_u32(root+0x2c,parent);root=parent;}
+            m.set_u32(root+0x10,9);m.set_u32(root+0x40,0);
+            let raw=(0..p[1].len()).step_by(2).map(|i|u8::from_str_radix(&p[1][i..i+2],16).unwrap()).collect::<Vec<_>>();
+            let matrix=std::array::from_fn(|i|f32::from_le_bytes(raw[i*4..i*4+4].try_into().unwrap()));
+            let mut h=Hooks{matrix,output:vec![]};crate::ai_scene::query_vehicle_events(&mut m,v,&mut h);
+            assert_eq!(h.output,p[2].split(',').map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>(),"case {case}");
+        }
+    }
     #[test]
     fn native_child_lists() {
         for (case,line) in include_str!("../../../tools/emu/golden_scene_children.tsv").lines().enumerate(){

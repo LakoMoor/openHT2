@@ -13,6 +13,14 @@ pub trait SceneCommandHooks:ObstacleSourceHooks {
     /// 0x446c80 after identity validation, reached through 0x4ce2e0.
     fn mark_player(&mut self,m:&mut Mem,player:u32){m.set_u32(player+0x60,m.u32(player+0x60)|0x20000);}
 }
+/// Scene event query in `0x4cfb0f..0x4cfb51`. The position is the world
+/// origin of vehicle+0x10; the root comes from the embedded node at +0x110,
+/// not from an arbitrary room lookup. Owner must install the parent chain.
+pub fn query_vehicle_events(m:&mut Mem,vehicle:u32,h:&mut (impl ObstacleSourceHooks+crate::scene_events::EventHooks)) {
+    let matrix=h.world_transform(m,vehicle+0x10);
+    let root=crate::scene_events::root(m,vehicle+0x110);
+    crate::scene_events::query(m,root,[matrix[9],matrix[10],matrix[11]],0x4ce300,vehicle,h);
+}
 
 /// `0x476930` / `0x4769e0`: copy nineteen 16-byte player records. Return -1
 /// when +0x204 has no owner, leaving the destination untouched. Preserve word
