@@ -8,6 +8,28 @@
 mod mode_integration_tests {
     use super::*;
     #[test]
+    #[ignore="requires HT2_GAME installed game data"]
+    fn current_physics_pose_drives_installed_event_query() {
+        let game=std::path::PathBuf::from(std::env::var("HT2_GAME").unwrap());
+        let world=crate::load_world(&game,"ENV",None).unwrap();
+        let (_,_,files)=crate::load_scenes(&game,"ENV").unwrap();
+        let root=&files[0].nodes[0].name;
+        let events=crate::event_scene::EventScene::from_map_files(&game,&files,root).unwrap();
+        let params=&world.truck.params;let data=std::fs::read(game.join("vehicle.tech")).unwrap();
+        let mut car=SimCar::new(&data,params.record,&params.wheel_nodes,&params.add_nodes,&world.ground,world.spawn.0+Vec3::Z*world.spawn.2,world.spawn.1).unwrap();
+        let wrapper=0x1a000000;car.bind_event_scene(&events,wrapper,root).unwrap();
+        struct Callback;
+        impl ht2_sim::scene_events::EventHooks for Callback {
+            fn event(&mut self,_:&mut Mem,callback:u32,_:u32,user:u32){assert_eq!(callback,0x4ce300);assert_eq!(user,0x1a000000);}
+        }
+        for _ in 0..12 {
+            car.step(&world.ground,1./60.,0.,0.,0);
+            car.query_scene_events(wrapper,&mut Callback);
+            for i in 0..3 {assert_eq!(car.m.u32(0x721298+i*4),car.m.u32(CAR+0x34+i*4));}
+        }
+        assert!(car.pos().is_finite());
+    }
+    #[test]
     #[ignore = "requires HT2_GAME installed game data"]
     fn physical_mode_runs_existing_driver_on_installed_scene() {
         let game=std::path::PathBuf::from(std::env::var("HT2_GAME").expect("HT2_GAME"));
@@ -541,6 +563,25 @@ impl SimCar {
             Vec3::new(g(6), g(7), g(8)).extend(0.0),
             Vec3::new(g(9), g(10), g(11)).extend(1.0),
         )
+    }
+    /// Query from the current physical body, with an explicit scene wrapper
+    /// owned by the caller. Full original scene-vehicle scheduling is pending.
+    pub fn bind_event_scene(&mut self,scene:&crate::event_scene::EventScene,vehicle:u32,root_name:&str)->Result<(),String> {
+        scene.install(&mut self.m);scene.bind_vehicle(&mut self.m,vehicle,root_name)
+    }
+    pub fn query_scene_events(&mut self,vehicle:u32,hooks:&mut impl ht2_sim::scene_events::EventHooks) {
+        struct Query<'a,H>{pose:[f32;12],vehicle:u32,hooks:&'a mut H}
+        impl<H> ht2_sim::ai_scene::ObstacleSourceHooks for Query<'_,H> {
+            fn player_kind(&mut self,_:&mut Mem,_:u32)->i32{unreachable!("query does not ask player kind")}
+            fn world_transform(&mut self,_:&mut Mem,body:u32)->[f32;12]{assert_eq!(body,self.vehicle+0x10);self.pose}
+        }
+        impl<H:ht2_sim::scene_events::EventHooks> ht2_sim::scene_events::EventHooks for Query<'_,H> {
+            fn child(&mut self,m:&mut Mem,node:u32,index:i32)->u32{self.hooks.child(m,node,index)}
+            fn contains(&mut self,m:&mut Mem,volume:u32,point:u32)->bool{self.hooks.contains(m,volume,point)}
+            fn event(&mut self,m:&mut Mem,callback:u32,command:u32,user:u32){self.hooks.event(m,callback,command,user)}
+        }
+        let pose=std::array::from_fn(|i|self.m.f32(CAR+0x10+i as u32*4));
+        ht2_sim::ai_scene::query_vehicle_events(&mut self.m,vehicle,&mut Query{pose,vehicle,hooks});
     }
 
     pub fn pos(&self) -> Vec3 {

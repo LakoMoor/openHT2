@@ -146,6 +146,12 @@ impl EventScene {
         const BASE:u32=0x4200_0000;
         m.write(BASE,&self.memory.read(BASE,(self.next-BASE) as usize));
     }
+    /// Bind an already-owned scene vehicle's embedded node to the selected
+    /// tree. The owner chooses the root; this does not guess nearest rooms.
+    pub fn bind_vehicle(&self,m:&mut Mem,vehicle:u32,root_name:&str)->Result<(),String> {
+        let root=self.nodes.get(root_name).copied().ok_or_else(||format!("event vehicle root not found: {root_name}"))?;
+        m.set_u32(vehicle+0x110+0x2c,root);Ok(())
+    }
     pub fn query_in(&self,m:&mut Mem,root_name:&str,point:[f32;3],user:u32,hooks:&mut impl EventHooks)->Result<(),String> {
         let root=self.nodes.get(root_name).copied().ok_or_else(||format!("event query root not found: {root_name}"))?;
         scene_events::query(m,root,point,0,user,hooks);Ok(())
