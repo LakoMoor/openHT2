@@ -296,7 +296,7 @@ pub fn fn_004d60c0(m: &mut Mem, this: u32, target: f64, slope: f64) {
 /// 3.5 m (rounded), each `+0x40a8` wide; the lane to take is the preferred one `+0x407c`
 /// (random 0..3 when the driver is made, `0x4d2890`) or the outermost one. Owners flagged
 /// 0x80000 or 0x8000000 (`0x43f620`) take one lane further out. Owners with
-/// 0x4000 use their player role at scene-owner+0x509c -> player+0x2d8 and do
+/// 0x4000 use their race index at scene-owner+0x509c -> player+0x2d8 and do
 /// not modify the stored lane width.
 pub fn fn_004d4620(m: &mut Mem, this: u32, owner: u32, width: f64) -> i32 {
     if owner & 0x4000 != 0 {
@@ -317,9 +317,9 @@ pub fn fn_004d4620(m: &mut Mem, this: u32, owner: u32, width: f64) -> i32 {
     m.i32(this + 0x407c).min(lane)
 }
 
-/// `0x4d43a0`: side chosen by a special owner's signed role.
-pub fn fn_004d43a0(role:i32)->i32 {
-    if role<4 {-(role&1)}else{(role&1)-1}
+/// `0x4d43a0`: side chosen by the special owner's signed race index.
+pub fn fn_004d43a0(index:i32)->i32 {
+    if index<4 {-(index&1)}else{(index&1)-1}
 }
 
 /// The driver's mode `+0x406c`: 0 stands, 1 drives along the lane, 2 backs off after being
