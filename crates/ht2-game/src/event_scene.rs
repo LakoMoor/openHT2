@@ -4,6 +4,12 @@ use ht2_formats::b3d::{Data,Node};
 use ht2_sim::{mem::Mem,scene_events::{self,EventHooks}};
 use std::collections::HashMap;
 
+/// 0x5d27c0 tolerates unresolved engine-defined names; lookup clears the slot.
+fn optional_name(name:&str)->bool {name.starts_with("$$")}
+fn binding(definitions:&HashMap<String,u32>,name:&str)->Option<u32> {
+    definitions.get(name).copied().or_else(||optional_name(name).then_some(0))
+}
+
 pub struct EventScene {
     memory:Mem,
     root:u32,
@@ -38,19 +44,19 @@ impl EventScene {
         }
         if out.root==0 {return Err(format!("event root not found: {root_name}"));}
         for (address,name) in &out.references {
-            let target=out.switches.get(name).copied().ok_or_else(||format!("unresolved event switch reference: {name}"))?;
+            let target=binding(&out.switches,name).ok_or_else(||format!("unresolved event switch reference: {name}"))?;
             out.memory.set_u32(*address+0x3c,target);
         }
         for (address,space,group) in &out.links {
-            let target=if group.trim_matches(' ').is_empty(){0}else{out.nodes.get(group).copied().ok_or_else(||format!("unresolved event group: {group}"))?};
-            let transform=if space.trim_matches(' ').is_empty(){0}else{out.nodes.get(space).copied().ok_or_else(||format!("unresolved event space: {space}"))?};
+            let target=if group.trim_matches(' ').is_empty(){0}else{binding(&out.nodes,group).ok_or_else(||format!("unresolved event group: {group}"))?};
+            let transform=if space.trim_matches(' ').is_empty(){0}else{binding(&out.nodes,space).ok_or_else(||format!("unresolved event space: {space}"))?};
             if transform!=0 && out.memory.u32(transform+0x10)!=6 {return Err(format!("event link space is not a space: {space}"));}
             out.memory.set_u32(*address+0x40,target);out.memory.set_u32(*address+0x44,transform);
         }
         for (address,name) in &out.groups {
             if name.is_empty() {continue;}
-            let space=out.nodes.get(name).copied().ok_or_else(||format!("unresolved event group space: {name}"))?;
-            if out.memory.u32(space+0x10)!=6 {return Err(format!("event group space is not a space: {name}"));}
+            let space=binding(&out.nodes,name).ok_or_else(||format!("unresolved event group space: {name}"))?;
+            if space!=0 && out.memory.u32(space+0x10)!=6 {return Err(format!("event group space is not a space: {name}"));}
             out.memory.set_u32(*address+0x3c,space);
         }
         Ok(out)
@@ -144,6 +150,15 @@ impl EventScene {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn optional_names_match_native_resolver() {
+        for line in include_str!("../../../tools/emu/golden_optional_event_names.tsv").lines(){
+            let p:Vec<_>=line.split('\t').collect();
+            assert_eq!(optional_name(p[0]),p[1]=="1");assert_eq!(p[2],"0");
+            assert_eq!(binding(&HashMap::new(),p[0]),if p[1]=="1" {Some(0)}else{None});
+            let known=HashMap::from([(p[0].to_owned(),123)]);assert_eq!(binding(&known,p[0]),Some(123));
+        }
+    }
     struct Commands(Vec<(u32,u32,Vec<u32>)>);
     impl EventHooks for Commands {
         fn event(&mut self,m:&mut Mem,_:u32,command:u32,user:u32){
@@ -160,12 +175,13 @@ mod tests {
     }
     #[test]
     #[ignore="requires HT2_GAME installed game data"]
-    fn installed_scene_reports_world_binding_after_common() {
+    fn installed_scene_bindings_with_common() {
         let game=std::env::var("HT2_GAME").expect("HT2_GAME");
         let (_,_,files)=crate::load_scenes(std::path::Path::new(&game),"ENV").unwrap();
         assert!(!files.is_empty());
-        let error=EventScene::from_map_files(std::path::Path::new(&game),&files,&files[0].nodes[0].name).err().expect("runtime world binding is not installed yet");
-        assert_eq!(error,"unresolved event space: $$world");
+        let scene=EventScene::from_map_files(std::path::Path::new(&game),&files,&files[0].nodes[0].name).unwrap();
+        assert!(scene.switches.contains_key("ILLUM_LEVEL_14"));
+        assert!(scene.root!=0);
     }
     #[test]
     fn b3d_point_events_match_native_pipeline() {
