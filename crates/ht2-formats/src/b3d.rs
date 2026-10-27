@@ -62,6 +62,10 @@ pub enum Data {
     Wall { surface: [u32; 2], params: Vec<u32>, points: Vec<Vec3> },
     /// Type 12: a collision plane `(n, d)` with its bounding sphere and surface record.
     CollisionPlane { sphere: [f32; 4], plane: [f32; 4], surface: [u32; 2], params: Vec<u32> },
+    /// Types 13..17. Geometry is in the runtime 0x5f88d0 layout:
+    /// sphere: center, radius; cylinder: center, axis, radius, half-height.
+    /// The file stores cylinder half-height before radius (0x5e5720).
+    CollisionVolume { sphere: [f32;4], volume_kind: u32, geometry: Vec<f32>, surface: [u32;2], params: Vec<u32> },
     /// Every other type; its data was consumed but is not retained.
     Other,
 }
@@ -280,17 +284,22 @@ impl R<'_> {
                 let params = (0..k).map(|_| self.u32()).collect::<Result<Vec<_>>>()?;
                 data = Data::CollisionPlane { sphere, plane, surface, params };
             }
-            13 | 15 => {
-                self.skip(4 + 2)?;
-                self.counted_words()?;
-            }
-            14 => {
-                self.skip(8 + 2)?;
-                self.counted_words()?;
+            13 | 14 | 15 => {
+                let sphere=[self.f32()?,self.f32()?,self.f32()?,self.f32()?];
+                let geometry=if kind==13 {Vec::new()}else{(0..4).map(|_|self.f32()).collect::<Result<Vec<_>>>()?};
+                let surface=[self.u32()?,self.u32()?];
+                let count=self.u32()? as usize;
+                let params=(0..count).map(|_|self.u32()).collect::<Result<Vec<_>>>()?;
+                data=Data::CollisionVolume{sphere,volume_kind:kind-13,geometry,surface,params};
             }
             16 | 17 => {
-                self.skip(4 + 6 + 2 + 2)?;
-                self.counted_words()?;
+                let sphere=[self.f32()?,self.f32()?,self.f32()?,self.f32()?];
+                let mut geometry=(0..8).map(|_|self.f32()).collect::<Result<Vec<_>>>()?;
+                geometry.swap(6,7);
+                let surface=[self.u32()?,self.u32()?];
+                let count=self.u32()? as usize;
+                let params=(0..count).map(|_|self.u32()).collect::<Result<Vec<_>>>()?;
+                data=Data::CollisionVolume{sphere,volume_kind:if kind==16 {3}else{4},geometry,surface,params};
             }
             18 => {
                 self.skip(4)?;
@@ -818,6 +827,22 @@ mod tests {
         assert!(m.triangles().is_empty());
     }
 
+    #[test]
+    fn collision_volume_records_match_native_loader() {
+        fn decode(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+        fn float_bytes(v:&[f32])->Vec<u8>{v.iter().flat_map(|x|x.to_le_bytes()).collect()}
+        for (case,line) in include_str!("../../../tools/emu/golden_b3d_volumes.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let kind=p[0].parse::<u32>().unwrap();let raw=decode(p[1]);
+            let mut bytes=words(&[333]);bytes.extend(name32("Volume"));bytes.extend(words(&[kind]));bytes.extend(&raw);bytes.extend(words(&[555]));
+            let n=R{d:&bytes,o:0}.block(0).unwrap();
+            let Data::CollisionVolume{sphere,volume_kind,geometry,surface,params}=n.data else{panic!("missing volume {case}")};
+            assert_eq!(volume_kind,kind-13);assert_eq!(float_bytes(&sphere),decode(p[2]),"sphere {case}");
+            assert_eq!(float_bytes(&geometry),decode(p[3]),"geometry {case}");
+            assert_eq!(words(&[surface[0],surface[1],params.len() as u32]),decode(p[4]),"surface {case}");
+            assert_eq!(words(&params),raw[raw.len()-params.len()*4..],"params {case}");
+            assert_eq!(raw.len(),p[5].parse::<usize>().unwrap());
+        }
+    }
     #[test]
     fn switch_header_preserves_signed_state_and_empty_cases() {
         let mut bytes=words(&[333]);bytes.extend(name32("LampKey"));
