@@ -42,6 +42,9 @@ pub struct Poly {
 pub enum Data {
     /// Type 21: number of case lists and the initial signed selection.
     Switch { cases: i32, key: i32 },
+    /// Types 10/11: conditional child lists, with the same runtime volume
+    /// layout as CollisionVolume. Cylinder files store height before radius.
+    VolumeBranch { sphere:[f32;4], volume_kind:u32, geometry:Vec<f32> },
     /// Types 6, 7, 36, 37: a vertex pool used by polygons below it.
     Verts(Vec<Vertex>),
     /// Types 8, 35: polygons indexing the vertex pool.
@@ -245,12 +248,19 @@ impl R<'_> {
         match kind {
             0 => self.skip(11)?,
             1 => names = self.names(2)?,
-            2 | 9 | 10 | 11 | 22 => {
+            2 | 9 | 22 => {
                 let w: Vec<f32> = (0..8).map(|_| self.f32()).collect::<Result<_>>()?;
                 if kind == 9 || kind == 22 {
                     data = Data::Split { plane: [w[4], w[5], w[6], w[7]] };
                 }
                 children = self.children(depth)?;
+            }
+            10 | 11 => {
+                let sphere=[self.f32()?,self.f32()?,self.f32()?,self.f32()?];
+                let mut geometry=(0..if kind==10 {4}else{8}).map(|_|self.f32()).collect::<Result<Vec<_>>>()?;
+                if kind==11 {geometry.swap(6,7);}
+                data=Data::VolumeBranch{sphere,volume_kind:if kind==10 {1}else{3},geometry};
+                children=self.children(depth)?;
             }
             3 | 19 => {
                 self.skip(if kind == 3 { 4 } else { 0 })?;
@@ -827,6 +837,27 @@ mod tests {
         assert!(m.triangles().is_empty());
     }
 
+    #[test]
+    fn conditional_volume_records_match_native_loader() {
+        fn decode(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+        for (case,line) in include_str!("../../../tools/emu/golden_b3d_branches.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let kind=p[0].parse::<u32>().unwrap();let raw=decode(p[1]);
+            for with_child in [false,true] {
+                let mut bytes=words(&[333]);bytes.extend(name32("Conditional"));bytes.extend(words(&[kind]));bytes.extend(&raw[..raw.len()-4]);
+                bytes.extend(words(&[with_child as u32]));
+                if with_child {bytes.extend(words(&[444,333]));bytes.extend(name32("Outside"));bytes.extend(words(&[19,0,555]));}
+                bytes.extend(words(&[555]));
+                let n=R{d:&bytes,o:0}.block(0).unwrap();
+                let Data::VolumeBranch{sphere,volume_kind,geometry}=n.data else{panic!("missing branch {case}")};
+                assert_eq!(volume_kind,if kind==10 {1}else{3});
+                assert_eq!(sphere.iter().flat_map(|x|x.to_le_bytes()).collect::<Vec<_>>(),decode(p[2]));
+                assert_eq!(geometry.iter().flat_map(|x|x.to_le_bytes()).collect::<Vec<_>>(),decode(p[3]));
+                assert_eq!(raw.len(),p[4].parse::<usize>().unwrap());assert_eq!(p[5],"0");
+                assert_eq!(n.children.len(),with_child as usize);
+                if with_child {assert_eq!(n.children[0].name,"Outside");assert_eq!(n.children[0].list,1);}
+            }
+        }
+    }
     #[test]
     fn collision_volume_records_match_native_loader() {
         fn decode(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
