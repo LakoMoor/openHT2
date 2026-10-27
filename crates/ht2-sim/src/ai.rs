@@ -295,9 +295,14 @@ pub fn fn_004d60c0(m: &mut Mem, this: u32, target: f64, slope: f64) {
 /// `0x4d4620`: the lanes of the half of the road the vehicle is on (`width` metres): one per
 /// 3.5 m (rounded), each `+0x40a8` wide; the lane to take is the preferred one `+0x407c`
 /// (random 0..3 when the driver is made, `0x4d2890`) or the outermost one. Owners flagged
-/// 0x80000 or 0x8000000 (`0x43f620`) take one lane further out; the 0x4000 owners pick it in
-/// `0x4d43a0` (not ported: they take the usual lane).
+/// 0x80000 or 0x8000000 (`0x43f620`) take one lane further out. Owners with
+/// 0x4000 use their player role at scene-owner+0x509c -> player+0x2d8 and do
+/// not modify the stored lane width.
 pub fn fn_004d4620(m: &mut Mem, this: u32, owner: u32, width: f64) -> i32 {
+    if owner & 0x4000 != 0 {
+        let player=m.u32(m.u32(this+0x40c0)+0x509c);
+        return fn_004d43a0(m.i32(player+0x2d8));
+    }
     let n = ((width + 1.75) * 0.285714286) as i32;
     let mut lane = 0;
     if n != 0 {
@@ -310,6 +315,11 @@ pub fn fn_004d4620(m: &mut Mem, this: u32, owner: u32, width: f64) -> i32 {
         return lane + 1;
     }
     m.i32(this + 0x407c).min(lane)
+}
+
+/// `0x4d43a0`: side chosen by a special owner's signed role.
+pub fn fn_004d43a0(role:i32)->i32 {
+    if role<4 {-(role&1)}else{(role&1)-1}
 }
 
 /// The driver's mode `+0x406c`: 0 stands, 1 drives along the lane, 2 backs off after being
@@ -800,4 +810,22 @@ pub fn fn_004d57c0(flags: &mut u32, lane: i32, right: f64, left: f64, lane_width
     }
     *flags |= 8;
     lane
+}
+
+
+#[cfg(test)]
+mod preferred_lane_tests {
+    use super::*;
+    #[test]
+    fn original_lane_decisions_and_width() {
+        for (case,line) in include_str!("../../../tools/emu/golden_preferred_lane.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let driver=0x1a000000;let scene=0x1b000000;let player=0x1c000000;
+            let decode=|s:&str|(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect::<Vec<_>>();
+            m.set_u32(driver+0x40c0,scene);m.set_u32(scene+0x509c,player);m.set_i32(player+0x2d8,p[1].parse().unwrap());m.set_i32(driver+0x407c,p[3].parse().unwrap());
+            m.write(driver+0x40a8,&decode(p[4]));let width=f64::from_le_bytes(decode(p[2]).try_into().unwrap());
+            let actual=fn_004d4620(&mut m,driver,p[0].parse().unwrap(),width);
+            assert_eq!(actual as u32,p[5].parse::<u32>().unwrap(),"lane {case}");
+            assert_eq!(m.read(driver+0x40a8,8),decode(p[6]),"width {case}");
+        }
+    }
 }
