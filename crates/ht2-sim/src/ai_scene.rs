@@ -70,6 +70,32 @@ pub fn trajectory_sync_pose(m:&mut Mem,vehicle:u32,driver:u32,road_pose:u32,lane
     for (i,v) in offset.into_iter().enumerate(){m.set_f32(S+48+36+i as u32*4,v);}
     crate::matrix::mat_mul(m,vehicle+0x50a0,S+48,road_pose);
 }
+/// AI-world services used by the trajectory-mode synchronization block.
+/// Position IDs are copied as eight raw words, as in the original ABI.
+pub trait TrajectoryStateHooks {
+    fn position(&mut self,m:&mut Mem,player:u32)->[u32;8];
+    fn segment_width(&mut self,m:&mut Mem,position:[u32;8])->f64;
+    fn choose_lane(&mut self,m:&mut Mem,driver:u32,half_width:f64)->i32;
+    fn road_pose(&mut self,m:&mut Mem,player:u32,position:[u32;8])->[f32;12];
+    fn tangent(&mut self,m:&mut Mem,position:[u32;8])->[f32;3];
+    fn publish_lane(&mut self,m:&mut Mem,player:u32,lane:i32);
+}
+/// `0x4cf861..0x4cfb0f`: synchronize scene pose and velocity while the
+/// vehicle is in trajectory mode. Physical mode skips the whole block.
+pub fn sync_trajectory_state(m:&mut Mem,vehicle:u32,flags:u32,h:&mut impl TrajectoryStateHooks) {
+    if m.rd8(flags)&1!=0 {return;}
+    let driver=m.u32(vehicle+0x5460);
+    let position=h.position(m,m.u32(vehicle+0x509c));
+    let width=h.segment_width(m,position)*0.5;
+    let lane=h.choose_lane(m,driver,width);
+    let road=h.road_pose(m,m.u32(vehicle+0x509c),position);
+    const POSE:u32=0x2ffd_4f80;
+    crate::matrix::put12(m,POSE,&road);
+    trajectory_sync_pose(m,vehicle,driver,POSE,lane);
+    let direction=h.tangent(m,position);
+    trajectory_motion(m,vehicle,direction);
+    h.publish_lane(m,m.u32(vehicle+0x509c),lane);
+}
 
 pub trait SceneCommandHooks:ObstacleSourceHooks {
     /// Nonzero local +0x120 result of 0x568f60/0x476930 query for message 0x10.
@@ -517,6 +543,28 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn original_trajectory_sync_block() {
+        use super::*;
+        struct Hooks{snapshot:[u32;8],width:f64,lane:i32,pose:[f32;12],direction:[f32;3],trace:Vec<String>}
+        impl TrajectoryStateHooks for Hooks {
+            fn position(&mut self,_:&mut Mem,p:u32)->[u32;8]{assert_eq!(p,0x1c000000);self.trace.push("place".into());self.snapshot}
+            fn segment_width(&mut self,_:&mut Mem,p:[u32;8])->f64{assert_eq!(p,self.snapshot);self.trace.push("width".into());self.width*2.}
+            fn choose_lane(&mut self,_:&mut Mem,d:u32,w:f64)->i32{assert_eq!(d,0x1b000000);assert_eq!(w,self.width);self.trace.push("lane".into());self.lane}
+            fn road_pose(&mut self,_:&mut Mem,p:u32,s:[u32;8])->[f32;12]{assert_eq!(p,0x1c000000);assert_eq!(s,self.snapshot);self.trace.push("pose".into());self.pose}
+            fn tangent(&mut self,_:&mut Mem,p:[u32;8])->[f32;3]{assert_eq!(p,self.snapshot);self.trace.push("direction".into());self.direction}
+            fn publish_lane(&mut self,_:&mut Mem,p:u32,l:i32){assert_eq!(p,0x1c000000);self.trace.push(format!("publish:{}",l as u32));}
+        }
+        let decode=|s:&str|(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect::<Vec<_>>();
+        for (case,line) in include_str!("../../../tools/emu/golden_trajectory_sync_block.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let v=0x1a000000;let driver=0x1b000000;let player=0x1c000000;let flags=0x1d000000;let clock=0x1e000000;
+            let snapshot=decode(p[4]);let pose=decode(p[5]);let direction=decode(p[6]);
+            let mut h=Hooks{snapshot:std::array::from_fn(|i|u32::from_le_bytes(snapshot[i*4..i*4+4].try_into().unwrap())),width:f64::from_le_bytes(decode(p[2]).try_into().unwrap()),lane:p[1].parse().unwrap(),pose:std::array::from_fn(|i|f32::from_le_bytes(pose[i*4..i*4+4].try_into().unwrap())),direction:std::array::from_fn(|i|f32::from_le_bytes(direction[i*4..i*4+4].try_into().unwrap())),trace:vec![]};
+            m.set_u32(v+0x5460,driver);m.set_u32(v+0x509c,player);m.set_u32(flags,if p[0]=="1" {0}else{1});m.set_u32(0x696ca0,clock);m.write(clock+0xb90,&decode(p[3]));m.write(driver+0x40a8,&decode(p[2]));m.write(v+0x50a0,&decode(p[8]));m.write(v+0x50c4,&decode(p[7]));m.set_f32(0x702640,1.);
+            sync_trajectory_state(&mut m,v,flags,&mut h);
+            assert_eq!(m.read(v+0x50a0,96),decode(p[9]),"state {case}");assert_eq!(h.trace.join(";"),p[10],"calls {case}");
+        }
+    }
     #[test]
     fn original_trajectory_sync_pose() {
         use super::*;
