@@ -2899,6 +2899,19 @@ pub fn refresh_player_flags(m:&mut crate::mem::Mem,player:u32,mut cargo:impl FnM
     let engine=human && m.rd8(m.u32(player+0x204)+0x28)&1!=0;
     bit(m,player,0x2000000,engine);
 }
+
+/// 0x4777b0: select the valid trailer first, then the vehicle, and return the
+/// first cargo record when the chosen list is nonempty. Missing vehicles invoke
+/// the original diagnostic boundary; after it returns the player ID itself is
+/// used as the fallback list header. Pointers are re-read after the diagnostic.
+pub fn player_cargo(m:&mut crate::mem::Mem,id:u32,mut diagnostic:impl FnMut(&mut crate::mem::Mem))->u32 {
+    fn list(m:&mut crate::mem::Mem,id:u32,diagnostic:&mut impl FnMut(&mut crate::mem::Mem))->u32 {
+        for offset in [0x200,0x1fc] {let p=m.u32(id+offset);if p!=0 && m.u32(p+4)!=u32::MAX {return p+0x1c;}}
+        diagnostic(m);id
+    }
+    let header=list(m,id,&mut diagnostic);if m.u32(header)==m.u32(header+4) {return 0;}
+    let header=list(m,id,&mut diagnostic);m.u32(header)
+}
 pub struct OwnedVehiclePlayerReferences<'a,H:ReferenceVectorHeap>(pub &'a mut H);
 impl<H:ReferenceVectorHeap> VehiclePlayerReferences for OwnedVehiclePlayerReferences<'_,H> {
     fn assign(&mut self,m:&mut crate::mem::Mem,d:u32,s:u32){assign_player_reference(m,d,s,self.0);}
@@ -2927,6 +2940,18 @@ mod victory_tests {
     use super::*;
 
     #[test]
+    fn original_player_cargo_lookup() {
+        use crate::mem::Mem;
+        for (case,line) in include_str!("../../../tools/emu/golden_cargo_lookup.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|x|x.parse().unwrap()).collect();let id=0x2a000000;let truck=id+0x10000;let trailer=id+0x20000;let mut m=Mem::new();
+            m.set_u32(id+0x1fc,if v[0]==0 {0}else{truck});m.set_u32(id+0x200,if v[1]==0 {0}else{trailer});m.set_u32(truck+4,if v[0]==1 {u32::MAX}else{7});m.set_u32(trailer+4,if v[1]==1 {u32::MAX}else{8});
+            for (obj,n) in [(truck,v[2]),(trailer,v[3])] {m.set_u32(obj+0x1c,obj+0x1000);m.set_u32(obj+0x20,obj+0x1000+n*0x90);}
+            m.set_u32(id,0x12340000);m.set_u32(id+4,0x12340000+v[4]*4);let mut trace=vec![];
+            let actual=player_cargo(&mut m,id,|_|trace.push("diagnostic"));assert_eq!(actual,p[1].parse::<u32>().unwrap(),"case {case} result");assert_eq!(trace.join(";"),p[2],"case {case} diagnostics");
+        }
+    }
+
+    #[test]
     fn original_derived_player_flags() {
         use crate::mem::Mem;
         for (case,line) in include_str!("../../../tools/emu/golden_player_derived_flags.tsv").lines().enumerate(){
@@ -2946,6 +2971,19 @@ mod victory_tests {
         m.wr8(p+0x1f0,1);m.set_u32(p+0x60,0x80);m.set_u32(p+0x5c,8);
         remove_competitor_record(&mut m,p,|m,p|refresh_player_flags(m,p,|_,_|0));
         assert_eq!(m.u32(0x68a984),list);assert_eq!(m.rd8(p+0x1f0),0);assert_eq!(m.u32(p+0x60)&0x80,0);assert_eq!(m.rd8(p+0x368),1);
+    }
+    #[test]
+    fn player_flags_consult_trailer_cargo() {
+        use crate::mem::Mem;
+        let mut m=Mem::new();let p=0x2a000000;let id=p+8;let trailer=p+0x10000;let truck=p+0x20000;let tech=p+0x30000;let fallback=p+0x40000;
+        m.set_u32(0x68b990,fallback);m.set_u32(p+0xb0,fallback);m.set_u32(p+0x5c,8);m.set_u32(p+0x204,truck);m.set_u32(p+0x208,trailer);
+        m.set_u32(truck+4,1);m.set_u32(trailer+4,1);m.set_u32(truck+0x10,tech);m.set_u32(tech+0x80,1);
+        m.set_u32(trailer+0x1c,0x12340000);m.set_u32(trailer+0x20,0x12340090);
+        refresh_player_flags(&mut m,p,|m,current|{assert_eq!(current,id);player_cargo(m,current,|_|panic!("unexpected diagnostic"))});
+        assert_ne!(m.u32(p+0x60)&0x2000,0);
+        m.set_u32(trailer+0x20,0x12340000);
+        refresh_player_flags(&mut m,p,|m,current|player_cargo(m,current,|_|panic!("unexpected diagnostic")));
+        assert_eq!(m.u32(p+0x60)&0x2000,0);
     }
 
     #[test]
