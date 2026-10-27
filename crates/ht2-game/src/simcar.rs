@@ -650,20 +650,15 @@ impl SimCar {
         let Some(owner)=self.slot_player.get(slot).copied().flatten() else{return false};
         let Some(player)=self.ai_world.as_mut().and_then(|world|world.players.get_mut(owner)) else{return false};
         if self.m.u32(vehicle+0x509c)!=player_id {return false;}
-        struct Source{vehicle:u32,player_id:u32,kind:i32,pose:[f32;12],remove:bool}
+        struct Source{vehicle:u32,kind:i32,pose:[f32;12]}
         impl ht2_sim::ai_scene::ObstacleSourceHooks for Source {
             fn player_kind(&mut self,_:&mut Mem,vehicle:u32)->i32 {assert_eq!(vehicle,self.vehicle);self.kind}
             fn world_transform(&mut self,_:&mut Mem,body:u32)->[f32;12]{assert_eq!(body,self.vehicle+0x10);self.pose}
         }
-        impl ht2_sim::ai_scene::SceneCommandHooks for Source {
-            fn mark_player(&mut self,m:&mut Mem,player:u32){
-                assert_eq!(player,self.player_id);m.set_u32(player+0x60,m.u32(player+0x60)|0x20000);self.remove=true;
-            }
-        }
+        impl ht2_sim::ai_scene::SceneCommandHooks for Source {}
         let pose=std::array::from_fn(|i|self.m.f32(body+0x10+i as u32*4));
-        let mut source=Source{vehicle,player_id,kind:player.kind as i32,pose,remove:false};
-        heap.update_player(&mut self.m,vehicle,player_id,player,flags,&mut source);
-        player.scene_remove_pending|=source.remove;true
+        let mut source=Source{vehicle,kind:player.kind as i32,pose};
+        heap.update_player(&mut self.m,vehicle,player_id,player,flags,&mut source);true
     }
 
     pub fn pos(&self) -> Vec3 {

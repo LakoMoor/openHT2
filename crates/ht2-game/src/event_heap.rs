@@ -31,8 +31,22 @@ impl EventHeap {
     /// Deliver scene commands to the live trajectory-world player represented
     /// by `player_id`. The caller owns the identity and scene attachment.
     pub fn update_player(&mut self,m:&mut Mem,vehicle:u32,player_id:u32,player:&mut ht2_sim::world::AiPlayer,flags:u32,source:&mut impl SceneCommandHooks) {
+        struct Tracked<'a,S>{source:&'a mut S,id:u32,marked:bool}
+        impl<S:SceneCommandHooks> ai_scene::ObstacleSourceHooks for Tracked<'_,S> {
+            fn player_kind(&mut self,m:&mut Mem,vehicle:u32)->i32{self.source.player_kind(m,vehicle)}
+            fn world_transform(&mut self,m:&mut Mem,body:u32)->[f32;12]{self.source.world_transform(m,body)}
+        }
+        impl<S:SceneCommandHooks> SceneCommandHooks for Tracked<'_,S> {
+            fn height_modifier(&mut self,m:&mut Mem)->bool{self.source.height_modifier(m)}
+            fn mark_player(&mut self,m:&mut Mem,player:u32){
+                assert_eq!(player,self.id,"scene player identity mismatch");
+                self.source.mark_player(m,player);self.marked=true;
+            }
+        }
         let driver=m.u32(vehicle+0x5460);
-        ai_scene::query_vehicle_commands(m,vehicle,source,self);
+        let mut tracked=Tracked{source,id:player_id,marked:false};
+        ai_scene::query_vehicle_commands(m,vehicle,&mut tracked,self);
+        player.scene_remove_pending|=tracked.marked;
         ai_scene::update_obstacle_command_cached(m,vehicle,driver,player_id,flags,&mut ai_scene::PlayerObstacle{heap:self,player_id,player});
     }
     pub fn clear_vehicle(&mut self,m:&mut Mem,vehicle:u32) {
@@ -64,6 +78,9 @@ mod tests {
         }
         m.set_u32(root+0x10,0);heap.update_player(&mut m,vehicle,id,player,flags,&mut Source);
         assert!(player.full_speed);assert_eq!(player.drag,-1.);assert_eq!(heap.free.values().map(Vec::len).sum::<usize>(),3);
+        m.set_u32(root+0x10,9);m.set_u32(root+0x30,0xcc0);m.set_u32(vehicle+0x509c,id);
+        heap.update_player(&mut m,vehicle,id,player,flags,&mut Source);
+        assert!(player.scene_remove_pending);assert_ne!(m.u32(id+0x60)&0x20000,0);
     }
     #[test]
     fn event_query_preserves_driver_captured_before_callbacks() {
