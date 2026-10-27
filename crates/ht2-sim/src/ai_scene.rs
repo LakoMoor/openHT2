@@ -25,6 +25,18 @@ pub trait ObstacleSourceHooks {
     fn player_kind(&mut self,m:&mut Mem,vehicle:u32)->i32;
     fn world_transform(&mut self,m:&mut Mem,body:u32)->[f32;12];
 }
+/// `0x4cf746..0x4cf7e8`: world pose with origin advanced by the local
+/// reference offset at +0x5230. Rotation is stored before adding translation.
+pub fn reference_world_pose(m:&mut Mem,vehicle:u32,h:&mut impl ObstacleSourceHooks)->[f32;12] {
+    let mut a=h.world_transform(m,vehicle+0x10);
+    let x=m.f32(vehicle+0x5230) as f64;let y=m.f32(vehicle+0x5234) as f64;let z=m.f32(vehicle+0x5238) as f64;
+    let rotated=[
+        ((a[0] as f64*x+a[6] as f64*z)+a[3] as f64*y) as f32,
+        ((a[1] as f64*x+a[7] as f64*z)+a[4] as f64*y) as f32,
+        ((a[8] as f64*z+a[5] as f64*y)+a[2] as f64*x) as f32,
+    ];
+    for i in 0..3 {a[9+i]=(rotated[i] as f64+a[9+i] as f64) as f32;}a
+}
 
 pub trait SceneCommandHooks:ObstacleSourceHooks {
     /// Nonzero local +0x120 result of 0x568f60/0x476930 query for message 0x10.
@@ -472,6 +484,22 @@ pub fn leave_physics(m:&mut Mem,vehicle:u32,player:u32,flags:u32,h:&mut impl Tra
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn original_reference_world_pose() {
+        use super::*;
+        struct Source([f32;12]);
+        impl ObstacleSourceHooks for Source {
+            fn player_kind(&mut self,_:&mut Mem,_:u32)->i32{unreachable!()}
+            fn world_transform(&mut self,_:&mut Mem,body:u32)->[f32;12]{assert_eq!(body,0x1a000010);self.0}
+        }
+        let decode=|s:&str|(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect::<Vec<_>>();
+        for (case,line) in include_str!("../../../tools/emu/golden_vehicle_reference_pose.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let raw=decode(p[0]);let mut m=Mem::new();m.write(0x1a005230,&raw[48..]);
+            let mut source=Source(std::array::from_fn(|i|f32::from_le_bytes(raw[i*4..i*4+4].try_into().unwrap())));
+            let actual=reference_world_pose(&mut m,0x1a000000,&mut source);
+            assert_eq!(actual.iter().flat_map(|x|x.to_le_bytes()).collect::<Vec<_>>(),decode(p[1]),"case {case}");
+        }
+    }
     #[test]
     fn original_vehicle_update_prelude() {
         use super::*;
