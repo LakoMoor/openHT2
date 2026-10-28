@@ -973,3 +973,26 @@ mod drag_tests {
     #[test]
     fn native_particle_drag(){for line in include_str!("../../../tools/emu/golden_particle_drag.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let obj=0x2a000000;m.set_u32(obj+0x58,obj+0x1000);m.write(obj+0xa0,&bytes(p[0]));m.write(obj+0x1000+0xb90,&bytes(p[1]));particle_drag(&mut m,obj,obj+0x2000);assert_eq!(m.read(obj+0xa0,16),bytes(p[2]));}}
 }
+
+/// `0x59c510`: drag and position; common lifetime/size update is owner-supplied.
+pub fn update_scene_particle_motion(m:&mut Mem,object:u32,scratch:u32,mut common:impl FnMut(&mut Mem,u32)) {
+    particle_drag(m,object,scratch);
+    let x=m.f32(object+0xa0);let y=m.f32(object+0xa4);
+    // x87 unordered comparisons follow the equality path here.
+    if (x==0.0 || x.is_nan()) && (y==0.0 || y.is_nan()){m.set_f32(object+0xa8,0.5);}
+    let dt=m.f64(m.u32(object+0x58)+0xb90);
+    for i in 0..3 {
+        let delta=dt*m.f32(object+0xa0+i*4) as f64;
+        let delta=if i<2 {(delta as f32) as f64}else{delta};
+        let value=(delta+m.f32(object+0x4c+i*4) as f64) as f32;
+        m.set_f32(object+0x4c+i*4,value);m.set_f32(object+0x28+i*4,value);
+    }
+    common(m,object);
+}
+#[cfg(test)]
+mod particle_motion_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_complete_particle_motion(){for line in include_str!("../../../tools/emu/golden_particle_motion.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let raw=bytes(p[0]);let mut m=Mem::new();let obj=0x2a000000;m.set_u32(obj+0x58,obj+0x1000);m.write(obj+0x4c,&raw[..12]);m.write(obj+0xa0,&raw[12..]);m.write(obj+0x1000+0xb90,&bytes(p[1]));let mut calls=0;update_scene_particle_motion(&mut m,obj,obj+0x2000,|_,o|{assert_eq!(o,obj);calls+=1;});assert_eq!(calls,1);assert_eq!(m.read(obj,0xb0),bytes(p[2]));}}
+}
