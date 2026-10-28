@@ -630,3 +630,26 @@ mod native_prepare_tests {
         }
     }
 }
+
+/// First effect point/direction in `0x551a75..0x551b95`.
+/// Caller checks scene flags and the tech Y coordinate threshold before emission.
+pub fn scene_effect_transform(m:&mut Mem,basis:u32,tech_point:u32,dst:u32) {
+    for i in 0..3 {
+        for (offset,source) in [(0,tech_point),(12,tech_point+12)] {
+            let a=m.f32(basis+i*4) as f64*m.f32(source) as f64;
+            let b=m.f32(basis+24+i*4) as f64*m.f32(source+8) as f64;
+            let c=m.f32(basis+12+i*4) as f64*m.f32(source+4) as f64;
+            let value=if offset==0 {(a+b)+c+m.f32(basis+36+i*4) as f64}else{(a+b)+c};
+            m.set_f32(dst+offset+i*4,value as f32);
+        }
+    }
+}
+#[cfg(test)]
+mod effect_transform_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_effect_transform(){
+        for line in include_str!("../../../tools/emu/golden_scene_effect.tsv").lines(){let v:Vec<_>=line.split('\t').collect();let b=bytes(v[0]);let mut m=Mem::new();let p=0x2a000000;m.write(p+0x2c4,&b[..48]);m.write(p+0x204,&b[48..]);m.write(p+0x10000,&bytes(v[1]));scene_geometry_basis(&mut m,p,p+0x20000);scene_effect_transform(&mut m,p+0x20000,p+0x10000,p+0x30000);assert_eq!(m.read(p+0x30000,24),bytes(v[2]));}
+    }
+}
