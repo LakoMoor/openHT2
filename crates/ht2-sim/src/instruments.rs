@@ -1374,3 +1374,25 @@ mod registration_roundtrip_tests {
     #[test]
     fn native_registration_unlink_sequences(){for line in include_str!("../../../tools/emu/golden_particle_registration_roundtrip.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let manager=0x2a000000;m.write(manager,&bytes(p[0]));for i in 0..p[1].parse::<u32>().unwrap(){assert!(register_particle_sort_node(&mut m,manager,manager+0x200+i*0x80));}for node in p[2].split(',').filter(|s|!s.is_empty()){assert!(unlink_effect_node_complete(&mut m,node.parse().unwrap()));}assert_eq!(m.read(manager,0x1000),bytes(p[3]));}}
 }
+
+/// `0x4c5000`: descriptor constructor clears owned pointers and colour only.
+/// All other bytes intentionally retain their pre-construction contents.
+pub fn initialize_particle_descriptor(m:&mut Mem,descriptor:u32) {
+    for offset in [0x18,0x14,0x10,0xc,8,0x24] {m.set_u32(descriptor+offset,0);}
+}
+/// Owner adapter using actual descriptor initialization and sort registration.
+/// Memory and base identity initialization remain delegated to the runtime.
+pub struct GeometryParticleOwner<'a,T:ParticleRootOwner>(pub &'a mut T);
+impl<T:ParticleRootOwner> ParticleRootOwner for GeometryParticleOwner<'_,T> {
+    fn initialize_identities(&mut self,m:&mut Mem,obj:u32){self.0.initialize_identities(m,obj);}
+    fn allocate_zeroed(&mut self,m:&mut Mem,size:u32)->u32{self.0.allocate_zeroed(m,size)}
+    fn initialize_descriptor(&mut self,m:&mut Mem,descriptor:u32){initialize_particle_descriptor(m,descriptor);}
+    fn register(&mut self,m:&mut Mem,manager:u32,_mode:u32,node:u32){register_particle_sort_node(m,manager,node);}
+}
+#[cfg(test)]
+mod descriptor_ctor_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_descriptor_constructor(){for line in include_str!("../../../tools/emu/golden_particle_descriptor_ctor.tsv").lines(){let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let descriptor=0x2a000000;m.write(descriptor,&bytes(input));initialize_particle_descriptor(&mut m,descriptor);assert_eq!(m.read(descriptor,40),bytes(output));}}
+}
