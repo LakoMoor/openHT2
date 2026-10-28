@@ -1226,3 +1226,20 @@ mod node_unlink_full_tests {
     #[test]
     fn native_complete_node_unlink(){for line in include_str!("../../../tools/emu/golden_effect_node_unlink_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let base=0x2a000000;m.write(base,&bytes(p[0]));assert_eq!(unlink_effect_node_complete(&mut m,base+0x100),p[2]=="1");assert_eq!(m.read(base,0x400),bytes(p[1]));}}
 }
+
+/// Complete particle destructor chain, with only memory free owner-supplied.
+/// `0x5e48f0` is an empty method in the supported executable.
+pub fn destroy_scene_particle_complete(m:&mut Mem,object:u32,mut free:impl FnMut(&mut Mem,u32)) {
+    m.set_u32(object,0x650c24);m.set_u32(object+0x14,0x650bd8);
+    m.set_u32(object,0x650bd0);m.set_u32(object+0x14,0x650b84);
+    unlink_effect_node_complete(m,object+0x14);
+    destroy_particle_texture_complete(m,object+0x14,&mut free);
+    m.set_u32(object,0x650334);m.set_u32(object+4,0);
+}
+#[cfg(test)]
+mod particle_complete_destroy_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_complete_particle_destruction(){for line in include_str!("../../../tools/emu/golden_particle_destroy_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let obj=0x2a000000;m.write(obj,&bytes(p[0]));let payload=bytes(p[1]);m.set_u32(obj+0x1000,(payload.len()/40) as u32);m.write(obj+0x1004,&payload);let mut trace=vec![];destroy_scene_particle_complete(&mut m,obj,|_,ptr|trace.push(ptr));assert_eq!(m.read(obj,0xb0),bytes(p[2]));assert_eq!(trace,p[3].split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>());}}
+}
