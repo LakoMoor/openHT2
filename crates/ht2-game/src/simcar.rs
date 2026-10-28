@@ -699,6 +699,13 @@ impl SimCar {
         self.m.f32(CAR + 0xdc8)
     }
 
+    /// Uses the original physical speedometer source when the scene-only
+    /// branches are not needed; current longitudinal speed is a stand-in for
+    /// those branches until the complete scene vehicle is connected.
+    pub fn dashboard_speed(&self)->f32 {
+        ht2_sim::instruments::dashboard_physical_speed(&self.m,CAR).unwrap_or_else(||self.speed())
+    }
+
     pub fn gear(&self) -> i32 {
         self.m.i32(CAR + 0x1c1c)
     }

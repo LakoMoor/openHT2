@@ -259,6 +259,23 @@ pub fn cabin_steering(m:&mut Mem,base:u32,dst:u32,steering:f32) {
     matrix::mat_rot_z(m,0x2ffd_4840,angle);
     matrix::mat_mul(m,dst,0x2ffd_4840,base);
 }
+/// Source selection in 0x53d601..0x53d69a, with the optional 0x4ff5b0
+/// override supplied by the owner. Scene and physical records are distinct.
+pub fn dashboard_speed(m:&mut Mem,scene:u32,mut override_speed:impl FnMut(&mut Mem,u32)->f32)->f32 {
+    let car=m.u32(scene+0x5460);
+    if car==0 {return m.f32(scene+0x51e4);}
+    let aux=m.u32(scene+0x5464);
+    if aux!=0 {return crate::math::vec_len(m,aux+0x64) as f32;}
+    if m.u32(car+0x3344)!=0 {return crate::math::vec_len(m,scene+0xcf4) as f32;}
+    let speed=m.f32(car+if m.u32(car+0x3464)!=0 {0x3328}else{0x3330});
+    if m.u32(0x6d20ec)!=0 {override_speed(m,m.u32(scene+0x5204))}else{speed}
+}
+/// Physical-car branch usable before the owning scene record is wired up.
+/// None means the original requires a scene velocity or speed override.
+pub fn dashboard_physical_speed(m:&Mem,car:u32)->Option<f32> {
+    if m.u32(car+0x3344)!=0 || m.u32(0x6d20ec)!=0 {return None;}
+    Some(m.f32(car+if m.u32(car+0x3464)!=0 {0x3328}else{0x3330}))
+}
 pub fn cabin_needles(m:&mut Mem,bases:[u32;3],destinations:[u32;3],speed:f32,rev:f32,fuel_fraction:f32) {
     let angles=[rev*f32::from_bits(0x3dc104fb),speed.abs()*f32::from_bits(0x3d20d97c),fuel_fraction*f32::from_bits(0x4016cbe4)];
     for i in 0..3 {
@@ -269,6 +286,17 @@ pub fn cabin_needles(m:&mut Mem,bases:[u32;3],destinations:[u32;3],speed:f32,rev
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_dashboard_speed_selection() {
+        for (case,line) in include_str!("../../../tools/emu/golden_dashboard_speed_source.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|x|x.parse().unwrap()).collect();let viewer=0x2a000000;let scene=viewer+0x10000;let car=viewer+0x20000;let aux=viewer+0x30000;let mut m=Mem::new();
+            m.set_u32(scene+0x5460,if v[0]==0 {0}else{car});m.set_u32(scene+0x5464,if v[0]==3 {aux}else{0});m.set_u32(car+0x3344,u32::from(v[0]==2));m.set_u32(car+0x3464,v[1]);
+            for (address,value) in [(scene+0x51e4,v[2]),(car+0x3328,v[3]),(car+0x3330,v[4])] {m.set_u32(address,value);}
+            for i in 0..3 {m.set_u32(scene+0xcf4+i*4,v[5+i as usize]);m.set_u32(aux+0x64+i*4,v[8+i as usize]);}
+            let actual=dashboard_speed(&mut m,scene,|_,_|panic!("unexpected override"));assert_eq!(actual.to_bits(),p[1].parse::<u32>().unwrap(),"case {case}");
+            if v[0]==1 {assert_eq!(dashboard_physical_speed(&m,car),Some(actual),"case {case} physical");}
+        }
+    }
     #[test]
     fn original_layout_table_writes(){
         for line in include_str!("../../../tools/emu/golden_view_tables.tsv").lines(){

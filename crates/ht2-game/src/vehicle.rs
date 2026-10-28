@@ -308,4 +308,5 @@ impl Vehicle {
     }
     pub fn radar_lamp(&self)->u8 {self.sim.as_ref().map_or(0,|s|s.radar_lamp())}
     pub fn radar_sound(&self)->Option<f32> {self.sim.as_ref().and_then(|s|s.radar_sound())}
+    pub fn dashboard_speed(&self)->f32 {self.sim.as_ref().map_or(self.speed,|s|s.dashboard_speed())}
 }

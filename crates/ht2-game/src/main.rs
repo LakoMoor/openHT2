@@ -628,7 +628,7 @@ impl Game {
         let v=&self.world.vehicle;
         let t=cab_world_transform(v,self.world.truck.cab_eye,self.world.truck.cab_tilt);
         let mount=Mat4::from_cols(glam::Vec4::new(t[0],t[1],t[2],0.),glam::Vec4::new(t[3],t[4],t[5],0.),glam::Vec4::new(t[6],t[7],t[8],0.),glam::Vec4::new(t[9],t[10],t[11],1.));
-        cockpit.update(&mut self.renderer,mount,v.speed*3.6,v.engine_rev,v.fuel,v.steering_position(),v.radar_equipped(),v.radar_lamp());
+        cockpit.update(&mut self.renderer,mount,v.dashboard_speed()*3.6,v.engine_rev,v.fuel,v.steering_position(),v.radar_equipped(),v.radar_lamp());
     }
 
     fn place_truck(&mut self) {
