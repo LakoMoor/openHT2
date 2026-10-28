@@ -1416,3 +1416,20 @@ mod owned_particle_chain_tests {
     #[test]
     fn native_owned_particle_chain(){for line in include_str!("../../../tools/emu/golden_particle_owned_chain.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let obj=0x2a000000;let manager=obj+0x10000;m.set_u32(0x6f6a68,manager);m.set_u32(manager+0x30,manager+0x2000);m.set_u32(manager+0x34,1);m.set_u32(v[4],v[6]);m.write(v[1],&bytes(p[1]));let mut next=obj+0x20000;let mut owner=AllocatedParticleOwner{allocate:|m:&mut Mem,size:u32|{let p=next;next+=0x100;m.write(p,&vec![0;size as usize]);p},error:None};construct_complete_scene_particle(&mut m,obj,v[..6].try_into().unwrap(),obj+0x30000,&mut owner).unwrap();assert_eq!(owner.error,None);assert_eq!(m.read(obj,0xb0),bytes(p[2]));assert_eq!(m.read(obj+0x20104,40),bytes(p[3]));assert_eq!(m.u32(manager+0x2000),obj+0x14);}}
 }
+
+/// Complete successful `0x4bac90` emission through pool and constructor chain.
+/// The allocator owns geometry/name memory; failures leave partial state for cleanup.
+pub fn emit_complete_scene_particle(m:&mut Mem,point:u32,direction:u32,scratch:u32,allocate:impl FnMut(&mut Mem,u32)->u32)->Result<Option<u32>,&'static str> {
+    let object=allocate_effect_object(m,m.u32(0x6f6a8c));if object==0 {return Ok(None);}
+    let args=[m.u32(0x696224),point,direction,1f32.to_bits(),0x695bf0,m.u32(0x696208)];
+    let mut owner=AllocatedParticleOwner{allocate,error:None};
+    construct_complete_scene_particle(m,object,args,scratch,&mut owner)?;
+    if let Some(e)=owner.error {return Err(e);}Ok(Some(object))
+}
+#[cfg(test)]
+mod particle_emit_full_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_complete_emission(){for line in include_str!("../../../tools/emu/golden_particle_emit_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let obj=0x2a000000;let manager=obj+0x10000;let pool=obj+0x14000;m.set_u32(0x6f6a68,manager);m.set_u32(manager+0x30,manager+0x2000);m.set_u32(manager+0x34,1);m.set_u32(pool+4,obj);m.set_u32(0x6f6a8c,pool);m.set_u32(0x696208,v[5]);m.set_u32(0x695bf0,v[6]);m.write(v[1],&bytes(p[1]));let mut next=obj+0x20000;let result=emit_complete_scene_particle(&mut m,v[1],v[2],obj+0x30000,|m,size|{let p=next;next+=0x100;m.write(p,&vec![0;size as usize]);p}).unwrap();assert_eq!(result,Some(obj));assert_eq!(m.read(obj,0xb0),bytes(p[2]));assert_eq!(m.read(obj+0x20104,40),bytes(p[3]));assert_eq!(m.u32(pool+8),obj);assert_eq!(m.u32(manager+0x2000),obj+0x14);}}
+}
