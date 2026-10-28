@@ -1159,3 +1159,22 @@ mod particle_destroy_tests {
     #[test]
     fn native_particle_destructor(){for line in include_str!("../../../tools/emu/golden_particle_destroy.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let obj=0x2a000000;m.write(obj,&bytes(p[0]));let mut owner=Owner(vec![]);destroy_scene_particle(&mut m,obj,&mut owner);assert_eq!(m.read(obj,0xb0),bytes(p[1]));assert_eq!(owner.0,p[2].split(',').map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>());}}
 }
+
+/// `0x4c47f0`: release five descriptor arrays, including null pointers.
+pub fn destroy_particle_descriptor(m:&mut Mem,descriptor:u32,free:&mut impl FnMut(&mut Mem,u32)) {
+    for offset in [8,12,16,20,24] {free(m,m.u32(descriptor+offset));}
+}
+/// `0x5fa720`: reverse-order descriptor destruction and allocation release.
+/// Base node destruction (`0x5ef660`) is still owner supplied.
+pub fn destroy_particle_texture(m:&mut Mem,node:u32,mut free:impl FnMut(&mut Mem,u32),mut base:impl FnMut(&mut Mem,u32)) {
+    m.set_u32(node,0x652d10);let geometry=m.u32(node+0x34);
+    if geometry!=0 {let count=m.u32(geometry-4);for i in (0..count).rev(){destroy_particle_descriptor(m,geometry+i*40,&mut free);}free(m,geometry-4);}
+    base(m,node);
+}
+#[cfg(test)]
+mod texture_destroy_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_texture_destruction(){for line in include_str!("../../../tools/emu/golden_texture_destroy.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let node=0x2a000000;m.write(node,&bytes(p[0]));let payload=bytes(p[1]);m.set_u32(node+0x1000,(payload.len()/40) as u32);m.write(node+0x1004,&payload);let mut trace=vec![];let mut base_calls=0;destroy_particle_texture(&mut m,node,|_,ptr|trace.push(ptr),|_,obj|{assert_eq!(obj,node);base_calls+=1;});assert_eq!(base_calls,1);assert_eq!(m.read(node,0x44),bytes(p[2]));assert_eq!(trace,p[3].split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>());}}
+}
