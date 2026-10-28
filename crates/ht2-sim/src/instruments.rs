@@ -421,3 +421,33 @@ mod snapshot_header_tests {
         }
     }
 }
+
+/// Decode header and wheels through `0x541bfe`; returns payload cursor.
+/// Original caller supplies the valid wheel count (normally 0..8).
+pub fn decode_snapshot_wheels(m:&mut Mem,p:u32)->u32 {
+    decode_snapshot_header(m,p);
+    let marker=m.read(p+0x1d,1);m.write(p+0x60,&marker);
+    let mut cursor=0x1e;
+    for i in 0..m.i32(p+0x10).max(0) as u32 {
+        let b=m.read(p+cursor,3);m.write(p+0x61+i,&b[..1]);
+        let packed=u16::from_le_bytes([b[1],b[2]]) as u32;
+        m.set_f32(p+0x6c+i*4,((packed&1023) as f64*f64::from_bits(0x3f59251ff843357e)) as f32);
+        m.set_f32(p+0x8c+i*4,(((packed>>10)&7) as f64*f64::from_bits(0x3fc2492492492492)) as f32);
+        cursor+=3;
+    }
+    let flags=m.read(p+cursor,1)[0];
+    for i in 0..4 {m.write(p+0xbe+i,&[(flags>>i)&1]);}
+    cursor
+}
+#[cfg(test)]
+mod snapshot_wheel_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_header_and_wheels() {
+        for line in include_str!("../../../tools/emu/golden_snapshot_wheels.tsv").lines(){
+            let (input,output)=line.split_once('\t').unwrap();let input=bytes(input);let mut m=Mem::new();let p=0x2a000000;m.write(p,&input);
+            let cursor=decode_snapshot_wheels(&mut m,p);assert_eq!(cursor,0x1e+3*m.u32(p+0x10));assert_eq!(m.read(p+0x50,0x72),bytes(output));
+        }
+    }
+}
