@@ -6,7 +6,7 @@ use ht2_render::{scene,Renderer,ObjectId};
 use std::path::Path;
 
 pub struct Cockpit {
-    bodies:[ObjectId;2],
+    bodies:[ObjectId;5],
     needles:Vec<(ObjectId,Mat4,usize)>,
     tank:f32,
 }
@@ -43,8 +43,8 @@ impl Cockpit {
         // The viewer overrides the file's demo states on its first update:
         // unowned equipment is absent; owned equipment without signal is dark.
         let absent=model.triangles_with_switches(Some(&root),&[("RD_Key",0),("RD_LampKey",0)]);
-        let present=model.triangles_with_switches(Some(&root),&[("RD_Key",1),("RD_LampKey",0)]);
-        let bodies:[ObjectId;2]=renderer.add_parts(textures,&assets,&[&absent,&present]).try_into().unwrap();
+        let lamps:[Vec<ht2_formats::b3d::Batch>;4]=std::array::from_fn(|i|model.triangles_with_switches(Some(&root),&[("RD_Key",1),("RD_LampKey",i as i32)]));
+        let bodies:[ObjectId;5]=renderer.add_parts(textures,&assets,&[&absent,&lamps[0],&lamps[1],&lamps[2],&lamps[3]]).try_into().unwrap();
         for body in bodies {renderer.set_cockpit(body,true);}
         let result=Self{bodies,needles,tank};result.hide(renderer);Ok(result)
     }
@@ -52,7 +52,7 @@ impl Cockpit {
         for body in self.bodies {renderer.set_visible(body,false);}
         for (id,_,_) in &self.needles {renderer.set_visible(*id,false);}
     }
-    pub fn update(&self,renderer:&mut Renderer,mount:Mat4,speed_kmh:f32,rev_per_second:f32,fuel:f32,steering:f32,radar_equipped:bool){
+    pub fn update(&self,renderer:&mut Renderer,mount:Mat4,speed_kmh:f32,rev_per_second:f32,fuel:f32,steering:f32,radar_equipped:bool,radar_lamp:u8){
         let mut memory=ht2_sim::mem::Mem::new();
         let bases=[0x2a000000,0x2a000040,0x2a000080];let out=[0x2a000100,0x2a000140,0x2a000180];
         for (_,base,index) in self.needles.iter().filter(|(_,_,i)|*i<3) {
@@ -61,7 +61,8 @@ impl Cockpit {
         }
         ht2_sim::instruments::cabin_needles(&mut memory,bases,out,speed_kmh,rev_per_second,if self.tank>0. {fuel/self.tank}else{0.});
         for (i,body) in self.bodies.iter().enumerate(){
-            renderer.set_visible(*body,i==usize::from(radar_equipped));renderer.set_model(*body,mount);
+            let selected=if radar_equipped {1+usize::from(radar_lamp.min(3))}else{0};
+            renderer.set_visible(*body,i==selected);renderer.set_model(*body,mount);
         }
         for (id,base,index) in &self.needles {
             renderer.set_visible(*id,true);

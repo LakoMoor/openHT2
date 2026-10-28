@@ -9,6 +9,16 @@ mod mode_integration_tests {
     use super::*;
     #[test]
     #[ignore="requires HT2_GAME installed game data"]
+    fn radar_signal_drives_cockpit_lamp_and_is_consumed() {
+        let game=std::path::PathBuf::from(std::env::var("HT2_GAME").unwrap());
+        let world=crate::load_world(&game,"ENV",None).unwrap();let params=&world.truck.params;let data=std::fs::read(game.join("vehicle.tech")).unwrap();
+        let mut car=SimCar::new(&data,params.record,&params.wheel_nodes,&params.add_nodes,&world.ground,world.spawn.0+Vec3::Z*world.spawn.2,world.spawn.1).unwrap();
+        globals::install_clock(&mut car.m,CLOCK,0.,0.1);car.m.set_u32(CAR+0x5400,1);car.m.set_f32(CAR+0x51d8,0.5);
+        car.update_radar_panel();assert_eq!(car.radar_lamp(),2);assert_eq!(car.m.f32(CAR+0x51d8),0.);
+        car.update_radar_panel();assert_eq!(car.radar_lamp(),0);
+    }
+    #[test]
+    #[ignore="requires HT2_GAME installed game data"]
     fn traffic_event_bridge_uses_slot_pose_and_live_owner() {
         use ht2_formats::b3d::{Data,Node};
         let game=std::path::PathBuf::from(std::env::var("HT2_GAME").unwrap());
@@ -193,6 +203,9 @@ pub type WheelNodes = [Option<[f32; 12]>; 8];
 pub struct SimCar {
     m: Mem,
     time: f64,
+    /// Stand-in frame counter until the original scene clock owns the viewer.
+    radar_ticks: i32,
+    radar_lamp: u8,
     /// Whether the scene graph (rooms) is used; otherwise the drawn ground.
     rooms: bool,
     /// Computer vehicles: their address and their driver.
@@ -286,7 +299,7 @@ impl SimCar {
         m.set_i16(CAR + 0x2704, 1);
         m.set_i16(CAR + 0x2706, 1);
         ht2_sim::gearbox::fn_004ff770(&mut m, CAR, 1);
-        Ok(SimCar { m, time: 0.0, rooms, traffic: Vec::new(), vid, autopilot: None, rng: Default::default(), ai_world: None, game_actions: Vec::new(), slot_player: Vec::new(), slot_model: Vec::new(), records: HashMap::new() })
+        Ok(SimCar { m, time: 0.0, radar_ticks:0, radar_lamp:0, rooms, traffic: Vec::new(), vid, autopilot: None, rng: Default::default(), ai_world: None, game_actions: Vec::new(), slot_player: Vec::new(), slot_model: Vec::new(), records: HashMap::new() })
     }
 
     /// One step of `dt` seconds with the pedals in `0..=1` and the steering keys (-1 right, 1 left).
@@ -318,6 +331,7 @@ impl SimCar {
             ai::drive(m, CAR, &ground.roads, &mut self.rng, drv, 0, 0, dt as f64, &others);
             with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, CAR));
             self.step_traffic(ground, dt);
+            self.update_radar_panel();
             return;
         }
         m.wr8(CAR + 0x2702, (steer > 0) as u8);
@@ -351,6 +365,19 @@ impl SimCar {
         m.set_i16(CAR + 0x2716, (braking > 0.0) as i16);
         with_world(ground, self.rooms, |w| step::fn_004fdc80(m, w, CAR));
         self.step_traffic(ground, dt);
+        self.update_radar_panel();
+    }
+
+    /// Original viewer radar command generation; the frame counter is a
+    /// temporary owner until the scene scheduler is integrated. Sound is not
+    /// connected yet, and police must explicitly publish signal to CAR+51d8.
+    fn update_radar_panel(&mut self) {
+        const VIEWER:u32=0x1f10_0000;const BODY:u32=1;const LAMP:u32=2;
+        self.radar_ticks=self.radar_ticks.wrapping_add(1);
+        self.m.set_u32(0x696ca0,CLOCK);self.m.set_i32(CLOCK+0xbb0,self.radar_ticks);
+        self.m.set_u32(VIEWER+0x268,CAR);self.m.set_u32(VIEWER+0x1b8,BODY);self.m.set_u32(VIEWER+0x1bc,LAMP);
+        let (commands,_sound)=ht2_sim::instruments::radar_panel(&mut self.m,VIEWER);
+        for command in commands {if command.node==LAMP {self.radar_lamp=command.value as u8;}}
     }
 
     fn step_traffic(&mut self, ground: &Ground, dt: f32) {
@@ -691,6 +718,7 @@ impl SimCar {
     /// Original normalized steering position used by the cabin wheel.
     pub fn steering_position(&self)->f32 {self.m.f32(CAR+0x29e0)}
     pub fn radar_equipped(&self)->bool {self.m.u32(CAR+0x5400)!=0}
+    pub fn radar_lamp(&self)->u8 {self.radar_lamp}
 
     /// Rotation angle of wheel `k`, radians.
     pub fn wheel_angle(&self, k: usize) -> f32 {

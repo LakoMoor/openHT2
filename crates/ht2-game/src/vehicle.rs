@@ -306,4 +306,5 @@ impl Vehicle {
     pub fn radar_equipped(&self)->bool {
         self.sim.as_ref().is_some_and(|s|s.radar_equipped())
     }
+    pub fn radar_lamp(&self)->u8 {self.sim.as_ref().map_or(0,|s|s.radar_lamp())}
 }
