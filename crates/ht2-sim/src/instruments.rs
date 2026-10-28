@@ -746,3 +746,21 @@ mod particle_ctor_tests {
         for line in include_str!("../../../tools/emu/golden_particle_ctor.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let parse=|s:&str|s.split(',').map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>();let v=parse(p[0]);let mut m=Mem::new();let object=0x2a000000;let point=object+0x1000;let direction=point+12;m.write(point,&bytes(p[1]));construct_scene_particle(&mut m,object,[v[0],point,direction,v[1],v[2],v[3]],|m,obj,args|{assert_eq!(args.as_slice(),parse(p[2]));m.set_u32(obj+0x80,v[4]);});assert_eq!(m.read(object,0xb0),bytes(p[3]));}
     }
 }
+
+/// `0x59ab10`: common particle size state, with root constructor supplied.
+pub fn construct_particle_base(m:&mut Mem,object:u32,args:[u32;9],mut root:impl FnMut(&mut Mem,u32,[u32;11])) {
+    let point=args[1];
+    root(m,object,[args[0],m.u32(0x6f6a68),m.u32(point),m.u32(point+4),m.u32(point+8),args[2],args[2],args[4],args[5],args[6],args[7]]);
+    m.set_u32(object,0x650c24);m.set_u32(object+0x14,0x650bd8);
+    for offset in [0x84,0x8c] {m.set_u32(object+offset,args[2]);}
+    for offset in [0x88,0x90] {m.set_u32(object+offset,args[3]);}
+}
+#[cfg(test)]
+mod particle_base_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_particle_base(){
+        for line in include_str!("../../../tools/emu/golden_particle_base.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let parse=|s:&str|s.split(',').map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>();let v=parse(p[0]);let mut m=Mem::new();let object=0x2a000000;m.write(v[1],&bytes(p[1]));m.set_u32(0x6f6a68,v[9]);construct_particle_base(&mut m,object,v[..9].try_into().unwrap(),|_,obj,args|{assert_eq!(obj,object);assert_eq!(args.as_slice(),parse(p[2]));});assert_eq!(m.read(object,0x94),bytes(p[3]));}
+    }
+}
