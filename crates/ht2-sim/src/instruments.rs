@@ -584,3 +584,30 @@ mod scene_basis_tests {
         }
     }
 }
+
+/// Preparation through `0x551a27`: basis followed by the room query.
+/// The original uses the basis translation as the segment endpoint.
+/// Remaining effects are deliberately left to the owner.
+pub fn prepare_scene_geometry(m:&mut Mem,world:&mut dyn crate::contact::World,scene:u32,basis:u32,rec:u32)->u32 {
+    scene_geometry_basis(m,scene,basis);
+    crate::step::query_segment_room(m,world,m.u32(scene+0x330),scene+0x228,basis+36,rec)
+}
+#[cfg(test)]
+mod geometry_prepare_tests {
+    use super::*;
+    struct Query{start:[u32;3],end:[u32;3],calls:u32}
+    impl crate::contact::World for Query {
+        fn collide(&mut self,m:&mut Mem,obj:u32,mode:u32,rec:u32)->u32 {
+            assert_eq!(obj,77);assert_eq!(mode,0);self.start=std::array::from_fn(|i|m.u32(rec+0x4c+i as u32*4));self.end=std::array::from_fn(|i|m.u32(rec+0x58+i as u32*4));self.calls+=1;m.set_u32(rec+0x68,91);2
+        }
+    }
+    #[test]
+    fn geometry_query_uses_composed_translation(){
+        let mut m=Mem::new();let scene=0x2a000000;let basis=scene+0x10000;let rec=basis+0x1000;
+        crate::matrix::put12(&mut m,scene+0x2c4,&crate::matrix::IDENTITY);crate::matrix::put12(&mut m,scene+0x204,&crate::matrix::IDENTITY);
+        for (i,v) in [3.,5.,7.].into_iter().enumerate(){m.set_f32(scene+0x204+36+i as u32*4,v);}
+        m.set_u32(scene+0x330,77);let start=m.read(scene+0x228,12);
+        let mut w=Query{start:[0;3],end:[0;3],calls:0};assert_eq!(prepare_scene_geometry(&mut m,&mut w,scene,basis,rec),91);
+        assert_eq!(w.end,[3f32.to_bits(),5f32.to_bits(),7f32.to_bits()]);assert_eq!(w.calls,1);assert_eq!(m.read(scene+0x228,12),start);
+    }
+}
