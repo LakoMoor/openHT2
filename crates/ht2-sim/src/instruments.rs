@@ -818,7 +818,7 @@ pub fn attach_particle_geometry(m:&mut Mem,node:u32,geometry:u32,count:i32,mut b
     if count>0 {
         let origin=m.read(node+0x38,12);m.write(node+0x14,&origin);
         bounds(m,geometry,node+0x14,false);
-        for _ in 1..count {bounds(m,geometry,node+0x14,true);}
+        for i in 1..count {bounds(m,geometry+i as u32*0x28,node+0x14,true);}
     }
 }
 #[cfg(test)]
@@ -826,7 +826,7 @@ mod particle_attach_tests {
     use super::*;
     fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
     #[test]
-    fn native_geometry_attachment(){for line in include_str!("../../../tools/emu/golden_particle_attach.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let node=0x2a000000;m.write(node,&bytes(p[0]));let count=p[1].parse::<i32>().unwrap();let mut calls=0;attach_particle_geometry(&mut m,node,node+0x1000,count,|_,geometry,dst,merge|{assert_eq!(geometry,node+0x1000);assert_eq!(dst,node+0x14);calls+=if merge {2}else{1};});assert_eq!(calls,p[3].parse::<i32>().unwrap());assert_eq!(m.read(node,0x44),bytes(p[2]));}}
+    fn native_geometry_attachment(){for line in include_str!("../../../tools/emu/golden_particle_attach.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let node=0x2a000000;m.write(node,&bytes(p[0]));let count=p[1].parse::<i32>().unwrap();let mut calls=0;attach_particle_geometry(&mut m,node,node+0x1000,count,|_,geometry,dst,merge|{assert_eq!(geometry,node+0x1000+(if merge {(calls+1)/2}else{0}) as u32*0x28);assert_eq!(dst,node+0x14);calls+=if merge {2}else{1};});assert_eq!(calls,p[3].parse::<i32>().unwrap());assert_eq!(m.read(node,0x44),bytes(p[2]));}}
 }
 
 /// `0x5e6800`: geometry sphere is centred at zero with maximum vertex length.
@@ -875,4 +875,22 @@ mod bounds_merge_tests {
     fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
     #[test]
     fn native_sphere_merge(){for line in include_str!("../../../tools/emu/golden_bounds_merge.tsv").lines(){let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let p=0x2a000000;m.write(p,&bytes(input));merge_particle_bounds(&mut m,p,p+16,p+0x1000);assert_eq!(m.read(p,16),bytes(output));}}
+}
+
+/// Attach descriptors and compute actual sphere bounds, replacing the hook boundary.
+/// Scratch requires 28 bytes disjoint from the node and descriptors.
+pub fn attach_particle_geometry_with_bounds(m:&mut Mem,node:u32,geometry:u32,count:i32,scratch:u32) {
+    attach_particle_geometry(m,node,geometry,count,|m,descriptor,dst,merge|{
+        if merge {
+            let origin=m.read(node+0x38,12);m.write(scratch,&origin);particle_geometry_bounds(m,descriptor,scratch);merge_particle_bounds(m,dst,scratch,scratch+16);
+        }else{particle_geometry_bounds(m,descriptor,dst);}
+    });
+}
+
+#[cfg(test)]
+mod full_attachment_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_full_attachment(){for line in include_str!("../../../tools/emu/golden_particle_attach_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let count=p[0].parse::<i32>().unwrap();let vertices=bytes(p[2]);let mut m=Mem::new();let node=0x2a000000;let geometry=node+0x1000;m.write(node+0x38,&bytes(p[1]));for i in 0..count as u32 {let d=geometry+i*40;let x=node+0x2000+i*0x100;m.write(d+4,&4u16.to_le_bytes());m.set_u32(d+0x10,x);m.set_u32(d+0x14,x+16);m.write(x,&vertices[i as usize*32..i as usize*32+32]);}attach_particle_geometry_with_bounds(&mut m,node,geometry,count,node+0x10000);assert_eq!(m.read(node,0x44),bytes(p[3]));}}
 }
