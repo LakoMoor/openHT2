@@ -796,3 +796,17 @@ mod particle_geometry_tests {
     #[test]
     fn native_particle_geometry(){for line in include_str!("../../../tools/emu/golden_particle_geometry.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let base=0x2a020000;let geometry=base+4;let arrays=std::array::from_fn(|i|base+(i as u32+1)*0x100);initialize_particle_geometry(&mut m,geometry,arrays,f32::from_bits(v[0]),f32::from_bits(v[1]),v[2]);assert_eq!(m.read(geometry,40),bytes(p[1]));let actual:Vec<u8>=arrays.into_iter().flat_map(|a|m.read(a,16)).collect();assert_eq!(actual,bytes(p[2]));}}
 }
+
+/// Registration and initial counters `0x59a929..0x59a95a`, after attachment.
+pub fn finish_particle_root(m:&mut Mem,object:u32,height_bits:u32,mut register:impl FnMut(&mut Mem,u32,u32,u32)) {
+    register(m,m.u32(object+0x5c),0,object+0x14);
+    for offset in [0x68,0x74,0x6c,0x7c] {m.set_u32(object+offset,0);}
+    let flags=m.read(object+0x3c,1)[0];m.write(object+0x3c,&[flags&254]);m.set_u32(object+0x70,height_bits);
+}
+#[cfg(test)]
+mod particle_finish_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_particle_finish(){for line in include_str!("../../../tools/emu/golden_particle_finish.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let object=0x2a000000;m.write(object,&bytes(p[0]));m.set_u32(object+0x5c,object+0x1000);let expected:Vec<u32>=p[2].split(',').map(|s|s.parse().unwrap()).collect();finish_particle_root(&mut m,object,p[1].parse().unwrap(),|_,manager,mode,node|assert_eq!([manager,mode,node].as_slice(),expected));assert_eq!(m.read(object,0x84),bytes(p[3]));}}
+}
