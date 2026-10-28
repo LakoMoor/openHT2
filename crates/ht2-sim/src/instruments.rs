@@ -1448,3 +1448,21 @@ mod particle_life_full_tests {
         assert_eq!(m.read(obj,0xb0),bytes(p[2]));assert_eq!(m.read(obj+0x20104,40),bytes(p[3]));assert_eq!(m.read(pool+4,8),bytes(p[5]));assert_eq!(m.read(manager+0x2000,4),bytes(p[6]));assert_eq!(freed,p[7].split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>());
     }}
 }
+
+/// `0x4b8c40`: enumerate smoke materials until the first missing resource.
+/// Lookup returns material pointers; the table does not contain RGBA colours.
+pub fn load_smoke_materials(m:&mut Mem,mut lookup:impl FnMut(&mut Mem,&str)->u32)->Result<u32,&'static str> {
+    m.set_u32(0x696208,0);let mut count=0;
+    loop {
+        let name=format!("msmoke{count:02}");let material=lookup(m,&name);m.set_u32(0x695bf0+count*4,material);
+        if material==0 {break;}
+        count+=1;m.set_u32(0x696208,count);m.set_f32(material+0x58,1.0);m.set_u32(material+0x20,m.u32(material+0x20)|0x40220);
+    }
+    if count==0 {Err("missing smoke materials")}else{Ok(count)}
+}
+#[cfg(test)]
+mod smoke_material_tests {
+    use super::*;
+    #[test]
+    fn native_smoke_material_enumeration(){for line in include_str!("../../../tools/emu/golden_smoke_materials.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let count=p[0].parse::<u32>().unwrap();let mut m=Mem::new();let mut names=vec![];let actual=load_smoke_materials(&mut m,|_,name|{names.push(name.to_owned());let i=names.len() as u32-1;if i<count {0x2a000000+i*0x100}else{0}}).unwrap();assert_eq!(actual,count);assert_eq!(names.join(","),p[1]);let want:Vec<u32>=p[2].split(',').map(|s|s.parse().unwrap()).collect();for i in 0..count {let material=0x2a000000+i*0x100;assert_eq!(m.u32(material+0x20),want[i as usize]);assert_eq!(m.f32(material+0x58),1.0);assert_eq!(m.u32(0x695bf0+i*4),material);}}}
+}
