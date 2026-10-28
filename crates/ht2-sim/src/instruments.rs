@@ -996,3 +996,24 @@ mod particle_motion_tests {
     #[test]
     fn native_complete_particle_motion(){for line in include_str!("../../../tools/emu/golden_particle_motion.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let raw=bytes(p[0]);let mut m=Mem::new();let obj=0x2a000000;m.set_u32(obj+0x58,obj+0x1000);m.write(obj+0x4c,&raw[..12]);m.write(obj+0xa0,&raw[12..]);m.write(obj+0x1000+0xb90,&bytes(p[1]));let mut calls=0;update_scene_particle_motion(&mut m,obj,obj+0x2000,|_,o|{assert_eq!(o,obj);calls+=1;});assert_eq!(calls,1);assert_eq!(m.read(obj,0xb0),bytes(p[2]));}}
 }
+
+/// `0x59ac90`: interpolate quad sizes, then invoke lifecycle update.
+pub fn update_particle_size(m:&mut Mem,object:u32,mut lifecycle:impl FnMut(&mut Mem,u32)) {
+    let duration=m.f32(object+0x64) as f64;
+    let mut fraction=(duration-m.f32(object+0x68) as f64)/duration;
+    if fraction.is_nan() || fraction<0.0 {fraction=0.0;}else if fraction>1.0 {fraction=1.0;}
+    let complement=1.0-fraction;
+    let width=m.f32(object+0x88) as f64*complement+m.f32(object+0x84) as f64*fraction;
+    let height=m.f32(object+0x90) as f64*complement+m.f32(object+0x8c) as f64*fraction;
+    let geometry=m.u32(object+0x48);let x=m.u32(geometry+0x10);let z=m.u32(geometry+0x14);
+    for (i,v) in [-width*0.5,width*0.5,width*0.5,-width*0.5].into_iter().enumerate(){m.set_f32(x+i as u32*4,v as f32);}
+    for (i,v) in [-height*0.5,-height*0.5,height*0.5,height*0.5].into_iter().enumerate(){m.set_f32(z+i as u32*4,v as f32);}
+    lifecycle(m,object);
+}
+#[cfg(test)]
+mod particle_size_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_particle_sizes(){for line in include_str!("../../../tools/emu/golden_particle_size.tsv").lines(){let (input,output)=line.split_once('\t').unwrap();let raw=bytes(input);let mut m=Mem::new();let obj=0x2a000000;let g=obj+0x1000;let x=g+0x1000;m.set_u32(obj+0x48,g);m.set_u32(g+0x10,x);m.set_u32(g+0x14,x+16);m.write(obj+0x64,&raw[..8]);m.write(obj+0x84,&raw[8..]);let mut calls=0;update_particle_size(&mut m,obj,|_,o|{assert_eq!(o,obj);calls+=1;});assert_eq!(calls,1);assert_eq!(m.read(x,32),bytes(output));}}
+}
