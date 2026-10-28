@@ -451,3 +451,32 @@ mod snapshot_wheel_tests {
         }
     }
 }
+
+/// Decode the four pose records and packed nibbles through `0x541cac`.
+/// Returns the next payload byte offset; version checks and extension follow.
+pub fn decode_snapshot_pose(m:&mut Mem,p:u32)->u32 {
+    let mut cursor=decode_snapshot_wheels(m,p)+1;
+    for i in 0..4 {
+        let value=m.read(p+cursor,1)[0];cursor+=1;
+        m.set_f32(p+0xd0+i*12,(m.f32(p+0xc4) as f64-value as f64*f64::from_bits(0x3f893b352540c735)) as f32);
+    }
+    for i in 0..4 {
+        let b=m.read(p+cursor,2);cursor+=2;
+        let x=(b[0] as i8 as f64/127.0) as f32;let y=(b[1] as i8 as f64/127.0) as f32;
+        let dst=p+0xf8+i*12;m.set_f32(dst,x);m.set_f32(dst+4,y);
+        m.set_f32(dst+8,(1.0-((x as f64*x as f64)+(y as f64*y as f64)).sqrt()) as f32);
+    }
+    let flags=m.read(p+cursor,1)[0];m.write(p+0xbc,&[flags>>4,flags&15]);cursor+1
+}
+#[cfg(test)]
+mod snapshot_pose_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_pose_decode() {
+        for line in include_str!("../../../tools/emu/golden_snapshot_pose.tsv").lines(){
+            let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let p=0x2a000000;m.write(p,&bytes(input));
+            let cursor=decode_snapshot_pose(&mut m,p);assert_eq!(cursor,0x2c+3*m.u32(p+0x10));assert_eq!(m.read(p+0x50,0xd8),bytes(output));
+        }
+    }
+}
