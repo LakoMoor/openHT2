@@ -676,3 +676,31 @@ mod effect_dispatch_tests {
         }
     }
 }
+
+/// Both ordered effect requests in `0x551a27..0x551cf3`.
+/// Actual effect allocation and rendering are not performed here.
+pub fn scene_effect_requests(m:&mut Mem,scene:u32,basis:u32,scratch:u32)->Vec<([f32;3],[f32;3])> {
+    let mut effects=Vec::new();
+    if m.u32(scene+0x51a4)&2==0 || m.u32(scene+0x27b4)&0x400==0 {return effects;}
+    let tech=0x697fa8u32.wrapping_add(m.u32(scene+0x28b4).wrapping_mul(0x970));
+    for point in [tech,tech+24] {
+        if m.f32(point+8).abs()<10.0 {
+            scene_effect_transform(m,basis,point,scratch);
+            effects.push((std::array::from_fn(|i|m.f32(scratch+i as u32*4)),std::array::from_fn(|i|m.f32(scratch+12+i as u32*4))));
+        }
+    }
+    effects
+}
+#[cfg(test)]
+mod effect_pair_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_effect_pair(){
+        for line in include_str!("../../../tools/emu/golden_scene_effect_pair.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let b=bytes(v[0]);let f:Vec<u32>=v[3].split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let p=0x2a000000;
+            m.write(p+0x2c4,&b[..48]);m.write(p+0x204,&b[48..]);m.write(0x697fa8+f[2]*0x970,&bytes(v[1]));m.set_u32(p+0x51a4,f[0]);m.set_u32(p+0x27b4,f[1]);m.set_u32(p+0x28b4,f[2]);scene_geometry_basis(&mut m,p,p+0x10000);
+            let effects=scene_effect_requests(&mut m,p,p+0x10000,p+0x20000);let actual:Vec<u8>=effects.into_iter().flat_map(|(a,b)|a.into_iter().chain(b)).flat_map(f32::to_le_bytes).collect();assert_eq!(actual,if v[2]=="-" {vec![]}else{bytes(v[2])});
+        }
+    }
+}
