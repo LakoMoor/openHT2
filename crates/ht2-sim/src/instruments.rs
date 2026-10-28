@@ -704,3 +704,27 @@ mod effect_pair_tests {
         }
     }
 }
+
+/// Allocator and particle-constructor boundary of `0x4bac90`.
+pub trait SceneEffectSink {
+    fn allocate(&mut self,m:&mut Mem,size:u32,pool:u32,point:u32)->u32;
+    fn construct(&mut self,m:&mut Mem,object:u32,args:[u32;6]);
+}
+/// Original sink wrapper; actual allocator and particle simulation are owner-supplied.
+pub fn emit_scene_effect(m:&mut Mem,point:u32,direction:u32,sink:&mut impl SceneEffectSink) {
+    let object=sink.allocate(m,0xb0,m.u32(0x6f6a8c),point);
+    if object!=0 {sink.construct(m,object,[m.u32(0x696224),point,direction,1f32.to_bits(),0x695bf0,m.u32(0x696208)]);}
+}
+#[cfg(test)]
+mod sink_tests {
+    use super::*;
+    struct Sink{object:u32,allocation:Vec<u32>,ctor:Vec<u32>}
+    impl SceneEffectSink for Sink {
+        fn allocate(&mut self,_:&mut Mem,size:u32,pool:u32,point:u32)->u32{self.allocation=vec![size,pool,point];self.object}
+        fn construct(&mut self,_:&mut Mem,object:u32,args:[u32;6]){self.ctor=vec![object];self.ctor.extend(args);}
+    }
+    #[test]
+    fn native_effect_sink_wrapper(){
+        for line in include_str!("../../../tools/emu/golden_effect_sink.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let parse=|s:&str|s.split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>();let v=parse(p[0]);let mut m=Mem::new();m.set_u32(0x6f6a8c,v[0]);m.set_u32(0x696224,v[1]);m.set_u32(0x696208,v[2]);let mut sink=Sink{object:v[7],allocation:vec![],ctor:vec![]};emit_scene_effect(&mut m,v[3],v[4],&mut sink);assert_eq!(sink.allocation,parse(p[1]));assert_eq!(sink.ctor,parse(p[2]));}
+    }
+}
