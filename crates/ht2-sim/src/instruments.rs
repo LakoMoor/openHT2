@@ -1396,3 +1396,23 @@ mod descriptor_ctor_tests {
     #[test]
     fn native_descriptor_constructor(){for line in include_str!("../../../tools/emu/golden_particle_descriptor_ctor.tsv").lines(){let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let descriptor=0x2a000000;m.write(descriptor,&bytes(input));initialize_particle_descriptor(&mut m,descriptor);assert_eq!(m.read(descriptor,40),bytes(output));}}
 }
+
+/// Runtime constructor owner with actual identity, descriptor and registration.
+/// Allocator returns zeroed memory; any failure is retained in `error`.
+pub struct AllocatedParticleOwner<F:FnMut(&mut Mem,u32)->u32> {
+    pub allocate:F,
+    pub error:Option<&'static str>,
+}
+impl<F:FnMut(&mut Mem,u32)->u32> ParticleRootOwner for AllocatedParticleOwner<F> {
+    fn initialize_identities(&mut self,m:&mut Mem,obj:u32){if let Err(e)=initialize_particle_identities(m,obj,b"motionTexture",&mut self.allocate){self.error=Some(e);}}
+    fn allocate_zeroed(&mut self,m:&mut Mem,size:u32)->u32{if self.error.is_some(){0}else{(self.allocate)(m,size)}}
+    fn initialize_descriptor(&mut self,m:&mut Mem,descriptor:u32){initialize_particle_descriptor(m,descriptor);}
+    fn register(&mut self,m:&mut Mem,manager:u32,_mode:u32,node:u32){register_particle_sort_node(m,manager,node);}
+}
+#[cfg(test)]
+mod owned_particle_chain_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_owned_particle_chain(){for line in include_str!("../../../tools/emu/golden_particle_owned_chain.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let obj=0x2a000000;let manager=obj+0x10000;m.set_u32(0x6f6a68,manager);m.set_u32(manager+0x30,manager+0x2000);m.set_u32(manager+0x34,1);m.set_u32(v[4],v[6]);m.write(v[1],&bytes(p[1]));let mut next=obj+0x20000;let mut owner=AllocatedParticleOwner{allocate:|m:&mut Mem,size:u32|{let p=next;next+=0x100;m.write(p,&vec![0;size as usize]);p},error:None};construct_complete_scene_particle(&mut m,obj,v[..6].try_into().unwrap(),obj+0x30000,&mut owner).unwrap();assert_eq!(owner.error,None);assert_eq!(m.read(obj,0xb0),bytes(p[2]));assert_eq!(m.read(obj+0x20104,40),bytes(p[3]));assert_eq!(m.u32(manager+0x2000),obj+0x14);}}
+}
