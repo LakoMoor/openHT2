@@ -566,3 +566,21 @@ mod scene_gate_tests {
         }
     }
 }
+
+/// Initial geometry basis in `0x5519f5..0x551a0f`, after the scheduling gate.
+/// Room lookup and remaining vehicle effects must follow in the owner.
+pub fn scene_geometry_basis(m:&mut Mem,scene:u32,dst:u32) {
+    crate::matrix::mat_mul(m,dst,scene+0x2c4,scene+0x204);
+}
+#[cfg(test)]
+mod scene_basis_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_scene_basis(){
+        for line in include_str!("../../../tools/emu/golden_scene_basis.tsv").lines(){
+            let (input,output)=line.split_once('\t').unwrap();let b=bytes(input);let mut m=Mem::new();let scene=0x2a000000;let dst=scene+0x10000;
+            m.write(scene+0x2c4,&b[..48]);m.write(scene+0x204,&b[48..]);scene_geometry_basis(&mut m,scene,dst);assert_eq!(m.read(dst,48),bytes(output));
+        }
+    }
+}
