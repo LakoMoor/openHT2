@@ -1,6 +1,20 @@
 //! Cabin needle transforms from the cabin branch of `0x53d1f0`.
 use crate::{mem::Mem,matrix};
 
+/// 0x4d13eb..0x4d1492: police position transformed into the human vehicle's
+/// local frame, then its original vector length. Both matrices are supplied
+/// by the owning scene and must use the original 12-float layout.
+pub fn police_relative_distance(m:&mut Mem,human:[f32;12],police:[f32;12])->f64 {
+    const BASE:u32=0x2ffd_4700;let inverse=BASE+48;let point=BASE+96;
+    matrix::put12(m,BASE,&human);crate::math::mat_inverse(m,inverse,BASE);
+    let x=police[9] as f64;let y=police[10] as f64;let z=police[11] as f64;
+    for axis in 0..3u32 {
+        let value=((m.f32(inverse+24+axis*4) as f64*z+m.f32(inverse+12+axis*4) as f64*y)+m.f32(inverse+axis*4) as f64*x)+m.f32(inverse+36+axis*4) as f64;
+        m.set_f32(point+axis*4,value as f32);
+    }
+    crate::math::vec_len(m,point)
+}
+
 /// Radar-emission branch `0x4d14b9..0x4d1526` of police update `0x4d1360`.
 /// Caller supplies the already computed distance and flags from 0x43f620,
 /// after the original health/activity gate. This assigns, rather than maximizes,
@@ -20,6 +34,14 @@ pub fn police_radar_phase(m:&mut Mem,police:u32,player:u32,flags:u32,distance:f6
         m.set_u32(police+0x5594,0);m.set_u32(driver+0x4074,0);
         m.set_u32(driver+0x4068,m.u32(driver+0x4068)|1);
     }else{police_radar_signal(m,police,player,flags,distance);}
+}
+
+/// Scene-owner bridge for 0x4d13eb..0x4d1526. The caller supplies both world
+/// matrices, the police subobject and the player's scene vehicle; those records
+/// must already contain the original health, driver and police-type fields.
+pub fn police_radar_from_scene(m:&mut Mem,police:u32,player:u32,flags:u32,human_pose:[f32;12],police_pose:[f32;12]) {
+    let distance=police_relative_distance(m,human_pose,police_pose);
+    police_radar_phase(m,police,player,flags,distance);
 }
 
 /// Radar prefix of viewer update `0x538370`, through signal reset at 0x538529.
@@ -135,6 +157,15 @@ pub fn panel_switch(m:&Mem,node:u32)->i32 {
 mod panel_switch_tests {
     use super::*;
     #[test]
+    fn original_police_relative_distance() {
+        for (case,line) in include_str!("../../../tools/emu/golden_police_relative_distance.tsv").lines().enumerate(){
+            let p:Vec<_>=line.split('\t').collect();let decode=|s:&str|-> [f32;12] {let bytes=(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect::<Vec<_>>();std::array::from_fn(|i|f32::from_le_bytes(bytes[i*4..i*4+4].try_into().unwrap()))};
+            let mut m=Mem::new();let actual=police_relative_distance(&mut m,decode(p[0]),decode(p[1]));let expected=f64::from_bits(p[2].parse().unwrap());
+            assert!(actual.to_bits().abs_diff(expected.to_bits())<=1,"case {case} distance");
+            assert_eq!(actual<100.,expected<100.,"case {case} threshold");assert_eq!((actual*0.01) as f32,(expected*0.01) as f32,"case {case} signal");
+        }
+    }
+    #[test]
     fn original_police_radar_emission() {
         for (case,line) in include_str!("../../../tools/emu/golden_police_radar.tsv").lines().enumerate() {
             let p:Vec<u64>=line.split('\t').map(|v|v.parse::<i128>().unwrap() as u64).collect();
@@ -164,6 +195,19 @@ mod panel_switch_tests {
         assert_eq!(sound,None);
         for command in commands {set_panel_switch(&mut m,command.node,command.value,if command.node==body {2}else{4});}
         assert_eq!((panel_switch(&m,body),panel_switch(&m,lamp)),(1,0));
+    }
+    #[test]
+    fn police_scene_pose_reaches_radar_panel() {
+        let mut m=Mem::new();let vehicle=0x2a000000;let police=vehicle+0x10;let player=vehicle+0x10000;let parts=vehicle+0x20000;let state=vehicle+0x30000;let driver=vehicle+0x40000;let viewer=vehicle+0x50000;let clock=vehicle+0x60000;
+        m.set_u32(vehicle+0x5080,1);m.set_f32(vehicle+0x224,1.);m.set_u32(vehicle+0x5454,state);m.set_u32(vehicle+0x2540,parts);
+        for i in 0..9 {m.set_i32(parts+i*20+8,100);}
+        m.set_u32(police+0x5450,driver);m.set_u32(police+0x5568,5);m.set_u32(player+0x5400,1);
+        m.set_u32(viewer+0x268,player);m.set_u32(viewer+0x1b8,1);m.set_u32(viewer+0x1bc,2);m.set_u32(viewer+0x1c4,2);
+        m.set_u32(0x696ca0,clock);crate::globals::install_clock(&mut m,clock,0.,0.1);
+        let human=matrix::IDENTITY;let mut police_pose=matrix::IDENTITY;police_pose[9]=50.;
+        police_radar_from_scene(&mut m,police,player,0x80000,human,police_pose);
+        assert_eq!(m.f32(player+0x51d8),0.5);
+        let (commands,_)=radar_panel(&mut m,viewer);assert!(commands.iter().any(|c|c.node==2 && c.value==2));assert_eq!(m.f32(player+0x51d8),0.);
     }
     #[test]
     fn original_radar_panel_updates() {
