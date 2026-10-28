@@ -1270,3 +1270,28 @@ mod particle_cleanup_full_tests {
     #[test]
     fn native_full_particle_cleanup(){for line in include_str!("../../../tools/emu/golden_particle_cleanup_full.tsv").lines(){let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let manager=0x2a000000;m.write(manager,&bytes(input));cleanup_scene_particle_pools(&mut m,manager,|_,_|{});assert_eq!(m.read(manager,0x2000),bytes(output));}}
 }
+
+/// Update phase of `0x5796e0`: repeat prefixes when callbacks prepend objects.
+/// Next is cached before each virtual update, as in the original.
+pub fn update_effect_pools(m:&mut Mem,manager:u32,mut update:impl FnMut(&mut Mem,u32)) {
+    let mut i=0;
+    while i<m.u32(manager+0x1b0) {
+        let pool=m.u32(manager+0x20+i*4);let mut boundary=0;
+        loop {
+            let first=m.u32(pool+8);let mut object=first;
+            while object!=boundary {let next=m.u32(object+8);update(m,object);object=next;}
+            boundary=first;if m.u32(pool+8)==first {break;}
+        }
+        i+=1;
+    }
+}
+/// Complete manager phases, with virtual class-specific operations external.
+pub fn tick_effect_pools(m:&mut Mem,manager:u32,update:impl FnMut(&mut Mem,u32),destroy:impl FnMut(&mut Mem,u32)) {
+    update_effect_pools(m,manager,update);cleanup_effect_pools(m,manager,destroy);
+}
+#[cfg(test)]
+mod manager_tick_tests {
+    use super::*;
+    #[test]
+    fn native_manager_update_order(){for line in include_str!("../../../tools/emu/golden_effect_manager_tick.tsv").lines(){let (input,output)=line.split_once('\t').unwrap();let v:Vec<u32>=input.split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let manager=0x2a000000;let pool=manager+0x1000;m.set_u32(manager+0x1b0,1);m.set_u32(manager+0x20,pool);m.set_u32(pool+8,if v[0]==0 {0}else{pool+0x100});for i in 0..v[0]{let obj=pool+0x100+i*32;m.set_u32(obj+8,if i+1<v[0]{obj+32}else{0});}let mut insert=v[1]!=0;let mut trace=vec![];tick_effect_pools(&mut m,manager,|m,obj|{trace.push(obj);if insert {insert=false;let new=pool+0x800;m.set_u32(new+8,m.u32(pool+8));m.set_u32(pool+8,new);}},|_,_|panic!("unexpected deletion"));assert_eq!(trace,output.split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>());}}
+}
