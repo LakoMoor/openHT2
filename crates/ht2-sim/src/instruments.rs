@@ -1308,3 +1308,23 @@ mod particle_manager_full_tests {
     #[test]
     fn native_multitick_particle_manager(){for line in include_str!("../../../tools/emu/golden_particle_manager_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let manager=0x2a000000;m.write(manager,&bytes(p[1]));for _ in 0..p[0].parse::<u32>().unwrap(){tick_scene_particle_pools(&mut m,manager,manager+0x10000,|_,_|{});}assert_eq!(m.read(manager,0x5000),bytes(p[2]));}}
 }
+
+/// `0x5ef6d0 -> 0x5fa6f0`: texture-node identity and owned NUL-terminated name.
+/// Caller provides name bytes without terminator; empty name does not allocate.
+pub fn initialize_particle_texture_node(m:&mut Mem,node:u32,name:&[u8],mut allocate:impl FnMut(&mut Mem,u32)->u32)->Result<(),&'static str> {
+    m.set_u32(node,0x652840);
+    for offset in [4,8,0x14,0x18,0x1c,0x20] {m.set_u32(node+offset,0);}
+    if name.is_empty() {m.set_u32(node+12,0);}else{
+        let size=name.len() as u32+1;let p=allocate(m,size);if p==0 {return Err("particle node name allocation failed");}
+        m.set_u32(node+12,p);m.write(p,name);m.write(p+name.len() as u32,&[0]);
+    }
+    m.write(node+0x28,&[0]);m.set_u32(node+0x10,11);m.set_u32(node+0x2c,0);m.set_u32(node+0x24,0);
+    for offset in [0x38,0x3c,0x40,0x30,0x34] {m.set_u32(node+offset,0);}m.set_u32(node,0x652d10);Ok(())
+}
+#[cfg(test)]
+mod texture_node_ctor_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_texture_node_constructor(){for line in include_str!("../../../tools/emu/golden_texture_node_ctor.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let node=0x2a000000;m.write(node,&bytes(p[0]));let value=if p[2]=="0" {vec![]}else{bytes(p[1])};let mut seen=vec![];initialize_particle_texture_node(&mut m,node,&value,|_,size|{seen.push(size);node+0x2000}).unwrap();assert_eq!(m.read(node,0x44),bytes(p[3]));assert_eq!(seen,p[4].split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>());if !value.is_empty(){let mut want=value;want.push(0);assert_eq!(m.read(node+0x2000,want.len()),want);}}}
+}
