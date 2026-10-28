@@ -894,3 +894,36 @@ mod full_attachment_tests {
     #[test]
     fn native_full_attachment(){for line in include_str!("../../../tools/emu/golden_particle_attach_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let count=p[0].parse::<i32>().unwrap();let vertices=bytes(p[2]);let mut m=Mem::new();let node=0x2a000000;let geometry=node+0x1000;m.write(node+0x38,&bytes(p[1]));for i in 0..count as u32 {let d=geometry+i*40;let x=node+0x2000+i*0x100;m.write(d+4,&4u16.to_le_bytes());m.set_u32(d+0x10,x);m.set_u32(d+0x14,x+16);m.write(x,&vertices[i as usize*32..i as usize*32+32]);}attach_particle_geometry_with_bounds(&mut m,node,geometry,count,node+0x10000);assert_eq!(m.read(node,0x44),bytes(p[3]));}}
 }
+
+/// External memory and scene identities required by the root particle ctor.
+pub trait ParticleRootOwner {
+    fn initialize_identities(&mut self,m:&mut Mem,object:u32);
+    fn allocate_zeroed(&mut self,m:&mut Mem,size:u32)->u32;
+    fn initialize_descriptor(&mut self,m:&mut Mem,descriptor:u32);
+    fn register(&mut self,m:&mut Mem,manager:u32,mode:u32,node:u32);
+}
+/// Root ctor assembled from verified blocks; successful allocations only.
+/// Owner supplies the original base identities and descriptor construction.
+pub fn construct_particle_root(m:&mut Mem,object:u32,args:[u32;11],scratch:u32,owner:&mut impl ParticleRootOwner)->Result<(),&'static str> {
+    owner.initialize_identities(m,object);initialize_particle_root_fields(m,object,args);
+    let allocation=owner.allocate_zeroed(m,0x2c);if allocation==0 {return Err("particle descriptor allocation failed");}
+    m.set_u32(allocation,1);let geometry=allocation+4;owner.initialize_descriptor(m,geometry);
+    let mut arrays=[0;4];for a in &mut arrays {*a=owner.allocate_zeroed(m,16);if *a==0 {return Err("particle array allocation failed");}}
+    initialize_particle_geometry(m,geometry,arrays,f32::from_bits(args[5]),f32::from_bits(args[6]),m.u32(args[7]));
+    attach_particle_geometry_with_bounds(m,object+0x14,geometry,1,scratch);
+    finish_particle_root(m,object,args[8],|m,manager,mode,node|owner.register(m,manager,mode,node));Ok(())
+}
+#[cfg(test)]
+mod root_full_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    struct Owner{next:u32}
+    impl ParticleRootOwner for Owner {
+        fn initialize_identities(&mut self,_:&mut Mem,_:u32){}
+        fn allocate_zeroed(&mut self,m:&mut Mem,size:u32)->u32{let p=self.next;self.next+=0x100;m.write(p,&vec![0;size as usize]);p}
+        fn initialize_descriptor(&mut self,_:&mut Mem,_:u32){}
+        fn register(&mut self,_:&mut Mem,manager:u32,mode:u32,node:u32){assert_eq!([manager,mode,node],[0x2a010000,0,0x2a000014]);}
+    }
+    #[test]
+    fn native_full_root_constructor(){for line in include_str!("../../../tools/emu/golden_particle_root_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let obj=0x2a000000;m.set_u32(v[7],v[11]);let mut owner=Owner{next:obj+0x20000};construct_particle_root(&mut m,obj,v[..11].try_into().unwrap(),obj+0x30000,&mut owner).unwrap();assert_eq!(m.read(obj,0x84),bytes(p[1]));assert_eq!(m.read(obj+0x20004,40),bytes(p[2]));}}
+}
