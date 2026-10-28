@@ -1017,3 +1017,20 @@ mod particle_size_tests {
     #[test]
     fn native_particle_sizes(){for line in include_str!("../../../tools/emu/golden_particle_size.tsv").lines(){let (input,output)=line.split_once('\t').unwrap();let raw=bytes(input);let mut m=Mem::new();let obj=0x2a000000;let g=obj+0x1000;let x=g+0x1000;m.set_u32(obj+0x48,g);m.set_u32(g+0x10,x);m.set_u32(g+0x14,x+16);m.write(obj+0x64,&raw[..8]);m.write(obj+0x84,&raw[8..]);let mut calls=0;update_particle_size(&mut m,obj,|_,o|{assert_eq!(o,obj);calls+=1;});assert_eq!(calls,1);assert_eq!(m.read(x,32),bytes(output));}}
 }
+
+/// `0x59aa10`: animation frame, colour, expiry and elapsed time.
+/// Valid input requires positive frame count and representable frame conversion.
+pub fn update_particle_lifecycle(m:&mut Mem,object:u32,mut remove:impl FnMut(&mut Mem,u32)) {
+    let frame=(m.f32(object+0x68) as f64/m.f32(object+0x60) as f64+m.i32(object+0x74) as f64).trunc() as i32;
+    let count=m.i32(object+0x70);let frame=if m.u32(object+0x80)&1!=0 {if frame<count {frame}else{count.wrapping_sub(1)}}else{frame%count};
+    m.set_u32(object+0x6c,frame as u32);m.set_u32(object+0x7c,m.u32(object+0x7c).wrapping_add(1));
+    let color=m.u32(m.u32(object+0x78).wrapping_add((frame as u32).wrapping_mul(4)));m.set_u32(m.u32(object+0x48)+0x24,color);
+    if m.f32(object+0x68)>m.f32(object+0x64) {remove(m,object);}else{let dt=m.f64(m.u32(object+0x58)+0xb90);m.set_f32(object+0x68,(dt+m.f32(object+0x68) as f64) as f32);}
+}
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_particle_lifecycle(){for line in include_str!("../../../tools/emu/golden_particle_lifecycle.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let raw=bytes(p[0]);let mut m=Mem::new();let obj=0x2a000000;let clock=obj+0x1000;let colors=clock+0x2000;let g=colors+0x2000;m.set_u32(obj+0x58,clock);m.set_u32(obj+0x48,g);m.set_u32(obj+0x78,colors);for (i,offset) in [0x68,0x60,0x64,0x70,0x74,0x80,0x7c].into_iter().enumerate(){m.write(obj+offset,&raw[i*4..i*4+4]);}for i in 0..1000u32{m.set_u32(colors+i*4,i.wrapping_mul(1234567));}m.write(clock+0xb90,&bytes(p[1]));let mut removed=0;update_particle_lifecycle(&mut m,obj,|_,_|removed+=1);assert_eq!(m.read(obj+0x68,24),bytes(p[2]));assert_eq!(m.read(g+0x24,4),bytes(p[3]));assert_eq!(removed,p[4].parse::<u32>().unwrap());}}
+}
