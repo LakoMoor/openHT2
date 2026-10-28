@@ -169,3 +169,28 @@ mod windows {
 }
 #[cfg(windows)]
 pub use windows::Playback;
+
+/// Temporary effect player: loops the installed sound while the panel requests
+/// it and stops on the off phase. The original mixer has not yet been ported.
+#[cfg(windows)]
+pub struct RadarSound {
+    sample:ht2_formats::avi::PcmAudio,
+    active:Option<Playback>,
+    gain:Option<f32>,
+}
+#[cfg(windows)]
+impl RadarSound {
+    pub fn load(game:&std::path::Path)->Result<Self,String> {Ok(Self{sample:load_radar_sound(game)?,active:None,gain:None})}
+    pub fn update(&mut self,gain:Option<f32>)->Result<(),String> {
+        let Some(gain)=gain else {self.active=None;self.gain=None;return Ok(())};
+        let gain=gain.clamp(0.,1.);
+        let restart=match &self.active {Some(current)=>self.gain!=Some(gain) || current.finished()?,None=>true};
+        if restart {
+            self.active=None;
+            let samples=self.sample.samples.iter().map(|&v|(f32::from(v)*gain) as i16).collect();
+            self.active=Some(Playback::play(ht2_formats::avi::PcmAudio{channels:self.sample.channels,sample_rate:self.sample.sample_rate,samples})?);
+            self.gain=Some(gain);
+        }
+        Ok(())
+    }
+}

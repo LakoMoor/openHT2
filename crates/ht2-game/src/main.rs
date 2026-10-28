@@ -503,6 +503,8 @@ fn run() -> Result<(), String> {
 
 struct Game {
     cockpit:Option<cockpit::Cockpit>,
+    #[cfg(windows)]
+    radar_sound:Option<audio::RadarSound>,
     movie: Option<movie::Player>,
     movie_mode: Option<u32>,
     menu_mode: Option<u32>,
@@ -611,7 +613,9 @@ impl Game {
         let traffic_objects = world.vehicle.traffic().iter().map(|_| HashMap::new()).collect();
         let cockpit=world.models.techs.iter().find(|t|t.index==world.vehicle.params.record)
             .and_then(|t|match cockpit::Cockpit::load(&mut renderer,&world.game_dir,&t.cabin,world.models.fallback_cabin.as_deref(),t.tank){Ok(c)=>Some(c),Err(e)=>{eprintln!("cockpit: {e}");None}});
-        let mut game = Game { cockpit,renderer, textures, truck_objects, trucks: HashMap::new(), traffic_objects, world, movie: None, movie_mode: None, menu_mode: None, shown_menu: None, menu_buttons: Default::default(), action_index: 0, media_error: None };
+        #[cfg(windows)]
+        let radar_sound=match audio::RadarSound::load(&world.game_dir){Ok(s)=>Some(s),Err(e)=>{eprintln!("radar sound: {e}");None}};
+        let mut game = Game { cockpit,#[cfg(windows)] radar_sound,renderer, textures, truck_objects, trucks: HashMap::new(), traffic_objects, world, movie: None, movie_mode: None, menu_mode: None, shown_menu: None, menu_buttons: Default::default(), action_index: 0, media_error: None };
         game.place_truck();
         game
     }
@@ -789,10 +793,14 @@ impl ApplicationHandler for App {
                 self.last = now;
                 let Some(g) = self.gfx.as_mut() else { return };
                 if g.game.update_media((g.config.width, g.config.height)) {
+                    #[cfg(windows)]
+                    if let Some(sound)=&mut g.game.radar_sound {if let Err(e)=sound.update(None){eprintln!("radar sound: {e}");g.game.radar_sound=None;}}
                     self.acc = 0.0;
                 } else {
                     while self.acc >= STEP {
                         g.game.world.vehicle.step(input, &g.game.world.ground, STEP);
+                        #[cfg(windows)]
+                        if let Some(sound)=&mut g.game.radar_sound {if let Err(e)=sound.update(g.game.world.vehicle.radar_sound()){eprintln!("radar sound: {e}");g.game.radar_sound=None;}}
                         self.acc -= STEP;
                     }
                 }

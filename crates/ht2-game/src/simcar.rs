@@ -14,8 +14,8 @@ mod mode_integration_tests {
         let world=crate::load_world(&game,"ENV",None).unwrap();let params=&world.truck.params;let data=std::fs::read(game.join("vehicle.tech")).unwrap();
         let mut car=SimCar::new(&data,params.record,&params.wheel_nodes,&params.add_nodes,&world.ground,world.spawn.0+Vec3::Z*world.spawn.2,world.spawn.1).unwrap();
         globals::install_clock(&mut car.m,CLOCK,0.,0.1);car.m.set_u32(CAR+0x5400,1);car.m.set_f32(CAR+0x51d8,0.5);
-        car.update_radar_panel();assert_eq!(car.radar_lamp(),2);assert_eq!(car.m.f32(CAR+0x51d8),0.);
-        car.update_radar_panel();assert_eq!(car.radar_lamp(),0);
+        car.update_radar_panel();assert_eq!(car.radar_lamp(),2);assert_eq!(car.radar_sound(),Some(1.));assert_eq!(car.m.f32(CAR+0x51d8),0.);
+        car.update_radar_panel();assert_eq!(car.radar_lamp(),0);assert_eq!(car.radar_sound(),None);
     }
     #[test]
     #[ignore="requires HT2_GAME installed game data"]
@@ -206,6 +206,7 @@ pub struct SimCar {
     /// Stand-in frame counter until the original scene clock owns the viewer.
     radar_ticks: i32,
     radar_lamp: u8,
+    radar_sound: Option<f32>,
     /// Whether the scene graph (rooms) is used; otherwise the drawn ground.
     rooms: bool,
     /// Computer vehicles: their address and their driver.
@@ -299,7 +300,7 @@ impl SimCar {
         m.set_i16(CAR + 0x2704, 1);
         m.set_i16(CAR + 0x2706, 1);
         ht2_sim::gearbox::fn_004ff770(&mut m, CAR, 1);
-        Ok(SimCar { m, time: 0.0, radar_ticks:0, radar_lamp:0, rooms, traffic: Vec::new(), vid, autopilot: None, rng: Default::default(), ai_world: None, game_actions: Vec::new(), slot_player: Vec::new(), slot_model: Vec::new(), records: HashMap::new() })
+        Ok(SimCar { m, time: 0.0, radar_ticks:0, radar_lamp:0, radar_sound:None, rooms, traffic: Vec::new(), vid, autopilot: None, rng: Default::default(), ai_world: None, game_actions: Vec::new(), slot_player: Vec::new(), slot_model: Vec::new(), records: HashMap::new() })
     }
 
     /// One step of `dt` seconds with the pedals in `0..=1` and the steering keys (-1 right, 1 left).
@@ -369,14 +370,14 @@ impl SimCar {
     }
 
     /// Original viewer radar command generation; the frame counter is a
-    /// temporary owner until the scene scheduler is integrated. Sound is not
-    /// connected yet, and police must explicitly publish signal to CAR+51d8.
+    /// temporary owner until the scene scheduler is integrated. Police must
+    /// explicitly publish signal to CAR+51d8.
     fn update_radar_panel(&mut self) {
         const VIEWER:u32=0x1f10_0000;const BODY:u32=1;const LAMP:u32=2;
         self.radar_ticks=self.radar_ticks.wrapping_add(1);
         self.m.set_u32(0x696ca0,CLOCK);self.m.set_i32(CLOCK+0xbb0,self.radar_ticks);
         self.m.set_u32(VIEWER+0x268,CAR);self.m.set_u32(VIEWER+0x1b8,BODY);self.m.set_u32(VIEWER+0x1bc,LAMP);
-        let (commands,_sound)=ht2_sim::instruments::radar_panel(&mut self.m,VIEWER);
+        let (commands,sound)=ht2_sim::instruments::radar_panel(&mut self.m,VIEWER);self.radar_sound=sound;
         for command in commands {if command.node==LAMP {self.radar_lamp=command.value as u8;}}
     }
 
@@ -719,6 +720,7 @@ impl SimCar {
     pub fn steering_position(&self)->f32 {self.m.f32(CAR+0x29e0)}
     pub fn radar_equipped(&self)->bool {self.m.u32(CAR+0x5400)!=0}
     pub fn radar_lamp(&self)->u8 {self.radar_lamp}
+    pub fn radar_sound(&self)->Option<f32> {self.radar_sound}
 
     /// Rotation angle of wheel `k`, radians.
     pub fn wheel_angle(&self, k: usize) -> f32 {
