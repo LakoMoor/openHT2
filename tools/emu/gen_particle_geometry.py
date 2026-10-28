@@ -4,7 +4,7 @@ from emu import Emu,OBJ_BASE
 from unicorn import UC_HOOK_CODE
 from unicorn.x86_const import UC_X86_REG_ESI
 r=random.Random(0x59a91d);e=Emu();rows=[];heap=[OBJ_BASE+0x20000];blocks=[];geometry=[0]
-e.hook_thiscall(0x579310,lambda em:em.ecx,0);e.hook_thiscall(0x5fa6f0,lambda em:em.ecx,1);e.hook_ret(0x61dac3,lambda em:0)
+e.hook_thiscall(0x579310,lambda em:em.ecx,0);e.hook_thiscall(0x5fa6f0,lambda em:em.ecx,1);e.hook_thiscall(0x61dac3,lambda em:0,5)
 def alloc(em):
  p=heap[0];heap[0]+=0x100;e.write(p,bytes(0x100));blocks.append(p);return p
 e.hook_ret(0x632643,alloc)
