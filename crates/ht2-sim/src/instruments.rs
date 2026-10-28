@@ -1243,3 +1243,17 @@ mod particle_complete_destroy_tests {
     #[test]
     fn native_complete_particle_destruction(){for line in include_str!("../../../tools/emu/golden_particle_destroy_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let obj=0x2a000000;m.write(obj,&bytes(p[0]));let payload=bytes(p[1]);m.set_u32(obj+0x1000,(payload.len()/40) as u32);m.write(obj+0x1004,&payload);let mut trace=vec![];destroy_scene_particle_complete(&mut m,obj,|_,ptr|trace.push(ptr));assert_eq!(m.read(obj,0xb0),bytes(p[2]));assert_eq!(trace,p[3].split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>());}}
 }
+
+/// Scalar deleting branch of `0x5a2060` (manager passes flags=1).
+/// Array deletion is a different ABI and is not handled by this entry point.
+pub fn delete_scene_particle(m:&mut Mem,object:u32,free:impl FnMut(&mut Mem,u32)) {
+    destroy_scene_particle_complete(m,object,free);
+    recycle_effect_object(m,m.u32(object+16),object);
+}
+#[cfg(test)]
+mod particle_delete_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_particle_delete_and_recycle(){for line in include_str!("../../../tools/emu/golden_particle_delete.tsv").lines(){let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let obj=0x2a000000;m.write(obj,&bytes(input));delete_scene_particle(&mut m,obj,|_,_|{});assert_eq!(m.read(obj,0x400),bytes(output));}}
+}
