@@ -779,3 +779,20 @@ mod root_fields_tests {
         for line in include_str!("../../../tools/emu/golden_particle_root_fields.tsv").lines(){let (input,output)=line.split_once('\t').unwrap();let args:Vec<u32>=input.split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let obj=0x2a000000;initialize_particle_root_fields(&mut m,obj,args.try_into().unwrap());let want:Vec<u8>=(0..output.len()).step_by(2).map(|i|u8::from_str_radix(&output[i..i+2],16).unwrap()).collect();assert_eq!(m.read(obj,0x84),want);}
     }
 }
+
+/// Geometry content in `0x59a843..0x59a91d`, before texture attachment.
+/// Owner supplies initialized 40-byte descriptor and four 16-byte arrays.
+pub fn initialize_particle_geometry(m:&mut Mem,geometry:u32,arrays:[u32;4],width:f32,height:f32,color:u32) {
+    m.write(geometry,&[2,1]);m.write(geometry+4,&4u16.to_le_bytes());
+    for (i,p) in arrays.into_iter().enumerate(){m.set_u32(geometry+8+i as u32*4,p);}
+    let values=[[0.,1.,1.,0.],[1.,1.,0.,0.],[-width*0.5,width*0.5,width*0.5,-width*0.5],[-height*0.5,-height*0.5,height*0.5,height*0.5]];
+    for (p,v) in arrays.into_iter().zip(values){for (i,x) in v.into_iter().enumerate(){m.set_f32(p+i as u32*4,x);}}
+    m.set_u32(geometry+0x18,0);m.write(geometry+0x22,&0xfffu16.to_le_bytes());m.set_u32(geometry+0x24,color);
+}
+#[cfg(test)]
+mod particle_geometry_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_particle_geometry(){for line in include_str!("../../../tools/emu/golden_particle_geometry.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let base=0x2a020000;let geometry=base+4;let arrays=std::array::from_fn(|i|base+(i as u32+1)*0x100);initialize_particle_geometry(&mut m,geometry,arrays,f32::from_bits(v[0]),f32::from_bits(v[1]),v[2]);assert_eq!(m.read(geometry,40),bytes(p[1]));let actual:Vec<u8>=arrays.into_iter().flat_map(|a|m.read(a,16)).collect();assert_eq!(actual,bytes(p[2]));}}
+}
