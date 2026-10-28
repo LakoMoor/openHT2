@@ -764,3 +764,18 @@ mod particle_base_tests {
         for line in include_str!("../../../tools/emu/golden_particle_base.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let parse=|s:&str|s.split(',').map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>();let v=parse(p[0]);let mut m=Mem::new();let object=0x2a000000;m.write(v[1],&bytes(p[1]));m.set_u32(0x6f6a68,v[9]);construct_particle_base(&mut m,object,v[..9].try_into().unwrap(),|_,obj,args|{assert_eq!(obj,object);assert_eq!(args.as_slice(),parse(p[2]));});assert_eq!(m.read(object,0x94),bytes(p[3]));}
     }
 }
+
+/// Root particle fields `0x59a7ba..0x59a80d`, following base identities.
+/// Geometry allocations and registration are still required by the owner.
+pub fn initialize_particle_root_fields(m:&mut Mem,object:u32,args:[u32;11]) {
+    m.set_u32(object,0x650bd0);m.set_u32(object+0x14,0x650b84);m.set_u32(object+0x80,0);
+    for (offset,value) in [(0x58,args[0]),(0x5c,args[1]),(0x4c,args[2]),(0x50,args[3]),(0x54,args[4]),(0x78,args[7]),(0x60,args[9]),(0x64,args[10])] {m.set_u32(object+offset,value);}
+}
+#[cfg(test)]
+mod root_fields_tests {
+    use super::*;
+    #[test]
+    fn native_root_fields(){
+        for line in include_str!("../../../tools/emu/golden_particle_root_fields.tsv").lines(){let (input,output)=line.split_once('\t').unwrap();let args:Vec<u32>=input.split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let obj=0x2a000000;initialize_particle_root_fields(&mut m,obj,args.try_into().unwrap());let want:Vec<u8>=(0..output.len()).step_by(2).map(|i|u8::from_str_radix(&output[i..i+2],16).unwrap()).collect();assert_eq!(m.read(obj,0x84),want);}
+    }
+}
