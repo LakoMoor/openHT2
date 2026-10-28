@@ -1115,3 +1115,20 @@ mod allocation_chain_tests {
     #[test]
     fn native_allocation_identity_chain(){for line in include_str!("../../../tools/emu/golden_effect_allocation_chain.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let pool=0x2a000000;m.write(pool,&bytes(p[0]));let object=allocate_effect_object(&mut m,pool);assert_eq!(object,p[1].parse::<u32>().unwrap());if object!=0 {initialize_effect_identity(&mut m,object);}assert_eq!(m.read(pool,0x200),bytes(p[2]));}}
 }
+
+/// Manager cleanup phase `0x57975d..0x5797be` (after update passes).
+/// Saves next before destructor, whose owner must recycle/free the object.
+pub fn cleanup_effect_pools(m:&mut Mem,manager:u32,mut destroy:impl FnMut(&mut Mem,u32)) {
+    let mut i=0;
+    while i<m.u32(manager+0x1b0) {
+        let pool=m.u32(manager+0x20+i*4);let mut object=m.u32(pool+8);
+        while object!=0 {let next=m.u32(object+8);if m.u32(object+4)!=0 {destroy(m,object);}object=next;}
+        i+=1;
+    }
+}
+#[cfg(test)]
+mod cleanup_pool_tests {
+    use super::*;
+    #[test]
+    fn native_cleanup_traversal(){for line in include_str!("../../../tools/emu/golden_effect_cleanup.tsv").lines(){let (marks,want)=line.split_once('\t').unwrap();let parse=|s:&str|s.split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>();let marks=parse(marks);let mut m=Mem::new();let manager=0x2a000000;let pool=manager+0x1000;m.set_u32(manager+0x1b0,1);m.set_u32(manager+0x20,pool);m.set_u32(pool+8,if marks.is_empty(){0}else{pool+0x100});for (i,mark) in marks.iter().enumerate(){let obj=pool+0x100+i as u32*32;m.set_u32(obj+4,*mark);m.set_u32(obj+8,if i+1<marks.len(){obj+32}else{0});}let mut trace=vec![];cleanup_effect_pools(&mut m,manager,|m,obj|{trace.push(obj);m.set_u32(obj+8,0);});assert_eq!(trace,parse(want));}}
+}
