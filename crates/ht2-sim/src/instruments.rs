@@ -1034,3 +1034,15 @@ mod lifecycle_tests {
     #[test]
     fn native_particle_lifecycle(){for line in include_str!("../../../tools/emu/golden_particle_lifecycle.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let raw=bytes(p[0]);let mut m=Mem::new();let obj=0x2a000000;let clock=obj+0x1000;let colors=clock+0x2000;let g=colors+0x2000;m.set_u32(obj+0x58,clock);m.set_u32(obj+0x48,g);m.set_u32(obj+0x78,colors);for (i,offset) in [0x68,0x60,0x64,0x70,0x74,0x80,0x7c].into_iter().enumerate(){m.write(obj+offset,&raw[i*4..i*4+4]);}for i in 0..1000u32{m.set_u32(colors+i*4,i.wrapping_mul(1234567));}m.write(clock+0xb90,&bytes(p[1]));let mut removed=0;update_particle_lifecycle(&mut m,obj,|_,_|removed+=1);assert_eq!(m.read(obj+0x68,24),bytes(p[2]));assert_eq!(m.read(g+0x24,4),bytes(p[3]));assert_eq!(removed,p[4].parse::<u32>().unwrap());}}
 }
+
+/// Complete derived update chain; owner performs the original deletion action.
+pub fn update_scene_particle(m:&mut Mem,object:u32,scratch:u32,mut remove:impl FnMut(&mut Mem,u32)) {
+    update_scene_particle_motion(m,object,scratch,|m,object|update_particle_size(m,object,|m,object|update_particle_lifecycle(m,object,&mut remove)));
+}
+#[cfg(test)]
+mod particle_full_update_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_full_particle_update(){for line in include_str!("../../../tools/emu/golden_particle_update_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let obj=0x2a000000;let clock=obj+0x1000;let g=clock+0x1000;let x=g+0x1000;let colors=x+0x1000;m.write(obj,&bytes(p[0]));m.write(clock+0xb90,&bytes(p[1]));m.set_u32(g+0x10,x);m.set_u32(g+0x14,x+16);for i in 0..1000u32{m.set_u32(colors+i*4,i.wrapping_mul(1234567));}let mut removed=0;update_scene_particle(&mut m,obj,obj+0x5000,|_,o|{assert_eq!(o,obj);removed+=1;});assert_eq!(m.read(obj,0xb0),bytes(p[2]));assert_eq!(m.read(x,32),bytes(p[3]));assert_eq!(m.read(g+0x24,4),bytes(p[4]));assert_eq!(removed,p[5].parse::<u32>().unwrap());}}
+}
