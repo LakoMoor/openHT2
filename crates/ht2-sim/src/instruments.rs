@@ -1178,3 +1178,21 @@ mod texture_destroy_tests {
     #[test]
     fn native_texture_destruction(){for line in include_str!("../../../tools/emu/golden_texture_destroy.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let node=0x2a000000;m.write(node,&bytes(p[0]));let payload=bytes(p[1]);m.set_u32(node+0x1000,(payload.len()/40) as u32);m.write(node+0x1004,&payload);let mut trace=vec![];let mut base_calls=0;destroy_particle_texture(&mut m,node,|_,ptr|trace.push(ptr),|_,obj|{assert_eq!(obj,node);base_calls+=1;});assert_eq!(base_calls,1);assert_eq!(m.read(node,0x44),bytes(p[2]));assert_eq!(trace,p[3].split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>());}}
 }
+
+/// `0x5ef660`: free node name storage and restore the base vtable.
+pub fn destroy_effect_node_base(m:&mut Mem,node:u32,free:&mut impl FnMut(&mut Mem,u32)) {
+    m.set_u32(node,0x652840);free(m,m.u32(node+12));m.set_u32(node,0x64d81c);
+}
+/// Full texture geometry/name destruction, with only the memory free external.
+pub fn destroy_particle_texture_complete(m:&mut Mem,node:u32,mut free:impl FnMut(&mut Mem,u32)) {
+    m.set_u32(node,0x652d10);let geometry=m.u32(node+0x34);
+    if geometry!=0 {let count=m.u32(geometry-4);for i in (0..count).rev(){destroy_particle_descriptor(m,geometry+i*40,&mut free);}free(m,geometry-4);}
+    destroy_effect_node_base(m,node,&mut free);
+}
+#[cfg(test)]
+mod texture_full_destroy_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_complete_texture_destruction(){for line in include_str!("../../../tools/emu/golden_texture_destroy_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let node=0x2a000000;m.write(node,&bytes(p[0]));let payload=bytes(p[1]);m.set_u32(node+0x1000,(payload.len()/40) as u32);m.write(node+0x1004,&payload);let mut trace=vec![];destroy_particle_texture_complete(&mut m,node,|_,ptr|trace.push(ptr));assert_eq!(m.read(node,0x44),bytes(p[2]));assert_eq!(trace,p[3].split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>());}}
+}
