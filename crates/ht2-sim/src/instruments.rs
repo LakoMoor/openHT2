@@ -270,6 +270,16 @@ pub fn dashboard_speed(m:&mut Mem,scene:u32,mut override_speed:impl FnMut(&mut M
     let speed=m.f32(car+if m.u32(car+0x3464)!=0 {0x3328}else{0x3330});
     if m.u32(0x6d20ec)!=0 {override_speed(m,m.u32(scene+0x5204))}else{speed}
 }
+/// `0x4ff5b0`: speed override using the physical vehicle's tech record.
+pub fn dashboard_speed_override(m:&Mem,car:u32,gear:u32)->f32 {
+    let rec=crate::gearbox::tech_record(m,m.i32(car+0x8cc));
+    crate::curves::fn_00507550(crate::TechRec::new(&rec),gear as i32,m.f32(car+0x2640)).0
+}
+/// Complete source selection when the owning scene record is available.
+pub fn dashboard_scene_speed(m:&mut Mem,scene:u32)->f32 {
+    let car=m.u32(scene+0x5460);
+    dashboard_speed(m,scene,|m,gear|dashboard_speed_override(m,car,gear))
+}
 /// Physical-car branch usable before the owning scene record is wired up.
 /// None means the original requires a scene velocity or speed override.
 pub fn dashboard_physical_speed(m:&Mem,car:u32)->Option<f32> {
