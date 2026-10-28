@@ -292,7 +292,7 @@ pub trait SceneResetHooks: CameraResetHooks {
     fn destroy_object(&mut self,m:&mut Mem,object:u32);
 }
 /// `0x5d21b0`: unlink without destroying. List roots share the node layout.
-fn unlink(m:&mut Mem,p:u32) {
+pub fn unlink(m:&mut Mem,p:u32) {
     let previous=m.u32(p+4);let next=m.u32(p+8);
     if previous!=0 {m.set_u32(previous+8,next);}
     if next!=0 {m.set_u32(next+4,previous);}

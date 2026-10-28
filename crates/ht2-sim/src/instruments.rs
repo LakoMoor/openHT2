@@ -1214,3 +1214,15 @@ mod node_unlink_tests {
     #[test]
     fn native_node_unlink(){for line in include_str!("../../../tools/emu/golden_effect_node_unlink.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let base=0x2a000000;m.write(base,&bytes(p[0]));let result=unlink_effect_node(&mut m,base+0x100,|_,node|assert_eq!(node,base+0x100));assert_eq!(result,p[2]=="1");assert_eq!(m.read(base,0x400),bytes(p[1]));}}
 }
+
+/// Complete `0x5ef780`, using the shared original linked-list unlink.
+pub fn unlink_effect_node_complete(m:&mut Mem,node:u32)->bool {
+    unlink_effect_node(m,node,crate::controller::unlink)
+}
+#[cfg(test)]
+mod node_unlink_full_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_complete_node_unlink(){for line in include_str!("../../../tools/emu/golden_effect_node_unlink_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let base=0x2a000000;m.write(base,&bytes(p[0]));assert_eq!(unlink_effect_node_complete(&mut m,base+0x100),p[2]=="1");assert_eq!(m.read(base,0x400),bytes(p[1]));}}
+}
