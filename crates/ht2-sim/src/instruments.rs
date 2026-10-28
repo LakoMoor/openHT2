@@ -810,3 +810,21 @@ mod particle_finish_tests {
     #[test]
     fn native_particle_finish(){for line in include_str!("../../../tools/emu/golden_particle_finish.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let object=0x2a000000;m.write(object,&bytes(p[0]));m.set_u32(object+0x5c,object+0x1000);let expected:Vec<u32>=p[2].split(',').map(|s|s.parse().unwrap()).collect();finish_particle_root(&mut m,object,p[1].parse().unwrap(),|_,manager,mode,node|assert_eq!([manager,mode,node].as_slice(),expected));assert_eq!(m.read(object,0x84),bytes(p[3]));}}
 }
+
+/// Attach geometry (`0x5fa4f0`) then update its bounds (`0x5fa5f0`).
+/// The owner implements bound construction/merge for each descriptor.
+pub fn attach_particle_geometry(m:&mut Mem,node:u32,geometry:u32,count:i32,mut bounds:impl FnMut(&mut Mem,u32,u32,bool)) {
+    m.set_u32(node+0x30,count as u32);m.set_u32(node+0x34,geometry);
+    if count>0 {
+        let origin=m.read(node+0x38,12);m.write(node+0x14,&origin);
+        bounds(m,geometry,node+0x14,false);
+        for _ in 1..count {bounds(m,geometry,node+0x14,true);}
+    }
+}
+#[cfg(test)]
+mod particle_attach_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_geometry_attachment(){for line in include_str!("../../../tools/emu/golden_particle_attach.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let node=0x2a000000;m.write(node,&bytes(p[0]));let count=p[1].parse::<i32>().unwrap();let mut calls=0;attach_particle_geometry(&mut m,node,node+0x1000,count,|_,geometry,dst,merge|{assert_eq!(geometry,node+0x1000);assert_eq!(dst,node+0x14);calls+=if merge {2}else{1};});assert_eq!(calls,p[3].parse::<i32>().unwrap());assert_eq!(m.read(node,0x44),bytes(p[2]));}}
+}
