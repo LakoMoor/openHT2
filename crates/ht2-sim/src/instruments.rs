@@ -1196,3 +1196,21 @@ mod texture_full_destroy_tests {
     #[test]
     fn native_complete_texture_destruction(){for line in include_str!("../../../tools/emu/golden_texture_destroy_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let node=0x2a000000;m.write(node,&bytes(p[0]));let payload=bytes(p[1]);m.set_u32(node+0x1000,(payload.len()/40) as u32);m.write(node+0x1004,&payload);let mut trace=vec![];destroy_particle_texture_complete(&mut m,node,|_,ptr|trace.push(ptr));assert_eq!(m.read(node,0x44),bytes(p[2]));assert_eq!(trace,p[3].split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>());}}
 }
+
+/// `0x5ef780`: unlink a scene node; linked-list helper is explicit.
+pub fn unlink_effect_node(m:&mut Mem,node:u32,mut linked:impl FnMut(&mut Mem,u32))->bool {
+    if m.u32(node+4)!=0 {linked(m,node);m.set_u32(node+0x2c,0);m.set_u32(node+0x24,0);return true;}
+    let parent=m.u32(node+0x2c);if parent==0 {return false;}
+    let count=m.i32(parent+0x34);let slots=m.u32(parent+0x30);
+    let mut i=0;while i<count && m.u32(slots+i as u32*4)!=node {i+=1;}
+    if i==count {return false;}
+    let next=m.u32(node+8);m.set_u32(slots+i as u32*4,next);if next!=0 {m.set_u32(next+4,0);}
+    m.set_u32(node+4,0);m.set_u32(node+8,0);m.set_u32(node+0x2c,0);true
+}
+#[cfg(test)]
+mod node_unlink_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_node_unlink(){for line in include_str!("../../../tools/emu/golden_effect_node_unlink.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let base=0x2a000000;m.write(base,&bytes(p[0]));let result=unlink_effect_node(&mut m,base+0x100,|_,node|assert_eq!(node,base+0x100));assert_eq!(result,p[2]=="1");assert_eq!(m.read(base,0x400),bytes(p[1]));}}
+}
