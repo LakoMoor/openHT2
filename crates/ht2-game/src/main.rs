@@ -10,6 +10,7 @@ mod camera;
 mod cockpit;
 mod event_scene;
 mod event_heap;
+mod particle_memory;
 
 use glam::{Mat4, Vec3};
 use ground::Ground;
