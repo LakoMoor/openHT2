@@ -728,3 +728,21 @@ mod sink_tests {
         for line in include_str!("../../../tools/emu/golden_effect_sink.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let parse=|s:&str|s.split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>();let v=parse(p[0]);let mut m=Mem::new();m.set_u32(0x6f6a8c,v[0]);m.set_u32(0x696224,v[1]);m.set_u32(0x696208,v[2]);let mut sink=Sink{object:v[7],allocation:vec![],ctor:vec![]};emit_scene_effect(&mut m,v[3],v[4],&mut sink);assert_eq!(sink.allocation,parse(p[1]));assert_eq!(sink.ctor,parse(p[2]));}
     }
 }
+
+/// Derived state of particle constructor `0x59c420`; base creation is explicit.
+pub fn construct_scene_particle(m:&mut Mem,object:u32,args:[u32;6],mut base:impl FnMut(&mut Mem,u32,[u32;9])) {
+    let [texture,point,direction,scale,config,count]=args;let scale=f32::from_bits(scale);
+    base(m,object,[texture,point,(scale*0.5).to_bits(),(scale*4.0).to_bits(),config,count,((0.75f64/count as f64) as f32).to_bits(),0.75f32.to_bits(),100]);
+    for offset in (0x94..0xac).step_by(4){m.set_u32(object+offset,0);}
+    m.set_u32(object,0x650dd4);m.set_u32(object+0x14,0x650d88);m.set_u32(object+0x80,m.u32(object+0x80)|1);
+    let p=m.read(point,12);m.write(object+0x94,&p);let d=m.read(direction,12);m.write(object+0xa0,&d);m.set_f32(object+0xac,3.0);
+}
+#[cfg(test)]
+mod particle_ctor_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_particle_constructor(){
+        for line in include_str!("../../../tools/emu/golden_particle_ctor.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let parse=|s:&str|s.split(',').map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>();let v=parse(p[0]);let mut m=Mem::new();let object=0x2a000000;let point=object+0x1000;let direction=point+12;m.write(point,&bytes(p[1]));construct_scene_particle(&mut m,object,[v[0],point,direction,v[1],v[2],v[3]],|m,obj,args|{assert_eq!(args.as_slice(),parse(p[2]));m.set_u32(obj+0x80,v[4]);});assert_eq!(m.read(object,0xb0),bytes(p[3]));}
+    }
+}
