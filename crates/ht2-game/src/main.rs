@@ -11,6 +11,7 @@ mod cockpit;
 mod event_scene;
 mod event_heap;
 mod particle_memory;
+mod particle_runtime;
 
 use glam::{Mat4, Vec3};
 use ground::Ground;
