@@ -384,3 +384,25 @@ pub fn fn_004fdc80(m: &mut Mem, world: &mut dyn World, this: u32) {
     }
     m.set_u32(this + 0x27c0, 0);
 }
+
+/// `0x4e5ba7`: return the room reported by bit 2, otherwise keep the owner.
+/// Caller owns a 0xd0-byte collision record at `rec`.
+pub fn query_segment_room(m:&mut Mem,world:&mut dyn World,obj:u32,from:u32,to:u32,rec:u32)->u32 {
+    let flags=fn_004e5b22(m,world,obj,from,to,rec);
+    if flags&2!=0 {m.u32(rec+0x68)}else{obj}
+}
+#[cfg(test)]
+mod room_query_tests {
+    use super::*;
+    struct Query{flags:u32,room:u32,calls:u32}
+    impl World for Query {
+        fn collide(&mut self,m:&mut Mem,_:u32,mode:u32,rec:u32)->u32{assert_eq!(mode,0);self.calls+=1;m.set_u32(rec+0x68,self.room);self.flags}
+    }
+    #[test]
+    fn native_room_query(){
+        for line in include_str!("../../../tools/emu/golden_room_query.tsv").lines(){
+            let (input,output)=line.split_once('\t').unwrap();let v:Vec<u32>=input.split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let mut w=Query{flags:v[1],room:v[2],calls:0};
+            assert_eq!(query_segment_room(&mut m,&mut w,v[0],0x1a000000,0x1a00000c,0x1b000000),output.parse::<u32>().unwrap());assert_eq!(w.calls,u32::from(v[0]!=0));
+        }
+    }
+}
