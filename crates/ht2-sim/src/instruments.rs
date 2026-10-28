@@ -480,3 +480,33 @@ mod snapshot_pose_tests {
         }
     }
 }
+
+/// Decode a vehicle snapshot (`0x541ad0`). Diagnostic calls are returned as errors.
+/// The original may continue after diagnostics; callers must handle errors explicitly.
+pub fn decode_vehicle_snapshot(m:&mut Mem,p:u32)->Result<(),&'static str> {
+    let cursor=decode_snapshot_pose(m,p);let base=cursor-0x14;
+    let size=u16::from_le_bytes(m.read(p+0x14,2).try_into().unwrap()) as u32;
+    if m.u32(p+0x50)&1==0 {
+        return if base==size && base==m.u32(p+4) {Ok(())}else{Err("snapshot base version mismatch")};
+    }
+    let b=m.read(p+cursor,10);let percent=f64::from_bits(0x3fd9191919191919);let fraction=f64::from_bits(0x3f70101010101010);
+    for (dst,value,scale) in [(0xb0,b[0],percent),(0xb4,b[3],percent),(0xb8,b[4],fraction),(0x128,b[5],fraction),(0x144,b[8],fraction),(0x148,b[9],fraction)] {m.set_f32(p+dst,(value as f64*scale) as f32);}
+    m.set_f32(p+0xac,(u16::from_le_bytes([b[1],b[2]]) as u32*100) as f32);
+    let flags=b[6] as u32;
+    for (dst,value) in [(0x12c,flags&1),(0x130,(flags>>1)&1),(0x134,(flags>>2)&7),(0x138,(flags>>5)&1),(0x13c,flags>>6),(0x140,b[7] as u32&1)] {m.set_u32(p+dst,value);}
+    if m.u32(p+8)>size {return Err("snapshot extended version mismatch");}
+    if base+10>0x3a || base+10!=m.u32(p+8) {return Err("snapshot extended size mismatch");}
+    Ok(())
+}
+#[cfg(test)]
+mod snapshot_full_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn complete_native_snapshot_decode() {
+        for line in include_str!("../../../tools/emu/golden_snapshot_full.tsv").lines(){
+            let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let p=0x2a000000;m.write(p,&bytes(input));
+            decode_vehicle_snapshot(&mut m,p).unwrap();assert_eq!(m.read(p+0x50,0xfc),bytes(output));
+        }
+    }
+}
