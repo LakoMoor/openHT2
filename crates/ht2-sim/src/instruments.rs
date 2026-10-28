@@ -1358,3 +1358,19 @@ mod particle_register_tests {
     #[test]
     fn native_particle_registration(){for line in include_str!("../../../tools/emu/golden_particle_register.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let manager=0x2a000000;m.write(manager,&bytes(p[0]));assert_eq!(register_particle_sort_node(&mut m,manager,manager+0x100),p[2]=="1");assert_eq!(m.read(manager,0x400),bytes(p[1]));}}
 }
+
+/// Use the actual sort-node registration while retaining owner's memory services.
+pub struct RegisteredParticleOwner<'a,T:ParticleRootOwner>(pub &'a mut T);
+impl<T:ParticleRootOwner> ParticleRootOwner for RegisteredParticleOwner<'_,T> {
+    fn initialize_identities(&mut self,m:&mut Mem,object:u32){self.0.initialize_identities(m,object);}
+    fn allocate_zeroed(&mut self,m:&mut Mem,size:u32)->u32{self.0.allocate_zeroed(m,size)}
+    fn initialize_descriptor(&mut self,m:&mut Mem,descriptor:u32){self.0.initialize_descriptor(m,descriptor);}
+    fn register(&mut self,m:&mut Mem,manager:u32,_mode:u32,node:u32){register_particle_sort_node(m,manager,node);}
+}
+#[cfg(test)]
+mod registration_roundtrip_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_registration_unlink_sequences(){for line in include_str!("../../../tools/emu/golden_particle_registration_roundtrip.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let manager=0x2a000000;m.write(manager,&bytes(p[0]));for i in 0..p[1].parse::<u32>().unwrap(){assert!(register_particle_sort_node(&mut m,manager,manager+0x200+i*0x80));}for node in p[2].split(',').filter(|s|!s.is_empty()){assert!(unlink_effect_node_complete(&mut m,node.parse().unwrap()));}assert_eq!(m.read(manager,0x1000),bytes(p[3]));}}
+}
