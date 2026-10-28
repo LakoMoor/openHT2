@@ -370,7 +370,7 @@ mod tests {
     }
 }
 
-/// Snapshot field publication in `0x54d714..0x54d7a6`.
+/// Snapshot field publication in `0x54d714..0x54d80c`.
 /// Floating payloads follow Unicorn; hardware signaling-NaN exceptions are unverified.
 /// This is only the copy block; the surrounding scene restore has other effects.
 pub fn restore_dashboard_snapshot(m:&mut Mem,scene:u32) {
@@ -378,14 +378,16 @@ pub fn restore_dashboard_snapshot(m:&mut Mem,scene:u32) {
         let value=m.u32(scene+src);m.set_u32(scene+dst,value);
     }
     m.set_u32(scene+0x5204,m.u32(scene+0x2820)&255);
+    let flags=m.u32(scene+0x27b4);
+    for (dst,value) in [(0x5208,flags&2),(0x51b4,(flags>>3)&1),(0x51b8,((flags>>2)&1)+((flags>>3)&2)),(0x5178,(flags>>5)&1),(0x517c,(flags>>6)&1),(0x5224,(flags>>17)&1),(0x51c0,(flags>>18)&1)] {m.set_u32(scene+dst,value);}
 }
 #[cfg(test)]
 mod snapshot_tests {
     use super::*;
     #[test]
     fn native_snapshot_publication() {
-        let src=[0x2814,0x288c,0x2818,0x2818,0x2890,0x2810,0x28b0,0x2898,0x28a0,0x28ac,0x28a8,0x2820];
-        let dst=[0x51e4,0x51fc,0x51e8,0x51ec,0x520c,0x51f4,0x5200,0x5214,0x5218,0x522c,0x5228,0x5204];
+        let src=[0x2814,0x288c,0x2818,0x2818,0x2890,0x2810,0x28b0,0x2898,0x28a0,0x28ac,0x28a8,0x2820,0x27b4];
+        let dst=[0x51e4,0x51fc,0x51e8,0x51ec,0x520c,0x51f4,0x5200,0x5214,0x5218,0x522c,0x5228,0x5204,0x5208,0x51b4,0x51b8,0x5178,0x517c,0x5224,0x51c0];
         for line in include_str!("../../../tools/emu/golden_scene_dashboard_snapshot.tsv").lines() {
             let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let scene=0x2a000000;
             for (offset,value) in src.into_iter().zip(input.split(',')){m.set_u32(scene+offset,value.parse().unwrap());}
