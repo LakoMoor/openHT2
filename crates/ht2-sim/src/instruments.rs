@@ -828,3 +828,26 @@ mod particle_attach_tests {
     #[test]
     fn native_geometry_attachment(){for line in include_str!("../../../tools/emu/golden_particle_attach.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let node=0x2a000000;m.write(node,&bytes(p[0]));let count=p[1].parse::<i32>().unwrap();let mut calls=0;attach_particle_geometry(&mut m,node,node+0x1000,count,|_,geometry,dst,merge|{assert_eq!(geometry,node+0x1000);assert_eq!(dst,node+0x14);calls+=if merge {2}else{1};});assert_eq!(calls,p[3].parse::<i32>().unwrap());assert_eq!(m.read(node,0x44),bytes(p[2]));}}
 }
+
+/// `0x5e6800`: geometry sphere is centred at zero with maximum vertex length.
+/// Input centre is added to each X/Z vertex before measuring the radius.
+pub fn particle_geometry_bounds(m:&mut Mem,geometry:u32,bounds:u32) {
+    let count=u16::from_le_bytes(m.read(geometry+4,2).try_into().unwrap()) as u32;
+    let x=m.u32(geometry+0x10);let z=m.u32(geometry+0x14);let origin=[m.f32(bounds),m.f32(bounds+4),m.f32(bounds+8)];let mut center=[0f32;3];
+    for i in 0..count {let v=[m.f32(x+i*4)+origin[0],origin[1],m.f32(z+i*4)+origin[2]];for j in 0..3 {center[j]+=v[j];}}
+    for v in &mut center {*v/=count as f32;}
+    let mut radius=0f32;
+    for i in 0..count {
+        let vx=(center[0] as f64-(m.f32(x+i*4) as f64+origin[0] as f64)) as f32;
+        let vy=center[1]-origin[1];let vz=center[2]-(m.f32(z+i*4)+origin[2]);
+        let length=((vx as f64*vx as f64+vy as f64*vy as f64)+vz as f64*vz as f64).sqrt();if (radius as f64)<length {radius=length as f32;}
+    }
+    for i in 0..3 {m.set_u32(bounds+i as u32*4,if count==0 {0xffc00000}else{center[i].to_bits()});}m.set_f32(bounds+12,radius);
+}
+#[cfg(test)]
+mod particle_bounds_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_geometry_bounds(){for line in include_str!("../../../tools/emu/golden_particle_bounds.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let n=p[0].parse::<usize>().unwrap();let raw=bytes(p[1]);let mut m=Mem::new();let geometry=0x2a000000;let x=geometry+0x1000;let z=x+0x1000;let bound=z+0x1000;m.write(geometry+4,&(n as u16).to_le_bytes());m.set_u32(geometry+0x10,x);m.set_u32(geometry+0x14,z);m.write(bound,&raw[..12]);m.write(x,&raw[12..12+4*n]);m.write(z,&raw[12+4*n..]);particle_geometry_bounds(&mut m,geometry,bound);assert_eq!(m.read(bound,16),bytes(p[2]));}}
+}
