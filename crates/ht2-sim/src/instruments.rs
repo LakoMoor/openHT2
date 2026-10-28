@@ -544,3 +544,25 @@ mod scene_restore_tests {
         }
     }
 }
+
+/// Geometry-update entry gate `0x55197a..0x5519f5` (finite clock delta).
+pub fn scene_update_due(flags:u32,mode:i32,delta:f64,frame:i32)->bool {
+    if flags&0x100==0 {return false;}
+    if mode<=1 {return true;}
+    if delta==0.0 {return false;}
+    let reciprocal=1.0/delta.abs();
+    let truncated=reciprocal.trunc();
+    let interval=if !truncated.is_finite() || truncated>i32::MAX as f64 {1}else{(truncated as i32).max(1)};
+    frame%interval==0
+}
+#[cfg(test)]
+mod scene_gate_tests {
+    use super::*;
+    #[test]
+    fn native_scene_update_gate(){
+        for line in include_str!("../../../tools/emu/golden_scene_update_gate.tsv").lines(){
+            let (input,want)=line.split_once('\t').unwrap();let v:Vec<_>=input.split(',').collect();
+            assert_eq!(scene_update_due(v[0].parse().unwrap(),v[1].parse().unwrap(),v[3].parse().unwrap(),v[4].parse().unwrap()),want=="1");
+        }
+    }
+}
