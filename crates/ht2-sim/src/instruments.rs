@@ -1342,3 +1342,19 @@ mod particle_identity_full_tests {
     #[test]
     fn native_particle_identity_chain(){for line in include_str!("../../../tools/emu/golden_particle_identity_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let obj=0x2a000000;m.write(obj,&bytes(p[0]));for (i,v) in p[1].split(',').enumerate(){m.set_u32(0x6f4bc8+i as u32*4,v.parse().unwrap());}let name=bytes(p[2]);initialize_particle_identities(&mut m,obj,&name,|_,_|obj+0x2000).unwrap();assert_eq!(m.read(obj,0xb0),bytes(p[3]));}}
 }
+
+/// Actual particle manager class uses `0x593270`, always slot zero.
+/// `mode` is ignored by this class; other scene classes may differ.
+pub fn register_particle_sort_node(m:&mut Mem,manager:u32,node:u32)->bool {
+    if m.i32(manager+0x34)<=0 {return false;}
+    m.set_u32(node+0x2c,manager);m.set_u32(node+0x24,m.u32(manager+0x24));
+    let slots=m.u32(manager+0x30);let old=m.u32(slots);
+    m.set_u32(node+8,old);m.set_u32(node+4,0);if old!=0 {m.set_u32(old+4,node);}m.set_u32(slots,node);true
+}
+#[cfg(test)]
+mod particle_register_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_particle_registration(){for line in include_str!("../../../tools/emu/golden_particle_register.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let manager=0x2a000000;m.write(manager,&bytes(p[0]));assert_eq!(register_particle_sort_node(&mut m,manager,manager+0x100),p[2]=="1");assert_eq!(m.read(manager,0x400),bytes(p[1]));}}
+}
