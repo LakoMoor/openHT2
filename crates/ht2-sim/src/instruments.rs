@@ -950,3 +950,26 @@ mod particle_chain_tests {
     #[test]
     fn native_complete_particle_chain(){for line in include_str!("../../../tools/emu/golden_particle_chain.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let obj=0x2a000000;m.set_u32(0x6f6a68,obj+0x10000);m.set_u32(v[4],v[6]);m.write(v[1],&bytes(p[1]));let mut owner=Owner{next:obj+0x20000};construct_complete_scene_particle(&mut m,obj,v[..6].try_into().unwrap(),obj+0x30000,&mut owner).unwrap();assert_eq!(m.read(obj,0xb0),bytes(p[2]));assert_eq!(m.read(obj+0x20004,40),bytes(p[3]));}}
 }
+
+/// Drag phase `0x59c510..0x59c61c`; position/lifetime update must follow.
+/// Scratch is a caller-owned 12-byte vector.
+pub fn particle_drag(m:&mut Mem,object:u32,scratch:u32) {
+    let drag=m.f32(object+0xac);if drag==0.0 || drag.is_nan(){return;}
+    crate::matrix::vec_unit(m,scratch,object+0xa0);
+    let dt=m.f64(m.u32(object+0x58)+0xb90) as f32;
+    let old:[f32;3]=std::array::from_fn(|i|m.f32(object+0xa0+i as u32*4));let mut next=[0f32;3];let mut change=[0f32;3];
+    for i in 0..3 {
+        let force=-(m.f32(scratch+i as u32*4) as f64)*drag as f64;
+        let force=if i==0 {force}else{(force as f32) as f64};
+        let delta=(force*dt as f64) as f32;change[i]=delta;next[i]=old[i]+delta;m.set_f32(object+0xa0+i as u32*4,next[i]);
+    }
+    let dot=(next[2] as f64*change[2] as f64+next[1] as f64*change[1] as f64)+next[0] as f64*change[0] as f64;
+    if dot>0.0 {m.set_f32(object+0xac,0.0);for i in 0..3 {m.set_u32(object+0xa0+i*4,m.u32(0x702650+i*4));}}
+}
+#[cfg(test)]
+mod drag_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_particle_drag(){for line in include_str!("../../../tools/emu/golden_particle_drag.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let obj=0x2a000000;m.set_u32(obj+0x58,obj+0x1000);m.write(obj+0xa0,&bytes(p[0]));m.write(obj+0x1000+0xb90,&bytes(p[1]));particle_drag(&mut m,obj,obj+0x2000);assert_eq!(m.read(obj+0xa0,16),bytes(p[2]));}}
+}
