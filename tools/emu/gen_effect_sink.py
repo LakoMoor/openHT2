@@ -3,7 +3,7 @@ import pathlib,random
 from emu import Emu,OBJ_BASE
 r=random.Random(0x4bac90);e=Emu();rows=[];state={}
 def alloc(em):
- state['allocation']=[em.arg(i) for i in range(3)];return state['result']
+ state['allocation']=[em.arg(i) for i in range(2)];return state['result']
 def ctor(em):state['ctor']=[em.ecx]+[em.arg(i) for i in range(6)];return em.ecx
 e.hook_ret(0x579380,alloc);e.hook_thiscall(0x59c420,ctor,6)
 for case in range(300):

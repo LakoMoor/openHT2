@@ -707,12 +707,12 @@ mod effect_pair_tests {
 
 /// Allocator and particle-constructor boundary of `0x4bac90`.
 pub trait SceneEffectSink {
-    fn allocate(&mut self,m:&mut Mem,size:u32,pool:u32,point:u32)->u32;
+    fn allocate(&mut self,m:&mut Mem,size:u32,pool:u32)->u32;
     fn construct(&mut self,m:&mut Mem,object:u32,args:[u32;6]);
 }
 /// Original sink wrapper; actual allocator and particle simulation are owner-supplied.
 pub fn emit_scene_effect(m:&mut Mem,point:u32,direction:u32,sink:&mut impl SceneEffectSink) {
-    let object=sink.allocate(m,0xb0,m.u32(0x6f6a8c),point);
+    let object=sink.allocate(m,0xb0,m.u32(0x6f6a8c));
     if object!=0 {sink.construct(m,object,[m.u32(0x696224),point,direction,1f32.to_bits(),0x695bf0,m.u32(0x696208)]);}
 }
 #[cfg(test)]
@@ -720,7 +720,7 @@ mod sink_tests {
     use super::*;
     struct Sink{object:u32,allocation:Vec<u32>,ctor:Vec<u32>}
     impl SceneEffectSink for Sink {
-        fn allocate(&mut self,_:&mut Mem,size:u32,pool:u32,point:u32)->u32{self.allocation=vec![size,pool,point];self.object}
+        fn allocate(&mut self,_:&mut Mem,size:u32,pool:u32)->u32{self.allocation=vec![size,pool];self.object}
         fn construct(&mut self,_:&mut Mem,object:u32,args:[u32;6]){self.ctor=vec![object];self.ctor.extend(args);}
     }
     #[test]
