@@ -1079,3 +1079,20 @@ mod effect_pool_tests {
     #[test]
     fn native_pool_recycle(){for line in include_str!("../../../tools/emu/golden_effect_pool_release.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let pool=0x2a000000;m.write(pool,&bytes(p[0]));recycle_effect_object(&mut m,pool,p[1].parse().unwrap());assert_eq!(m.read(pool,0x200),bytes(p[2]));}}
 }
+
+/// `0x579480`: take the free-list head and prepend to the active list.
+pub fn take_effect_object(m:&mut Mem,pool:u32)->u32 {
+    let object=m.u32(pool+4);if object==0 {return 0;}
+    let previous=m.u32(object+12);let next=m.u32(object+8);let active=m.u32(pool+8);
+    if active==0 {m.set_u32(pool+8,object);m.set_u32(object+8,0);m.set_u32(object+12,0);}else{
+        m.set_u32(object+12,m.u32(active+12));m.set_u32(object+8,active);m.set_u32(active+12,object);m.set_u32(pool+8,object);
+    }
+    m.set_u32(pool+4,next);if next!=0 {m.set_u32(next+12,previous);}object
+}
+#[cfg(test)]
+mod effect_pool_take_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_pool_take(){for line in include_str!("../../../tools/emu/golden_effect_pool_take.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let pool=0x2a000000;m.write(pool,&bytes(p[0]));assert_eq!(take_effect_object(&mut m,pool),p[1].parse::<u32>().unwrap());assert_eq!(m.read(pool,0x200),bytes(p[2]));}}
+}
