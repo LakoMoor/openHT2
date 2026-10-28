@@ -1132,3 +1132,30 @@ mod cleanup_pool_tests {
     #[test]
     fn native_cleanup_traversal(){for line in include_str!("../../../tools/emu/golden_effect_cleanup.tsv").lines(){let (marks,want)=line.split_once('\t').unwrap();let parse=|s:&str|s.split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>();let marks=parse(marks);let mut m=Mem::new();let manager=0x2a000000;let pool=manager+0x1000;m.set_u32(manager+0x1b0,1);m.set_u32(manager+0x20,pool);m.set_u32(pool+8,if marks.is_empty(){0}else{pool+0x100});for (i,mark) in marks.iter().enumerate(){let obj=pool+0x100+i as u32*32;m.set_u32(obj+4,*mark);m.set_u32(obj+8,if i+1<marks.len(){obj+32}else{0});}let mut trace=vec![];cleanup_effect_pools(&mut m,manager,|m,obj|{trace.push(obj);m.set_u32(obj+8,0);});assert_eq!(trace,parse(want));}}
 }
+
+/// Dependencies called by the particle destructor in original order.
+pub trait ParticleDestroyOwner {
+    fn detach(&mut self,m:&mut Mem,manager:u32);
+    fn release_node(&mut self,m:&mut Mem,node:u32);
+    fn destroy_texture(&mut self,m:&mut Mem,node:u32);
+}
+/// `0x5a2a30 -> 0x59aa90`; actual geometry release remains owner-supplied.
+pub fn destroy_scene_particle(m:&mut Mem,object:u32,owner:&mut impl ParticleDestroyOwner) {
+    m.set_u32(object,0x650c24);m.set_u32(object+0x14,0x650bd8);
+    m.set_u32(object,0x650bd0);m.set_u32(object+0x14,0x650b84);
+    owner.detach(m,m.u32(object+0x5c));owner.release_node(m,object+0x14);owner.destroy_texture(m,object+0x14);
+    m.set_u32(object,0x650334);m.set_u32(object+4,0);
+}
+#[cfg(test)]
+mod particle_destroy_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    struct Owner(Vec<u32>);
+    impl ParticleDestroyOwner for Owner {
+        fn detach(&mut self,_:&mut Mem,p:u32){self.0.extend([0x5e48f0,p]);}
+        fn release_node(&mut self,_:&mut Mem,p:u32){self.0.extend([0x5ef780,p]);}
+        fn destroy_texture(&mut self,_:&mut Mem,p:u32){self.0.extend([0x5fa720,p]);}
+    }
+    #[test]
+    fn native_particle_destructor(){for line in include_str!("../../../tools/emu/golden_particle_destroy.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let obj=0x2a000000;m.write(obj,&bytes(p[0]));let mut owner=Owner(vec![]);destroy_scene_particle(&mut m,obj,&mut owner);assert_eq!(m.read(obj,0xb0),bytes(p[1]));assert_eq!(owner.0,p[2].split(',').map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>());}}
+}
