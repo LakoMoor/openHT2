@@ -851,3 +851,28 @@ mod particle_bounds_tests {
     #[test]
     fn native_geometry_bounds(){for line in include_str!("../../../tools/emu/golden_particle_bounds.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let n=p[0].parse::<usize>().unwrap();let raw=bytes(p[1]);let mut m=Mem::new();let geometry=0x2a000000;let x=geometry+0x1000;let z=x+0x1000;let bound=z+0x1000;m.write(geometry+4,&(n as u16).to_le_bytes());m.set_u32(geometry+0x10,x);m.set_u32(geometry+0x14,z);m.write(bound,&raw[..12]);m.write(x,&raw[12..12+4*n]);m.write(z,&raw[12+4*n..]);particle_geometry_bounds(&mut m,geometry,bound);assert_eq!(m.read(bound,16),bytes(p[2]));}}
 }
+
+/// Original sphere merge `0x5e5580`; scratch is a caller-owned 12-byte vector.
+pub fn merge_particle_bounds(m:&mut Mem,dst:u32,other:u32,scratch:u32) {
+    let a:[f32;4]=std::array::from_fn(|i|m.f32(dst+i as u32*4));let b:[f32;4]=std::array::from_fn(|i|m.f32(other+i as u32*4));
+    for i in 0..3 {m.set_f32(scratch+i as u32*4,a[i]-b[i]);}
+    crate::matrix::vec_unit(m,scratch,scratch);
+    for i in 0..3 {
+        let d=m.f32(scratch+i as u32*4) as f64;
+        let mut ap=d*a[3] as f64;let mut bp=d*b[3] as f64;
+        if i<2 {ap=(ap as f32) as f64;bp=(bp as f32) as f64;}
+        let mut hi=ap+a[i] as f64;let mut lo=b[i] as f64-bp;
+        if i<2 {hi=(hi as f32) as f64;lo=(lo as f32) as f64;}
+        let mut sum=hi+lo;if i>0 {sum=(sum as f32) as f64;}
+        m.set_f32(dst+i as u32*4,(sum*0.5) as f32);
+        m.set_f32(scratch+i as u32*4,(hi-lo) as f32);
+    }
+    let length=crate::math::vec_len(m,scratch);m.set_f32(dst+12,(length*0.5) as f32);
+}
+#[cfg(test)]
+mod bounds_merge_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_sphere_merge(){for line in include_str!("../../../tools/emu/golden_bounds_merge.tsv").lines(){let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let p=0x2a000000;m.write(p,&bytes(input));merge_particle_bounds(&mut m,p,p+16,p+0x1000);assert_eq!(m.read(p,16),bytes(output));}}
+}
