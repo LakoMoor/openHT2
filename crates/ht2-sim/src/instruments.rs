@@ -1328,3 +1328,17 @@ mod texture_node_ctor_tests {
     #[test]
     fn native_texture_node_constructor(){for line in include_str!("../../../tools/emu/golden_texture_node_ctor.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let node=0x2a000000;m.write(node,&bytes(p[0]));let value=if p[2]=="0" {vec![]}else{bytes(p[1])};let mut seen=vec![];initialize_particle_texture_node(&mut m,node,&value,|_,size|{seen.push(size);node+0x2000}).unwrap();assert_eq!(m.read(node,0x44),bytes(p[3]));assert_eq!(seen,p[4].split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>());if !value.is_empty(){let mut want=value;want.push(0);assert_eq!(m.read(node+0x2000,want.len()),want);}}}
 }
+
+/// Real base-identity chain called at the start of root particle construction.
+/// The owner retains allocation responsibility for the copied node name.
+pub fn initialize_particle_identities(m:&mut Mem,object:u32,name:&[u8],allocate:impl FnMut(&mut Mem,u32)->u32)->Result<(),&'static str> {
+    initialize_effect_identity(m,object);
+    initialize_particle_texture_node(m,object+0x14,name,allocate)
+}
+#[cfg(test)]
+mod particle_identity_full_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_particle_identity_chain(){for line in include_str!("../../../tools/emu/golden_particle_identity_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let obj=0x2a000000;m.write(obj,&bytes(p[0]));for (i,v) in p[1].split(',').enumerate(){m.set_u32(0x6f4bc8+i as u32*4,v.parse().unwrap());}let name=bytes(p[2]);initialize_particle_identities(&mut m,obj,&name,|_,_|obj+0x2000).unwrap();assert_eq!(m.read(obj,0xb0),bytes(p[3]));}}
+}
