@@ -1433,3 +1433,18 @@ mod particle_emit_full_tests {
     #[test]
     fn native_complete_emission(){for line in include_str!("../../../tools/emu/golden_particle_emit_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let obj=0x2a000000;let manager=obj+0x10000;let pool=obj+0x14000;m.set_u32(0x6f6a68,manager);m.set_u32(manager+0x30,manager+0x2000);m.set_u32(manager+0x34,1);m.set_u32(pool+4,obj);m.set_u32(0x6f6a8c,pool);m.set_u32(0x696208,v[5]);m.set_u32(0x695bf0,v[6]);m.write(v[1],&bytes(p[1]));let mut next=obj+0x20000;let result=emit_complete_scene_particle(&mut m,v[1],v[2],obj+0x30000,|m,size|{let p=next;next+=0x100;m.write(p,&vec![0;size as usize]);p}).unwrap();assert_eq!(result,Some(obj));assert_eq!(m.read(obj,0xb0),bytes(p[2]));assert_eq!(m.read(obj+0x20104,40),bytes(p[3]));assert_eq!(m.u32(pool+8),obj);assert_eq!(m.u32(manager+0x2000),obj+0x14);}}
 }
+
+#[cfg(test)]
+mod particle_life_full_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_creation_update_deletion_cycle(){for line in include_str!("../../../tools/emu/golden_particle_life_full.tsv").lines(){
+        let p:Vec<_>=line.split('\t').collect();let v:Vec<u32>=p[0].split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let obj=0x2a000000;let manager=obj+0x10000;let pool=obj+0x14000;let tick_manager=obj+0x15000;
+        m.set_u32(0x6f6a68,manager);m.set_u32(manager+0x30,manager+0x2000);m.set_u32(manager+0x34,1);m.set_u32(pool+4,obj);m.set_u32(0x6f6a8c,pool);m.set_u32(0x696224,obj+0x4000);m.set_u32(obj+16,pool);m.set_u32(0x696208,1);m.set_u32(0x695bf0,v[6]);m.write(v[1],&bytes(p[1]));let mut next=obj+0x20000;
+        assert_eq!(emit_complete_scene_particle(&mut m,v[1],v[2],obj+0x30000,|m,size|{let p=next;next+=0x100;m.write(p,&vec![0;size as usize]);p}).unwrap(),Some(obj));
+        m.set_u32(tick_manager+0x1b0,1);m.set_u32(tick_manager+0x20,pool);m.write(obj+0x4000+0xb90,&0.1f64.to_le_bytes());let mut freed=vec![];
+        for _ in 0..p[4].parse::<u32>().unwrap(){tick_scene_particle_pools(&mut m,tick_manager,obj+0x30000,|_,ptr|freed.push(ptr));}
+        assert_eq!(m.read(obj,0xb0),bytes(p[2]));assert_eq!(m.read(obj+0x20104,40),bytes(p[3]));assert_eq!(m.read(pool+4,8),bytes(p[5]));assert_eq!(m.read(manager+0x2000,4),bytes(p[6]));assert_eq!(freed,p[7].split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>());
+    }}
+}
