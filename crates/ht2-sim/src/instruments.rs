@@ -611,3 +611,22 @@ mod geometry_prepare_tests {
         assert_eq!(w.end,[3f32.to_bits(),5f32.to_bits(),7f32.to_bits()]);assert_eq!(w.calls,1);assert_eq!(m.read(scene+0x228,12),start);
     }
 }
+
+#[cfg(test)]
+mod native_prepare_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    struct Query{expected:Vec<u8>,flags:u32,room:u32,calls:u32}
+    impl crate::contact::World for Query {
+        fn collide(&mut self,m:&mut Mem,_:u32,mode:u32,rec:u32)->u32{assert_eq!(mode,0);assert_eq!(m.read(rec+0x4c,24),self.expected);m.set_u32(rec+0x68,self.room);self.calls+=1;self.flags}
+    }
+    #[test]
+    fn complete_native_geometry_preparation(){
+        for line in include_str!("../../../tools/emu/golden_geometry_prepare.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let input=bytes(v[0]);let a:Vec<u32>=v[3].split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let scene=0x2a000000;let obj=scene+0x20000;let basis=scene+0x30000;let rec=basis+0x1000;
+            m.write(scene+0x2c4,&input[..48]);m.write(scene+0x204,&input[48..]);m.set_u32(scene+0x330,obj);
+            let mut w=Query{expected:bytes(v[1]),flags:a[0],room:a[1],calls:0};let room=prepare_scene_geometry(&mut m,&mut w,scene,basis,rec);
+            assert_eq!(m.read(basis,48),bytes(v[2]));assert_eq!(w.calls,1);assert_eq!(room,if a[0]&2!=0 {a[1]}else{obj});
+        }
+    }
+}
