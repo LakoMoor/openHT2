@@ -1257,3 +1257,16 @@ mod particle_delete_tests {
     #[test]
     fn native_particle_delete_and_recycle(){for line in include_str!("../../../tools/emu/golden_particle_delete.tsv").lines(){let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let obj=0x2a000000;m.write(obj,&bytes(input));delete_scene_particle(&mut m,obj,|_,_|{});assert_eq!(m.read(obj,0x400),bytes(output));}}
 }
+
+/// Cleanup for pools known to contain scene particles of the supported class.
+/// Generic managers must dispatch other classes to their own destructors.
+pub fn cleanup_scene_particle_pools(m:&mut Mem,manager:u32,mut free:impl FnMut(&mut Mem,u32)) {
+    cleanup_effect_pools(m,manager,|m,object|delete_scene_particle(m,object,&mut free));
+}
+#[cfg(test)]
+mod particle_cleanup_full_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_full_particle_cleanup(){for line in include_str!("../../../tools/emu/golden_particle_cleanup_full.tsv").lines(){let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let manager=0x2a000000;m.write(manager,&bytes(input));cleanup_scene_particle_pools(&mut m,manager,|_,_|{});assert_eq!(m.read(manager,0x2000),bytes(output));}}
+}
