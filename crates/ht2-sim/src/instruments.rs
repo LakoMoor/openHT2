@@ -510,3 +510,37 @@ mod snapshot_full_tests {
         }
     }
 }
+
+/// External owners needed by the scene snapshot restore (`0x54d690`).
+pub trait SnapshotRestoreHooks {
+    fn body_flag(&mut self,m:&mut Mem,body:u32,enabled:u32);
+    fn update_vehicle(&mut self,m:&mut Mem,scene:u32);
+    fn update_geometry(&mut self,m:&mut Mem,body:u32);
+}
+/// Restore orchestration with actual decoding; geometry remains owner-supplied.
+pub fn restore_scene_snapshot(m:&mut Mem,scene:u32,h:&mut impl SnapshotRestoreHooks)->Result<(),&'static str> {
+    m.set_u32(scene+0xdf4,2);
+    decode_vehicle_snapshot(m,scene+0x2764)?;
+    h.body_flag(m,scene+0x10,m.u32(scene+0x27b4)&1);
+    restore_dashboard_snapshot(m,scene);
+    h.update_vehicle(m,scene);h.update_geometry(m,scene+0x10);
+    m.set_u32(scene+0xdf4,0);Ok(())
+}
+#[cfg(test)]
+mod scene_restore_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    struct Hooks{scene:u32,trace:Vec<u32>}
+    impl SnapshotRestoreHooks for Hooks {
+        fn body_flag(&mut self,m:&mut Mem,body:u32,enabled:u32){assert_eq!(body,self.scene+0x10);assert_eq!(m.u32(self.scene+0xdf4),2);assert_eq!(enabled,m.u32(self.scene+0x27b4)&1);self.trace.push(1);}
+        fn update_vehicle(&mut self,m:&mut Mem,scene:u32){assert_eq!(scene,self.scene);assert_eq!(m.u32(scene+0xdf4),2);self.trace.push(2);}
+        fn update_geometry(&mut self,m:&mut Mem,body:u32){assert_eq!(body,self.scene+0x10);assert_eq!(m.u32(self.scene+0xdf4),2);self.trace.push(3);}
+    }
+    #[test]
+    fn native_scene_restore_with_real_decoder() {
+        for line in include_str!("../../../tools/emu/golden_scene_restore.tsv").lines(){
+            let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let scene=0x2a000000;m.write(scene+0x2764,&bytes(input));let mut h=Hooks{scene,trace:vec![]};
+            restore_scene_snapshot(&mut m,scene,&mut h).unwrap();assert_eq!(m.read(scene+0x51b4,0x7c),bytes(output));assert_eq!(h.trace,[1,2,3]);assert_eq!(m.u32(scene+0xdf4),0);
+        }
+    }
+}
