@@ -1096,3 +1096,22 @@ mod effect_pool_take_tests {
     #[test]
     fn native_pool_take(){for line in include_str!("../../../tools/emu/golden_effect_pool_take.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let pool=0x2a000000;m.write(pool,&bytes(p[0]));assert_eq!(take_effect_object(&mut m,pool),p[1].parse::<u32>().unwrap());assert_eq!(m.read(pool,0x200),bytes(p[2]));}}
 }
+
+/// `0x579380`, valid non-null fixed-size pool; size is unused by the original.
+pub fn allocate_effect_object(m:&mut Mem,pool:u32)->u32 {
+    let object=take_effect_object(m,pool);if object==0 {return 0;}
+    m.set_u32(0x6f4bc8,0);m.set_u32(0x6f4bcc,m.u32(object+8));m.set_u32(0x6f4bd0,m.u32(object+12));m.set_u32(0x6f4bd4,m.u32(object+16));
+    m.set_u32(object+16,pool);m.set_u32(object+4,0);object
+}
+/// `0x579310`: restore the allocation handshake into the base object.
+pub fn initialize_effect_identity(m:&mut Mem,object:u32) {
+    m.set_u32(object,0x650334);
+    for i in 0..4 {m.set_u32(object+4+i*4,m.u32(0x6f4bc8+i*4));}
+}
+#[cfg(test)]
+mod allocation_chain_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_allocation_identity_chain(){for line in include_str!("../../../tools/emu/golden_effect_allocation_chain.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let pool=0x2a000000;m.write(pool,&bytes(p[0]));let object=allocate_effect_object(&mut m,pool);assert_eq!(object,p[1].parse::<u32>().unwrap());if object!=0 {initialize_effect_identity(&mut m,object);}assert_eq!(m.read(pool,0x200),bytes(p[2]));}}
+}
