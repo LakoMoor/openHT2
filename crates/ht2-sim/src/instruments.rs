@@ -1046,3 +1046,17 @@ mod particle_full_update_tests {
     #[test]
     fn native_full_particle_update(){for line in include_str!("../../../tools/emu/golden_particle_update_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let obj=0x2a000000;let clock=obj+0x1000;let g=clock+0x1000;let x=g+0x1000;let colors=x+0x1000;m.write(obj,&bytes(p[0]));m.write(clock+0xb90,&bytes(p[1]));m.set_u32(g+0x10,x);m.set_u32(g+0x14,x+16);for i in 0..1000u32{m.set_u32(colors+i*4,i.wrapping_mul(1234567));}let mut removed=0;update_scene_particle(&mut m,obj,obj+0x5000,|_,o|{assert_eq!(o,obj);removed+=1;});assert_eq!(m.read(obj,0xb0),bytes(p[2]));assert_eq!(m.read(x,32),bytes(p[3]));assert_eq!(m.read(g+0x24,4),bytes(p[4]));assert_eq!(removed,p[5].parse::<u32>().unwrap());}}
 }
+
+/// `0x579370` marks for manager cleanup; it does not free the object immediately.
+pub fn mark_particle_for_removal(m:&mut Mem,object:u32){m.set_u32(object+4,1);}
+/// Complete particle update including the actual original removal mark.
+pub fn tick_scene_particle(m:&mut Mem,object:u32,scratch:u32) {
+    update_scene_particle(m,object,scratch,mark_particle_for_removal);
+}
+#[cfg(test)]
+mod marked_particle_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_update_with_real_removal_mark(){for line in include_str!("../../../tools/emu/golden_particle_update_marked.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let obj=0x2a000000;let clock=obj+0x1000;let g=clock+0x1000;let x=g+0x1000;let colors=x+0x1000;m.write(obj,&bytes(p[0]));m.write(clock+0xb90,&bytes(p[1]));m.set_u32(g+0x10,x);m.set_u32(g+0x14,x+16);for i in 0..1000u32{m.set_u32(colors+i*4,i.wrapping_mul(1234567));}tick_scene_particle(&mut m,obj,obj+0x5000);assert_eq!(m.read(obj,0xb0),bytes(p[2]));assert_eq!(m.read(x,32),bytes(p[3]));assert_eq!(m.read(g+0x24,4),bytes(p[4]));}}
+}
