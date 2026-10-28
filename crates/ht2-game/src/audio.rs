@@ -1,5 +1,62 @@
 //! PCM output for movie playback. This backend owns the buffer until the device releases it.
 //! It does not alter the system volume or silently resample the source.
+
+/// Decode uncompressed PCM WAVE into the same signed 16-bit representation
+/// used by the audio backend. RIFF chunks can appear in arbitrary order.
+pub fn decode_wave(data:&[u8])->Result<ht2_formats::avi::PcmAudio,String> {
+    let u16at=|b:&[u8],i:usize|->u16 {u16::from_le_bytes(b[i..i+2].try_into().unwrap())};
+    let u32at=|b:&[u8],i:usize|->u32 {u32::from_le_bytes(b[i..i+4].try_into().unwrap())};
+    if data.len()<12 || &data[..4]!=b"RIFF" || &data[8..12]!=b"WAVE" {return Err("not a RIFF WAVE".into());}
+    let end=(u32at(data,4) as usize).checked_add(8).ok_or("RIFF size overflow")?;
+    if end<12 || end>data.len(){return Err("truncated RIFF".into());}
+    let (mut fmt,mut samples)=(None,None);let mut offset=12usize;
+    while offset<end {
+        if end-offset<8{return Err("truncated chunk header".into());}
+        let size=u32at(data,offset+4) as usize;let start=offset+8;
+        let stop=start.checked_add(size).ok_or("chunk size overflow")?;
+        if stop>end{return Err("truncated chunk".into());}
+        match &data[offset..offset+4] {b"fmt "=>fmt=Some(&data[start..stop]),b"data"=>samples=Some(&data[start..stop]),_=>{}}
+        offset=stop.checked_add(size&1).ok_or("chunk padding overflow")?;
+        if offset>end{return Err("truncated chunk padding".into());}
+    }
+    let fmt=fmt.ok_or("missing fmt")?;let bytes=samples.ok_or("missing data")?;
+    if fmt.len()<16{return Err("short PCM format".into());}
+    let channels=u16at(fmt,2);let rate=u32at(fmt,4);let bits=u16at(fmt,14);let align=u16at(fmt,12);
+    if u16at(fmt,0)!=1 || !(1..=2).contains(&channels) || rate==0 || !matches!(bits,8|16) || align!=channels*(bits/8) || bytes.len()%usize::from(align)!=0 {return Err("unsupported PCM format".into());}
+    let samples=if bits==8 {bytes.iter().map(|&b|(i16::from(b)-128)*256).collect()}else{bytes.chunks_exact(2).map(|b|i16::from_le_bytes([b[0],b[1]])).collect()};
+    Ok(ht2_formats::avi::PcmAudio{channels,sample_rate:rate,samples})
+}
+
+/// The original scene binds antiradarSound and falls back to hornSound.
+/// Read only the installed archive; no original audio is included in the repo.
+pub fn load_radar_sound(game:&std::path::Path)->Result<ht2_formats::avi::PcmAudio,String> {
+    let path=game.join("COMMON").join("common1.res");let bytes=std::fs::read(&path).map_err(|e|format!("{}: {e}",path.display()))?;
+    let archive=ht2_formats::res::Res::parse(&bytes).map_err(|e|e.to_string())?;
+    let mut radar=None;let mut horn=None;
+    for section in archive.sections {if let ht2_formats::res::Section::Files{kind,entries}=section {if kind=="SOUNDFILES" {for entry in entries {
+        if entry.name().eq_ignore_ascii_case("snd\\antiradar.wav") {radar=Some(entry.data);}
+        if entry.name().eq_ignore_ascii_case("snd\\horn.wav") {horn=Some(entry.data);}
+    }}}}
+    decode_wave(radar.or(horn).ok_or("radar and horn sound not found")?)
+}
+
+#[cfg(test)]
+mod wave_tests {
+    use super::*;
+    #[test]
+    fn decodes_unsigned_pcm_and_rejects_truncation() {
+        let mut data=b"RIFF".to_vec();data.extend(40u32.to_le_bytes());data.extend(b"WAVEfmt ");data.extend(16u32.to_le_bytes());
+        data.extend(1u16.to_le_bytes());data.extend(1u16.to_le_bytes());data.extend(11025u32.to_le_bytes());data.extend(11025u32.to_le_bytes());data.extend(1u16.to_le_bytes());data.extend(8u16.to_le_bytes());data.extend(b"data");data.extend(4u32.to_le_bytes());data.extend([0,128,255,64]);
+        let pcm=decode_wave(&data).unwrap();assert_eq!((pcm.channels,pcm.sample_rate),(1,11025));assert_eq!(pcm.samples,[-32768,0,32512,-16384]);
+        assert!(decode_wave(&data[..data.len()-1]).is_err());
+    }
+    #[test]
+    #[ignore="requires HT2_GAME installed game data"]
+    fn loads_installed_radar_sound() {
+        let game=std::path::PathBuf::from(std::env::var("HT2_GAME").unwrap());let pcm=load_radar_sound(&game).unwrap();
+        assert_eq!((pcm.channels,pcm.sample_rate),(1,11025));assert!(!pcm.samples.is_empty());
+    }
+}
 #[cfg(windows)]
 mod windows {
     use ht2_formats::avi::PcmAudio;
