@@ -1295,3 +1295,16 @@ mod manager_tick_tests {
     #[test]
     fn native_manager_update_order(){for line in include_str!("../../../tools/emu/golden_effect_manager_tick.tsv").lines(){let (input,output)=line.split_once('\t').unwrap();let v:Vec<u32>=input.split(',').map(|s|s.parse().unwrap()).collect();let mut m=Mem::new();let manager=0x2a000000;let pool=manager+0x1000;m.set_u32(manager+0x1b0,1);m.set_u32(manager+0x20,pool);m.set_u32(pool+8,if v[0]==0 {0}else{pool+0x100});for i in 0..v[0]{let obj=pool+0x100+i*32;m.set_u32(obj+8,if i+1<v[0]{obj+32}else{0});}let mut insert=v[1]!=0;let mut trace=vec![];tick_effect_pools(&mut m,manager,|m,obj|{trace.push(obj);if insert {insert=false;let new=pool+0x800;m.set_u32(new+8,m.u32(pool+8));m.set_u32(pool+8,new);}},|_,_|panic!("unexpected deletion"));assert_eq!(trace,output.split(',').filter(|s|!s.is_empty()).map(|s|s.parse::<u32>().unwrap()).collect::<Vec<_>>());}}
 }
+
+/// Manager tick for homogeneous pools of this particle class.
+/// Scratch and free services belong to the runtime owner.
+pub fn tick_scene_particle_pools(m:&mut Mem,manager:u32,scratch:u32,mut free:impl FnMut(&mut Mem,u32)) {
+    tick_effect_pools(m,manager,|m,obj|tick_scene_particle(m,obj,scratch),|m,obj|delete_scene_particle(m,obj,&mut free));
+}
+#[cfg(test)]
+mod particle_manager_full_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_multitick_particle_manager(){for line in include_str!("../../../tools/emu/golden_particle_manager_full.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let manager=0x2a000000;m.write(manager,&bytes(p[1]));for _ in 0..p[0].parse::<u32>().unwrap(){tick_scene_particle_pools(&mut m,manager,manager+0x10000,|_,_|{});}assert_eq!(m.read(manager,0x5000),bytes(p[2]));}}
+}
