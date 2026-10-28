@@ -398,3 +398,26 @@ mod snapshot_tests {
         }
     }
 }
+
+/// Header decoding `0x541adf..0x541b6a` of the packed vehicle snapshot.
+/// Remaining wheel, pose and extended-state payload is not decoded here.
+pub fn decode_snapshot_header(m:&mut Mem,snapshot:u32) {
+    let flags=m.u32(snapshot+0x18);m.set_u32(snapshot+0x50,flags);
+    let mut bytes=m.read(snapshot+0x54,1);bytes[0]=((flags>>7)&7) as u8;m.write(snapshot+0x54,&bytes);
+    let packed=m.read(snapshot+0x1c,1)[0];
+    m.set_f32(snapshot+0x58,((packed>>3) as u32*4) as f32);
+    if packed&7<=4 {m.set_u32(snapshot+0x5c,(packed&7) as u32);}
+}
+#[cfg(test)]
+mod snapshot_header_tests {
+    use super::*;
+    #[test]
+    fn native_header_decode() {
+        for line in include_str!("../../../tools/emu/golden_snapshot_header.tsv").lines() {
+            let (input,output)=line.split_once('\t').unwrap();let v:Vec<u32>=input.split(',').map(|s|s.parse().unwrap()).collect();let want:Vec<u32>=output.split(',').map(|s|s.parse().unwrap()).collect();
+            let mut m=Mem::new();let p=0x2a000000;m.set_u32(p+0x18,v[0]);m.set_u32(p+0x1c,v[1]);m.set_u32(p+0x5c,v[2]);m.set_u32(p+0x54,0xaabbccdd);
+            decode_snapshot_header(&mut m,p);
+            assert_eq!([m.u32(p+0x50),m.read(p+0x54,1)[0] as u32,m.u32(p+0x58),m.u32(p+0x5c)],want.as_slice());assert_eq!(m.u32(p+0x54)&0xffffff00,0xaabbcc00);
+        }
+    }
+}
