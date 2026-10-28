@@ -1060,3 +1060,22 @@ mod marked_particle_tests {
     #[test]
     fn native_update_with_real_removal_mark(){for line in include_str!("../../../tools/emu/golden_particle_update_marked.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let obj=0x2a000000;let clock=obj+0x1000;let g=clock+0x1000;let x=g+0x1000;let colors=x+0x1000;m.write(obj,&bytes(p[0]));m.write(clock+0xb90,&bytes(p[1]));m.set_u32(g+0x10,x);m.set_u32(g+0x14,x+16);for i in 0..1000u32{m.set_u32(colors+i*4,i.wrapping_mul(1234567));}tick_scene_particle(&mut m,obj,obj+0x5000);assert_eq!(m.read(obj,0xb0),bytes(p[2]));assert_eq!(m.read(x,32),bytes(p[3]));assert_eq!(m.read(g+0x24,4),bytes(p[4]));}}
 }
+
+/// `0x5794f0`: unlink a valid live pool object and prepend it to the free list.
+/// Destruction of owned resources must precede this recycle operation.
+pub fn recycle_effect_object(m:&mut Mem,pool:u32,object:u32) {
+    let next=m.u32(object+8);let prev=m.u32(object+12);
+    if m.u32(pool+8)==object {m.set_u32(pool+8,next);}
+    if next!=0 {m.set_u32(next+12,prev);}if prev!=0 {m.set_u32(prev+8,next);}
+    let free=m.u32(pool+4);
+    if free==0 {m.set_u32(pool+4,object);m.set_u32(object+8,0);m.set_u32(object+12,0);}else{
+        m.set_u32(object+12,m.u32(free+12));m.set_u32(object+8,free);m.set_u32(free+12,object);m.set_u32(pool+4,object);
+    }
+}
+#[cfg(test)]
+mod effect_pool_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_pool_recycle(){for line in include_str!("../../../tools/emu/golden_effect_pool_release.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let pool=0x2a000000;m.write(pool,&bytes(p[0]));recycle_effect_object(&mut m,pool,p[1].parse().unwrap());assert_eq!(m.read(pool,0x200),bytes(p[2]));}}
+}
