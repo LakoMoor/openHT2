@@ -1466,3 +1466,69 @@ mod smoke_material_tests {
     #[test]
     fn native_smoke_material_enumeration(){for line in include_str!("../../../tools/emu/golden_smoke_materials.tsv").lines(){let p:Vec<_>=line.split('\t').collect();let count=p[0].parse::<u32>().unwrap();let mut m=Mem::new();let mut names=vec![];let actual=load_smoke_materials(&mut m,|_,name|{names.push(name.to_owned());let i=names.len() as u32-1;if i<count {0x2a000000+i*0x100}else{0}}).unwrap();assert_eq!(actual,count);assert_eq!(names.join(","),p[1]);let want:Vec<u32>=p[2].split(',').map(|s|s.parse().unwrap()).collect();for i in 0..count {let material=0x2a000000+i*0x100;assert_eq!(m.u32(material+0x20),want[i as usize]);assert_eq!(m.f32(material+0x58),1.0);assert_eq!(m.u32(0x695bf0+i*4),material);}}}
 }
+
+/// Position argument of a wheel effect request (`0x4bb050`, first parameter).
+#[derive(Debug,Clone,Copy,PartialEq)]
+pub enum WheelEffectPoint {
+    /// Computed in the caller's frame: own wheels (`+0x5460 == 0`).
+    World([f32;3]),
+    /// Address inside the linked object (`+0x5460 + 0x2ba4 + 0xf8*i`).
+    Linked(u32),
+}
+/// One wheel request: point, direction, intensity (raw dword of `+0x27f0+4k`).
+#[derive(Debug,Clone,Copy,PartialEq)]
+pub struct WheelEffect {pub point:WheelEffectPoint,pub direction:[f32;3],pub intensity:u32}
+
+/// Wheel requests of `0x551970` in `0x551cf3..0x551ff4`; the sink `0x4bb050` is not performed.
+/// `basis` is the 12-float result of `scene_geometry_basis`.
+pub fn scene_wheel_requests(m:&mut Mem,scene:u32,basis:u32)->Vec<WheelEffect> {
+    let mut out=Vec::new();
+    let tech=0x697a10u32.wrapping_add(m.u32(scene+0x28b4).wrapping_mul(0x970));
+    let b:Vec<f64>=(0..12).map(|i|m.f32(basis+i*4) as f64).collect();
+    let direction=|m:&Mem,wheel:u32|{
+        let s=if m.f32(tech+wheel*12)>0.0 {1.0f64}else{-1.0};
+        let d0=(s*m.f32(0x702640) as f64) as f32 as f64;let d1=(s*m.f32(0x702644) as f64) as f32 as f64;let d2=s*m.f32(0x702648) as f64;
+        [((d2*b[6]+d1*b[3])+d0*b[0]) as f32,((d2*b[7]+d1*b[4])+b[1]*d0) as f32,((d2*b[8]+d1*b[5])+b[2]*d0) as f32]
+    };
+    let owner=m.u32(scene+0x5460);
+    if owner!=0 {
+        for i in 0..m.u32(scene+0x28bc) as i32 {
+            let i=i as u32;let direction=direction(m,i);let value=m.f32(scene+0x27f0+i*4);
+            if value as f64>0.1 {out.push(WheelEffect{point:WheelEffectPoint::Linked(owner.wrapping_add(0x2ba4+0xf8*i)),direction,intensity:m.u32(scene+0x27f0+i*4)});}
+        }
+    }else{
+        for k in 0..4u32 {
+            let idx=m.u32(scene+0x4fb0+k*4);let direction=direction(m,idx);
+            let value=m.f32(scene+0x27f0+idx.wrapping_mul(4));
+            if m.rd8(scene+0x2821)&(1<<k)!=0 && value as f64>0.1 {
+                let p:Vec<f64>=(0..3).map(|j|m.f32(scene+0x282c+k*12+j*4) as f64).collect();
+                let point=[
+                    (((b[3]*p[1]+b[6]*p[2])+b[0]*p[0])+b[9]) as f32,
+                    (((b[4]*p[1]+b[7]*p[2])+b[1]*p[0])+b[10]) as f32,
+                    (((b[5]*p[1]+b[8]*p[2])+b[2]*p[0])+b[11]) as f32];
+                out.push(WheelEffect{point:WheelEffectPoint::World(point),direction,intensity:m.u32(scene+0x27f0+k*4)});
+            }
+        }
+    }
+    out
+}
+#[cfg(test)]
+mod wheel_effect_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_wheel_effects(){
+        for line in include_str!("../../../tools/emu/golden_scene_wheel_effect.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let b=bytes(v[0]);let f:Vec<u32>=v[6].split(',').map(|s|s.parse().unwrap()).collect();
+            let mut m=Mem::new();let p=0x2a000000;
+            m.write(p+0x2c4,&b[..48]);m.write(p+0x204,&b[48..]);m.write(0x697a10+f[0]*0x970,&bytes(v[1]));m.write(0x702640,&bytes(v[2]));
+            m.write(p+0x4fb0,&bytes(v[3]));m.write(p+0x27f0,&bytes(v[4]));m.write(p+0x282c,&bytes(v[5]));m.write(p+0x2821,&[f[3] as u8]);
+            m.set_u32(p+0x28b4,f[0]);m.set_u32(p+0x28bc,f[2]);m.set_u32(p+0x5460,if f[1]!=0 {0x2a020000}else{0});
+            scene_geometry_basis(&mut m,p,p+0x10000);
+            let actual:Vec<u8>=scene_wheel_requests(&mut m,p,p+0x10000).into_iter().flat_map(|e|{
+                let mut o=match e.point{WheelEffectPoint::World(w)=>w.iter().flat_map(|x|x.to_le_bytes()).collect::<Vec<u8>>(),WheelEffectPoint::Linked(a)=>a.to_le_bytes().to_vec()};
+                o.extend(e.direction.iter().flat_map(|x|x.to_le_bytes()));o.extend(e.intensity.to_le_bytes());o}).collect();
+            assert_eq!(actual,if v[7]=="-" {vec![]}else{bytes(v[7])},"{line}");
+        }
+    }
+}
