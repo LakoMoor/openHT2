@@ -1777,3 +1777,70 @@ mod sky_gate_tests {
         }
     }
 }
+
+/// Which particle constructor `0x4ba660` selected.
+#[derive(Debug,Clone,Copy,PartialEq,Eq)]
+pub enum ExhaustKind {
+    /// `0x59bed0` from pool `[0x6f6a7c]`, materials `0x695c58`.
+    Fume,
+    /// `0x59ad70` from pool `[0x6f6a80]`, materials `0x695bf0`.
+    Smoke,
+    /// `0x59b3f0` from pool `[0x6f6a88]`, materials `0x694998`.
+    Soot,
+}
+/// Constructor call prepared by `0x4ba660` (the objects themselves are built by the owner).
+#[derive(Debug,Clone,Copy,PartialEq)]
+pub struct ExhaustRequest {pub kind:ExhaustKind,pub object:u32,pub clock:u32,pub position:u32,pub direction:[f32;3],pub table:u32,pub extra:u32,pub tail:[u32;2]}
+
+/// `0x4ba660`: random exhaust smoke for intensity `p >= 0.4`; above 0.7 an extra soot puff.
+/// `rand` is the C `rand()`, `alloc(size, pool)` is `0x579380`.
+pub fn emit_exhaust(m:&mut Mem,position:u32,direction:u32,p:f32,mut rand:impl FnMut(&mut Mem)->i32,
+    mut alloc:impl FnMut(&mut Mem,u32,u32)->u32,mut construct:impl FnMut(&mut Mem,ExhaustRequest)) {
+    const K:f64=f32::from_bits(0x38000100) as f64;
+    let wait=(rand(m) as f64*K)+(0.2f32 as f64);
+    let threshold=1.0-m.f32(0x696048) as f64;
+    if !(threshold<wait) && !(threshold.is_nan()||wait.is_nan()) {return;}
+    if !(p>=f32::from_bits(0x3ecccccd)) {return;}
+    let chance=((p as f64-f32::from_bits(0x3ecccccd) as f64)*f32::from_bits(0x3fd55555) as f64) as f32;
+    let dir:[f32;3]=std::array::from_fn(|i|m.f32(direction+i as u32*4));
+    let clock=m.u32(0x696224);
+    let fume=(rand(m) as f64*K)>chance as f64;
+    let (kind,pool,table,extra)=if fume {(ExhaustKind::Fume,m.u32(0x6f6a7c),0x695c58,m.u32(0x69620c))}else{(ExhaustKind::Smoke,m.u32(0x6f6a80),0x695bf0,m.u32(0x696208))};
+    let object=alloc(m,0xc0,pool);
+    if object!=0 {construct(m,ExhaustRequest{kind,object,clock,position,direction:dir,table,extra,tail:[0x3fc00000,0]});}
+    if p>f32::from_bits(0x3f333333) {
+        let soot=[dir[0],dir[1],(dir[2] as f64*(0.8f32 as f64)) as f32];
+        let pool=m.u32(0x6f6a88);let object=alloc(m,0xd4,pool);
+        if object!=0 {construct(m,ExhaustRequest{kind:ExhaustKind::Soot,object,clock:m.u32(0x696224),position,direction:soot,table:0x694998,extra:m.u32(0x696210),tail:[0x3f000000,0x3f400000]});}
+    }
+}
+#[cfg(test)]
+mod exhaust_emit_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_exhaust_emit(){
+        for line in include_str!("../../../tools/emu/golden_exhaust_emit.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let (pos,dirp)=(0x2a000100u32,0x2a000120u32);
+            let p=f32::from_le_bytes(bytes(v[0]).try_into().unwrap());
+            m.write(dirp,&bytes(v[1]));m.write(pos,&bytes(v[2]));m.write(0x696048,&bytes(v[3]));
+            let g:Vec<u32>=v[4].split(',').map(|s|s.parse().unwrap()).collect();
+            for (a,x) in [0x696224u32,0x696208,0x69620c,0x696210,0x6f6a7c,0x6f6a80,0x6f6a88].into_iter().zip(&g){m.set_u32(a,*x);}
+            let rands:Vec<i32>=v[5].split(',').map(|s|s.parse().unwrap()).collect();let ret:u32=v[6].parse().unwrap();
+            let used=std::cell::Cell::new(0usize);let mut allocs=vec![];let mut reqs=vec![];
+            emit_exhaust(&mut m,pos,dirp,p,|_|{let r=rands[used.get()];used.set(used.get()+1);r},|_,s,pool|{allocs.push((s,pool));ret},|_,r|reqs.push(r));
+            assert_eq!(used.get().to_string(),v[7],"{line}");
+            let want_alloc:Vec<(u32,u32)>=if v[8]=="-" {vec![]}else{v[8].split(';').map(|s|{let (a,b)=s.split_once(':').unwrap();(a.parse().unwrap(),b.parse().unwrap())}).collect()};
+            assert_eq!(allocs,want_alloc,"{line}");
+            let want:Vec<&str>=if v[9]=="-" {vec![]}else{v[9].split(';').collect()};assert_eq!(reqs.len(),want.len(),"{line}");
+            for (r,w) in reqs.iter().zip(want){
+                let f:Vec<_>=w.split(':').collect();let a:Vec<u32>=f[2].split(',').map(|s|s.parse().unwrap()).collect();
+                let name=match r.kind{ExhaustKind::Fume=>"A",ExhaustKind::Smoke=>"B",ExhaustKind::Soot=>"C"};
+                assert_eq!(name,f[0]);assert_eq!(r.object.to_string(),f[1]);assert_eq!((r.clock,r.table,r.extra),(a[0],a[3],a[4]));
+                assert_eq!(&r.tail[..if r.kind==ExhaustKind::Soot {2}else{1}],&a[5..],"{line}");
+                assert_eq!(m.read(pos,12),bytes(f[3]));
+                let dir:Vec<u8>=r.direction.iter().flat_map(|x|x.to_le_bytes()).collect();assert_eq!(dir,bytes(f[4]),"{line}");
+            }
+        }
+    }
+}
