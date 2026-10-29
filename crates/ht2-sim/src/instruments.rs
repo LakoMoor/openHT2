@@ -2385,3 +2385,120 @@ mod exhaust_parameter_tests {
         }
     }
 }
+
+/// One call of `0x4ba660` made by the exhaust branch of `0x551970`.
+#[derive(Debug,Clone,Copy,PartialEq)]
+pub struct ExhaustEmit {pub position:[f32;3],pub velocity:[f32;3],pub p:f32}
+
+fn ftol(v:f64)->i32 {if v.is_nan()||v.abs()>=2147483648.0 {i32::MIN}else{v as i32}}
+
+/// Exhaust branch of `0x551970` (`0x551ff4..0x55278b`); positions go through the matrix at `scene+0x2c4`
+/// (`ebx` of the original) and then `scene+0x204`. `scratch` holds 24 bytes of temporaries. `rand` is the C `rand()`, `high` is the `0x549e60(1)` call
+/// made in modes 1 and 2, `emit` is `0x4ba660(position, velocity, p, 1)`; all three run in the original
+/// order, so a caller that emits particles from `emit` consumes `rand` exactly as the original does.
+/// The x87 intermediates are computed in `f64` (REPLACEMENT: extended precision is not reproduced).
+pub fn scene_exhaust_branch(m:&mut Mem,scene:u32,scratch:u32,mut rand:impl FnMut(&mut Mem)->i32,
+    mut high:impl FnMut(&mut Mem),mut emit:impl FnMut(&mut Mem,ExhaustEmit)) {
+    const K:f64=f32::from_bits(0x38000100) as f64;
+    let cfg=m.u32(scene+0x5454);let mode=m.u32(cfg+0xc);
+    if !(1..=4).contains(&mode) {return;}
+    let vid=m.u32(scene+0x28b4);let rec=vid.wrapping_mul(0x970);
+    let t=|m:&Mem,abs:u32|m.f32(rec.wrapping_add(abs));
+    let (a,b,st0)=exhaust_parameters(m.f32(cfg+8),mode).unwrap();
+    let count=ftol(st0*t(m,0x697db8) as f64*3.0);
+    if count<=0 {return;}
+    let low=!((t(m,0x697fdc) as f64-t(m,0x6979f8) as f64)>0.0);
+    let mut scale=a as f64*t(m,0x697db8) as f64;if low {scale*=6.0;}
+    let scale=scale as f32 as f64;
+    let p=(b as f64*0.6+0.4) as f32;
+    if (mode==1||mode==2) && p as f64>0.7 {high(m);}
+    let maxv=[t(m,0x697dc4),t(m,0x697dc8),t(m,0x697dcc)];let minv=[t(m,0x697dd0),t(m,0x697dd4),t(m,0x697dd8)];
+    let s2=(t(m,0x697dc0) as f64+1.0) as f32 as f64;
+    let ax=|m:&Mem,base:u32,i:u32|m.f32(base+i*4) as f64;
+    let (b0,b1,b2,b3,b4,b5,b6,b7,b8,b9,b10,b11):(f64,f64,f64,f64,f64,f64,f64,f64,f64,f64,f64,f64)=
+        (ax(m,scene+0x2c4,0),ax(m,scene+0x2c4,1),ax(m,scene+0x2c4,2),ax(m,scene+0x2c4,3),ax(m,scene+0x2c4,4),ax(m,scene+0x2c4,5),ax(m,scene+0x2c4,6),ax(m,scene+0x2c4,7),ax(m,scene+0x2c4,8),ax(m,scene+0x2c4,9),ax(m,scene+0x2c4,10),ax(m,scene+0x2c4,11));
+    for _ in 0..count {
+        let r1=((rand(m) as f64*K-0.5)*scale) as f32 as f64;
+        let r2=((rand(m) as f64*K-0.5)*scale) as f32 as f64;
+        let r3=(rand(m) as f64*K-0.5)*0.3;
+        let (a0,a1,a2)=(ax(m,0x702620,0),ax(m,0x702620,1),ax(m,0x702620,2));
+        let (c0,c1,c2)=(ax(m,0x702630,0),ax(m,0x702630,1),ax(m,0x702630,2));
+        let (d0,d1,d2)=(ax(m,0x702640,0),ax(m,0x702640,1),ax(m,0x702640,2));
+        let (t0,t1,t2)=((a0*r2) as f32 as f64,(a1*r2) as f32 as f64,(a2*r2) as f32 as f64);
+        let (u0,u1,u2)=((d0*r1) as f32 as f64,(d1*r1) as f32 as f64,(d2*r1) as f32 as f64);
+        let q0=(c0*r3) as f32 as f64;let q1=(c1*r3) as f32 as f64;let q2=r3*c2;
+        let e0=(q0+t(m,0x697fd8) as f64) as f32 as f64;let e1=(q1+t(m,0x697fdc) as f64) as f32 as f64;let e2=q2+t(m,0x697fe0) as f64;
+        let g0=(e0+u0) as f32 as f64;let g1=(u1+e1) as f32 as f64;let g2=e2+u2;
+        let mut pos=[(g0+t0) as f32,(t1+g1) as f32,(t2+g2) as f32];
+        let mut vel=[(s2*c0+m.f32(scene+0x1b0) as f64) as f32,((c1*s2) as f32 as f64+m.f32(scene+0x1b4) as f64) as f32,((c2*s2) as f32 as f64+m.f32(scene+0x1b8) as f64) as f32];
+        let above=(t(m,0x6979f8) as f64-pos[1] as f64) as f64;let d=above as f32;
+        if (above<1.0||above.is_nan()) && (d as f64)>-1.0 {
+            let w=[(a0+a0) as f32,(a1+a1) as f32,(a2+a2) as f32];
+            for i in 0..3 {pos[i]=w[i]+pos[i];}
+            let sc=|m:&Mem,o:u32|m.f32(scene+o) as f64;
+            let x=(a1*sc(m,0x210)+a2*sc(m,0x21c))+a0*sc(m,0x204);
+            let y=((a1*sc(m,0x214)+a2*sc(m,0x220))+a0*sc(m,0x208)) as f32 as f64;
+            let z=((a1*sc(m,0x218)+a2*sc(m,0x224))+a0*sc(m,0x20c)) as f32 as f64;
+            let dd=(d as f64+1.0) as f32 as f64;
+            let v=[(x*dd) as f32,(y*dd) as f32,(z*dd) as f32];
+            for i in 0..3 {vel[i]=v[i]+vel[i];}
+        }
+        let gt=|a:f32,b:f32|a>b;let lt=|a:f32,b:f32|a<b||a.is_nan()||b.is_nan();
+        if !low {
+            if gt(pos[0],maxv[0]) {pos[0]=maxv[0];}
+            if lt(pos[0],minv[0]) {pos[0]=minv[0];}
+            if gt(pos[1],maxv[1]) {pos[1]=maxv[1];}
+            if lt(pos[1],minv[1]) {pos[1]=minv[1];}
+        }else{
+            let top=maxv[1] as f64+0.5;
+            if (pos[1] as f64)>top {
+                pos[1]=top as f32;
+                pos[0]=((rand(m) as f64*K-0.5)*maxv[0] as f64) as f32;
+            }else if lt(pos[1],minv[1]) {
+                pos[1]=minv[1];
+                pos[0]=((rand(m) as f64*K-0.5)*maxv[0] as f64) as f32;
+            }else{
+                if gt(pos[0],0.0) {pos[0]=(maxv[0] as f64+0.1) as f32;}
+                if lt(pos[0],0.0) {pos[0]=(minv[0] as f64-0.1) as f32;}
+            }
+        }
+        if gt(pos[2],maxv[2]) {pos[2]=maxv[2];}
+        if lt(pos[2],minv[2]) {pos[2]=minv[2];}
+        let (x,y,z)=(pos[0] as f64,pos[1] as f64,pos[2] as f64);
+        let l=[((z*b6+y*b3)+x*b0)+b9,((y*b4+z*b7)+x*b1)+b10,((y*b5+z*b8)+x*b2)+b11];
+        let (src,dst)=(scratch,scratch+12);
+        for i in 0..3 {m.set_f32(src+i as u32*4,l[i] as f32);}
+        crate::matrix::transform(m,dst,src,scene+0x204);
+        let position=std::array::from_fn(|i|m.f32(dst+i as u32*4));
+        emit(m,ExhaustEmit{position,velocity:vel,p});
+    }
+}
+#[cfg(test)]
+mod scene_exhaust_branch_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_scene_exhaust_branch(){
+        let mut bad=0;
+        for line in include_str!("../../../tools/emu/golden_scene_exhaust_branch.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let scene=0x2a000000u32;let basis=scene+0x10000;let cfg2=scene+0x30000;
+            let data=bytes(v[0]);let xm=bytes(v[4]);let vid=u32::from_le_bytes(xm[8..12].try_into().unwrap());
+            m.write(scene+0x2c4,&data[..48]);m.write(scene+0x204,&data[48..]);m.write(scene+0x1b0,&bytes(v[3]));
+            m.write(vid*0x970+0x6979f8,&bytes(v[1]));let ax=bytes(v[2]);m.write(0x702620,&ax[..12]);m.write(0x702630,&ax[12..24]);m.write(0x702640,&ax[24..]);
+            m.set_u32(scene+0x28b4,vid);m.set_u32(scene+0x5454,cfg2);m.write(cfg2+8,&xm[..4]);m.set_u32(cfg2+0xc,u32::from_le_bytes(xm[4..8].try_into().unwrap()));
+            scene_geometry_basis(&mut m,scene,basis);
+            let rands:Vec<i32>=v[5].split(',').filter(|s|!s.is_empty()).map(|s|s.parse().unwrap()).collect();let used=std::cell::Cell::new(0usize);
+            let mut highs=0;let mut got=Vec::new();
+            scene_exhaust_branch(&mut m,scene,scene+0x20000,|_|{let r=rands[used.get()];used.set(used.get()+1);r},|_|highs+=1,|_,e|got.push(e));
+            let want_high=if v[6]=="-" {0}else{v[6].split(',').count()};
+            assert_eq!(highs,want_high,"{line}");assert_eq!(used.get(),rands.len(),"rand count {line}");
+            let want:Vec<Vec<u8>>=if v[7]=="-" {vec![]}else{v[7].split(';').map(bytes).collect()};
+            assert_eq!(got.len(),want.len(),"{line}");
+            for (g,w) in got.iter().zip(want){
+                let mut raw=Vec::new();for x in g.position.iter().chain(g.velocity.iter()) {raw.extend(x.to_le_bytes());}raw.extend(g.p.to_le_bytes());
+                if raw!=w {bad+=1;if bad<4 {let f=|b:&[u8]|b.chunks(4).map(|c|f32::from_le_bytes(c.try_into().unwrap())).collect::<Vec<_>>();eprintln!("vid {vid} got {:?} want {:?}",f(&raw),f(&w));}}
+            }
+        }
+        assert_eq!(bad,0);
+    }
+}
