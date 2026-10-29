@@ -12,6 +12,7 @@ mod event_scene;
 mod event_heap;
 mod particle_memory;
 mod particle_runtime;
+mod particles;
 
 use glam::{Mat4, Vec3};
 use ground::Ground;
