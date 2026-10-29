@@ -2502,3 +2502,31 @@ mod scene_exhaust_branch_tests {
         assert_eq!(bad,0);
     }
 }
+
+/// Scheduling gate of `0x551970` (`0x551970..0x5519f5`): whether the effect update runs this frame.
+/// Needs `[scene+0x51a4] & 0x100`; when `[[0x6cec6c]+0x514] > 1` it runs every `ftol(1/|dt|)`-th frame
+/// (`dt = [[0x6ef1fc]+0x1f18]`, counter `[[0x6ef1fc]+0xbb0]`), otherwise every frame.
+pub fn scene_effect_scheduled(m:&Mem,scene:u32)->bool {
+    if m.u32(scene+0x51a4)&0x100==0 {return false;}
+    let cfg=m.u32(0x6cec6c);
+    if (m.u32(cfg+0x514) as i32)<=1 {return true;}
+    let clock=m.u32(0x6ef1fc);let dt=m.f64(clock+0x1f18);
+    if dt==0.0||dt.is_nan() {return false;}
+    let every=ftol(1.0/dt.abs()).max(1);
+    (m.u32(clock+0xbb0) as i32)%every==0
+}
+#[cfg(test)]
+mod effect_schedule_tests {
+    use super::*;
+    #[test]
+    fn native_effect_schedule(){
+        for line in include_str!("../../../tools/emu/golden_effect_schedule.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let scene=0x2a000000u32;let cfg=0x2a010000u32;let clock=0x2a020000u32;
+            m.set_u32(0x6cec6c,cfg);m.set_u32(0x6ef1fc,clock);
+            m.set_u32(scene+0x51a4,v[0].parse().unwrap());m.set_u32(cfg+0x514,v[1].parse::<i32>().unwrap() as u32);m.set_u32(cfg+0x524,v[2].parse().unwrap());
+            let dt:Vec<u8>=(0..16).step_by(2).map(|i|u8::from_str_radix(&v[3][i..i+2],16).unwrap()).collect();m.write(clock+0x1f18,&dt);
+            m.set_u32(clock+0xbb0,v[4].parse::<i64>().unwrap() as u32);
+            assert_eq!(scene_effect_scheduled(&m,scene),v[5]=="1","{line}");
+        }
+    }
+}

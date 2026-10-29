@@ -52,7 +52,7 @@ fn effect_material_names(res_path: &Path) -> Result<Vec<String>, String> {
 /// STAND-INS (the owners are the unported layer `0x54xxxx` and the vehicle tech record `0x697xxx`):
 /// axis vectors `0x702620/30/40` = (0,1,0)/(0,0,1)/(1,0,0) (inferred from use: spread, up, sideways),
 /// matrix `0x2c4` = identity, wheel points and the exhaust offset `(1.1,-3,2.6)`, the exhaust box,
-/// count scale 0.5, effect mode 4 (`p = 0.4`, no soot; modes 1 and 2 give `p >= 0.76`: soot and the `0x549e60` call, probably a damage state), `x` = 1.2*(1-throttle), ground level -100 (water branch and the low-vehicle branch off; `0x697fdc` is both the exhaust y and that test).
+/// options object `[0x6cec6c]` all zero (`+0x514 = 0`: the scheduling gate lets every frame through), count scale 0.5, effect mode 4 (`p = 0.4`, no soot; modes 1 and 2 give `p >= 0.76`: soot and the `0x549e60` call, probably a damage state), `x` = 1.2*(1-throttle), ground level -100 (water branch and the low-vehicle branch off; `0x697fdc` is both the exhaust y and that test).
 fn fill_scene(m: &mut Mem) -> u32 {
     let scene = m.alloc(0x14000);
     let cfg = m.alloc(0x20);
@@ -63,6 +63,10 @@ fn fill_scene(m: &mut Mem) -> u32 {
     set(m, 0x702650, &[0.0, 0.0, 0.0]);
     set(m, scene + 0x2c4, &[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]);
     m.set_u32(scene + 0x28b4, 0);
+    m.set_u32(scene + 0x51a4, 0x100);
+    let (options, clock) = (m.alloc(0x600), m.alloc(0x2000));
+    m.set_u32(0x6cec6c, options);
+    m.set_u32(0x6ef1fc, clock);
     m.set_u32(scene + 0x5454, cfg);
     m.set_u32(cfg + 0xc, 4);
     m.write(scene + 0x2821, &[0xf]);
@@ -121,6 +125,9 @@ impl Effects {
         let slip = if speed.abs() > 5.0 { (speed.abs() / 20.0).min(1.0) } else { 0.0 };
         for i in 0..4 {
             m.set_f32(scene + 0x27f0 + i * 4, slip);
+        }
+        if !ht2_sim::instruments::scene_effect_scheduled(m, scene) {
+            return;
         }
         let cfg = m.u32(scene + 0x5454);
         m.set_f32(cfg + 8, (1.0 - throttle.clamp(0.0, 1.0)) * 1.2);
