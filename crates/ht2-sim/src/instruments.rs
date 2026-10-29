@@ -2296,3 +2296,46 @@ mod effect_material_tests {
         }
     }
 }
+
+/// A flash request of `0x551970`: world point and the size dword passed to `0x4baf90`.
+#[derive(Debug,Clone,Copy,PartialEq)]
+pub struct SceneFlash {pub point:[f32;3],pub size:u32}
+
+/// Tail of `0x551970` (`0x55278b..0x552930`): two flash points from the vehicle record at
+/// `0x6978cc + 0x970 * [scene+0x28b4]`; the sink `0x4baf90` is not performed. `basis` is the result
+/// of `scene_geometry_basis`, `scratch` holds 0x30 bytes of temporaries (the original's stack).
+pub fn scene_flash_requests(m:&mut Mem,scene:u32,basis:u32,scratch:u32)->Vec<SceneFlash> {
+    let flags=m.u32(scene+0x27b4);
+    if flags&0x18000==0 {return Vec::new();}
+    let size:u32=if flags&0x10000!=0 {0x40000000}else{0x3f000000};
+    let tech=0x6978ccu32.wrapping_add(m.u32(scene+0x28b4).wrapping_mul(0x970));
+    let s=m.f32(tech);
+    let (a,b,p1,d,e,p2)=(scratch,scratch+12,scratch+24,scratch+36,scratch+48,scratch+60);
+    crate::matrix::vec_scale(m,a,0x702630,s);
+    crate::matrix::vec_sub(m,b,tech+0x144,a);
+    crate::matrix::transform(m,p1,b,basis);
+    crate::matrix::vec_scale(m,d,0x702630,s);
+    crate::matrix::vec_sub(m,e,tech+0x150,d);
+    crate::matrix::transform(m,p2,e,basis);
+    [p1,p2].into_iter().map(|p|SceneFlash{point:std::array::from_fn(|i|m.f32(p+i as u32*4)),size}).collect()
+}
+#[cfg(test)]
+mod scene_flash_tail_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_scene_flash_tail(){
+        for line in include_str!("../../../tools/emu/golden_scene_flash_tail.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let scene=0x2a000000u32;let basis=scene+0x10000;
+            let data=bytes(v[0]);let vid:u32=v[3].parse().unwrap();
+            m.write(scene+0x2c4,&data[..48]);m.write(scene+0x204,&data[48..]);
+            m.write(0x6978cc+vid*0x970,&bytes(v[1]));m.write(0x702630,&bytes(v[2]));
+            m.set_u32(scene+0x27b4,v[4].parse().unwrap());m.set_u32(scene+0x28b4,vid);
+            scene_geometry_basis(&mut m,scene,basis);
+            let got=scene_flash_requests(&mut m,scene,basis,scene+0x20000);
+            let mut raw=Vec::new();for f in &got {for x in f.point {raw.extend(x.to_le_bytes());}raw.extend(f.size.to_le_bytes());}
+            let want=if v[5]=="-" {Vec::new()}else{bytes(v[5])};
+            assert_eq!(raw,want,"{line}");
+        }
+    }
+}
