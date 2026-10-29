@@ -1651,3 +1651,74 @@ mod dust_ctor_tests {
         }
     }
 }
+
+/// `0x59dbc0` (vtable `0x650f34` slot 1): dust particle motion, swirl, size and geometry update.
+/// `scratch` holds 0x100 bytes of caller-owned temporaries (the original's stack); the shared
+/// lifecycle step `0x59aa10` is supplied by the caller.
+pub fn update_dust_particle(m:&mut Mem,object:u32,scratch:u32,mut lifecycle:impl FnMut(&mut Mem,u32)) {
+    m.set_u32(object+0x64,m.u32(0x6f6a70));
+    let dt=m.f64(m.u32(object+0x58)+0xb90) as f32;let dt64=dt as f64;
+    let roll=(dt64*m.f32(object+0xb8) as f64) as f32;
+    let pos=[m.f32(0x702650),m.f32(0x702654),m.f32(0x702658)];
+    let dir=[m.f32(object+0xa0),m.f32(object+0xa4),m.f32(object+0xa8)];
+    let matrix=scratch;crate::matrix::mat_look(m,matrix,pos,dir,roll);
+    crate::matrix::transform_in_place(m,object+0xac,matrix);
+    let swirl=((dt64*m.f32(object+0xbc) as f64)+1.0) as f32;
+    crate::matrix::vec_scale_in_place(m,object+0xac,scratch+0x40,swirl);
+    crate::matrix::vec_add_in_place(m,object+0x4c,scratch+0x50,object+0xac);
+    let (vx,vy,vz)=(m.f32(object+0xa0) as f64,m.f32(object+0xa4) as f64,m.f32(object+0xa8) as f64);
+    let wind=m.u32(0x7025b8);
+    let (px,py,pz)=(m.f32(object+0x4c) as f64,m.f32(object+0x50) as f64,m.f32(object+0x54) as f64);
+    let (nx,ny,nz)=if wind==0 {
+        (((dt64*vx)+px) as f32,(((dt64*vy) as f32 as f64)+py) as f32,(((dt64*vz) as f32 as f64)+pz) as f32)
+    }else{
+        let w=m.f32(wind+0x214) as f64;let k=0.2f32 as f64;
+        let t0=(m.f32(0x702620) as f64*w) as f32 as f64;let t1=(m.f32(0x702624) as f64*w) as f32 as f64;let t2=w*m.f32(0x702628) as f64;
+        let a0=(t0*k) as f32 as f64;let a1=(t1*k) as f32 as f64;let a2=t2*k;
+        let x=(a0+vx) as f32 as f64;let y=(a1+vy) as f32 as f64;let z=a2+vz;
+        let fx=(x*dt64) as f32 as f64;let fy=(y*dt64) as f32 as f64;let fz=z*dt64;
+        ((fx+px) as f32,(fy+py) as f32,(fz+pz) as f32)
+    };
+    m.set_f32(object+0x4c,nx);m.set_f32(object+0x50,ny);m.set_f32(object+0x54,nz);
+    let life=m.f32(object+0x64);let age=m.f32(object+0x68);
+    let t=(life as f64-age as f64)/life as f64;
+    let t=if t<0.0 {0.0} else if !(t<=1.0) && !t.is_nan() {1.0} else {t};
+    let u=1.0-t;
+    let a=((u*m.f32(object+0x88) as f64)+(t*m.f32(object+0x84) as f64)) as f32;
+    let b=(u*m.f32(object+0x90) as f64)+(t*m.f32(object+0x8c) as f64);
+    let base=m.f32(object+0x9c) as f64;
+    let lower=b*(f32::from_bits(0x3eaaaaab) as f64)+base;
+    let upper=((b*0.75)+base) as f32 as f64;
+    let z0=m.f32(object+0x54) as f64;
+    let mut z=if lower>z0 {lower} else {z0};
+    if !(z<=upper) && !z.is_nan() {z=upper;}
+    m.set_f32(object+0x54,z as f32);
+    let g=m.u32(object+0x48);let (g1,g2)=(m.u32(g+0x10),m.u32(g+0x14));
+    m.set_f32(g1,(a as f64*-0.5) as f32);m.set_f32(g1+12,(a as f64*-0.5) as f32);
+    m.set_f32(g1+4,(a as f64*0.5) as f32);m.set_f32(g1+8,(a as f64*0.5) as f32);
+    m.set_f32(g2,(b*-0.5) as f32);m.set_f32(g2+4,(b*-0.5) as f32);
+    m.set_f32(g2+8,(b*0.5) as f32);m.set_f32(g2+12,(b*0.5) as f32);
+    for i in 0..3 {let v=m.u32(object+0x4c+i*4);m.set_u32(object+0x28+i*4,v);}
+    lifecycle(m,object);
+}
+#[cfg(test)]
+mod dust_update_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_dust_update(){
+        for line in include_str!("../../../tools/emu/golden_dust_update.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();
+            let (obj,clock,geom,arr1,arr2,wind,scratch)=(0x2a040000u32,0x2a030000u32,0x2a050000u32,0x2a051000u32,0x2a052000u32,0x2a053000u32,0x2a060000u32);
+            crate::globals::install_constants(&mut m);
+            m.write(0x702620,&bytes(v[3]));m.write(0x6f6a70,&bytes(v[4]));
+            m.write(obj,&bytes(v[0]));m.write(clock+0xb90,&bytes(v[1]));m.write(wind+0x214,&bytes(v[2]));
+            m.set_u32(0x7025b8,if v[5]=="1" {wind}else{0});m.set_u32(geom+0x10,arr1);m.set_u32(geom+0x14,arr2);
+            let mut called=0;let mut at=vec![];
+            update_dust_particle(&mut m,obj,scratch,|m,o|{assert_eq!(o,obj);called=1;at=m.read(obj+0x28,12);});
+            assert_eq!(m.read(obj,0xc8),bytes(v[6]),"{line}");
+            assert_eq!(m.read(arr1,16),bytes(v[7]),"{line}");assert_eq!(m.read(arr2,16),bytes(v[8]),"{line}");
+            assert_eq!(called.to_string(),v[9]);assert_eq!(at,bytes(v[10]));
+        }
+    }
+}
