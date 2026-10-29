@@ -2340,11 +2340,18 @@ mod scene_flash_tail_tests {
     }
 }
 
-/// `0x549ff0` for modes 1 and 2 (`[[this+0x14]+0xc]`): the two exhaust parameters from `x=[[this+0x14]+8]`.
-/// Returns `(a, b, st0)`; `st0` is `a` reloaded as `f32`. Modes 3 and 4 need the x87 `f2xm1` and are
-/// not ported (`None`).
+/// `0x549ff0` (`[[this+0x14]+0xc]` is the mode, `x=[[this+0x14]+8]`): returns `(a, b, st0)`.
+/// Modes 1 and 2: `st0` is `a` reloaded as `f32`. Mode 3: `a=b=1`, `st0=exp(x*-1/3)`; mode 4: `a=1, b=0`,
+/// `st0=exp(-x*x)`; other modes: zeros. REPLACEMENT: the original's exponential is x87 `f2xm1/fscale`;
+/// `f64::exp` differs from it by up to 4e-14 relative (tested at 1e-12), `a` and `b` are exact.
 pub fn exhaust_parameters(x:f32,mode:u32)->Option<(f32,f32,f64)> {
-    let k=match mode {1=>0.6f64,2=>0.8,_=>return None};
+    match mode {
+        3=>return Some((1.0,1.0,(x as f64*(f32::from_bits(0xbeaaaaab) as f64)).exp())),
+        4=>return Some((1.0,0.0,(-(x as f64*x as f64)).exp())),
+        1|2=>{}
+        _=>return Some((0.0,0.0,0.0)),
+    }
+    let k=if mode==1 {0.6f64}else{0.8};
     let x=x as f64;
     let a=(k*x/(x+5.0f32 as f64)+0.2) as f32;
     let b=((0.4*x)/(x+20.0f32 as f64)+0.6) as f32;
@@ -2363,6 +2370,18 @@ mod exhaust_parameter_tests {
             assert_eq!(a.to_le_bytes().to_vec(),bytes(v[2]),"a {line}");
             assert_eq!(b.to_le_bytes().to_vec(),bytes(v[3]),"b {line}");
             assert_eq!(r.to_le_bytes().to_vec(),bytes(v[4]),"ret {line}");
+        }
+    }
+    #[test]
+    fn native_exhaust_parameters_exp_modes(){
+        for line in include_str!("../../../tools/emu/golden_exhaust_params_exp.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();
+            let x=f32::from_le_bytes(bytes(v[1]).try_into().unwrap());
+            let (a,b,r)=exhaust_parameters(x,v[0].parse().unwrap()).unwrap();
+            assert_eq!(a.to_le_bytes().to_vec(),bytes(v[2]),"a {line}");
+            assert_eq!(b.to_le_bytes().to_vec(),bytes(v[3]),"b {line}");
+            let want=f64::from_le_bytes(bytes(v[4]).try_into().unwrap());
+            assert!((r-want).abs()<=want.abs()*1e-12,"ret {line}: {r} vs {want}");
         }
     }
 }
