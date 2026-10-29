@@ -2598,3 +2598,31 @@ mod scene_effects_full_tests {
         }
     }
 }
+
+/// Flash flag block of `0x548250` (`0x5489e2..0x548a45`). `event` is the integer at `[physics+0x1228]`,
+/// `record_flags` is the byte at `[record+0x108]`. A nonzero event with bit `0x40` set raises `0x10000`
+/// (event 2) or `0x8000` (any other value) in `[scene+0x27b4]` and clears the event; otherwise `0x8000`
+/// is cleared. `0x10000` is always cleared at the end, so only `0x8000` survives into `0x551970`.
+pub fn update_flash_flags(m:&mut Mem,scene:u32,physics:u32,record_flags:u8) {
+    let event=m.u32(physics+0x1228);let mut flags=m.u32(scene+0x27b4);
+    if event!=0 && record_flags&0x40!=0 {
+        flags|=if event==2 {0x10000}else{0x8000};
+        m.set_u32(physics+0x1228,0);
+    }else{
+        flags&=!0x8000;
+    }
+    m.set_u32(scene+0x27b4,flags&!0x10000);
+}
+#[cfg(test)]
+mod flash_flag_tests {
+    use super::*;
+    #[test]
+    fn native_flash_flags(){
+        for line in include_str!("../../../tools/emu/golden_flash_flags.tsv").lines(){
+            let v:Vec<u32>=line.trim_end().split('\t').map(|s|s.parse::<i64>().unwrap() as u32).collect();let mut m=Mem::new();let (scene,phys)=(0x2a000000u32,0x2a010000u32);
+            m.set_u32(scene+0x27b4,v[0]);m.set_u32(phys+0x1228,v[1]);
+            update_flash_flags(&mut m,scene,phys,v[2] as u8);
+            assert_eq!(m.u32(scene+0x27b4),v[3],"{line}");assert_eq!(m.u32(phys+0x1228),v[4],"{line}");
+        }
+    }
+}
