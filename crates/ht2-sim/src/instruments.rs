@@ -2126,3 +2126,107 @@ mod soot_update_tests {
         }
     }
 }
+
+/// Constructor call prepared by `0x4baf90` (the flash particle is built by the owner).
+#[derive(Debug,Clone,Copy,PartialEq)]
+pub struct FlashRequest {pub object:u32,pub clock:u32,pub position:u32,pub size:f32,pub table:u32,pub frames:u32}
+
+/// `0x4baf90`: flash particle for `[0x696054] > 0.5`; `alloc(0xb4, [0x6f6a98])` is `0x579380`.
+pub fn emit_flash(m:&mut Mem,position:u32,size:f32,alloc:impl FnOnce(&mut Mem,u32,u32)->u32,construct:impl FnOnce(&mut Mem,FlashRequest)) {
+    if !(m.f32(0x696054)>0.5) {return;}
+    let pool=m.u32(0x6f6a98);let object=alloc(m,0xb4,pool);
+    if object!=0 {construct(m,FlashRequest{object,clock:m.u32(0x696224),position,size,table:0x695c58,frames:m.u32(0x69620c)});}
+}
+/// `0x59d4a0` including the base `0x59ab10`: flash particle (vtable `0x650ed8`). Root `0x59a780` is the owner's.
+pub fn construct_flash_particle(m:&mut Mem,object:u32,clock:u32,position:u32,size:f32,table:u32,frames:u32,root:impl FnMut(&mut Mem,u32,[u32;11])) {
+    let per_frame=(f32::from_bits(0x3fa3d70a) as f64/frames as f64) as f32;
+    let tall=(size as f64*4.0) as f32;
+    construct_particle_base(m,object,[clock,position,0,tall.to_bits(),table,frames,per_frame.to_bits(),0x3fa3d70a,100],root);
+    for o in (0x94..0xac).step_by(4) {m.set_u32(object+o,0);}
+    m.set_u32(object,0x650ed8);m.set_u32(object+0x14,0x650e8c);m.set_u32(object+0x80,m.u32(object+0x80)|1);
+    for i in 0..3 {let v=m.u32(position+i*4);m.set_u32(object+0x94+i*4,v);let z=m.u32(0x702650+i*4);m.set_u32(object+0xa0+i*4,z);}
+    m.set_u32(object+0xac,0);m.set_u32(object+0xb0,0);
+}
+/// `0x59d590` (vtable `0x650ed8` slot 1): flash drift with a random sideways kick after frame 10 and a quadratic size fade.
+/// `lifecycle` is the shared `0x59aa10`.
+pub fn update_flash_particle(m:&mut Mem,object:u32,mut rand:impl FnMut(&mut Mem)->i32,mut lifecycle:impl FnMut(&mut Mem,u32)) {
+    const K:f64=f32::from_bits(0x38000100) as f64;
+    let frame=m.i32(object+0x6c);
+    if frame>=14 {m.set_u32(object+0xa8,0x3f800000);}
+    if frame>10 && m.u32(object+0xb0)==0 {
+        let a=(rand(m) as f64*K) as f32 as f64;let b=rand(m) as f64*K;
+        m.set_f32(object+0xa0,((b-a)*0.25) as f32);
+        let c=(rand(m) as f64*K) as f32 as f64;let d=rand(m) as f64*K;
+        m.set_u32(object+0xb0,1);
+        m.set_f32(object+0xa4,((d-c)*0.25) as f32);
+    }
+    let dt=m.f64(m.u32(object+0x58)+0xb90);
+    let (vx,vy,vz)=(m.f32(object+0xa0) as f64,m.f32(object+0xa4) as f64,m.f32(object+0xa8) as f64);
+    let nx=(((dt*vx) as f32 as f64)+m.f32(object+0x4c) as f64) as f32;
+    let ny=(((dt*vy) as f32 as f64)+m.f32(object+0x50) as f64) as f32;
+    let nz=(dt*vz+m.f32(object+0x54) as f64) as f32;
+    m.set_f32(object+0x28,nx);m.set_f32(object+0x4c,nx);m.set_f32(object+0x2c,ny);m.set_f32(object+0x50,ny);m.set_f32(object+0x30,nz);m.set_f32(object+0x54,nz);
+    let (life,age)=(m.f32(object+0x64) as f64,m.f32(object+0x68) as f64);
+    let t=(life-age)/life;let t=if t<0.0 {0.0} else if t>1.0 {1.0} else {t};
+    let t2=t*t;
+    let s=(1.0-t2)*m.f32(object+0x88) as f64+m.f32(object+0x84) as f64*t2;
+    let big=(s*-0.5) as f32;let half=(s*0.5) as f32;
+    let g=m.u32(object+0x48);let (a10,a14)=(m.u32(g+0x10),m.u32(g+0x14));
+    for (i,v) in [big,half,half,big].into_iter().enumerate() {m.set_f32(a10+i as u32*4,v);}
+    for (i,v) in [big,big,half,half].into_iter().enumerate() {m.set_f32(a14+i as u32*4,v);}
+    lifecycle(m,object);
+}
+#[cfg(test)]
+mod flash_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_flash_emit(){
+        for line in include_str!("../../../tools/emu/golden_flash_emit.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let pos=0x2a000100u32;
+            m.write(0x696054,&bytes(v[0]));m.write(pos,&bytes(v[1]));
+            let size=f32::from_bits(v[2].parse().unwrap());let g:Vec<u32>=v[3].split(',').map(|s|s.parse().unwrap()).collect();
+            for (a,x) in [0x696224u32,0x69620c,0x6f6a98].into_iter().zip(&g){m.set_u32(a,*x);}
+            let ret:u32=v[4].parse().unwrap();let mut allocs=vec![];let mut reqs=vec![];
+            emit_flash(&mut m,pos,size,|_,s,p|{allocs.push(format!("{s}:{p}"));ret},|_,r|reqs.push(r));
+            assert_eq!(if allocs.is_empty() {"-".to_string()}else{allocs.join(";")},v[5],"{line}");
+            if v[6]=="-" {assert!(reqs.is_empty());}else{
+                let f:Vec<&str>=v[6].split(':').collect();let a:Vec<u32>=f[1].split(',').map(|s|s.parse().unwrap()).collect();
+                assert_eq!(reqs.len(),1);let r=reqs[0];
+                assert_eq!((r.object.to_string(),r.clock,r.size.to_bits(),r.table,r.frames),(f[0].to_string(),a[0],a[2],a[3],a[4]),"{line}");
+                assert_eq!(m.read(pos,12),bytes(f[2]));
+            }
+        }
+    }
+    #[test]
+    fn native_flash_constructor(){
+        for line in include_str!("../../../tools/emu/golden_flash_ctor.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let (obj,pos)=(0x2a040000u32,0x2a000100u32);
+            let p:Vec<u32>=v[1].split(',').map(|s|s.parse().unwrap()).collect();
+            m.write(0x702650,&[0;12]);m.write(pos,&bytes(v[0]));m.write(obj,&bytes(v[2]));m.set_u32(0x6f6a68,p[3]);
+            let mut got=vec![];
+            construct_flash_particle(&mut m,obj,p[4],pos,f32::from_bits(p[0]),p[1],p[2],|_,_,a|got=a.to_vec());
+            let want:Vec<u32>=v[3].split(',').map(|s|s.parse().unwrap()).collect();assert_eq!(got,want,"{line}");
+            assert_eq!(m.read(obj,0xb4),bytes(v[4]),"{line}");
+        }
+    }
+    #[test]
+    fn native_flash_update(){
+        for line in include_str!("../../../tools/emu/golden_flash_update.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let (obj,clock,geom,a10,a14)=(0x2a040000u32,0x2a030000u32,0x2a050000u32,0x2a051000u32,0x2a052000u32);
+            m.write(obj,&bytes(v[0]));m.write(clock+0xb90,&bytes(v[1]));m.set_u32(geom+0x10,a10);m.set_u32(geom+0x14,a14);
+            let rands:Vec<i32>=v[2].split(',').map(|s|s.parse().unwrap()).collect();let used=std::cell::Cell::new(0usize);let mut called=0;let mut at=vec![];
+            update_flash_particle(&mut m,obj,|_|{let r=rands[used.get()];used.set(used.get()+1);r},|m,o|{assert_eq!(o,obj);called+=1;at=m.read(obj+0x28,12);});
+            assert_eq!(m.read(obj,0xb4),bytes(v[3]),"{line}");assert_eq!(m.read(a10,16),bytes(v[4]),"{line}");assert_eq!(m.read(a14,16),bytes(v[5]),"{line}");
+            assert_eq!(used.get().to_string(),v[6]);assert_eq!(called.to_string(),v[7]);assert_eq!(at,bytes(v[8]));
+        }
+    }
+    /// `0x5a2a50` (flags = 1) is again `0x5a2a30` + pool recycle.
+    #[test]
+    fn native_flash_delete(){
+        for line in include_str!("../../../tools/emu/golden_flash_delete.tsv").lines(){
+            let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let obj=0x2a000000;
+            m.write(obj,&bytes(input));delete_scene_particle(&mut m,obj,|_,_|{});assert_eq!(m.read(obj,0x400),bytes(output));
+        }
+    }
+}
