@@ -144,3 +144,65 @@ fn find_sibling(path: &Path, ext: &str) -> Option<std::path::PathBuf> {
             && p.file_stem().and_then(|s| s.to_str()).is_some_and(|s| s.to_lowercase() == stem)
     })
 }
+
+/// Materials of a `.res` by name, each as a unit quad (`x`, `y` in `-0.5..0.5`, `z = 0`) so the
+/// caller can place billboards with a model matrix. `looks[i]` and `batches[i].material`
+/// belong to `names[i]`; a name the `.res` lacks (or lacking a texture) is an error.
+pub fn load_material_quads(res_path: &Path, names: &[String]) -> Result<Scene, String> {
+    let res_data = fs::read(res_path).map_err(|e| format!("{}: {e}", res_path.display()))?;
+    let res = res::Res::parse(&res_data).map_err(|e| e.to_string())?;
+    let mut textures: Vec<(txr::Texture, bool)> = Vec::new();
+    let mut tex_slot: HashMap<usize, usize> = HashMap::new();
+    let mut materials = &[][..];
+    for s in &res.sections {
+        match s {
+            res::Section::Files { kind: "TEXTUREFILES", entries } => {
+                for (i, e) in entries.iter().enumerate() {
+                    if let Ok(t) = txr::decode(e.data) {
+                        tex_slot.insert(i + 1, textures.len());
+                        textures.push((t, e.raw_name.contains("ttx")));
+                    }
+                }
+            }
+            res::Section::Tokens { kind: "MATERIALS", tokens } => materials = tokens,
+            _ => {}
+        }
+    }
+    let by_name: HashMap<&str, (&str, usize)> =
+        materials.iter().filter_map(|t| Some((t.split_whitespace().next()?, parse_material(t)?))).collect();
+    let mut keyed = vec![false; textures.len()];
+    let mut looks = Vec::new();
+    for name in names {
+        let &(kind, n) = by_name.get(name.as_str()).ok_or(format!("material {name} not in {}", res_path.display()))?;
+        let slot = *tex_slot.get(&n).ok_or(format!("material {name}: texture {n} missing"))?;
+        if kind == "ttx" {
+            keyed[slot] = true;
+        } else if kind != "tex" {
+            return Err(format!("material {name}: unsupported kind {kind}"));
+        }
+        looks.push(Look::Texture(slot));
+    }
+    let textures = textures
+        .into_iter()
+        .zip(keyed)
+        .map(|((mut t, _), key)| {
+            if key && t.rgba.len() >= 4 {
+                let k: [u8; 3] = t.rgba[..3].try_into().unwrap();
+                for px in t.rgba.chunks_exact_mut(4) {
+                    if px[..3] == k {
+                        px[3] = 0;
+                    }
+                }
+            }
+            t
+        })
+        .collect();
+    let v = |x: f32, y: f32, u: f32, w: f32| b3d::Vertex { pos: [x, y, 0.0], uv: [u, w] };
+    let batches = (0..names.len() as u32)
+        .map(|material| b3d::Batch {
+            material,
+            verts: vec![v(-0.5, -0.5, 0.0, 1.0), v(0.5, -0.5, 1.0, 1.0), v(0.5, 0.5, 1.0, 0.0), v(-0.5, -0.5, 0.0, 1.0), v(0.5, 0.5, 1.0, 0.0), v(-0.5, 0.5, 0.0, 0.0)],
+        })
+        .collect();
+    Ok(Scene { textures, looks, batches, material_names: names.to_vec(), center: [0.0; 3], radius: 1.0 })
+}
