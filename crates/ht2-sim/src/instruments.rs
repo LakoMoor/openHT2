@@ -1900,6 +1900,15 @@ pub fn update_fume_particle(m:&mut Mem,object:u32,scratch:u32,size_step:impl FnM
 }
 /// Shared body of `0x59afd0` and `0x59c000`.
 pub fn update_homing_particle(m:&mut Mem,object:u32,scratch:u32,wind_factor:f32,mut size_step:impl FnMut(&mut Mem,u32)) {
+    homing_drag(m,object,scratch);
+    let dt=m.f64(m.u32(object+0x58)+0xb90);
+    advance_position_wide(m,object,dt,wind_factor as f64,false);
+    for i in 0..3 {let v=m.u32(object+0x4c+i*4);m.set_u32(object+0x28+i*4,v);}
+    size_step(m,object);
+    spin_corners(m,object,dt);
+}
+/// Pull back towards the home point `+0x94` and brake along the velocity (shared by `0x59afd0`, `0x59c000`, `0x59b670`).
+fn homing_drag(m:&mut Mem,object:u32,scratch:u32) {
     let f=|m:&Mem,o:u32|m.f32(object+o);
     let home_offset=[(f(m,0x94)as f64-f(m,0x4c)as f64)as f32,(f(m,0x98)as f64-f(m,0x50)as f64)as f32,(f(m,0x9c)as f64-f(m,0x54)as f64)as f32];
     for i in 0..3 {m.set_f32(scratch+i*4,home_offset[i as usize]);}
@@ -1919,21 +1928,26 @@ pub fn update_homing_particle(m:&mut Mem,object:u32,scratch:u32,wind_factor:f32,
             for i in 0..3 {let z=m.u32(0x702650+i*4);m.set_u32(object+0xa0+i*4,z);}
         }
     }
-    let dt=m.f64(m.u32(object+0x58)+0xb90);
-    let (px,py,pz)=(f(m,0x4c) as f64,f(m,0x50) as f64,f(m,0x54) as f64);
-    let (vx,vy,vz)=(f(m,0xa0) as f64,f(m,0xa4) as f64,f(m,0xa8) as f64);
+}
+/// Position step of the smoke/soot updates. Smoke passes the unrounded double clock, soot the
+/// `f32`-narrowed one and rounds the `dt*vz` product (`round_z`) when there is no wind.
+fn advance_position_wide(m:&mut Mem,object:u32,dt:f64,wind_factor:f64,round_z:bool) {
+    let (px,py,pz)=(m.f32(object+0x4c) as f64,m.f32(object+0x50) as f64,m.f32(object+0x54) as f64);
+    let (vx,vy,vz)=(m.f32(object+0xa0) as f64,m.f32(object+0xa4) as f64,m.f32(object+0xa8) as f64);
     let wind=m.u32(0x7025b8);
     let (nx,ny,nz)=if wind!=0 {
-        let w=m.f32(wind+0x214) as f64;let k=wind_factor as f64;
+        let w=m.f32(wind+0x214) as f64;let k=wind_factor;
         let t0=(w*m.f32(0x702620) as f64) as f32 as f64;let t1=(w*m.f32(0x702624) as f64) as f32 as f64;let t2=w*m.f32(0x702628) as f64;
         let x=((t0*k)as f32 as f64+vx)as f32 as f64;let y=((t1*k)as f32 as f64+vy)as f32 as f64;let z=t2*k+vz;
         (((x*dt)as f32 as f64+px)as f32,((y*dt)as f32 as f64+py)as f32,(z*dt+pz)as f32)
     }else{
-        ((((dt*vx)as f32 as f64)+px)as f32,(((dt*vy)as f32 as f64)+py)as f32,(dt*vz+pz)as f32)
+        ((((dt*vx)as f32 as f64)+px)as f32,(((dt*vy)as f32 as f64)+py)as f32,(if round_z {(dt*vz)as f32 as f64+pz}else{dt*vz+pz})as f32)
     };
     m.set_f32(object+0x4c,nx);m.set_f32(object+0x50,ny);m.set_f32(object+0x54,nz);
-    for i in 0..3 {let v=m.u32(object+0x4c+i*4);m.set_u32(object+0x28+i*4,v);}
-    size_step(m,object);
+}
+/// Spin angle `+0xb0` and the four texture corners (shared tail of `0x59afd0`, `0x59c000`, `0x59b670`).
+fn spin_corners(m:&mut Mem,object:u32,dt:f64) {
+    let f=|m:&Mem,o:u32|m.f32(object+o);
     let (life,age)=(f(m,0x64) as f64,f(m,0x68) as f64);
     let t=(life-age)/life;
     let t=if t<0.0 {0.0} else if t>1.0 {1.0} else {t};
@@ -1947,6 +1961,26 @@ pub fn update_homing_particle(m:&mut Mem,object:u32,scratch:u32,wind_factor:f32,
         m.set_f32(a8+k as u32*4,(sum.cos()*cb+0.5)as f32);
         m.set_f32(a12+k as u32*4,((base+stored).sin()*sb+0.5)as f32);
     }
+}
+/// `0x59b670` (vtable `0x650cd8` slot 1): soot particle. Without the `+0x7c` flag it only runs the
+/// shared size step; otherwise homing drag, a swirl of `+0xc0` about the velocity, drift (wind factor 0.05),
+/// the size step and the spin/corner tail. `scratch` is a caller-owned 0x80-byte area.
+pub fn update_soot_particle(m:&mut Mem,object:u32,scratch:u32,mut size_step:impl FnMut(&mut Mem,u32)) {
+    if m.u32(object+0x7c)==0 {size_step(m,object);return;}
+    homing_drag(m,object,scratch);
+    let dt32=m.f64(m.u32(object+0x58)+0xb90) as f32;let dt=dt32 as f64;
+    let roll=(dt*m.f32(object+0xcc) as f64) as f32;
+    let pos=[m.f32(0x702650),m.f32(0x702654),m.f32(0x702658)];
+    let dir=[m.f32(object+0xa0),m.f32(object+0xa4),m.f32(object+0xa8)];
+    let matrix=scratch+0x40;crate::matrix::mat_look(m,matrix,pos,dir,roll);
+    crate::matrix::transform_in_place(m,object+0xc0,matrix);
+    let swirl=(dt*m.f32(object+0xd0) as f64+1.0) as f32;
+    crate::matrix::vec_scale_in_place(m,object+0xc0,scratch+0x10,swirl);
+    crate::matrix::vec_add_in_place(m,object+0x4c,scratch+0x20,object+0xc0);
+    advance_position_wide(m,object,dt,0.05f32 as f64,true);
+    for i in 0..3 {let v=m.u32(object+0x4c+i*4);m.set_u32(object+0x28+i*4,v);}
+    size_step(m,object);
+    spin_corners(m,object,m.f64(m.u32(object+0x58)+0xb90));
 }
 #[cfg(test)]
 mod smoke_update_tests {
@@ -1982,6 +2016,14 @@ mod smoke_delete_tests {
             m.write(obj,&bytes(input));delete_scene_particle(&mut m,obj,|_,_|{});assert_eq!(m.read(obj,0x400),bytes(output));
         }
     }
+    /// `0x5a3790` (flags = 1) is the same chain for the soot class.
+    #[test]
+    fn native_soot_delete(){
+        for line in include_str!("../../../tools/emu/golden_soot_delete.tsv").lines(){
+            let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let obj=0x2a000000;
+            m.write(obj,&bytes(input));delete_scene_particle(&mut m,obj,|_,_|{});assert_eq!(m.read(obj,0x400),bytes(output));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -2012,6 +2054,73 @@ mod fume_tests {
             let mut called=0;let mut at=vec![];
             update_fume_particle(&mut m,obj,scratch,|m,o|{assert_eq!(o,obj);called+=1;at=m.read(obj+0x28,12);});
             assert_eq!(m.read(obj,0xc8),bytes(v[6]),"{line}");
+            assert_eq!(m.read(a8,16),bytes(v[7]),"{line}");assert_eq!(m.read(a12,16),bytes(v[8]),"{line}");
+            assert_eq!(called.to_string(),v[9]);assert_eq!(at,bytes(v[10]));
+        }
+    }
+}
+
+/// `0x59b3f0` including the base `0x59ab10`: soot particle (vtable `0x650cd8`, 0xd4 bytes).
+/// Root `0x59a780` is supplied by the owner; `scratch` is a caller-owned 12-byte vector.
+pub fn construct_soot_particle(m:&mut Mem,object:u32,clock:u32,position:u32,direction:u32,table:u32,frames:u32,size:f32,lifetime:f32,scratch:u32,
+    mut rand:impl FnMut(&mut Mem)->i32,root:impl FnMut(&mut Mem,u32,[u32;11])) {
+    const K:f64=f32::from_bits(0x38000100) as f64;
+    let per_frame=(lifetime as f64/frames as f64) as f32;
+    let tall=(size as f64*5.0) as f32;
+    construct_particle_base(m,object,[clock,position,size.to_bits(),tall.to_bits(),table,frames,per_frame.to_bits(),lifetime.to_bits(),100],root);
+    for o in (0x94..0xac).step_by(4) {m.set_u32(object+o,0);}
+    for o in [0xc0,0xc4,0xc8] {m.set_u32(object+o,0);}
+    m.set_u32(object,0x650cd8);m.set_u32(object+0x14,0x650c8c);m.set_u32(object+0x80,m.u32(object+0x80)|1);
+    for i in 0..3 {let v=m.u32(position+i*4);m.set_u32(object+0x94+i*4,v);let v=m.u32(direction+i*4);m.set_u32(object+0xa0+i*4,v);}
+    m.set_f32(object+0xac,3.0);m.set_u32(object+0xb0,0);
+    let first=(rand(m) as f64*K) as f32 as f64;let second=rand(m) as f64*K;
+    let spin=(first-second)*f32::from_bits(0x40490fda) as f64;m.set_f32(object+0xb4,(spin+spin) as f32);
+    m.set_u32(object+0xb8,0x3f3504f3);m.set_u32(object+0xbc,0x3f3504f3);
+    let (ax,ay,az)=(m.f32(0x702630) as f64,m.f32(0x702634) as f64,m.f32(0x702638) as f64);
+    let (vx,vy,vz)=(m.f32(direction) as f64,m.f32(direction+4) as f64,m.f32(direction+8) as f64);
+    m.set_f32(object+0xc0,(az*vy-ay*vz) as f32);m.set_f32(object+0xc4,(ax*vz-az*vx) as f32);m.set_f32(object+0xc8,(ay*vx-ax*vy) as f32);
+    let len=crate::math::vec_len(m,object+0xc0);
+    if len<0.01 {for i in 0..3 {let v=m.u32(0x702640+i*4);m.set_u32(object+0xc0+i*4,v);}}
+    else{crate::matrix::vec_div_in_place(m,object+0xc0,scratch,len as f32);}
+    crate::matrix::vec_scale_in_place(m,object+0xc0,scratch,f32::from_bits(0x3c23d70a));
+    let third=(rand(m) as f64*K) as f32 as f64;let fourth=rand(m) as f64*K;
+    m.set_f32(object+0xcc,((fourth-third)*f32::from_bits(0x412feddf) as f64) as f32);
+    let fifth=rand(m) as f64;m.set_f32(object+0xd0,(fifth*f32::from_bits(0x3423d852) as f64) as f32);
+}
+#[cfg(test)]
+mod soot_ctor_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_soot_constructor(){
+        for line in include_str!("../../../tools/emu/golden_soot_ctor.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let axes=bytes(v[0]);let mut m=Mem::new();let (obj,pos,dir,scratch)=(0x2a040000u32,0x2a000100u32,0x2a000120u32,0x2a050000u32);
+            let p:Vec<u32>=v[3].split(',').map(|s|s.parse().unwrap()).collect();
+            m.write(0x702630,&axes[..12]);m.write(0x702640,&axes[12..]);m.write(pos,&bytes(v[1]));m.write(dir,&bytes(v[2]));m.write(obj,&bytes(v[5]));m.set_u32(0x6f6a68,p[4]);
+            let rands:Vec<i32>=v[4].split(',').map(|s|s.parse().unwrap()).collect();let used=std::cell::Cell::new(0usize);let mut got=vec![];
+            construct_soot_particle(&mut m,obj,p[5],pos,dir,p[0],p[1],f32::from_bits(p[2]),f32::from_bits(p[3]),scratch,|_|{let r=rands[used.get()];used.set(used.get()+1);r},|_,_,a|got=a.to_vec());
+            let want:Vec<u32>=v[6].split(',').map(|s|s.parse().unwrap()).collect();assert_eq!(got,want,"{line}");
+            assert_eq!(m.read(obj,0xd4),bytes(v[7]),"{line}");assert_eq!(used.get().to_string(),v[8]);
+        }
+    }
+}
+
+#[cfg(test)]
+mod soot_update_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_soot_update(){
+        for line in include_str!("../../../tools/emu/golden_soot_update.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();
+            let (obj,clock,geom,a8,a12,wind,scratch)=(0x2a040000u32,0x2a030000u32,0x2a050000u32,0x2a051000u32,0x2a052000u32,0x2a053000u32,0x2a060000u32);
+            crate::globals::install_constants(&mut m);
+            m.write(0x702620,&bytes(v[3]));m.write(0x6f6a54,&bytes(v[4]));
+            m.write(obj,&bytes(v[0]));m.write(clock+0xb90,&bytes(v[1]));m.write(wind+0x214,&bytes(v[2]));
+            m.set_u32(0x7025b8,if v[5]=="1" {wind}else{0});m.set_u32(geom+8,a8);m.set_u32(geom+0xc,a12);
+            let mut called=0;let mut at=vec![];
+            update_soot_particle(&mut m,obj,scratch,|m,o|{assert_eq!(o,obj);called+=1;at=m.read(obj+0x28,12);});
+            {let (g,w)=(m.read(obj,0xd4),bytes(v[6]));let d:Vec<_>=(0..g.len()).filter(|&i|g[i]!=w[i]).collect();assert!(d.is_empty(),"diff offsets {d:x?} wind={} dt={}",v[5],v[1]);}
             assert_eq!(m.read(a8,16),bytes(v[7]),"{line}");assert_eq!(m.read(a12,16),bytes(v[8]),"{line}");
             assert_eq!(called.to_string(),v[9]);assert_eq!(at,bytes(v[10]));
         }
