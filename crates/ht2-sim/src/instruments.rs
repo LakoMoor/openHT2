@@ -1722,3 +1722,25 @@ mod dust_update_tests {
         }
     }
 }
+
+/// `0x5a2cd0` with flags = 1 (scalar deleting destructor of the dust particle class):
+/// `0x5a2ca0` decrements the live-dust counter `0x6f6a6c`, then runs the shared base destruction
+/// `0x59aa90` and the pool recycle `0x5793f0`/`0x5794f0`. Memory release is supplied by the caller.
+pub fn delete_dust_particle(m:&mut Mem,object:u32,free:impl FnMut(&mut Mem,u32)) {
+    m.set_u32(0x6f6a6c,m.u32(0x6f6a6c).wrapping_sub(1));
+    delete_scene_particle(m,object,free);
+}
+#[cfg(test)]
+mod dust_delete_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_dust_delete(){
+        for line in include_str!("../../../tools/emu/golden_dust_delete.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let obj=0x2a000000;
+            m.write(obj,&bytes(v[0]));m.write(0x6f6a6c,&bytes(v[2]));
+            delete_dust_particle(&mut m,obj,|_,_|{});
+            assert_eq!(m.read(obj,0x400),bytes(v[1]));assert_eq!(m.read(0x6f6a6c,4),bytes(v[3]));
+        }
+    }
+}
