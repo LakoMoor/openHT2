@@ -48,6 +48,33 @@ fn effect_material_names(res_path: &Path) -> Result<Vec<String>, String> {
     Ok(names)
 }
 
+/// Sinks of `0x551970` wired to the particle manager. A wheel effect with an owner pointer
+/// (`WheelEffectPoint::Linked`) needs the second vehicle object of the original and is skipped (STAND-IN).
+struct Events<'a> {
+    world: &'a mut ParticleWorld,
+}
+
+impl ht2_sim::instruments::SceneEffectEvents for Events<'_> {
+    fn rand(&mut self, m: &mut Mem) -> i32 {
+        ht2_sim::globals::rand(m)
+    }
+    fn scene_effect(&mut self, m: &mut Mem, point: [f32; 3], direction: [f32; 3]) {
+        self.world.emit_scene_effect(m, point, direction);
+    }
+    fn wheel(&mut self, m: &mut Mem, e: ht2_sim::instruments::WheelEffect) {
+        if let ht2_sim::instruments::WheelEffectPoint::World(p) = e.point {
+            self.world.emit_dust(m, p, e.direction, f32::from_bits(e.intensity));
+        }
+    }
+    fn exhaust_high(&mut self, _: &mut Mem) {}
+    fn exhaust(&mut self, m: &mut Mem, e: ht2_sim::instruments::ExhaustEmit) {
+        self.world.emit_exhaust(m, e.position, e.velocity, e.p);
+    }
+    fn flash(&mut self, m: &mut Mem, f: ht2_sim::instruments::SceneFlash) {
+        self.world.emit_flash(m, f.point, f32::from_bits(f.size));
+    }
+}
+
 /// Build the constant part of the stand-in vehicle scene read by `0x551970`.
 /// STAND-INS (the owners are the unported layer `0x54xxxx` and the vehicle tech record `0x697xxx`):
 /// axis vectors `0x702620/30/40` = (0,1,0)/(0,0,1)/(1,0,0) (inferred from use: spread, up, sideways),
@@ -126,27 +153,10 @@ impl Effects {
         for i in 0..4 {
             m.set_f32(scene + 0x27f0 + i * 4, slip);
         }
-        if !ht2_sim::instruments::scene_effect_scheduled(m, scene) {
-            return;
-        }
         let cfg = m.u32(scene + 0x5454);
         m.set_f32(cfg + 8, (1.0 - throttle.clamp(0.0, 1.0)) * 1.2);
-        let basis = scene + 0x10000;
-        ht2_sim::instruments::scene_geometry_basis(m, scene, basis);
-        for w in ht2_sim::instruments::scene_wheel_requests(m, scene, basis) {
-            if let ht2_sim::instruments::WheelEffectPoint::World(p) = w.point {
-                world.emit_dust(m, p, w.direction, f32::from_bits(w.intensity));
-            }
-        }
-        // the exhaust emitter is reached through a raw pointer pair because `world` and `m` are
-        // both borrowed by the closures
-        let world_ptr: *mut ParticleWorld = world;
-        ht2_sim::instruments::scene_exhaust_branch(
-            m, scene, scene + 0x11000,
-            |m| ht2_sim::globals::rand(m),
-            |_| {},
-            |m, e| unsafe { (*world_ptr).emit_exhaust(m, e.position, e.velocity, e.p) },
-        );
+        let mut events = Events { world };
+        ht2_sim::instruments::update_scene_effects(m, scene, scene + 0x11000, &mut events);
     }
 
     pub fn tick(&mut self, dt: f64) {

@@ -21,7 +21,7 @@ impl ParticleWorld {
     /// `available` says which material names exist in the resource archive.
     pub fn new(m:&mut Mem,capacity:u32,available:impl Fn(&str)->bool)->Result<Self,&'static str> {
         globals::install_constants(m);
-        let manager=m.alloc(0x1b4);let sort=m.alloc(0x40);let slots=m.alloc(4);let clock=m.alloc(0xc00);let scratch=m.alloc(0x200);let input=m.alloc(48);
+        let manager=m.alloc(0x1b4);let sort=m.alloc(0x40);let slots=m.alloc(4);let clock=m.alloc(0xc00);let scratch=m.alloc(0x400);let input=m.alloc(48);
         m.set_u32(sort+0x30,slots);m.set_u32(sort+0x34,1);m.set_u32(0x6f6a68,sort);m.set_u32(0x696224,clock);m.set_u32(manager+0x1b0,6);
         let mut pools=[0;6];
         for (i,address) in POOLS.into_iter().enumerate() {
@@ -78,6 +78,12 @@ impl ParticleWorld {
                 sim::ExhaustKind::Soot=>sim::construct_soot_particle(m,r.object,r.clock,pp,dir_slot,r.table,r.extra,lifetime,f32::from_bits(r.tail[1]),scratch,|m|globals::rand(m),|m,o,a|self.construct_root(m,o,a)),
             }
         });
+    }
+    /// `0x4bac90`: scene particle (smoke material table `0x695bf0`) at `position` with `direction`.
+    pub fn emit_scene_effect(&mut self,m:&mut Mem,position:[f32;3],direction:[f32;3]) {
+        let (p,d)=(self.vec(m,0,position),self.vec(m,1,direction));let scratch=self.scratch+0x200;
+        let memory=&mut self.memory;
+        sim::emit_complete_scene_particle(m,p,d,scratch,|m,n|memory.allocate_zeroed(m,n)).expect("scene particle allocation");
     }
     /// `0x4baf90`: flash of the given size.
     pub fn emit_flash(&mut self,m:&mut Mem,position:[f32;3],size:f32) {
