@@ -2626,3 +2626,31 @@ mod flash_flag_tests {
         }
     }
 }
+
+/// Flag rebuild of `0x54ff80` (`0x550452..0x55054a`): every step `[scene+0x27b4]` gets its bits from the
+/// vehicle object. `0x04`/`0x10` from `[+0x51b8]` (1 -> `0x04`, 2 -> `0x10`, else both cleared), `0x08` from
+/// `[+0x51b4]`, `0x40` from `[+0x517c]`, `0x20` from `[+0x5178]`, `0x01` from `[+0x4c4]`, `0x400` from
+/// `[+0x51a0]` (first branch `0x4bac90`), `0x40000` from `[+0x51c0]`. `dl` (the byte of `[+0xf98]`) is stored at `+0x27b8`.
+pub fn update_scene_flag_bits(m:&mut Mem,scene:u32,dl:u8) {
+    m.write(scene+0x27b8,&[dl]);
+    let mut f=m.u32(scene+0x27b4);
+    match m.u32(scene+0x51b8) {1=>f=(f&!0x10)|4,2=>f=(f&!4)|0x10,_=>f&=!0x14}
+    let set=|f:&mut u32,off:u32,bit:u32|{if m.u32(scene+off)!=0 {*f|=bit}else{*f&=!bit}};
+    set(&mut f,0x51b4,0x08);set(&mut f,0x517c,0x40);set(&mut f,0x5178,0x20);set(&mut f,0x4c4,0x01);
+    set(&mut f,0x51a0,0x400);set(&mut f,0x51c0,0x40000);
+    m.set_u32(scene+0x27b4,f);
+}
+#[cfg(test)]
+mod scene_flag_bits_tests {
+    use super::*;
+    #[test]
+    fn native_scene_flag_bits(){
+        for line in include_str!("../../../tools/emu/golden_scene_flag_bits.tsv").lines(){
+            let v:Vec<u32>=line.trim_end().split('\t').map(|s|s.parse::<i64>().unwrap() as u32).collect();let mut m=Mem::new();let scene=0x2a000000u32;
+            m.set_u32(scene+0x27b4,v[0]);
+            for (o,x) in [0x51b8u32,0x51b4,0x517c,0x5178,0x4c4,0x51a0,0x51c0].into_iter().zip(&v[1..8]) {m.set_u32(scene+o,*x);}
+            update_scene_flag_bits(&mut m,scene,v[8] as u8);
+            assert_eq!(m.u32(scene+0x27b4),v[9],"{line}");assert_eq!(m.rd8(scene+0x27b8) as u32,v[10],"{line}");
+        }
+    }
+}
