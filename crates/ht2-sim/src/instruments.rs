@@ -2530,3 +2530,71 @@ mod effect_schedule_tests {
         }
     }
 }
+
+/// The calls `0x551970` makes outward, in the original's order of occurrence.
+pub trait SceneEffectEvents {
+    /// C `rand()` (`0x61edde`).
+    fn rand(&mut self,m:&mut Mem)->i32;
+    /// `0x4bac90(point, direction, 0, 1)`: the two scene effects of the first branch.
+    fn scene_effect(&mut self,m:&mut Mem,point:[f32;3],direction:[f32;3]);
+    /// `0x4bb050(point, direction, intensity, 1)`.
+    fn wheel(&mut self,m:&mut Mem,effect:WheelEffect);
+    /// `0x549e60(1)` of the exhaust branch.
+    fn exhaust_high(&mut self,m:&mut Mem);
+    /// `0x4ba660(position, velocity, p, 1)`.
+    fn exhaust(&mut self,m:&mut Mem,effect:ExhaustEmit);
+    /// `0x4baf90(point, size, 1)`.
+    fn flash(&mut self,m:&mut Mem,flash:SceneFlash);
+}
+
+/// Whole of `0x551970` except the room query `0x4e5ba7`, whose result the function does not use:
+/// schedule gate, scene effects, wheel dust, exhaust, flashes. `scratch` needs 0x100 bytes.
+pub fn update_scene_effects(m:&mut Mem,scene:u32,scratch:u32,ev:&mut impl SceneEffectEvents) {
+    if !scene_effect_scheduled(m,scene) {return;}
+    let basis=scratch;scene_geometry_basis(m,scene,basis);
+    for (point,direction) in scene_effect_requests(m,scene,basis,scratch+0x40) {ev.scene_effect(m,point,direction);}
+    for w in scene_wheel_requests(m,scene,basis) {ev.wheel(m,w);}
+    // the three closures below borrow `ev` one at a time through a cell
+    let cell=std::cell::RefCell::new(ev);
+    scene_exhaust_branch(m,scene,scratch+0x80,|m|cell.borrow_mut().rand(m),|m|cell.borrow_mut().exhaust_high(m),|m,e|cell.borrow_mut().exhaust(m,e));
+    for f in scene_flash_requests(m,scene,basis,scratch+0xa0) {cell.borrow_mut().flash(m,f);}
+}
+#[cfg(test)]
+mod scene_effects_full_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    fn hex(b:&[u8])->String{b.iter().map(|x|format!("{x:02x}")).collect()}
+    struct Log{rands:Vec<i32>,used:usize,events:Vec<String>}
+    fn floats(a:&[f32])->Vec<u8>{a.iter().flat_map(|x|x.to_le_bytes()).collect()}
+    impl SceneEffectEvents for Log {
+        fn rand(&mut self,_:&mut Mem)->i32{let r=self.rands[self.used];self.used+=1;r}
+        fn scene_effect(&mut self,_:&mut Mem,p:[f32;3],d:[f32;3]){self.events.push(format!("E:{}",hex(&[floats(&p),floats(&d)].concat())));}
+        fn wheel(&mut self,_:&mut Mem,w:WheelEffect){
+            let p=match w.point {WheelEffectPoint::Linked(a)=>a.to_le_bytes().to_vec(),WheelEffectPoint::World(p)=>floats(&p)};
+            self.events.push(format!("W:{}",hex(&[p,floats(&w.direction),w.intensity.to_le_bytes().to_vec()].concat())));
+        }
+        fn exhaust_high(&mut self,_:&mut Mem){self.events.push("H".into());}
+        fn exhaust(&mut self,_:&mut Mem,e:ExhaustEmit){self.events.push(format!("X:{}",hex(&[floats(&e.position),floats(&e.velocity),e.p.to_le_bytes().to_vec()].concat())));}
+        fn flash(&mut self,_:&mut Mem,f:SceneFlash){self.events.push(format!("F:{}",hex(&[floats(&f.point),f.size.to_le_bytes().to_vec()].concat())));}
+    }
+    #[test]
+    fn native_scene_effects_full(){
+        for line in include_str!("../../../tools/emu/golden_scene_effects_full.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let scene=0x2a000000u32;let (cfg,clk,cfg2)=(0x2a100000u32,0x2a110000u32,0x2a120000u32);
+            let p:Vec<u32>=v[7].split(',').map(|s|s.parse().unwrap()).collect();let vid=p[0];
+            m.set_u32(0x6cec6c,cfg);m.set_u32(0x6ef1fc,clk);m.set_u32(cfg+0x514,0);
+            let data=bytes(v[0]);m.write(scene+0x2c4,&data[..48]);m.write(scene+0x204,&data[48..]);m.write(scene+0x1b0,&bytes(v[3]));
+            m.write(vid*0x970+0x6978cc,&bytes(v[1]));let ax=bytes(v[2]);m.write(0x702620,&ax[..12]);m.write(0x702630,&ax[12..24]);m.write(0x702640,&ax[24..]);
+            m.write(scene+0x27f0,&bytes(v[4]));m.write(scene+0x282c,&bytes(v[5]));m.write(scene+0x4fb0,&bytes(v[6]));
+            m.set_u32(scene+0x51a4,p[1]);m.set_u32(scene+0x27b4,p[2]);m.set_u32(scene+0x28b4,vid);
+            m.set_u32(scene+0x5460,if p[3]!=0 {p[4]}else{0});m.set_u32(scene+0x28bc,p[5]);m.write(scene+0x2821,&[p[6] as u8]);
+            m.set_u32(scene+0x5454,cfg2);m.write(cfg2+8,&bytes(v[8]));m.set_u32(cfg2+0xc,p[7]);
+            let rands:Vec<i32>=v[9].split(',').filter(|s|!s.is_empty()).map(|s|s.parse().unwrap()).collect();
+            let mut log=Log{rands:rands.clone(),used:0,events:vec![]};
+            update_scene_effects(&mut m,scene,scene+0x20000,&mut log);
+            assert_eq!(log.used,rands.len(),"rand count {line}");
+            let want:Vec<String>=if v[10]=="-" {vec![]}else{v[10].split(';').map(String::from).collect()};
+            assert_eq!(log.events,want,"{line}");
+        }
+    }
+}
