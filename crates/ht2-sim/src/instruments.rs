@@ -1591,3 +1591,63 @@ mod wheel_dust_tests {
         }
     }
 }
+
+/// Arguments of `0x59d790` (after `this`): clock, position vector, velocity vector, two sizes,
+/// material table, frame count, kind (0..2 select the tag 0xfc..0xfe), lifetime.
+#[derive(Debug,Clone,Copy)]
+pub struct DustParticleArgs {pub clock:u32,pub position:u32,pub velocity:u32,pub size_a:f32,pub size_b:f32,pub table:u32,pub frames:u32,pub kind:u32,pub lifetime:f32}
+
+/// `0x59d790` including the `0x59abb0` body. The root constructor `0x59a780` is supplied by the
+/// owner with its 11 arguments `[clock, manager, x, y, z, 2*size_a, size_a, table, frames, lifetime/frames, lifetime]`.
+/// `scratch` is a caller-owned 12-byte vector (the original's stack temporary).
+pub fn construct_dust_particle(m:&mut Mem,object:u32,a:DustParticleArgs,scratch:u32,
+    mut rand:impl FnMut(&mut Mem)->i32,root:impl FnOnce(&mut Mem,u32,[u32;11])) {
+    const K:f64=f32::from_bits(0x38000100) as f64;
+    let (xyz,sa2,sb2)=(std::array::from_fn::<u32,3,_>(|i|m.u32(a.position+i as u32*4)),(a.size_a as f64+a.size_a as f64) as f32,(a.size_b as f64+a.size_b as f64) as f32);
+    let per_frame=(a.lifetime as f64/a.frames as f64) as f32;
+    root(m,object,[a.clock,m.u32(0x6f6a68),xyz[0],xyz[1],xyz[2],sa2.to_bits(),a.size_a.to_bits(),a.table,a.frames,per_frame.to_bits(),a.lifetime.to_bits()]);
+    for (o,v) in [(0x84,sa2),(0x88,sb2),(0x8c,a.size_a),(0x90,a.size_b)] {m.set_f32(object+o,v);}
+    m.set_u32(object,0x650f34);m.set_u32(object+0x14,0x650ee8);
+    for o in (0x94..0xb0).step_by(4) {m.set_u32(object+o,0);}
+    m.set_u32(object+0x80,m.u32(object+0x80)|1);
+    for i in 0..3 {let v=m.u32(a.velocity+i*4);m.set_u32(object+0xa0+i*4,v);}
+    let (ax,ay,az)=(m.f32(0x702630) as f64,m.f32(0x702634) as f64,m.f32(0x702638) as f64);
+    let (vx,vy,vz)=(m.f32(object+0xa0) as f64,m.f32(object+0xa4) as f64,m.f32(object+0xa8) as f64);
+    m.set_f32(object+0xac,(az*vy-ay*vz) as f32);m.set_f32(object+0xb0,(ax*vz-az*vx) as f32);m.set_f32(object+0xb4,(ay*vx-ax*vy) as f32);
+    let len=crate::math::vec_len(m,object+0xac);
+    if len<0.01 {
+        for i in 0..3 {let v=m.u32(0x702640+i*4);m.set_u32(object+0xac+i*4,v);}
+    }else{
+        crate::matrix::vec_div_in_place(m,object+0xac,scratch,len as f32);
+    }
+    crate::matrix::vec_scale_in_place(m,object+0xac,scratch,0.5);
+    m.set_u32(object+0xc0,0);
+    let first=(rand(m) as f64*K) as f32;
+    let second=rand(m) as f64*K;
+    m.set_f32(object+0xb8,((second-first as f64)*f32::from_bits(0x40490fda) as f64) as f32);
+    let third=rand(m) as f64*f32::from_bits(0x35ccce67) as f64;m.set_f32(object+0xbc,third as f32);
+    for i in 0..3 {let v=m.u32(a.position+i*4);m.set_u32(object+0x94+i*4,v);}
+    m.set_u32(0x6f6a6c,m.u32(0x6f6a6c).wrapping_add(1));
+    match a.kind {0=>m.set_u32(object+0xc4,0xfc),1=>m.set_u32(object+0xc4,0xfd),2=>m.set_u32(object+0xc4,0xfe),_=>{}}
+}
+#[cfg(test)]
+mod dust_ctor_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_dust_constructor(){
+        for line in include_str!("../../../tools/emu/golden_dust_ctor.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let axes=bytes(v[0]);let mut m=Mem::new();let (obj,pos,vel,scratch)=(0x2a040000u32,0x2a000100u32,0x2a000120u32,0x2a050000u32);
+            let p:Vec<u32>=v[3].split(',').map(|s|s.parse().unwrap()).collect();
+            m.write(0x702630,&axes[..12]);m.write(0x702640,&axes[12..]);m.write(pos,&bytes(v[1]));m.write(vel,&bytes(v[2]));m.write(obj,&bytes(v[5]));
+            m.set_u32(0x6f6a68,p[6]);m.set_u32(0x6f6a6c,p[7]);
+            let rands:Vec<i32>=v[4].split(',').map(|s|s.parse().unwrap()).collect();let used=std::cell::Cell::new(0usize);let mut got=vec![];
+            construct_dust_particle(&mut m,obj,DustParticleArgs{clock:p[8],position:pos,velocity:vel,size_a:f32::from_bits(p[1]),size_b:f32::from_bits(p[2]),table:p[3],frames:p[4],kind:p[0],lifetime:f32::from_bits(p[5])},scratch,
+                |_|{let r=rands[used.get()];used.set(used.get()+1);r},|_,o,args|{assert_eq!(o,obj);got=args.to_vec();});
+            let want:Vec<u32>=v[6].split(',').skip(1).map(|s|s.parse().unwrap()).collect();
+            assert_eq!(got,want,"root args {line}");
+            assert_eq!(m.read(obj,0xc8),bytes(v[7]),"{line}");
+            assert_eq!(m.u32(0x6f6a6c),v[8].parse::<u32>().unwrap());assert_eq!(used.get().to_string(),v[9]);
+        }
+    }
+}
