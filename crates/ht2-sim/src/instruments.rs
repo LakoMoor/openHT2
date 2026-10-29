@@ -1844,3 +1844,124 @@ mod exhaust_emit_tests {
         }
     }
 }
+
+/// `0x59ad70` including the base `0x59ab10`: smoke particle (vtable `0x650c78`). Root `0x59a780`
+/// is supplied by the owner. `position`/`direction` are 3-float vectors; `frames` must be non-zero.
+pub fn construct_smoke_particle(m:&mut Mem,object:u32,clock:u32,position:u32,direction:u32,table:u32,frames:u32,lifetime:f32,
+    mut rand:impl FnMut(&mut Mem)->i32,root:impl FnMut(&mut Mem,u32,[u32;11])) {
+    const K:f64=f32::from_bits(0x38000100) as f64;
+    let per_frame=(lifetime as f64/frames as f64) as f32;
+    construct_particle_base(m,object,[clock,position,1f32.to_bits(),5f32.to_bits(),table,frames,per_frame.to_bits(),lifetime.to_bits(),100],root);
+    for o in (0x94..0xac).step_by(4) {m.set_u32(object+o,0);}
+    m.set_u32(object,0x650c78);m.set_u32(object+0x14,0x650c2c);m.set_u32(object+0x80,m.u32(object+0x80)|1);
+    for i in 0..3 {let v=m.u32(position+i*4);m.set_u32(object+0x94+i*4,v);let v=m.u32(direction+i*4);m.set_u32(object+0xa0+i*4,v);}
+    m.set_f32(object+0xac,3.0);m.set_u32(object+0xb0,0);
+    let first=(rand(m) as f64*K) as f32 as f64;let second=rand(m) as f64*K;
+    m.set_u32(object+0xb8,0x3f3504f3);m.set_u32(object+0xbc,0x3f3504f3);
+    let spin=(first-second)*f32::from_bits(0x40490fda) as f64;m.set_f32(object+0xb4,(spin+spin) as f32);
+}
+#[cfg(test)]
+mod smoke_ctor_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_smoke_constructor(){
+        for line in include_str!("../../../tools/emu/golden_smoke_ctor.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let (obj,pos,dir)=(0x2a040000u32,0x2a000100u32,0x2a000120u32);
+            let p:Vec<u32>=v[2].split(',').map(|s|s.parse().unwrap()).collect();
+            m.write(pos,&bytes(v[0]));m.write(dir,&bytes(v[1]));m.write(obj,&bytes(v[4]));m.set_u32(0x6f6a68,p[3]);
+            let rands:Vec<i32>=v[3].split(',').map(|s|s.parse().unwrap()).collect();let used=std::cell::Cell::new(0usize);let mut got=vec![];
+            construct_smoke_particle(&mut m,obj,p[4],pos,dir,p[0],p[1],f32::from_bits(p[2]),|_|{let r=rands[used.get()];used.set(used.get()+1);r},|_,_,a|got=a.to_vec());
+            let want:Vec<u32>=v[5].split(',').map(|s|s.parse().unwrap()).collect();assert_eq!(got,want,"{line}");
+            assert_eq!(m.read(obj,0xc8),bytes(v[6]),"{line}");assert_eq!(used.get().to_string(),v[7]);
+        }
+    }
+}
+
+/// `0x59afd0` (vtable `0x650c78` slot 1): smoke particle homing/drag, drift, spin and texture corners.
+/// `size_step` is the shared `0x59ac90` (size and lifecycle), supplied by the caller; `scratch`
+/// is a caller-owned 0x40-byte area. Trigonometry uses `f64::sin/cos` in place of x87 `fsin/fcos`.
+pub fn update_smoke_particle(m:&mut Mem,object:u32,scratch:u32,mut size_step:impl FnMut(&mut Mem,u32)) {
+    let f=|m:&Mem,o:u32|m.f32(object+o);
+    let home_offset=[(f(m,0x94)as f64-f(m,0x4c)as f64)as f32,(f(m,0x98)as f64-f(m,0x50)as f64)as f32,(f(m,0x9c)as f64-f(m,0x54)as f64)as f32];
+    for i in 0..3 {m.set_f32(scratch+i*4,home_offset[i as usize]);}
+    if crate::math::vec_len(m,scratch)>15.0 {m.set_f32(object+0xac,20.0);}
+    let s=m.f32(object+0xac);
+    if s!=0.0 && !s.is_nan() {
+        crate::matrix::vec_unit(m,scratch,object+0xa0);
+        let dt=m.f64(m.u32(object+0x58)+0xb90) as f32 as f64;let s64=s as f64;
+        let u:[f64;3]=std::array::from_fn(|i|-(m.f32(scratch+i as u32*4) as f64));
+        let w=[(u[0]*s64*dt)as f32,(((u[1]*s64)as f32 as f64)*dt)as f32,(((u[2]*s64)as f32 as f64)*dt)as f32];
+        for i in 0..3 {m.set_f32(scratch+0x10+i as u32*4,w[i]);}
+        crate::matrix::vec_add_in_place(m,object+0xa0,scratch+0x20,scratch+0x10);
+        let v:[f64;3]=std::array::from_fn(|i|m.f32(object+0xa0+i as u32*4) as f64);
+        let dot=(v[2]*w[2] as f64+v[1]*w[1] as f64)+v[0]*w[0] as f64;
+        if dot>0.0 {
+            m.set_f32(object+0xac,0.0);
+            for i in 0..3 {let z=m.u32(0x702650+i*4);m.set_u32(object+0xa0+i*4,z);}
+        }
+    }
+    let dt=m.f64(m.u32(object+0x58)+0xb90);
+    let (px,py,pz)=(f(m,0x4c) as f64,f(m,0x50) as f64,f(m,0x54) as f64);
+    let (vx,vy,vz)=(f(m,0xa0) as f64,f(m,0xa4) as f64,f(m,0xa8) as f64);
+    let wind=m.u32(0x7025b8);
+    let (nx,ny,nz)=if wind!=0 {
+        let w=m.f32(wind+0x214) as f64;let k=f32::from_bits(0x3e570a3d) as f64;
+        let t0=(w*m.f32(0x702620) as f64) as f32 as f64;let t1=(w*m.f32(0x702624) as f64) as f32 as f64;let t2=w*m.f32(0x702628) as f64;
+        let x=((t0*k)as f32 as f64+vx)as f32 as f64;let y=((t1*k)as f32 as f64+vy)as f32 as f64;let z=t2*k+vz;
+        (((x*dt)as f32 as f64+px)as f32,((y*dt)as f32 as f64+py)as f32,(z*dt+pz)as f32)
+    }else{
+        ((((dt*vx)as f32 as f64)+px)as f32,(((dt*vy)as f32 as f64)+py)as f32,(dt*vz+pz)as f32)
+    };
+    m.set_f32(object+0x4c,nx);m.set_f32(object+0x50,ny);m.set_f32(object+0x54,nz);
+    for i in 0..3 {let v=m.u32(object+0x4c+i*4);m.set_u32(object+0x28+i*4,v);}
+    size_step(m,object);
+    let (life,age)=(f(m,0x64) as f64,f(m,0x68) as f64);
+    let t=(life-age)/life;
+    let t=if t<0.0 {0.0} else if t>1.0 {1.0} else {t};
+    let angle=((f(m,0xb4) as f64*t)*t)*dt+f(m,0xb0) as f64;
+    m.set_f32(object+0xb0,angle as f32);
+    let stored=f(m,0xb0) as f64;
+    let g=m.u32(object+0x48);let (a8,a12)=(m.u32(g+8),m.u32(g+0xc));
+    let (cb,sb)=(f(m,0xb8) as f64,f(m,0xbc) as f64);
+    for (k,addr) in [0x6f6a58u32,0x6f6a5c,0x6f6a60,0x6f6a54].into_iter().enumerate() {
+        let base=m.f32(addr) as f64;let sum=if k==0 {base+angle}else{base+stored};
+        m.set_f32(a8+k as u32*4,(sum.cos()*cb+0.5)as f32);
+        m.set_f32(a12+k as u32*4,((base+stored).sin()*sb+0.5)as f32);
+    }
+}
+#[cfg(test)]
+mod smoke_update_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_smoke_update(){
+        for line in include_str!("../../../tools/emu/golden_smoke_update.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();
+            let (obj,clock,geom,a8,a12,wind,scratch)=(0x2a040000u32,0x2a030000u32,0x2a050000u32,0x2a051000u32,0x2a052000u32,0x2a053000u32,0x2a060000u32);
+            crate::globals::install_constants(&mut m);
+            m.write(0x702620,&bytes(v[3]));m.write(0x6f6a54,&bytes(v[4]));
+            m.write(obj,&bytes(v[0]));m.write(clock+0xb90,&bytes(v[1]));m.write(wind+0x214,&bytes(v[2]));
+            m.set_u32(0x7025b8,if v[5]=="1" {wind}else{0});m.set_u32(geom+8,a8);m.set_u32(geom+0xc,a12);
+            let mut called=0;let mut at=vec![];
+            update_smoke_particle(&mut m,obj,scratch,|m,o|{assert_eq!(o,obj);called+=1;at=m.read(obj+0x28,12);});
+            assert_eq!(m.read(obj,0xc8),bytes(v[6]),"{line}");
+            assert_eq!(m.read(a8,16),bytes(v[7]),"{line}");assert_eq!(m.read(a12,16),bytes(v[8]),"{line}");
+            assert_eq!(called.to_string(),v[9]);assert_eq!(at,bytes(v[10]));
+        }
+    }
+}
+
+#[cfg(test)]
+mod smoke_delete_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    /// `0x5a1c40` (flags = 1) is `0x5a2a30` + pool recycle, i.e. exactly `delete_scene_particle`.
+    #[test]
+    fn native_smoke_delete(){
+        for line in include_str!("../../../tools/emu/golden_smoke_delete.tsv").lines(){
+            let (input,output)=line.split_once('\t').unwrap();let mut m=Mem::new();let obj=0x2a000000;
+            m.write(obj,&bytes(input));delete_scene_particle(&mut m,obj,|_,_|{});assert_eq!(m.read(obj,0x400),bytes(output));
+        }
+    }
+}
