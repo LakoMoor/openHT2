@@ -1532,3 +1532,62 @@ mod wheel_effect_tests {
         }
     }
 }
+
+/// Arguments of the dust particle constructor `0x59d790` as passed by `0x4bb050`.
+#[derive(Debug,Clone,Copy,PartialEq)]
+pub struct DustParticleRequest {pub object:u32,pub position:u32,pub velocity:[f32;3],pub size_a:f32,pub size_b:f32,pub material_table:u32,pub tail:u32}
+
+/// `0x4bb050`: probabilistic dust emission for one wheel.
+/// `rand` is the C library generator, `gate` is `0x4bb010`, `alloc` is `0x579380(200, [0x6f6a9c])`
+/// and `construct` is `0x59d790`; all four are external here. Returns whether a particle was built.
+pub fn emit_wheel_dust(m:&mut Mem,position:u32,direction:u32,intensity:f32,
+    mut rand:impl FnMut(&mut Mem)->i32,gate:impl FnOnce(&mut Mem)->bool,alloc:impl FnOnce(&mut Mem,u32,u32)->u32,
+    construct:impl FnOnce(&mut Mem,DustParticleRequest))->bool {
+    const K:f64=f32::from_bits(0x38000100) as f64;
+    if !gate(m) {return false;}
+    if m.f32(0x69603c)<0.5 || m.f32(0x69603c).is_nan() {return false;}
+    if (rand(m) as f64*K)>0.800000011920929 {return false;}
+    let intensity=if intensity>1.0 {1.0} else {intensity};
+    let clock=m.u32(0x696224);
+    let mut inverse=1.0/m.f64(clock+0xb90);
+    if inverse>20.0 {inverse=20.0;}
+    let limit=((m.u32(0x671700) as f64*inverse)*(0.05f32 as f64)) as i64 as u32;
+    if m.u32(0x6f6a6c)>limit {return false;}
+    let a=(intensity as f64*0.5+1.0) as f32 as f64;
+    let size_a=(((rand(m) as f64*0.5*K)+1.0)*a*2.0) as f32;
+    let size_b=(((rand(m) as f64*0.5*K)+1.0)*a*3.5) as f32;
+    let object=alloc(m,200,m.u32(0x6f6a9c));
+    if object!=0 {
+        let s=(rand(m) as f64*K)*(0.1f32 as f64)+(0.8f32 as f64);let s32=s as f32 as f64;
+        let velocity=[(s32*m.f32(direction) as f64) as f32,(s32*m.f32(direction+4) as f64) as f32,(s*m.f32(direction+8) as f64) as f32];
+        let request=DustParticleRequest{object,position,velocity,size_a,size_b,material_table:m.u32(0x696218),tail:m.u32(0x694830)};
+        construct(m,request);
+    }
+    m.set_u32(0x6f6a70,m.u32(0x694830));
+    object!=0
+}
+#[cfg(test)]
+mod wheel_dust_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_wheel_dust(){
+        for line in include_str!("../../../tools/emu/golden_wheel_dust_emit.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let (pos,dir,clock)=(0x2a000100u32,0x2a000120u32,0x2a030000u32);
+            let intensity=f32::from_le_bytes(bytes(v[0]).try_into().unwrap());
+            m.write(dir,&bytes(v[1]));m.write(pos,&bytes(v[2]));m.write(0x69603c,&bytes(v[3]));m.set_u32(0x696224,clock);m.write(clock+0xb90,&bytes(v[4]));
+            m.set_u32(0x671700,200);
+            let g:Vec<u32>=v[5].split(',').map(|s|s.parse().unwrap()).collect();
+            m.set_u32(0x6f6a6c,g[0]);m.set_u32(0x694830,g[3]);m.set_u32(0x696218,g[4]);m.set_u32(0x6f6a9c,g[5]);m.set_u32(0x6f6a70,0);
+            let rands:Vec<i32>=v[6].split(',').map(|s|s.parse().unwrap()).collect();let used=std::cell::Cell::new(0usize);let gate_called=std::cell::Cell::new(false);let alloc_called=std::cell::Cell::new(false);
+            let mut got=None;
+            emit_wheel_dust(&mut m,pos,dir,intensity,|_|{let r=rands[used.get()];used.set(used.get()+1);r},|_|{gate_called.set(true);g[1]!=0},
+                |_,size,pool|{assert_eq!((size,pool),(200,g[5]));alloc_called.set(true);g[2]},|_,r|got=Some(r));
+            let f:Vec<u32>=v[7].split(',').map(|s|s.parse().unwrap()).collect();
+            assert_eq!((gate_called.get() as u32,used.get() as u32,alloc_called.get() as u32),(f[0],f[1],f[2]),"{line}");
+            let actual:Vec<u8>=got.map(|r|{let mut o=Vec::new();for x in [r.object,r.size_a.to_bits(),r.size_b.to_bits(),r.material_table,r.tail]{o.extend(x.to_le_bytes());}for x in r.velocity{o.extend(x.to_le_bytes());}o}).unwrap_or_default();
+            assert_eq!(actual,if v[8]=="-" {vec![]}else{bytes(v[8])},"{line}");
+            assert_eq!(m.u32(0x6f6a70),u32::from_le_bytes(bytes(v[9]).try_into().unwrap()),"{line}");
+        }
+    }
+}
