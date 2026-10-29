@@ -13,6 +13,7 @@ mod event_heap;
 mod particle_memory;
 mod particle_runtime;
 mod particles;
+mod effects;
 
 use glam::{Mat4, Vec3};
 use ground::Ground;
@@ -462,6 +463,7 @@ fn run() -> Result<(), String> {
             let mut next_print = 0.0;
             while t < seconds {
                 game.world.vehicle.step(Input { steer: (t * 0.6).sin() * 0.25, throttle: 1.0, brake: 0.0 }, &game.world.ground, STEP);
+                game.step_effects(STEP);
                 t += STEP;
                 if trace && t >= next_print {
                     let below = game.world.vehicle.room_below(&game.world.ground);
@@ -490,6 +492,9 @@ fn run() -> Result<(), String> {
                 None => chase_view_proj(v, size).combined(),
             };
             game.place_cockpit(cockpit_visible);
+            game.place_effects(vp);
+            println!("live particles: {}", game.effects.as_ref().map_or(0, |e| e.live()));
+            if let Some(e) = &game.effects { e.dump(); }
             game.renderer.set_hud(if cockpit_visible && game.cockpit.is_some() {Vec::new()}else{hud(&game.world.vehicle, size, cab)});
             let rgba = game.renderer.screenshot(size, vp);
             save_png(&path, size, &rgba)?;
@@ -505,6 +510,7 @@ fn run() -> Result<(), String> {
 }
 
 struct Game {
+    effects:Option<effects::Effects>,
     cockpit:Option<cockpit::Cockpit>,
     #[cfg(windows)]
     radar_sound:Option<audio::RadarSound>,
@@ -618,7 +624,8 @@ impl Game {
             .and_then(|t|match cockpit::Cockpit::load(&mut renderer,&world.game_dir,&t.cabin,world.models.fallback_cabin.as_deref(),t.tank){Ok(c)=>Some(c),Err(e)=>{eprintln!("cockpit: {e}");None}});
         #[cfg(windows)]
         let radar_sound=match audio::RadarSound::load(&world.game_dir){Ok(s)=>Some(s),Err(e)=>{eprintln!("radar sound: {e}");None}};
-        let mut game = Game { cockpit,#[cfg(windows)] radar_sound,renderer, textures, truck_objects, trucks: HashMap::new(), traffic_objects, world, movie: None, movie_mode: None, menu_mode: None, shown_menu: None, menu_buttons: Default::default(), action_index: 0, media_error: None };
+        let effects=match effects::Effects::load(&mut renderer,&world.game_dir){Ok(e)=>Some(e),Err(e)=>{eprintln!("effects: {e}");None}};
+        let mut game = Game { effects,cockpit,#[cfg(windows)] radar_sound,renderer, textures, truck_objects, trucks: HashMap::new(), traffic_objects, world, movie: None, movie_mode: None, menu_mode: None, shown_menu: None, menu_buttons: Default::default(), action_index: 0, media_error: None };
         game.place_truck();
         game
     }
@@ -632,6 +639,23 @@ impl Game {
         let t=cab_world_transform(v,self.world.truck.cab_eye,self.world.truck.cab_tilt);
         let mount=Mat4::from_cols(glam::Vec4::new(t[0],t[1],t[2],0.),glam::Vec4::new(t[3],t[4],t[5],0.),glam::Vec4::new(t[6],t[7],t[8],0.),glam::Vec4::new(t[9],t[10],t[11],1.));
         cockpit.update(&mut self.renderer,mount,v.dashboard_speed()*3.6,v.engine_rev,v.fuel,v.steering_position(),v.radar_equipped(),v.radar_lamp());
+    }
+
+    /// Fixed-step particle update for the player's truck (emission is a STAND-IN, see `effects.rs`).
+    fn step_effects(&mut self, dt: f32) {
+        let v = &self.world.vehicle;
+        let throttle = v.last.map_or(0.0, |o| o.throttle_eff);
+        let (body, speed) = (v.model(), v.speed);
+        let camera = chase_view_proj(&self.world.vehicle, (1024, 768)).combined();
+        if let Some(e) = &mut self.effects {
+            e.set_camera(camera);
+            e.emit(body, speed, throttle);
+            e.tick(dt as f64);
+        }
+    }
+
+    fn place_effects(&mut self, vp: Mat4) {
+        if let Some(e) = &mut self.effects { e.place(&mut self.renderer, vp); }
     }
 
     fn place_truck(&mut self) {
@@ -802,6 +826,7 @@ impl ApplicationHandler for App {
                 } else {
                     while self.acc >= STEP {
                         g.game.world.vehicle.step(input, &g.game.world.ground, STEP);
+                        g.game.step_effects(STEP);
                         #[cfg(windows)]
                         if let Some(sound)=&mut g.game.radar_sound {if let Err(e)=sound.update(g.game.world.vehicle.radar_sound()){eprintln!("radar sound: {e}");g.game.radar_sound=None;}}
                         self.acc -= STEP;
@@ -814,6 +839,7 @@ impl ApplicationHandler for App {
                         let view = frame.texture.create_view(&Default::default());
                         let size = (g.config.width, g.config.height);
                         let vp = if self.cab { cab_view_proj(&g.game.world.vehicle, g.game.world.truck.cab_eye,g.game.world.truck.cab_tilt, size) } else { chase_view_proj(&g.game.world.vehicle, size) };
+                        g.game.place_effects(vp.combined());
                         g.game.renderer.set_hud(if self.cab && g.game.cockpit.is_some(){Vec::new()}else{hud(&g.game.world.vehicle, size, self.cab)});
                         g.game.renderer.draw_original_view(&view,size,&vp.view,&vp.projection,vp.viewport).expect("camera viewport must fit the surface");
                         let v = &g.game.world.vehicle;

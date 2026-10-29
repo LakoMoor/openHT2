@@ -34,9 +34,16 @@ impl ParticleWorld {
             sim::load_effect_materials(m,which,|m,name|{if !available(name) {return 0;}let p=m.alloc(0x60);names.insert(p,name.to_owned());p})?;
         }
         // STAND-INS: effect option scalars and a dim sky so the dust gate of 0x4bb010 passes.
-        m.set_f32(0x69603c,1.0);m.set_f32(0x696048,0.0);m.set_f32(0x696054,1.0);m.set_u32(0x671700,200);
+        m.set_f32(0x69603c,1.0);m.set_f32(0x696048,0.0);m.set_f32(0x696054,1.0);m.set_u32(0x671700,200);m.set_f32(0x694830,3.0);// GeometryKey=0 of 0x4b8...: density limit 200, dust lifetime 3.0 s
+        for (i,x) in [0.0f32,0.0,1.0].into_iter().enumerate() {m.set_f32(0x702640+i as u32*4,x);}
         let sky=m.alloc(0x240);m.set_f32(sky+0x220,0.5);m.set_f64(sky+0x78,0.0);m.set_f64(sky+0x68,0.0);m.set_u32(0x6f33ac,sky);
         Ok(Self{memory:Default::default(),manager,pools,clock,scratch,input,names})
+    }
+    /// STAND-IN for the owners of `0x702630` (axis crossed with the dust velocity), `0x702640`
+    /// (its fallback) and `0x702650` (`Driver_Seat` of `truck.ini`, a vehicle-frame offset: it must
+    /// stay small, the dust update feeds it into `mat_look` and adds the result to the swirl vector).
+    pub fn set_camera(&mut self,m:&mut Mem,seat:[f32;3],axis:[f32;3],fallback:[f32;3]) {
+        for i in 0..3 {m.set_f32(0x702650+i as u32*4,seat[i]);m.set_f32(0x702630+i as u32*4,axis[i]);m.set_f32(0x702640+i as u32*4,fallback[i]);}
     }
     fn vec(&mut self,m:&mut Mem,slot:u32,v:[f32;3])->u32 {
         let a=self.input+slot*12;for (i,x) in v.into_iter().enumerate() {m.set_f32(a+i as u32*4,x);}a
@@ -52,7 +59,7 @@ impl ParticleWorld {
         sim::emit_wheel_dust(m,p,d,intensity,|m|globals::rand(m),|m|sim::dust_gate(m),|m,_,pool|sim::allocate_effect_object(m,pool),
             |_,r|made=Some(r));
         let Some(r)=made else {return false};
-        let args=sim::DustParticleArgs{clock:m.u32(0x696224),position:p,velocity:d,size_a:r.size_a,size_b:r.size_b,table:r.material_table,frames:m.u32(0x696218),kind:0,lifetime:f32::from_bits(r.tail)};
+        let args=sim::DustParticleArgs{clock:m.u32(0x696224),position:p,velocity:d,size_a:r.size_a,size_b:r.size_b,table:0x694a00,frames:r.material_table,kind:0,lifetime:f32::from_bits(r.tail)};
         let scratch=self.scratch;
         sim::construct_dust_particle(m,r.object,args,scratch,|m|globals::rand(m),|m,o,a|self.construct_root(m,o,a));
         true
@@ -114,7 +121,7 @@ impl ParticleWorld {
             while o!=0 {
                 let g=m.u32(o+0x48);let (x,z)=(m.u32(g+0x10),m.u32(g+0x14));
                 if let Some(name)=self.names.get(&m.u32(g+0x24)) {
-                    out.push(Quad{position:[m.f32(o+0x28),m.f32(o+0x2c),m.f32(o+0x30)],width:m.f32(x+4)-m.f32(x),height:m.f32(z+8)-m.f32(z),material:name.clone()});
+                    out.push(Quad{position:[m.f32(o+0x4c),m.f32(o+0x50),m.f32(o+0x54)],width:m.f32(x+4)-m.f32(x),height:m.f32(z+8)-m.f32(z),material:name.clone()});
                 }
                 o=m.u32(o+8);
             }
@@ -129,6 +136,7 @@ mod tests {
     #[test]
     fn every_class_is_created_updated_and_freed() {
         let mut m=Mem::new();let mut w=world(&mut m);
+        w.set_camera(&mut m,[0.,-5.,2.],[0.,1.,0.],[0.,0.,1.]);
         m.set_u32(globals::RAND_SEED,12345);
         for i in 0..60 {
             w.emit_exhaust(&mut m,[i as f32,0.,0.],[0.,1.,0.2],1.0);
@@ -139,6 +147,8 @@ mod tests {
             for q in w.quads(&m) {assert!(q.position.iter().all(|x|x.is_finite()),"{q:?}");}
         }
         assert!(w.live_count(&m)>0);
+        let quads=w.quads(&m);assert!(!quads.is_empty(),"live particles must resolve to materials");
+        assert!(quads.iter().all(|q|q.width.is_finite()&&q.height.is_finite()&&q.width>=0.0&&q.height>=0.0),"{quads:?}");
         for _ in 0..200 {w.tick(&mut m,0.1);}
         assert_eq!(w.live_count(&m),0);assert_eq!(w.live_blocks(),0);
         assert_eq!(m.u32(0x6f6a6c),0,"live dust counter must return to zero");

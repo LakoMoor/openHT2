@@ -1535,6 +1535,7 @@ mod wheel_effect_tests {
 
 /// Arguments of the dust particle constructor `0x59d790` as passed by `0x4bb050`.
 #[derive(Debug,Clone,Copy,PartialEq)]
+/// `material_table` holds `[0x696218]`, the dust frame count (the name is historical).
 pub struct DustParticleRequest {pub object:u32,pub position:u32,pub velocity:[f32;3],pub size_a:f32,pub size_b:f32,pub material_table:u32,pub tail:u32}
 
 /// `0x4bb050`: probabilistic dust emission for one wheel.
