@@ -646,9 +646,7 @@ impl Game {
         let v = &self.world.vehicle;
         let throttle = v.last.map_or(0.0, |o| o.throttle_eff);
         let (body, speed) = (v.model(), v.speed);
-        let camera = chase_view_proj(&self.world.vehicle, (1024, 768)).combined();
         if let Some(e) = &mut self.effects {
-            e.set_camera(camera);
             e.emit(body, speed, throttle);
             e.tick(dt as f64);
         }

@@ -23,6 +23,9 @@ pub struct Effects {
     objects: Vec<Vec<ObjectId>>,
     index: HashMap<String, usize>,
     used: Vec<usize>,
+    /// Address of the stand-in vehicle scene object inside `mem`.
+    scene_at: u32,
+    previous_speed: f32,
 }
 
 fn effect_material_names(res_path: &Path) -> Result<Vec<String>, String> {
@@ -45,6 +48,42 @@ fn effect_material_names(res_path: &Path) -> Result<Vec<String>, String> {
     Ok(names)
 }
 
+/// Build the constant part of the stand-in vehicle scene read by `0x551970`.
+/// STAND-INS (the owners are the unported layer `0x54xxxx` and the vehicle tech record `0x697xxx`):
+/// axis vectors `0x702620/30/40` = (0,1,0)/(0,0,1)/(1,0,0) (inferred from use: spread, up, sideways),
+/// matrix `0x2c4` = identity, wheel points and the exhaust offset `(1.1,-3,2.6)`, the exhaust box,
+/// count scale 0.5, effect mode 4 (`p = 0.4`, no soot; modes 1 and 2 give `p >= 0.76`: soot and the `0x549e60` call, probably a damage state), `x` = 1.2*(1-throttle), ground level -100 (water branch and the low-vehicle branch off; `0x697fdc` is both the exhaust y and that test).
+fn fill_scene(m: &mut Mem) -> u32 {
+    let scene = m.alloc(0x14000);
+    let cfg = m.alloc(0x20);
+    let set = |m: &mut Mem, at: u32, v: &[f32]| v.iter().enumerate().for_each(|(i, x)| m.set_f32(at + i as u32 * 4, *x));
+    set(m, 0x702620, &[0.0, 1.0, 0.0]);
+    set(m, 0x702630, &[0.0, 0.0, 1.0]);
+    set(m, 0x702640, &[1.0, 0.0, 0.0]);
+    set(m, 0x702650, &[0.0, 0.0, 0.0]);
+    set(m, scene + 0x2c4, &[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]);
+    m.set_u32(scene + 0x28b4, 0);
+    m.set_u32(scene + 0x5454, cfg);
+    m.set_u32(cfg + 0xc, 4);
+    m.write(scene + 0x2821, &[0xf]);
+    let wheels: [[f32; 3]; 4] = [[-1.0, 2.5, 0.2], [1.0, 2.5, 0.2], [-1.0, -2.5, 0.2], [1.0, -2.5, 0.2]];
+    for (k, w) in wheels.iter().enumerate() {
+        m.set_u32(scene + 0x4fb0 + k as u32 * 4, k as u32);
+        set(m, scene + 0x282c + k as u32 * 12, w);
+        m.set_f32(0x697a10 + k as u32 * 12, w[0]);
+    }
+    m.set_f32(0x6979f8, -100.0);
+    m.set_f32(0x697db8, 0.5);
+    m.set_f32(0x697dc0, 0.5);
+    for (o, v) in [(0x697dc4, 5.0), (0x697dc8, 6.0), (0x697dcc, 6.0), (0x697dd0, -5.0), (0x697dd4, -6.0), (0x697dd8, 0.0)] {
+        m.set_f32(o, v);
+    }
+    for (o, v) in [(0x697fd8, 1.1), (0x697fdc, -3.0), (0x697fe0, 2.6)] {
+        m.set_f32(o, v);
+    }
+    scene
+}
+
 impl Effects {
     pub fn load(renderer: &mut Renderer, game_dir: &Path) -> Result<Self, String> {
         let res_path = game_dir.join("COMMON").join("COMMON.RES");
@@ -56,36 +95,51 @@ impl Effects {
         let world = ParticleWorld::new(&mut mem, CAPACITY, |n| have.contains(n)).map_err(|e| e.to_string())?;
         let index = names.iter().cloned().enumerate().map(|(i, n)| (n, i)).collect();
         let n = names.len();
-        Ok(Self { mem, world, scene, textures, objects: vec![Vec::new(); n], index, used: vec![0; n] })
+        let scene_at = fill_scene(&mut mem);
+        Ok(Self { mem, world, scene, textures, objects: vec![Vec::new(); n], index, used: vec![0; n], scene_at, previous_speed: 0.0 })
     }
 
-    /// Fixed-step emission for the truck at `body` (model matrix, +Y forward, +Z up).
+    /// Fixed-step emission for the truck at `body` (model matrix, +Y forward, +Z up) moving at `speed`.
+    /// The original decides this in `0x551970` from the vehicle object; here its scene fields are filled
+    /// from the ported vehicle and the ported branches (`scene_wheel_requests`, `scene_exhaust_branch`)
+    /// run on them in the original order. STAND-INS are listed in `fill_scene`.
     pub fn emit(&mut self, body: Mat4, speed: f32, throttle: f32) {
-        let m = &mut self.mem;
-        let at = |p: Vec3| body.transform_point3(p).to_array();
-        let dir = body.transform_vector3(Vec3::new(0.0, -0.3, 0.6)).to_array();
-        if throttle > 0.0 {
-            self.world.emit_exhaust(m, at(Vec3::new(1.1, -3.0, 2.6)), dir, throttle.min(1.0));
+        // STAND-IN: the autopilot demo does not run the powertrain input, so accelerating counts as full throttle
+        let throttle = if throttle > 0.0 || speed > self.previous_speed { throttle.max(if speed > self.previous_speed { 1.0 } else { 0.0 }) } else { 0.0 };
+        self.previous_speed = speed;
+        let Self { mem: m, world, scene_at, .. } = self;
+        let scene = *scene_at;
+        let c = body.to_cols_array();
+        let cols = [c[0], c[1], c[2], c[4], c[5], c[6], c[8], c[9], c[10], c[12], c[13], c[14]];
+        for (i, v) in cols.into_iter().enumerate() {
+            m.set_f32(scene + 0x204 + i as u32 * 4, v);
         }
-        if speed.abs() > 5.0 {
-            let back = body.transform_vector3(Vec3::new(0.0, -speed.abs() * 0.05, 0.4)).to_array();
-            for x in [-1.0, 1.0] {
-                self.world.emit_dust(m, at(Vec3::new(x, -2.5, 0.2)), back, (speed.abs() / 20.0).min(1.0));
+        let velocity = body.y_axis.truncate() * speed;
+        for i in 0..3 {
+            m.set_f32(scene + 0x1b0 + i as u32 * 4, velocity[i]);
+        }
+        let slip = if speed.abs() > 5.0 { (speed.abs() / 20.0).min(1.0) } else { 0.0 };
+        for i in 0..4 {
+            m.set_f32(scene + 0x27f0 + i * 4, slip);
+        }
+        let cfg = m.u32(scene + 0x5454);
+        m.set_f32(cfg + 8, (1.0 - throttle.clamp(0.0, 1.0)) * 1.2);
+        let basis = scene + 0x10000;
+        ht2_sim::instruments::scene_geometry_basis(m, scene, basis);
+        for w in ht2_sim::instruments::scene_wheel_requests(m, scene, basis) {
+            if let ht2_sim::instruments::WheelEffectPoint::World(p) = w.point {
+                world.emit_dust(m, p, w.direction, f32::from_bits(w.intensity));
             }
         }
-    }
-
-    /// Camera for the dust particles (`vp` is the combined view-projection); STAND-IN for the camera layer.
-    pub fn set_camera(&mut self, vp: Mat4) {
-        let inv = vp.inverse();
-        let at = |x: f32, y: f32, z: f32| {
-            let v = inv * Vec4::new(x, y, z, 1.0);
-            v.truncate() / v.w
-        };
-        let eye = at(0.0, 0.0, 0.0);
-        let forward = (at(0.0, 0.0, 0.9) - eye).normalize_or_zero();
-        let up = (at(0.0, 1.0, 0.5) - at(0.0, 0.0, 0.5)).normalize_or_zero();
-        self.world.set_camera(&mut self.mem, [0.0; 3], forward.to_array(), up.to_array());
+        // the exhaust emitter is reached through a raw pointer pair because `world` and `m` are
+        // both borrowed by the closures
+        let world_ptr: *mut ParticleWorld = world;
+        ht2_sim::instruments::scene_exhaust_branch(
+            m, scene, scene + 0x11000,
+            |m| ht2_sim::globals::rand(m),
+            |_| {},
+            |m, e| unsafe { (*world_ptr).emit_exhaust(m, e.position, e.velocity, e.p) },
+        );
     }
 
     pub fn tick(&mut self, dt: f64) {
