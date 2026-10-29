@@ -2230,3 +2230,68 @@ mod flash_tests {
         }
     }
 }
+
+/// The four material tables built by `aeffects.cpp` loaders.
+#[derive(Debug,Clone,Copy,PartialEq,Eq)]
+pub enum EffectMaterials {
+    /// `0x4b8c40`: `msmokeNN` from 0 into `0x695bf0`, count `0x696208`.
+    Smoke,
+    /// `0x4b8fb0`: `mvaporNN` from 0 into `0x695c58`, count `0x69620c`.
+    Fume,
+    /// `0x4b8ad0`: `burnNN` from 1 into `0x694998`, count `0x696210`.
+    Soot,
+    /// `0x4b8f00`: `dustNN` from 0 into `0x694a00`, count `0x696218`.
+    Dust,
+}
+impl EffectMaterials {
+    /// (table address, count address, name prefix, first index, two-digit formatting)
+    fn spec(self)->(u32,u32,&'static str,u32,bool) {
+        match self {
+            Self::Smoke=>(0x695bf0,0x696208,"msmoke",0,false),
+            Self::Fume=>(0x695c58,0x69620c,"mvapor",0,false),
+            Self::Soot=>(0x694998,0x696210,"burn",1,true),
+            Self::Dust=>(0x694a00,0x696218,"dust",0,true),
+        }
+    }
+    /// Loaders that report an error (`0x60aad0`) when not even the first material exists.
+    pub fn requires_first(self)->bool {self!=Self::Soot}
+    pub fn table(self)->u32 {self.spec().0}
+    pub fn count_address(self)->u32 {self.spec().1}
+}
+/// Enumerate the materials of one table until the first missing one; each found material gets
+/// opacity `+0x58 = 1.0` and flags `+0x20 |= 0x40220`. Returns the count.
+pub fn load_effect_materials(m:&mut Mem,which:EffectMaterials,mut lookup:impl FnMut(&mut Mem,&str)->u32)->Result<u32,&'static str> {
+    let (table,count_at,prefix,first,two_digits)=which.spec();
+    m.set_u32(count_at,0);let mut count=0;let mut index=first;
+    loop {
+        let name=if two_digits || index>9 {format!("{prefix}{index:02}")}else{format!("{prefix}0{index}")};
+        let material=lookup(m,&name);m.set_u32(table+(index-first)*4,material);
+        if material==0 {break;}
+        count+=1;m.set_u32(count_at,count);m.set_f32(material+0x58,1.0);m.set_u32(material+0x20,m.u32(material+0x20)|0x40220);
+        index+=1;
+    }
+    if count==0 && which.requires_first() {Err("missing effect materials")}else{Ok(count)}
+}
+#[cfg(test)]
+mod effect_material_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_effect_materials(){
+        for line in include_str!("../../../tools/emu/golden_effect_materials.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();
+            let which=match v[0]{"smoke"=>EffectMaterials::Smoke,"fume"=>EffectMaterials::Fume,"soot"=>EffectMaterials::Soot,_=>EffectMaterials::Dust};
+            let avail:usize=v[1].parse().unwrap();let mats=0x2a070000u32;
+            let pre:Vec<Vec<u8>>=if v[6].is_empty() {vec![]}else{v[6].split(',').map(bytes).collect()};
+            for (i,p) in pre.iter().enumerate() {m.write(mats+0x100*i as u32,p);}
+            let mut names=vec![];
+            let result=load_effect_materials(&mut m,which,|_,name|{names.push(name.to_owned());if names.len()>avail {0}else{mats+0x100*(names.len() as u32-1)}});
+            assert_eq!(names.join(","),v[4],"{line}");
+            assert_eq!(m.u32(which.count_address()).to_string(),v[3]);
+            assert_eq!(result.is_err(),v[5]=="1","{line}");
+            let tbl=bytes(v[2]);for i in 0..names.len() {assert_eq!(m.read(which.table()+i as u32*4,4),tbl[i*4..i*4+4],"{line}");}
+            let post:Vec<Vec<u8>>=if v[7].is_empty() {vec![]}else{v[7].split(',').map(bytes).collect()};
+            for (i,p) in post.iter().enumerate() {assert_eq!(&m.read(mats+0x100*i as u32,0x60),p,"{line}");}
+        }
+    }
+}
