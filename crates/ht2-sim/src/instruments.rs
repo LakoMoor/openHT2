@@ -1744,3 +1744,36 @@ mod dust_delete_tests {
         }
     }
 }
+
+/// `0x5a9d40` (thiscall on the sky object): daylight brightness in `0..=1` at time offset `t`.
+/// Uses x87 `fsin`; the port uses `f64::sin` (agreement checked to 1e-12 against the original).
+pub fn sky_brightness(m:&Mem,sky:u32,t:f64)->f64 {
+    let a=1.0-(m.f32(sky+0x220) as f64+m.f32(sky+0x220) as f64);
+    let x=m.f64(sky+0x78).sin()*0.3+1.0;
+    let y=1.0-a.abs();
+    let s=(m.f64(sky+0x68)-1.5707963+t).sin();
+    let v=((s*(x*y)+a)+1.0)*0.5;
+    if v>1.0 {1.0} else if v<0.0 {0.0} else {v}
+}
+/// `0x4bb010`: dust is allowed while the sky is dim (`brightness <= 0.7`) and the sky's `+0x218`
+/// value is at most 0.001. The sky object is `[0x6f33ac]`.
+pub fn dust_gate(m:&Mem)->bool {
+    let sky=m.u32(0x6f33ac);
+    !(sky_brightness(m,sky,0.0)>0.7) && !(m.f32(sky+0x218)>f32::from_bits(0x3a83126f))
+}
+#[cfg(test)]
+mod sky_gate_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_sky_gate(){
+        for line in include_str!("../../../tools/emu/golden_sky_gate.tsv").lines(){
+            let v:Vec<_>=line.split('\t').collect();let mut m=Mem::new();let sky=0x2a060000u32;
+            m.write(sky,&bytes(v[0]));m.set_u32(0x6f33ac,sky);
+            let t=f64::from_le_bytes(bytes(v[1]).try_into().unwrap());let want=f64::from_le_bytes(bytes(v[2]).try_into().unwrap());
+            let got=sky_brightness(&m,sky,t);
+            assert!((got-want).abs()<1e-12 || (got.is_nan()&&want.is_nan()),"{got} {want} {line}");
+            assert_eq!(dust_gate(&m) as u32,v[3].parse::<u32>().unwrap(),"{line}");
+        }
+    }
+}
