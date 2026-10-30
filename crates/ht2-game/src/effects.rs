@@ -119,6 +119,32 @@ fn fill_scene(m: &mut Mem) -> u32 {
     scene
 }
 
+/// One fixed step of the vehicle scene effects: fill the stand-in scene from the vehicle and run the ported `0x551970`.
+fn run_scene_effects(m: &mut Mem, world: &mut ParticleWorld, scene: u32, body: Mat4, speed: f32, throttle: f32, event: u32) {
+    let c = body.to_cols_array();
+    let cols = [c[0], c[1], c[2], c[4], c[5], c[6], c[8], c[9], c[10], c[12], c[13], c[14]];
+    for (i, v) in cols.into_iter().enumerate() {
+        m.set_f32(scene + 0x204 + i as u32 * 4, v);
+    }
+    let velocity = body.y_axis.truncate() * speed;
+    for i in 0..3 {
+        m.set_f32(scene + 0x1b0 + i as u32 * 4, velocity[i]);
+    }
+    let slip = if speed.abs() > 5.0 { (speed.abs() / 20.0).min(1.0) } else { 0.0 };
+    for i in 0..4 {
+        m.set_f32(scene + 0x27f0 + i * 4, slip);
+    }
+    let cfg = m.u32(scene + 0x5454);
+    m.set_f32(cfg + 8, (1.0 - throttle.clamp(0.0, 1.0)) * 1.2);
+    // The impact event of `0x4ff800` (`[owner+0x3c18]`, the field `0x548250` reads as `[param_3+0x1228]`) feeds the
+    // flash flags. STAND-IN: the record flag `[rec+0x108] & 0x40` is taken as set.
+    let phys = scene + 0x12000;
+    m.set_u32(phys + 0x1228, event);
+    ht2_sim::instruments::update_flash_flags(m, scene, phys, 0x40);
+    let mut events = Events { world };
+    ht2_sim::instruments::update_scene_effects(m, scene, scene + 0x11000, &mut events);
+}
+
 impl Effects {
     pub fn load(renderer: &mut Renderer, game_dir: &Path) -> Result<Self, String> {
         let res_path = game_dir.join("COMMON").join("COMMON.RES");
@@ -142,30 +168,8 @@ impl Effects {
         // STAND-IN: the autopilot demo does not run the powertrain input, so accelerating counts as full throttle
         let throttle = if throttle > 0.0 || speed > self.previous_speed { throttle.max(if speed > self.previous_speed { 1.0 } else { 0.0 }) } else { 0.0 };
         self.previous_speed = speed;
-        let Self { mem: m, world, scene_at, .. } = self;
-        let scene = *scene_at;
-        let c = body.to_cols_array();
-        let cols = [c[0], c[1], c[2], c[4], c[5], c[6], c[8], c[9], c[10], c[12], c[13], c[14]];
-        for (i, v) in cols.into_iter().enumerate() {
-            m.set_f32(scene + 0x204 + i as u32 * 4, v);
-        }
-        let velocity = body.y_axis.truncate() * speed;
-        for i in 0..3 {
-            m.set_f32(scene + 0x1b0 + i as u32 * 4, velocity[i]);
-        }
-        let slip = if speed.abs() > 5.0 { (speed.abs() / 20.0).min(1.0) } else { 0.0 };
-        for i in 0..4 {
-            m.set_f32(scene + 0x27f0 + i * 4, slip);
-        }
-        let cfg = m.u32(scene + 0x5454);
-        m.set_f32(cfg + 8, (1.0 - throttle.clamp(0.0, 1.0)) * 1.2);
-        // The impact event of `0x4ff800` (`[owner+0x3c18]`, the field `0x548250` reads as `[param_3+0x1228]`) feeds the
-        // flash flags. STAND-IN: the record flag `[rec+0x108] & 0x40` is taken as set.
-        let phys = scene + 0x12000;
-        m.set_u32(phys + 0x1228, event);
-        ht2_sim::instruments::update_flash_flags(m, scene, phys, 0x40);
-        let mut events = Events { world };
-        ht2_sim::instruments::update_scene_effects(m, scene, scene + 0x11000, &mut events);
+        let Self { mem, world, scene_at, .. } = self;
+        run_scene_effects(mem, world, *scene_at, body, speed, throttle, event);
     }
 
     pub fn tick(&mut self, dt: f64) {
@@ -209,5 +213,28 @@ impl Effects {
             renderer.set_model(id, model);
             renderer.set_visible(id, true);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rig() -> (Mem, ParticleWorld, u32) {
+        let mut m = Mem::new();
+        let world = ParticleWorld::new(&mut m, 16, |n| ["msmoke", "mvapor", "burn", "dust"].iter().any(|p| n.starts_with(p)) && n.len() <= 8).unwrap();
+        let scene = fill_scene(&mut m);
+        (m, world, scene)
+    }
+
+    /// A zero event raises no flash; event 1 makes `0x551970` emit the two flashes (class `0x650ed8`) through
+    /// `update_flash_flags` -> `scene_flash_requests` -> `emit_flash`.
+    #[test]
+    fn effect_event_makes_flashes() {
+        let (mut m, mut w, scene) = rig();
+        run_scene_effects(&mut m, &mut w, scene, Mat4::IDENTITY, 0.0, 0.0, 0);
+        assert_eq!(w.count_class(&m, 0x650ed8), 0);
+        run_scene_effects(&mut m, &mut w, scene, Mat4::IDENTITY, 0.0, 0.0, 1);
+        assert_eq!(w.count_class(&m, 0x650ed8), 2);
     }
 }

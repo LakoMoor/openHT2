@@ -118,6 +118,10 @@ impl ParticleWorld {
     pub fn live_count(&self,m:&Mem)->usize {
         self.pools.iter().map(|&pool|{let mut n=0;let mut o=m.u32(pool+8);while o!=0 {n+=1;o=m.u32(o+8);}n}).sum()
     }
+    /// Live particles whose vtable is `class`.
+    pub fn count_class(&self,m:&Mem,class:u32)->usize {
+        self.pools.iter().map(|&pool|{let mut n=0;let mut o=m.u32(pool+8);while o!=0 {if m.u32(o)==class {n+=1;}o=m.u32(o+8);}n}).sum()
+    }
     pub fn live_blocks(&self)->usize {self.memory.live_blocks()}
     /// Every live particle as a quad (STAND-IN billboard: size from the current vertex arrays).
     pub fn quads(&self,m:&Mem)->Vec<Quad> {
