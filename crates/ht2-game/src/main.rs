@@ -645,9 +645,10 @@ impl Game {
     fn step_effects(&mut self, dt: f32) {
         let v = &self.world.vehicle;
         let throttle = v.last.map_or(0.0, |o| o.throttle_eff);
+        let event = v.last.map_or(0, |o| o.effect_event);
         let (body, speed) = (v.model(), v.speed);
         if let Some(e) = &mut self.effects {
-            e.emit(body, speed, throttle);
+            e.emit(body, speed, throttle, event);
             e.tick(dt as f64);
         }
     }

@@ -25,6 +25,9 @@ pub struct Output {
     pub target_gear: i32,
     pub shift_code: i32,
     pub throttle_eff: f32,
+    /// The effect event `+0x3c18` written by `0x4ff800` (1 or 2, 0 none); consumed (zeroed) here the way
+    /// `0x548250` zeroes it after reading, so each event is seen once.
+    pub effect_event: u32,
 }
 
 pub struct Powertrain {
@@ -105,6 +108,8 @@ impl Powertrain {
 
         input::fn_00500850(m, CAR);
 
+        let effect_event = m.u32(CAR + 0x3c18);
+        m.set_u32(CAR + 0x3c18, 0);
         Output {
             drive_force: m.f32(CAR + 0x1c94),
             engine_rev: m.f32(CAR + 0x1c84),
@@ -114,6 +119,7 @@ impl Powertrain {
             target_gear: m.i32(CAR + 0x1c20),
             shift_code: m.i32(CAR + 0x1c24),
             throttle_eff: m.f32(CAR + 0x29d8),
+            effect_event,
         }
     }
 

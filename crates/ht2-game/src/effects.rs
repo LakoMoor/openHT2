@@ -79,7 +79,7 @@ impl ht2_sim::instruments::SceneEffectEvents for Events<'_> {
 /// STAND-INS (the owners are the unported layer `0x54xxxx` and the vehicle tech record `0x697xxx`):
 /// axis vectors `0x702620/30/40` = (0,1,0)/(0,0,1)/(1,0,0) (inferred from use: spread, up, sideways),
 /// matrix `0x2c4` = identity, wheel points and the exhaust offset `(1.1,-3,2.6)`, the exhaust box,
-/// options object `[0x6cec6c]` all zero (`+0x514 = 0`: the scheduling gate lets every frame through), count scale 0.5, effect mode 4 (`p = 0.4`, no soot; modes 1 and 2 give `p >= 0.76`: soot and the `0x549e60` call, probably a damage state), `x` = 1.2*(1-throttle), ground level -100 (water branch and the low-vehicle branch off; `0x697fdc` is both the exhaust y and that test).
+/// flash points = two exhaust stacks (tech record `0x697a10`/`0x697a1c`, axis factor `0x6978cc` = 0), options object `[0x6cec6c]` all zero (`+0x514 = 0`: the scheduling gate lets every frame through), count scale 0.5, effect mode 4 (`p = 0.4`, no soot; modes 1 and 2 give `p >= 0.76`: soot and the `0x549e60` call, probably a damage state), `x` = 1.2*(1-throttle), ground level -100 (water branch and the low-vehicle branch off; `0x697fdc` is both the exhaust y and that test).
 fn fill_scene(m: &mut Mem) -> u32 {
     let scene = m.alloc(0x14000);
     let cfg = m.alloc(0x20);
@@ -102,6 +102,10 @@ fn fill_scene(m: &mut Mem) -> u32 {
         m.set_u32(scene + 0x4fb0 + k as u32 * 4, k as u32);
         set(m, scene + 0x282c + k as u32 * 12, w);
         m.set_f32(0x697a10 + k as u32 * 12, w[0]);
+    }
+    m.set_f32(0x6978cc, 0.0);
+    for (o, v) in [(0x697a10, [-1.1, -3.0, 2.6]), (0x697a1c, [1.1, -3.0, 2.6])] {
+        set(m, o, &v);
     }
     m.set_f32(0x6979f8, -100.0);
     m.set_f32(0x697db8, 0.5);
@@ -134,7 +138,7 @@ impl Effects {
     /// The original decides this in `0x551970` from the vehicle object; here its scene fields are filled
     /// from the ported vehicle and the ported branches (`scene_wheel_requests`, `scene_exhaust_branch`)
     /// run on them in the original order. STAND-INS are listed in `fill_scene`.
-    pub fn emit(&mut self, body: Mat4, speed: f32, throttle: f32) {
+    pub fn emit(&mut self, body: Mat4, speed: f32, throttle: f32, event: u32) {
         // STAND-IN: the autopilot demo does not run the powertrain input, so accelerating counts as full throttle
         let throttle = if throttle > 0.0 || speed > self.previous_speed { throttle.max(if speed > self.previous_speed { 1.0 } else { 0.0 }) } else { 0.0 };
         self.previous_speed = speed;
@@ -155,6 +159,11 @@ impl Effects {
         }
         let cfg = m.u32(scene + 0x5454);
         m.set_f32(cfg + 8, (1.0 - throttle.clamp(0.0, 1.0)) * 1.2);
+        // The impact event of `0x4ff800` (`[owner+0x3c18]`, the field `0x548250` reads as `[param_3+0x1228]`) feeds the
+        // flash flags. STAND-IN: the record flag `[rec+0x108] & 0x40` is taken as set.
+        let phys = scene + 0x12000;
+        m.set_u32(phys + 0x1228, event);
+        ht2_sim::instruments::update_flash_flags(m, scene, phys, 0x40);
         let mut events = Events { world };
         ht2_sim::instruments::update_scene_effects(m, scene, scene + 0x11000, &mut events);
     }
