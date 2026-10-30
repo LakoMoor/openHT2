@@ -3319,3 +3319,77 @@ mod scene_wheel_levels_tests {
         assert!(with_levels > 50);
     }
 }
+
+/// `FUN_00557090` (`__fastcall`, `ecx = scene`): light intensity of the scene in `0..=1`. Starts from
+/// `min(f32(1 or 0 when `0x549bf0` is set), f32([scene+0x5080]) or, below `[scene+0x224] < 0.5`, `2 * [scene+0x224]`
+/// clamped at 0)`, then folds in nine terms `t = 1 - |a / b| * k` of the integer pairs in the record at
+/// `[scene+0x2540]` (k = 0.1, 0.5, 0.5, 0.5, 0.6, 0.6, 0.3, 0.3, 0.3): each `f32(t)` is a candidate minimum
+/// (compared before rounding) and `(f32(t) + 1)` joins a running product halved after every step, which is
+/// the last candidate. The result is clamped at 0; comparisons treat NaN as "less", as `fnstsw` does.
+pub fn scene_light_intensity(m: &mut Mem, scene: u32) -> f64 {
+    let lt = |a: f64, b: f64| !(a >= b);
+    let mut a = 1.0f32;
+    let mut b = m.i32(scene + 0x5080) as f32;
+    let d = m.f32(scene + 0x224) as f64;
+    if lt(d, 0.5) {
+        b = if lt(d, 0.0) { 0.0 } else { (d + d) as f32 };
+    }
+    let flag_obj = m.u32(scene + 0x5440 + 0x14);
+    if m.u32(flag_obj + 0xc) != 0 {
+        a = 0.0;
+    }
+    let mut v = if lt(a as f64, b as f64) { a as f64 } else { b as f64 };
+    let rec = m.u32(scene + 0x2540);
+    const TERMS: [(u32, f64); 9] = [
+        (0x04, 0.1), (0x18, 0.5), (0x2c, 0.5), (0x40, 0.5), (0x54, 0.6), (0x68, 0.6), (0x7c, 0.3), (0x90, 0.3), (0xa4, 0.3),
+    ];
+    let mut prod = 0.0f32;
+    for (i, &(off, k)) in TERMS.iter().enumerate() {
+        let q = (m.i32(rec + off) as f64 / m.i32(rec + off + 4) as f64).abs();
+        let t = 1.0 - q * k;
+        let t32 = t as f32;
+        if lt(t, v) {
+            v = t32 as f64;
+        }
+        let p = (t32 as f64 + 1.0) * if i == 0 { 1.0 } else { prod as f64 } * 0.5;
+        prod = p as f32;
+        if i == TERMS.len() - 1 && lt(p, v) {
+            v = prod as f64;
+        }
+    }
+    if lt(v, 0.0) {
+        v = 0.0;
+    }
+    v
+}
+#[cfg(test)]
+mod scene_light_intensity_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_scene_light_intensity() {
+        let (scene, rec, flag) = (0x2a01_0000u32, 0x2a03_0000u32, 0x2a04_0000u32);
+        let mut nonzero = 0;
+        for (n, line) in include_str!("../../../tools/emu/golden_scene_light_intensity.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            m.set_i32(scene + 0x5080, v[0].parse().unwrap());
+            m.write(scene + 0x224, &bytes(v[1]));
+            m.set_u32(scene + 0x5440 + 0x14, flag);
+            m.set_u32(flag + 0xc, v[2].parse().unwrap());
+            m.set_u32(scene + 0x2540, rec);
+            for (k, p) in v[3].split(',').enumerate() {
+                let (a, b) = p.split_once('/').unwrap();
+                m.set_i32(rec + [4u32, 0x18, 0x2c, 0x40, 0x54, 0x68, 0x7c, 0x90, 0xa4][k], a.parse().unwrap());
+                m.set_i32(rec + [8u32, 0x1c, 0x30, 0x44, 0x58, 0x6c, 0x80, 0x94, 0xa8][k], b.parse().unwrap());
+            }
+            let got = scene_light_intensity(&mut m, scene);
+            let want = f64::from_le_bytes(bytes(v[4]).try_into().unwrap());
+            assert!(got.to_bits() == want.to_bits() || (got.is_nan() && want.is_nan()), "case {n}: {got:?} vs {want:?}");
+            nonzero += (want != 0.0) as u32;
+        }
+        assert!(nonzero > 50);
+    }
+}
