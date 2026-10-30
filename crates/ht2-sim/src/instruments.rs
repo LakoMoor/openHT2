@@ -3858,3 +3858,93 @@ mod scene_light_ray2_points_tests {
         assert!(exact * 100 >= total * 98);
     }
 }
+
+/// `0x551474..0x5517ac` of `0x54ff80` (continues `scene_light_ray2_points` after its first `vec_set`): the third
+/// corner offset (`0.03 * sin(f+0x1c)` times the axes `0x702640..`, built at `f+0x12c`, plus the record vector
+/// at `0x6d2560 + 0x5d0 * [scene+0x28b4]` into `f+0x120`), the three corner positions (`f+0x90`, `f+0x34`),
+/// and the three matrices `scale * translation * f+0xc0` at `f+0x1d4`, `f+0x204` and `f+0x234` (the last one
+/// scaled by `f+0x20` times the vector at `0x6974a8`, through `0x4bdd60`), with the scratch matrices at
+/// `f+0x138..0x354` the original leaves behind. Ends with `f+0x20 = 3`, as the original sets the counter of the
+/// object-creation loop that follows.
+pub fn scene_light_ray2_matrices(m: &mut Mem, scene: u32, f: u32) {
+    use crate::matrix::{mat_mul, mat_scale, mat_translation, vec_scale};
+    use crate::math::vec_set;
+    let v = |m: &Mem, o: u32| m.f32(f + o);
+    let g = |m: &Mem, a: u32| m.f32(a);
+    let sum = |a: f32, b: f32| (a as f64 + b as f64) as f32;
+    let prod = |a: f32, b: f32| (a as f64 * b as f64) as f32;
+    let (s_w, t_w, p_w) = (f + 0xc0, f + 0x138, f + 0x168);
+    // third corner
+    let s = (v(m, 0x1c) as f64).sin();
+    for (d, s2) in [(0x34, 0x80), (0x38, 0x84), (0x3c, 0x88)] {
+        let b = m.u32(f + s2);
+        m.set_u32(f + d, b);
+    }
+    let q = s * 0.03;
+    vec_set(m, f + 0x12c, (q * g(m, 0x702640) as f64) as f32, (q * g(m, 0x702644) as f64) as f32, (q * g(m, 0x702648) as f64) as f32);
+    let tb = 0x6d2560 + 0x5d0 * m.u32(scene + 0x28b4);
+    let (x, y, z) = (sum(v(m, 0x12c), g(m, tb)), sum(v(m, 0x130), g(m, tb + 4)), sum(v(m, 0x134), g(m, tb + 8)));
+    vec_set(m, f + 0x120, x, y, z);
+    let (x, y, z) = (sum(v(m, 0x2c), v(m, 0x120)), sum(v(m, 0x74), v(m, 0x124)), sum(v(m, 0x78), v(m, 0x128)));
+    vec_set(m, f + 0x90, x, y, z);
+    let (x, y, z) = (sum(v(m, 0x90), v(m, 0x34)), sum(v(m, 0x94), v(m, 0x38)), sum(v(m, 0x98), v(m, 0x3c)));
+    vec_set(m, f + 0x34, x, y, z);
+    // corner 1
+    let f40 = v(m, 0x40);
+    vec_set(m, f + 0x90, prod(f40, g(m, 0x6974a8)), prod(f40, g(m, 0x6974ac)), prod(f40, g(m, 0x6974b0)));
+    for (corner, dst, p) in [(0x68u32, 0x1d4u32, 0x40u32), (0x50, 0x204, 0x44)] {
+        if p == 0x44 {
+            let f44 = v(m, 0x44);
+            vec_set(m, f + 0x90, prod(f44, g(m, 0x6974a8)), prod(f44, g(m, 0x6974ac)), prod(f44, g(m, 0x6974b0)));
+        }
+        mat_translation(m, t_w, v(m, corner), v(m, corner + 4), v(m, corner + 8));
+        mat_scale(m, f + 0x198, v(m, 0x90), v(m, 0x94), v(m, 0x98));
+        mat_mul(m, p_w, f + 0x198, t_w);
+        mat_mul(m, f + dst, p_w, s_w);
+    }
+    // corner 3
+    mat_translation(m, f + 0x2f4, v(m, 0x34), v(m, 0x38), v(m, 0x3c));
+    vec_scale(m, f + 0x1c8, 0x6974a8, v(m, 0x20));
+    mat_scale(m, f + 0x324, v(m, 0x1c8), v(m, 0x1cc), v(m, 0x1d0));
+    mat_mul(m, f + 0x354, f + 0x324, f + 0x2f4);
+    mat_mul(m, f + 0x234, f + 0x354, s_w);
+    m.set_u32(f + 0x20, 3);
+}
+#[cfg(test)]
+mod scene_light_ray2_matrices_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_scene_light_ray2_matrices() {
+        let scene = 0x2a01_0000u32;
+        let (mut exact, mut total) = (0, 0);
+        for (n, line) in include_str!("../../../tools/emu/golden_scene_light_ray2_matrices.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            let idx: u32 = v[0].parse().unwrap();
+            m.set_u32(scene + 0x28b4, idx);
+            m.write(0x6d2560 + 0x5d0 * idx, &bytes(v[1]));
+            m.write(0x6974a8, &bytes(v[2]));
+            let f = u32::from_str_radix(v[4].trim_start_matches("0x"), 16).unwrap();
+            m.write(f, &bytes(v[3]));
+            crate::globals::install_constants(&mut m);
+            scene_light_ray2_matrices(&mut m, scene, f);
+            let want = bytes(v[5]);
+            for i in 0..want.len() / 4 {
+                let off = i as i32 * 4 - 0x40;
+                if off < 0 {
+                    continue;
+                }
+                let a = f.wrapping_add(off as u32);
+                let (g, w) = (m.u32(a), u32::from_le_bytes(want[i * 4..i * 4 + 4].try_into().unwrap()));
+                total += 1;
+                exact += (g == w) as u32;
+                assert!(g == w || (g as i64 - w as i64).abs() <= 2 || (f32::from_bits(g) - f32::from_bits(w)).abs() <= 1e-4, "case {n} frame {off:+#x}: {:?} vs {:?}", f32::from_bits(g), f32::from_bits(w));
+            }
+        }
+        eprintln!("exact {exact} of {total}");
+        assert!(exact * 100 >= total * 98);
+    }
+}
