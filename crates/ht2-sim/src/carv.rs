@@ -133,3 +133,33 @@ pub fn fn_004f2490(m: &mut Mem, this: u32) {
         m.set_i32(this + 0x19f8, 0);
     }
 }
+
+/// `0x4e3132`: `out = a / b` component by component (three `f32` divisions).
+pub fn fn_004e3132(m: &mut Mem, out: u32, a: u32, b: u32) -> u32 {
+    for i in 0..3 {
+        let q = m.f32(a + 4 * i) / m.f32(b + 4 * i);
+        m.set_f32(out + 4 * i, q);
+    }
+    out
+}
+#[cfg(test)]
+mod vec_div_tests {
+    use super::*;
+    #[test]
+    fn native_fn_004e3132() {
+        let h = |s: &str| (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect::<Vec<u8>>();
+        for line in include_str!("../../../tools/emu/golden_vec_div_4e3132.tsv").lines() {
+            let v: Vec<&str> = line.trim_end().split('\t').collect();
+            let mut m = Mem::new();
+            m.write(0x2a00_0200, &h(v[0]));
+            m.write(0x2a00_0300, &h(v[1]));
+            assert_eq!(fn_004e3132(&mut m, 0x2a00_0100, 0x2a00_0200, 0x2a00_0300), 0x2a00_0100);
+            let got = m.read(0x2a00_0100, 12);
+            // NaN payloads of x87 and SSE differ in sign only; compare NaN-ness per component
+            for i in 0..3 {
+                let (g, w) = (f32::from_le_bytes(got[i * 4..i * 4 + 4].try_into().unwrap()), f32::from_le_bytes(h(v[2])[i * 4..i * 4 + 4].try_into().unwrap()));
+                assert!(g.to_bits() == w.to_bits() || (g.is_nan() && w.is_nan()), "{line}: {g} vs {w}");
+            }
+        }
+    }
+}
