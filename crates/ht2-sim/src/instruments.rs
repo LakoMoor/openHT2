@@ -4282,3 +4282,96 @@ mod node_transform_tests {
         }
     }
 }
+
+/// What the light-creation loops of `0x54ff80` need from the scene: the heap (`0x632643`) and the virtual
+/// registration `[vtable + 0x14](0, light)` on the object at `[0x69622c]`.
+pub trait SceneLightOwner {
+    fn allocate(&mut self, m: &mut Mem, size: u32) -> u32;
+    fn register(&mut self, m: &mut Mem, registry: u32, light: u32);
+}
+
+/// `0x550f4c..0x551094` of `0x54ff80`: for each of `count` entries a light node (0x58 bytes, name `0x67334c`,
+/// parent `[parent_global]` = `[0x6ef254]` (this loop) or `[0x6ef258]` (the one at `0x5517ac..0x551866`);
+/// `scene_light_node`) is stored at `[array]`, given a transform node (0x70 bytes,
+/// `scene_transform_node`) at `light+0x44` whose matrix is the 12 floats at `matrices` (mode 0 of
+/// `scene_node_set_transform`) and registered with the scene; `array` advances by 4 and `matrices` by 0x30.
+/// Allocation failure (a null block) is carried through as the original does (null node, no constructor).
+pub fn scene_light_loop(m: &mut Mem, mut array: u32, mut matrices: u32, count: u32, parent_global: u32, owner: &mut impl SceneLightOwner) {
+    for _ in 0..count {
+        let raw = owner.allocate(m, 0x58);
+        let light = if raw != 0 {
+            let parent = m.u32(parent_global);
+            scene_light_node(m, raw, 0x67334c, parent, &mut |m, n| owner.allocate(m, n));
+            raw
+        } else {
+            0
+        };
+        m.set_u32(array, light);
+        let raw = owner.allocate(m, 0x70);
+        let tnode = if raw != 0 {
+            scene_transform_node(m, raw, &mut |m, n| owner.allocate(m, n));
+            raw
+        } else {
+            0
+        };
+        m.set_u32(light + 0x44, tnode);
+        scene_node_set_transform(m, tnode, matrices, 0);
+        let registry = m.u32(0x69622c);
+        owner.register(m, registry, light);
+        matrices += 0x30;
+        array += 4;
+    }
+}
+#[cfg(test)]
+mod scene_light_loop_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    struct Bump {
+        next: u32,
+        calls: Vec<(u32, u32)>,
+    }
+    impl SceneLightOwner for Bump {
+        fn allocate(&mut self, _: &mut Mem, size: u32) -> u32 {
+            let a = self.next;
+            self.next += (size + 15) & !15;
+            a
+        }
+        fn register(&mut self, _: &mut Mem, registry: u32, light: u32) {
+            self.calls.push((registry, light));
+        }
+    }
+    fn check(golden: &str, global: u32) {
+        let (parent, reg, arr, mats, heap) = (0x2a02_0000u32, 0x2a02_1000u32, 0x2a02_3000u32, 0x2a02_4000u32, 0x2a80_0000u32);
+        for (c, line) in golden.lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            m.set_u32(global, parent);
+            m.set_u32(0x69622c, reg);
+            m.set_u32(parent + 0x24, u32::from_str_radix(v[1], 16).unwrap());
+            m.write(mats, &bytes(v[2]));
+            for (at, s) in [(0x67334cu32, v[8]), (0x68d1c0, v[9])] {
+                m.write(at, &bytes(s));
+                m.wr8(at + bytes(s).len() as u32, 0);
+            }
+            m.write(0x7025f0, &[0, 0, 0x80, 0x3f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0x3f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0x3f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+            let mut owner = Bump { next: heap, calls: vec![] };
+            scene_light_loop(&mut m, arr, mats, v[0].parse().unwrap(), global, &mut owner);
+            assert_eq!(m.read(arr, 16), bytes(v[3]), "case {c}: array");
+            let used = v[5].parse::<u32>().unwrap();
+            assert_eq!(owner.next - heap, used, "case {c}: allocated");
+            assert_eq!(m.read(heap, used as usize), bytes(v[4]), "case {c}: heap");
+            let calls: Vec<String> = owner.calls.iter().map(|(r, l)| format!("{r:x}/0/{l:x}")).collect();
+            assert_eq!(calls.join(","), v[7], "case {c}: registration");
+        }
+    }
+    #[test]
+    fn native_scene_light_loop() {
+        check(include_str!("../../../tools/emu/golden_scene_light_loop.tsv"), 0x6ef254);
+    }
+    #[test]
+    fn native_scene_light_loop2() {
+        check(include_str!("../../../tools/emu/golden_scene_light_loop2.tsv"), 0x6ef258);
+    }
+}
