@@ -82,7 +82,7 @@ impl Powertrain {
         // The filter built by 0x531290 (linear weight, one second) and axis 2 bound to VALS.
         ht2_sim::filter::new(&mut m, CONTROLS + 0x118, ht2_sim::filter::WEIGHT_LINEAR, 1.0, 0, 0.0);
         m.set_u32(DEVICE + 2 * 4 + 0x280, VALS);
-        m.wr8(CAR + 0x2700, 1); // STAND-IN: driver input enabled
+        m.wr8(CAR + 0x2700, 2); // human driver (0x520c58, 0x531e2d and others write 2 for the player); 0 forces the brake
         Ok(Powertrain { m, time: 0.0 })
     }
 
@@ -97,7 +97,7 @@ impl Powertrain {
         m.set_f32(CAR + 0x270c, throttle.clamp(0.0, 1.0));
         // Pedals as 0x53b4c0 reads them: one axis (gas positive, brake negative) through the
         // `injoyfilterA` filter. STAND-IN: the device axis comes straight from the pedals given
-        // here (the original binds keys / a joystick to `0x6d1db8`), and `+0x2700` is set once.
+        // here (the original binds keys / a joystick to `0x6d1db8`), and `+0x2700` is set once to 2 (human driver).
         m.set_f32(VALS, if throttle > 0.0 { throttle.clamp(0.0, 1.0) } else { -brake.clamp(0.0, 1.0) });
         input::pedal_axes(m, CAR, CONTROLS + 0x118, DEVICE, false);
         m.set_f32(CAR + 0x3bd4, 1.0); // seconds since the last reset of the vehicle
@@ -165,5 +165,20 @@ mod tests {
         };
         assert!(events(1.0) > 0, "braking produced no effect event");
         assert_eq!(events(0.0), 0);
+    }
+
+    /// With the driver byte `+0x2700 = 2` the automatic gearbox shifts up as the truck gains speed.
+    #[test]
+    #[ignore = "requires HT2_GAME installed game data"]
+    fn automatic_gearbox_shifts_up_under_throttle() {
+        let game = std::path::PathBuf::from(std::env::var("HT2_GAME").unwrap());
+        let tech = std::fs::read(game.join("vehicle.tech")).unwrap();
+        let mut p = Powertrain::new(&tech, 0, 4, &[false, false, true, true], 8000.0).unwrap();
+        let mut top = 0;
+        for i in 0..1500 {
+            let o = p.step(0.02, 1.0, 0.0, (i as f32 * 0.02 * 2.0).min(30.0));
+            top = top.max(o.gear);
+        }
+        assert!(top >= 4, "highest gear {top}");
     }
 }
