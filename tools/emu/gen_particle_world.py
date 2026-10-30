@@ -112,11 +112,16 @@ if os.environ.get('HT2_EMU_TRACE'):
     e.mu.hook_add(UC_HOOK_MEM_READ_UNMAPPED, bad)
 pos, dirp = OBJ_BASE + 0x100, OBJ_BASE + 0x120
 try:
-    for case in range(150):
+    for case in range(240):
         if case % 5 == 4:
             dt = r.choice([0.05, 0.1, 0.5]); e.write(clock + 0xb90, struct.pack('<d', dt))
             e.call(0x5796e0, [], '', this=manager)
             rows.append(chr(9).join(['tick', struct.pack('<d', dt).hex(), dump()]))
+        elif case % 7 == 3:
+            ps = F(*[r.uniform(-9, 9) for _ in range(3)]); d = F(*[r.uniform(-2, 2) for _ in range(3)]); k = r.choice([0.3, 0.7, 1.0])
+            e.write(pos, ps); e.write(dirp, d)
+            e.call(0x4bb050, [pos, dirp, fbits(k)], 'iii')
+            rows.append(chr(9).join(['dust', ps.hex(), d.hex(), F(k).hex(), dump()]))
         elif case % 3 == 2:
             ps = F(*[r.uniform(-9, 9) for _ in range(3)]); size = r.choice([0.5, 1.0, 1.5, 2.0])
             e.write(pos, ps)

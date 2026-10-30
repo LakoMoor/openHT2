@@ -59,7 +59,8 @@ impl ParticleWorld {
         sim::emit_wheel_dust(m,p,d,intensity,|m|globals::rand(m),|m|sim::dust_gate(m),|m,_,pool|sim::allocate_effect_object(m,pool),
             |_,r|made=Some(r));
         let Some(r)=made else {return false};
-        let args=sim::DustParticleArgs{clock:m.u32(0x696224),position:p,velocity:d,size_a:r.size_a,size_b:r.size_b,table:0x694a00,frames:r.material_table,kind:0,lifetime:f32::from_bits(r.tail)};
+        let dir_slot=self.input+24;for (i,x) in r.velocity.into_iter().enumerate() {m.set_f32(dir_slot+i as u32*4,x);}
+        let args=sim::DustParticleArgs{clock:m.u32(0x696224),position:p,velocity:dir_slot,size_a:r.size_a,size_b:r.size_b,table:0x694a00,frames:r.material_table,kind:0,lifetime:f32::from_bits(r.tail)};
         let scratch=self.scratch;
         sim::construct_dust_particle(m,r.object,args,scratch,|m|globals::rand(m),|m,o,a|self.construct_root(m,o,a));
         true
@@ -177,6 +178,7 @@ mod tests {
             let v:Vec<_>=line.trim_end().split('\t').collect();
             match v[0] {
                 "tick"=>w.tick(&mut m,f64::from_le_bytes(bytes(v[1]).try_into().unwrap())),
+                "dust"=>{w.emit_dust(&mut m,f3(&bytes(v[1])),f3(&bytes(v[2])),f32::from_le_bytes(bytes(v[3]).try_into().unwrap()));}
                 "flash"=>w.emit_flash(&mut m,f3(&bytes(v[1])),f32::from_le_bytes(bytes(v[2]).try_into().unwrap())),
                 _=>{m.write(0x696048,&bytes(v[4]));w.emit_exhaust(&mut m,f3(&bytes(v[1])),f3(&bytes(v[2])),f32::from_le_bytes(bytes(v[3]).try_into().unwrap()));}
             }
