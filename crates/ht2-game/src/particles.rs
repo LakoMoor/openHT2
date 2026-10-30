@@ -163,4 +163,35 @@ mod tests {
         assert_eq!(w.live_count(&m),0);assert_eq!(w.live_blocks(),0);
         assert_eq!(m.u32(0x6f6a6c),0,"live dust counter must return to zero");
     }
+    /// The whole chain against the original: `0x4ba660` and `0x4baf90` run unmodified in the emulator
+    /// on pools laid out like `ParticleWorld::new`; every pool slot (0xe0 bytes) must match. Words
+    /// that point into the heaps differ between the two sides and are compared as "is a pointer".
+    #[test]
+    fn emitted_particles_match_the_original() {
+        fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+        let pointer=|w:u32|(0x2800_0000..0x2b00_0000).contains(&w);
+        let mut m=Mem::new();let mut w=ParticleWorld::new(&mut m,64,|n|n.starts_with("msmoke0")||n.starts_with("mvapor0")||n.starts_with("burn0")||n.starts_with("dust0")).unwrap();
+        m.set_u32(globals::RAND_SEED,12345);
+        let f3=|b:&[u8]|[0,1,2].map(|i|f32::from_le_bytes(b[i*4..i*4+4].try_into().unwrap()));
+        for (n,line) in include_str!("../../../tools/emu/golden_particle_world.tsv").lines().enumerate() {
+            let v:Vec<_>=line.trim_end().split('\t').collect();
+            match v[0] {
+                "flash"=>w.emit_flash(&mut m,f3(&bytes(v[1])),f32::from_le_bytes(bytes(v[2]).try_into().unwrap())),
+                _=>{m.write(0x696048,&bytes(v[4]));w.emit_exhaust(&mut m,f3(&bytes(v[1])),f3(&bytes(v[2])),f32::from_le_bytes(bytes(v[3]).try_into().unwrap()));}
+            }
+            for (k,pool) in v.last().unwrap().split('|').enumerate() {
+                let want:Vec<&str>=pool.split(',').filter(|x|!x.is_empty()).collect();
+                let mut got=vec![];let mut o=m.u32(w.pools[k]+8);while o!=0 {got.push(o);o=m.u32(o+8);}
+                assert_eq!(got.len(),want.len(),"op {n} pool {k}: live objects");
+                for (o,x) in got.iter().zip(want) {
+                    let x=bytes(x);
+                    for off in (0..SLOT).step_by(4) {
+                        let (a,b)=(m.u32(o+off),u32::from_le_bytes(x[off as usize..off as usize+4].try_into().unwrap()));
+                        if pointer(a)||pointer(b) {assert_eq!(pointer(a),pointer(b),"op {n} pool {k} +{off:#x}: {a:#x} vs {b:#x}");}
+                        else{assert_eq!(a,b,"op {n} pool {k} +{off:#x}: {a:#x} vs {b:#x}");}
+                    }
+                }
+            }
+        }
+    }
 }
