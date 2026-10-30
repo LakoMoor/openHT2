@@ -3948,3 +3948,156 @@ mod scene_light_ray2_matrices_tests {
         assert!(exact * 100 >= total * 98);
     }
 }
+
+/// `0x542250(x, lim)`: `x` clamped to `-lim..=lim` (NaN gives `-lim`, as the compare order of the original does).
+fn clamp_542250(x: f32, lim: f32) -> f64 {
+    let (x, lim) = (x as f64, lim as f64);
+    if !(x >= -lim) {
+        -lim
+    } else if x <= lim {
+        x
+    } else {
+        lim
+    }
+}
+
+/// `__ftol` (`0x61d830`): truncation through `fistp qword`; out of range and NaN give the low half of the
+/// "integer indefinite" `0x8000000000000000`.
+fn ftol_61d830(v: f64) -> u32 {
+    if v.is_nan() || v.abs() >= 9.223372036854775808e18 {
+        0
+    } else {
+        (v as i64) as u32
+    }
+}
+
+/// `FUN_00541e80` (`__fastcall`, `ecx = packet`): `NetVehIn::put`, packs the vehicle input record into the
+/// byte buffer at `+0x1c`/`+0x14`: `[+0x14]`/`[+0x16]` get words copied from `[+8]`/`[+0]`, the flag word
+/// `[+0x50]` gets the clamped byte `[+0x54]` shifted by 7 (also copied to `[+0x18]`), then follow the bytes of the
+/// control state (gear/steer bytes, one angle (10 bits) and one amount (6 bits) per wheel-like entry, flags,
+/// four angle differences, four byte pairs of 127-scaled values, a nibble pair) and, when `[+0x50] & 1`,
+/// the pedal section (100- and 255-scaled bytes, a 16-bit value, engine state byte, two more bytes). Returns
+/// `false` where the original logs a size or range error (`0x4e260c`). `f2pi` is the angle wrap `0x4e41d9`.
+pub fn net_veh_in_put(m: &mut Mem, p: u32) -> bool {
+    let mut ok = true;
+    let w = m.u16(p + 8);
+    m.set_u16(p + 0x14, w);
+    let w = m.u16(p);
+    m.set_u16(p + 0x16, w);
+    if m.rd8(p + 0x54) > 7 {
+        m.wr8(p + 0x54, 7);
+    }
+    let flags = m.u32(p + 0x50) | ((m.rd8(p + 0x54) as u32) << 7);
+    m.set_u32(p + 0x50, flags);
+    m.set_u32(p + 0x18, flags);
+    let kind = m.u32(p + 0x5c);
+    let mut bl = if kind <= 4 { kind as u8 } else { 0 };
+    let lean = ftol_61d830(m.f32(p + 0x58) as f64 * -0.25) as u8;
+    bl = bl.wrapping_sub(lean << 3);
+    m.wr8(p + 0x1c, bl);
+    let b = m.rd8(p + 0x60);
+    m.wr8(p + 0x1d, b);
+    let count = m.i32(p + 0x10);
+    let mut at = 10u32;
+    let byte = |m: &mut Mem, at: u32, v: u8| m.wr8(p + 0x14 + at, v);
+    for i in 0..count.max(0) as u32 {
+        let b = m.rd8(p + 0x61 + i);
+        byte(m, at, b);
+        at += 1;
+        let ang = crate::chassis::f2pi(m.f32(p + 0x6c + 4 * i));
+        let c = clamp_542250(ang, f32::from_bits(0x40490fdb));
+        let v = ftol_61d830(c * 2047.0 * f64::from_bits(0x3fd45f306dc9c883)) & 0x3ff;
+        byte(m, at, v as u8);
+        at += 1;
+        byte(m, at, (v >> 8) as u8);
+        let c = clamp_542250(m.f32(p + 0x8c + 4 * i), f32::from_bits(0x3f333333));
+        let v = ftol_61d830(c * 10.0) as u8;
+        let cur = m.rd8(p + 0x14 + at);
+        byte(m, at, cur | (v << 2));
+        at += 1;
+    }
+    let (b1, b0, bf, be) = (m.rd8(p + 0xc1), m.rd8(p + 0xc0), m.rd8(p + 0xbf), m.rd8(p + 0xbe));
+    let v = ((((b1 << 1) | b0) << 1 | bf) << 1) | be;
+    byte(m, at, v);
+    at += 1;
+    for k in 0..4u32 {
+        let d = (m.f32(p + 0xc4) as f64 - m.f32(p + 0xd0 + 12 * k) as f64) as f32;
+        let c = clamp_542250(crate::chassis::f2pi(d), f32::from_bits(0x40490fd0));
+        byte(m, at, ftol_61d830(c * f64::from_bits(0x40544ad25cec601a)) as u8);
+        at += 1;
+    }
+    for k in 0..4u32 {
+        for o in [0xf8u32, 0xfc] {
+            let c = clamp_542250(m.f32(p + o + 12 * k), 1.0);
+            byte(m, at, ftol_61d830(c * 127.0) as u8);
+            at += 1;
+        }
+    }
+    let v = (m.rd8(p + 0xbc) << 4).wrapping_add(m.rd8(p + 0xbd));
+    byte(m, at, v);
+    at += 1;
+    if m.rd8(p + 0x50) & 1 == 0 {
+        m.set_u16(p + 0x14, at as u16);
+        return at as i32 == m.i32(p + 4);
+    }
+    let mut put = |m: &mut Mem, at: &mut u32, v: u8| {
+        byte(m, *at, v);
+        *at += 1;
+    };
+    let k255 = 255.0;
+    let c = clamp_542250(m.f32(p + 0xb0), 100.0);
+    put(m, &mut at, ftol_61d830(c * f64::from_bits(0x4004666666666666)) as u8);
+    let v = ftol_61d830(m.f32(p + 0xac) as f64 * f32::from_bits(0x3c23d70a) as f64) as u16;
+    m.set_u16(p + 0x14 + at, v);
+    at += 2;
+    let c = clamp_542250(m.f32(p + 0xb4), 100.0);
+    put(m, &mut at, ftol_61d830(c * f64::from_bits(0x4004666666666666)) as u8);
+    let c = clamp_542250(m.f32(p + 0xb8), 1.0);
+    put(m, &mut at, ftol_61d830(c * k255) as u8);
+    put(m, &mut at, ftol_61d830(m.f32(p + 0x128) as f64 * k255) as u8);
+    let engine = m.i32(p + 0x134);
+    if !(0..=7).contains(&engine) {
+        ok = false;
+    }
+    let mut v = (m.rd8(p + 0x13c) << 4) | m.rd8(p + 0x134);
+    v <<= 2;
+    v |= if m.u32(p + 0x138) != 0 { 0x20 } else { 0 };
+    v |= if m.u32(p + 0x130) != 0 { 2 } else { 0 };
+    v |= (m.u32(p + 0x12c) != 0) as u8;
+    put(m, &mut at, v);
+    put(m, &mut at, (m.u32(p + 0x140) != 0) as u8);
+    let c = clamp_542250(m.f32(p + 0x144), 1.0);
+    put(m, &mut at, ftol_61d830(c * k255) as u8);
+    let c = clamp_542250(m.f32(p + 0x148), 1.0);
+    put(m, &mut at, ftol_61d830(c * k255) as u8);
+    ok && at <= 0x3a && at as i32 == m.i32(p + 8)
+}
+#[cfg(test)]
+mod net_veh_in_put_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_net_veh_in_put() {
+        let p = 0x2a01_0000u32;
+        let (mut exact, mut total, mut clean) = (0, 0, 0);
+        for (n, line) in include_str!("../../../tools/emu/golden_net_veh_in_put.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            m.write(p, &bytes(v[0]));
+            let ok = net_veh_in_put(&mut m, p);
+            assert_eq!(ok, v[2] == "0", "case {n}: error report");
+            clean += ok as u32;
+            let want = bytes(v[1]);
+            for (i, w) in want.iter().enumerate() {
+                let g = m.rd8(p + i as u32);
+                total += 1;
+                exact += (g == *w) as u32;
+                assert!(g == *w, "case {n} byte {i:#x}: {g:#x} vs {w:#x}");
+            }
+        }
+        eprintln!("exact {exact} of {total}, {clean} clean");
+        assert!(clean > 100);
+    }
+}
