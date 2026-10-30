@@ -116,7 +116,35 @@ fn fill_scene(m: &mut Mem) -> u32 {
     for (o, v) in [(0x697fd8, 1.1), (0x697fdc, -3.0), (0x697fe0, 2.6)] {
         m.set_f32(o, v);
     }
+    let owner = m.alloc(0x4000);
+    m.set_u32(scene + 0x13ff0, owner);
     scene
+}
+
+/// Dust level of each wheel by the ported `0x55059f..0x5506cd`. STAND-INS: the physics object it reads is a
+/// temporary one (forward speed from the vehicle, no sideslip, four wheels on a loose surface of kind 6,
+/// mass 8000), swapped in for the call only because the wheel branches of `0x551970` use `+0x5460 == 0`.
+fn wheel_levels(m: &mut Mem, scene: u32, speed: f32) {
+    let owner = m.u32(scene + 0x13ff0);
+    let saved: Vec<(u32, u32)> = [0x5460, 0x2aac, 0x28bc, 0x19c].into_iter().map(|o| (o, m.u32(scene + o))).collect();
+    m.set_u32(scene + 0x5460, owner);
+    m.set_u32(scene + 0x2aac, 1);
+    m.set_u32(scene + 0x28bc, 4);
+    m.set_f32(scene + 0x19c, 8000.0);
+    m.set_f32(owner + 0x332c, speed);
+    m.set_f32(owner + 0x3330, 0.0);
+    m.set_u32(owner + 0x3344, 0);
+    for i in 0..4u32 {
+        m.set_i16(owner + 0xf8 * i + 0x2b68, 1);
+        m.set_u32(owner + 0x3444 + 4 * i, 0);
+        m.set_u32(owner + 0xf8 * i + 0x2bd4, owner + 0x3800 + 0x40 * i);
+        m.set_u32(owner + 0xf8 * i + 0x2bdc, 1);
+        m.set_u32(owner + 0x3800 + 0x40 * i + 4, 6);
+    }
+    ht2_sim::instruments::scene_wheel_levels(m, scene);
+    for (o, v) in saved {
+        m.set_u32(scene + o, v);
+    }
 }
 
 /// One fixed step of the vehicle scene effects: fill the stand-in scene from the vehicle and run the ported `0x551970`.
@@ -130,10 +158,7 @@ fn run_scene_effects(m: &mut Mem, world: &mut ParticleWorld, scene: u32, body: M
     for i in 0..3 {
         m.set_f32(scene + 0x1b0 + i as u32 * 4, velocity[i]);
     }
-    let slip = if speed.abs() > 5.0 { (speed.abs() / 20.0).min(1.0) } else { 0.0 };
-    for i in 0..4 {
-        m.set_f32(scene + 0x27f0 + i * 4, slip);
-    }
+    wheel_levels(m, scene, speed);
     let cfg = m.u32(scene + 0x5454);
     m.set_f32(cfg + 8, (1.0 - throttle.clamp(0.0, 1.0)) * 1.2);
     // The impact event of `0x4ff800` (`[owner+0x3c18]`, the field `0x548250` reads as `[param_3+0x1228]`) feeds the

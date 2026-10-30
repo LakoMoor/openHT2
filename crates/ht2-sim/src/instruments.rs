@@ -3240,3 +3240,82 @@ mod scene_body_lean_tests {
         assert!(exact * 100 >= total * 98, "{exact}/{total}");
     }
 }
+
+/// `0x55059f..0x5506cd` of `0x54ff80`: clears the eight wheel dust levels `[scene+0x27f0]` and, while the owner
+/// is driving on a track (`[scene+0x2aac] == 1`, `[owner+0x3344] == 0`) faster than 1, sets the level of every
+/// wheel standing on a loose surface (surface kind 6, 10 or 11): `0.4 * sqrt(f32(|(|v| - 0.7 |w|)| / 15))`, at
+/// full strength above 15, scaled by `sqrt(mass * 1e-4)` for a light vehicle (`[scene+0x19c] < 10000`); kept only
+/// above 0.1.
+pub fn scene_wheel_levels(m: &mut Mem, scene: u32) {
+    for i in 0..8 {
+        m.set_u32(scene + 0x27f0 + 4 * i, 0);
+    }
+    let owner = m.u32(scene + 0x5460);
+    if owner == 0 || m.i32(scene + 0x2aac) != 1 || m.u32(owner + 0x3344) != 0 {
+        return;
+    }
+    let x = (m.f32(owner + 0x332c) as f64).abs();
+    if !(x > 1.0) {
+        return;
+    }
+    let mut level = 1.0f32;
+    if x < 15.0 {
+        let y = (m.f32(owner + 0x3330) as f64).abs() * 0.7;
+        level = ((x - y).abs() * f64::from_bits(0x3fb1111111111111)) as f32;
+    }
+    let mut v = (level as f64).sqrt() * f64::from_bits(0x3fd999999999999a);
+    let mass = m.f32(scene + 0x19c);
+    if mass < f32::from_bits(0x461c4000) {
+        v *= (mass as f64 * f64::from_bits(0x3f1a36e2eb1c432d)).sqrt();
+    }
+    for i in 0..m.i32(scene + 0x28bc).max(0) as u32 {
+        let wheel = owner + 0xf8 * i;
+        let surface = m.u32(wheel + 0x2bd4);
+        if m.u16(wheel + 0x2b68) == 0 || m.u32(owner + 0x3444 + 4 * i) != 0 || surface == 0 || m.u32(wheel + 0x2bdc) == 0 {
+            continue;
+        }
+        if matches!(m.u32(surface + 4), 6 | 10 | 11) && v > 0.1 {
+            m.set_f32(scene + 0x27f0 + 4 * i, v as f32);
+        }
+    }
+}
+#[cfg(test)]
+mod scene_wheel_levels_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_scene_wheel_levels() {
+        let (scene, owner, surf) = (0x2a01_0000u32, 0x2a02_0000u32, 0x2a03_0000u32);
+        let mut with_levels = 0;
+        for (n, line) in include_str!("../../../tools/emu/golden_scene_wheel_levels.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            m.write(scene + 0x27f0, &[0x77; 32]);
+            m.write(owner + 0x332c, &bytes(v[0]));
+            m.write(scene + 0x19c, &bytes(v[1]));
+            m.set_u32(scene + 0x28bc, v[2].parse().unwrap());
+            m.set_u32(scene + 0x5460, if v[3] == "1" { owner } else { 0 });
+            m.set_u32(scene + 0x2aac, v[4].parse().unwrap());
+            m.set_u32(owner + 0x3344, v[5].parse().unwrap());
+            for (i, s) in v[6].split(';').enumerate() {
+                let t: Vec<u32> = s.split(',').map(|x| x.parse().unwrap()).collect();
+                let i = i as u32;
+                m.set_i16(owner + 0xf8 * i + 0x2b68, t[0] as i16);
+                m.set_u32(owner + 0x3444 + 4 * i, t[1]);
+                m.set_u32(owner + 0xf8 * i + 0x2bd4, if t[3] != 0 { surf + 0x40 * i } else { 0 });
+                m.set_u32(owner + 0xf8 * i + 0x2bdc, if t[4] != 0 { 0x1234 } else { 0 });
+                m.set_u32(surf + 0x40 * i + 4, t[2]);
+            }
+            scene_wheel_levels(&mut m, scene);
+            let want = bytes(v[7]);
+            for i in 0..8usize {
+                let (g, w) = (m.u32(scene + 0x27f0 + 4 * i as u32), u32::from_le_bytes(want[i * 4..i * 4 + 4].try_into().unwrap()));
+                assert!(g == w || (g as i64 - w as i64).abs() <= 1 && w != 0, "case {n} wheel {i}: {:?} vs {:?}", f32::from_bits(g), f32::from_bits(w));
+                with_levels += (w != 0) as u32;
+            }
+        }
+        assert!(with_levels > 50);
+    }
+}
