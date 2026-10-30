@@ -29,6 +29,8 @@ def malloc(em):
 e.hook_ret(0x632643, malloc)
 e.hook_ret(0x4e260c, lambda em: 0)
 e.hook_ret(0x61edde, rand)
+e.hook_ret(0x63266c, lambda em: 0)   # operator delete: blocks are leaked
+e.hook_ret(0x61d1c8, lambda em: 0)   # free
 e.heap_next = 0x2a800000   # objects built by the original's `new`; masked on comparison
 
 u32 = lambda a: struct.unpack('<I', e.read(a, 4))[0]
@@ -111,7 +113,11 @@ if os.environ.get('HT2_EMU_TRACE'):
 pos, dirp = OBJ_BASE + 0x100, OBJ_BASE + 0x120
 try:
     for case in range(150):
-        if case % 3 == 2:
+        if case % 5 == 4:
+            dt = r.choice([0.05, 0.1, 0.5]); e.write(clock + 0xb90, struct.pack('<d', dt))
+            e.call(0x5796e0, [], '', this=manager)
+            rows.append(chr(9).join(['tick', struct.pack('<d', dt).hex(), dump()]))
+        elif case % 3 == 2:
             ps = F(*[r.uniform(-9, 9) for _ in range(3)]); size = r.choice([0.5, 1.0, 1.5, 2.0])
             e.write(pos, ps)
             e.call(0x4baf90, [pos, fbits(size), 1], 'iii')

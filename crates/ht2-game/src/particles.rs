@@ -176,6 +176,7 @@ mod tests {
         for (n,line) in include_str!("../../../tools/emu/golden_particle_world.tsv").lines().enumerate() {
             let v:Vec<_>=line.trim_end().split('\t').collect();
             match v[0] {
+                "tick"=>w.tick(&mut m,f64::from_le_bytes(bytes(v[1]).try_into().unwrap())),
                 "flash"=>w.emit_flash(&mut m,f3(&bytes(v[1])),f32::from_le_bytes(bytes(v[2]).try_into().unwrap())),
                 _=>{m.write(0x696048,&bytes(v[4]));w.emit_exhaust(&mut m,f3(&bytes(v[1])),f3(&bytes(v[2])),f32::from_le_bytes(bytes(v[3]).try_into().unwrap()));}
             }
