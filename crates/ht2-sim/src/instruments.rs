@@ -2680,3 +2680,166 @@ mod curve_54a330_tests {
         }
     }
 }
+
+/// One spark velocity as `0x593720` builds it: `p*p1 + q*q1 + r*r1` per component with the original's rounding
+/// (x and y through f32 temporaries, the z term of the first product kept in extended precision).
+fn spark_velocity(p: [f32; 3], p1: f32, q: [f32; 3], q1: f32, r: [f32; 3], r1: f32) -> [f32; 3] {
+    let f = |a: f32, b: f32| (a as f64 * b as f64) as f32;
+    let (f2, f3) = ([f(q[0], q1), f(q[1], q1), f(q[2], q1)], [f(r[0], r1), f(r[1], r1), f(r[2], r1)]);
+    let xy = |k: usize| {
+        let s = (f(p[k], p1) as f64 + f2[k] as f64) as f32;
+        (s as f64 + f3[k] as f64) as f32
+    };
+    let zt = p[2] as f64 * p1 as f64 + f2[2] as f64;
+    [xy(0), xy(1), (f3[2] as f64 + zt) as f32]
+}
+
+/// `0x593720`: sparks for an impact at `position` with unit normal `normal` and `count` strength.
+/// `alloc` is `0x5940d0` (a free spark slot of `this`, 0 when full), `rand` the C `rand`, and `tail` the
+/// closing call `0x594c90(this[0x60], position, count*0.01, 0.5, 0.08)` (arguments as raw words).
+/// `scratch` needs 48 bytes. x87 temporaries are `f64`; every `fstp dword` of the original is an `as f32`.
+pub fn emit_impact_sparks(m: &mut Mem, this: u32, position: u32, normal: u32, count: u32, scratch: u32,
+    mut alloc: impl FnMut(&mut Mem, u32) -> u32, mut rand: impl FnMut(&mut Mem) -> i32, mut tail: impl FnMut(&mut Mem, [u32; 5])) {
+    const K: f64 = f32::from_bits(0x38000100) as f64;
+    if m.u32(this + 0x68) == 0 {
+        return;
+    }
+    let v3 = |m: &Mem, a: u32| [m.f32(a), m.f32(a + 4), m.f32(a + 8)];
+    let d = v3(m, normal);
+    let df = d.map(|x| x as f64);
+    // first axis: the normal against a constant vector (the up vector unless the normal is vertical)
+    let c = if !(df[0] < 0.0 || df[0] > 0.0) && !(df[1] < 0.0 || df[1] > 0.0) { v3(m, 0x702640) } else { v3(m, 0x702630) }.map(|x| x as f64);
+    let (v1, n1, v2, b2) = (scratch, scratch + 12, scratch + 24, scratch + 36);
+    for (i, x) in [c[2] * df[1] - c[1] * df[2], c[0] * df[2] - c[2] * df[0], c[1] * df[0] - c[0] * df[1]].into_iter().enumerate() {
+        m.set_f32(v1 + 4 * i as u32, x as f32);
+    }
+    crate::matrix::vec_unit(m, n1, v1);
+    let n = v3(m, n1).map(|x| x as f64);
+    for (i, x) in [n[2] * df[1] - n[1] * df[2], n[0] * df[2] - n[2] * df[0], n[1] * df[0] - n[0] * df[1]].into_iter().enumerate() {
+        m.set_f32(v2 + 4 * i as u32, x as f32);
+    }
+    crate::matrix::vec_unit(m, b2, v2);
+    let (n, bn) = (v3(m, n1), v3(m, b2));
+    let count_f = count as f32;
+    let sign = |x: f32| -> f32 {
+        if (x as f64).abs() < 1.0 {
+            if x <= 0.0 || x.is_nan() { -1.0 } else { 1.0 }
+        } else {
+            x
+        }
+    };
+    // (second - first) * scale with the first rounded to f32, as `fstp dword` / `fsub dword`
+    let pair = |m: &mut Mem, rand: &mut dyn FnMut(&mut Mem) -> i32, scale: f32| -> f32 {
+        let a = (rand(m) as f64 * K) as f32;
+        let b = rand(m) as f64;
+        ((b * K - a as f64) * scale as f64) as f32
+    };
+    let fill = |m: &mut Mem, slot: u32, v: [f32; 3], rand: &mut dyn FnMut(&mut Mem) -> i32| {
+        for i in 0..3u32 {
+            m.set_f32(slot + 0x28 + 4 * i, v[i as usize]);
+            m.set_f32(slot + 4 + 4 * i, v[i as usize]);
+            let z = m.u32(0x702650 + 4 * i);
+            m.set_u32(slot + 0x10 + 4 * i, z);
+            let p = m.u32(position + 4 * i);
+            m.set_u32(slot + 0x34 + 4 * i, p);
+            m.set_u32(slot + 0x1c + 4 * i, p);
+        }
+        m.set_u32(slot + 0x78, 0);
+        let t = m.f64(m.u32(this + 0x60) + 0xb98);
+        m.set_f32(slot + 0x40, t as f32);
+        let r = rand(m) as f64 * f32::from_bits(0x3b480190) as f64;
+        let (a, b, c2) = if r < 50.0 || r.is_nan() { (0x6f6668, 0x6f6688, 0x6f6678) } else { (0x6f6698, 0x6f6658, 0x6f6648) };
+        for k in 0..4 {
+            let (x, y, z) = (m.u32(a + 4 * k), m.u32(b + 4 * k), m.u32(c2 + 4 * k));
+            m.set_u32(slot + 0x44 + 4 * k, x);
+            m.set_u32(slot + 0x54 + 4 * k, y);
+            m.set_u32(slot + 0x64 + 4 * k, z);
+        }
+        m.set_u32(slot + 0x74, 0x3f800000);
+    };
+    let limit = (count_f as f64 * f32::from_bits(0x3e4ccccd) as f64) as f32;
+    if 0.0 < limit || limit.is_nan() {
+        let mut i = 0u32;
+        loop {
+            let slot = alloc(m, this);
+            if slot == 0 {
+                break;
+            }
+            let a = pair(m, &mut rand, 4.0);
+            let b = pair(m, &mut rand, 4.0);
+            let t = pair(m, &mut rand, 4.0);
+            let v = spark_velocity(v3(m, 0x702640), sign(a), v3(m, 0x702620), sign(b), v3(m, 0x702630), t);
+            fill(m, slot, v, &mut rand);
+            i += 1;
+            if !((i as f64) < limit as f64) {
+                break;
+            }
+        }
+    }
+    let spread = (count_f as f64 * f32::from_bits(0x3d23d70a) as f64 + 1.0) as f32;
+    let limit2 = (count_f as f64 * f32::from_bits(0x3f4ccccd) as f64) as f32;
+    let mut i = 0u32;
+    while (0.0 < limit2 || limit2.is_nan()) && (i == 0 || (i as f64) < limit2 as f64) {
+        let slot = alloc(m, this);
+        if slot == 0 {
+            break;
+        }
+        let x = pair(m, &mut rand, spread);
+        let y = pair(m, &mut rand, spread);
+        let mut l = ((rand(m) as f64) * K + 1.0) as f32;
+        let (x, y) = (sign(x), sign(y));
+        if !(l <= 1.5) {
+            l = 1.5;
+        }
+        let v = spark_velocity(n, x, bn, y, d, l);
+        fill(m, slot, v, &mut rand);
+        i += 1;
+    }
+    tail(m, [m.u32(this + 0x60), position, ((count_f as f64 * f32::from_bits(0x3c23d70a) as f64) as f32).to_bits(), 0x3f000000, 0x3da3d70a]);
+}
+#[cfg(test)]
+mod impact_spark_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_impact_sparks() {
+        let (this, pos, nrm, clock, slots) = (0x2a00_1000u32, 0x2a00_2000u32, 0x2a00_2100u32, 0x2a00_3000u32, 0x2a01_0000u32);
+        for (n, line) in include_str!("../../../tools/emu/golden_impact_sparks.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            m.write(0x6f6648, &bytes(v[0]));
+            m.set_u32(this + 0x60, clock);
+            m.set_u32(this + 0x68, v[7].parse().unwrap());
+            m.write(clock + 0xb98, &bytes(v[1]));
+            m.write(pos, &bytes(v[2]));
+            m.write(nrm, &bytes(v[3]));
+            m.write(slots, &vec![0xaa; 0x100 * 140]);
+            let (count, avail): (u32, u32) = (v[4].parse().unwrap(), v[5].parse().unwrap());
+            let mut seed: u32 = v[6].parse().unwrap();
+            let mut used = 0u32;
+            let mut tail = None;
+            emit_impact_sparks(&mut m, this, pos, nrm, count, 0x2a02_0000, |_, _| {
+                if used >= avail { return 0; }
+                used += 1;
+                slots + 0x100 * (used - 1)
+            }, |_| {
+                seed = seed.wrapping_mul(214013).wrapping_add(2531011);
+                ((seed >> 16) & 0x7fff) as i32
+            }, |_, a| tail = Some(a));
+            assert_eq!(used.to_string(), v[8], "case {n}: slots");
+            let want_tail = if v[9] == "-" { None } else { Some(v[9].split(',').map(|s| s.parse::<u32>().unwrap()).collect::<Vec<_>>()) };
+            assert_eq!(tail.map(|a| a.to_vec()), want_tail.map(|mut t| { t[0] = clock; t[1] = pos; t }), "case {n}: tail");
+            let want = bytes(v[10]);
+            for i in 0..used as usize {
+                let got = m.read(slots + 0x100 * i as u32, 0x80);
+                for off in (0..0x80).step_by(4) {
+                    let (g, w) = (u32::from_le_bytes(got[off..off + 4].try_into().unwrap()), u32::from_le_bytes(want[i * 0x80 + off..i * 0x80 + off + 4].try_into().unwrap()));
+                    assert_eq!(g, w, "case {n} slot {i} +{off:#x}: {:?} vs {:?}", f32::from_bits(g), f32::from_bits(w));
+                }
+            }
+        }
+    }
+}
