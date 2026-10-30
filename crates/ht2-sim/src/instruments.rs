@@ -3629,3 +3629,89 @@ mod scene_light_ray_points_tests {
         assert!(exact * 100 >= total * 98);
     }
 }
+
+/// `0x550d77..0x550f4c` of `0x54ff80` (continues `scene_light_ray_points`): for each of the three corner points
+/// a translation to the corner and a scaling by `f+0x40`, `f+0x2c`, `f+0x28` times the vector at `0x6974a8` are
+/// multiplied, `scale * translation`, and then by the world transform `f+0xc0` (`scene_light_ray_setup`):
+/// the results are `f+0x264`, `f+0x294`, `f+0x2c4`. The frame pairs `f+0x2c = f+0x90`, `f+0x44 = f+0x264` and
+/// the counter `f+0x8c = 3` that the original sets before the object-creation loop are written too.
+pub fn scene_light_ray_matrices(m: &mut Mem, f: u32) {
+    use crate::matrix::{mat_mul, mat_scale, mat_translation};
+    let v = |m: &Mem, o: u32| m.f32(f + o);
+    let (t, s, p, w) = (f + 0x168, f + 0x198, f + 0x138, f + 0xc0);
+    // corner 1: the translation (f+0x168) and the scaling vector (f+0x80..) are already in place
+    mat_scale(m, s, v(m, 0x80), v(m, 0x84), v(m, 0x88));
+    mat_mul(m, p, s, t);
+    mat_mul(m, f + 0x264, p, w);
+    // corner 2
+    let sc = {
+        let x = m.f32(f + 0x2c) as f64;
+        [(x * m.f32(0x6974b0) as f64) as f32, (x * m.f32(0x6974ac) as f64) as f32, (x * m.f32(0x6974a8) as f64) as f32]
+    };
+    m.set_f32(f + 0x50, sc[2]);
+    m.set_f32(f + 0x54, sc[1]);
+    m.set_f32(f + 0x58, sc[0]);
+    mat_translation(m, p, v(m, 0x68), v(m, 0x6c), v(m, 0x70));
+    mat_scale(m, s, v(m, 0x50), v(m, 0x54), v(m, 0x58));
+    mat_mul(m, t, s, p);
+    mat_mul(m, f + 0x294, t, w);
+    // corner 3
+    let sc = {
+        let x = m.f32(f + 0x28) as f64;
+        [(x * m.f32(0x6974b0) as f64) as f32, (x * m.f32(0x6974ac) as f64) as f32, (x * m.f32(0x6974a8) as f64) as f32]
+    };
+    m.set_f32(f + 0x68, sc[2]);
+    m.set_f32(f + 0x6c, sc[1]);
+    m.set_f32(f + 0x70, sc[0]);
+    mat_translation(m, p, v(m, 0x34), v(m, 0x38), v(m, 0x3c));
+    mat_scale(m, s, v(m, 0x68), v(m, 0x6c), v(m, 0x70));
+    mat_mul(m, t, s, p);
+    mat_mul(m, f + 0x2c4, t, w);
+    m.set_u32(f + 0x2c, f + 0x90);
+    m.set_u32(f + 0x44, f + 0x264);
+    m.set_u32(f + 0x8c, 3);
+}
+#[cfg(test)]
+mod scene_light_ray_matrices_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_scene_light_ray_matrices() {
+        let (scene, world, clock) = (0x2a01_0000u32, 0x2a04_0000u32, 0x2a05_0000u32);
+        let (mut exact, mut total) = (0, 0);
+        for (n, line) in include_str!("../../../tools/emu/golden_scene_light_ray_matrices.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            m.set_u32(crate::globals::CLOCK_PTR, clock);
+            m.write(clock + 0xb98, &bytes(v[0]));
+            m.write(crate::globals::FIXED_STEP_MS, &bytes(&v[1][..4]));
+            m.write(crate::globals::FIXED_TIME, &bytes(&v[1][4..]));
+            m.write(scene + 0x501c, &bytes(v[2]));
+            m.write(scene + 0x204, &bytes(v[3]));
+            let idx: u32 = v[4].parse().unwrap();
+            m.set_u32(scene + 0x28b4, idx);
+            m.write(0x6d2524 + 0x5d0 * idx, &bytes(v[5]));
+            m.set_u32(0x6d2078, world);
+            m.write(world + 0x5b4, &bytes(v[6]));
+            m.write(0x6974a8, &bytes(v[7]));
+            let f = u32::from_str_radix(v[10].trim_start_matches("0x"), 16).unwrap();
+            m.write(f, &bytes(v[8]));
+            crate::globals::install_constants(&mut m);
+            let (head, take) = scene_light_ray_setup(&mut m, scene, f);
+            assert!(!take, "case {n}");
+            scene_light_ray_points(&mut m, scene, f, head);
+            scene_light_ray_matrices(&mut m, f);
+            let want = bytes(v[11]);
+            for i in 0..want.len() / 4 {
+                let (g, w) = (m.u32(f + 4 * i as u32), u32::from_le_bytes(want[i * 4..i * 4 + 4].try_into().unwrap()));
+                total += 1;
+                exact += (g == w) as u32;
+                assert!(g == w || (g as i64 - w as i64).abs() <= 2 || (f32::from_bits(g) - f32::from_bits(w)).abs() <= 1e-4, "case {n} frame +{:#x}: {:?} vs {:?}", 4 * i, f32::from_bits(g), f32::from_bits(w));
+            }
+        }
+        eprintln!("exact {exact} of {total}");
+        assert!(exact * 100 >= total * 98);
+    }
+}
