@@ -215,3 +215,92 @@ pub fn fn_00500850(m: &mut Mem, this: u32) {
     }
     m.set_i32(this + 0x3c84, 0);
 }
+
+/// `0x5300b0` (thiscall on the device object `0x6d1db8`): value of axis `index`. Each axis has two
+/// optional sources (`+0x280 + 4*index` and `+0x28c + 4*index`, pointers to floats): both give their
+/// mean, one gives its value, none gives 0.
+pub fn device_axis(m: &Mem, device: u32, index: u32) -> f32 {
+    let (a, b) = (m.u32(device + index * 4 + 0x280), m.u32(device + index * 4 + 0x28c));
+    match (a != 0, b != 0) {
+        (true, true) => ((m.f32(b) as f64 + m.f32(a) as f64) * 0.5) as f32,
+        (true, false) => m.f32(a),
+        (false, true) => m.f32(b),
+        (false, false) => 0.0,
+    }
+}
+
+/// `0x53b590..0x53b684` of the player's input update: the pedal axes into `+0x270c` (gas) and
+/// `+0x2710` (the opposite side), then the engine-off override. `filter` is the `injoyfilterA`
+/// filter object (`controls + 0x118`); `two_axes` is the global `0x6d2068` (separate gas and
+/// brake axes instead of one axis split at zero).
+pub fn pedal_axes(m: &mut Mem, car: u32, filter: u32, device: u32, two_axes: bool) {
+    if two_axes {
+        let gas = device_axis(m, device, 2);
+        let brake = device_axis(m, device, 1);
+        crate::filter::add(m, filter, gas);
+        let f = crate::filter::value(m, filter);
+        m.set_f32(car + 0x270c, ((f as f64 + 1.0) * 0.5) as f32);
+        m.set_f32(car + 0x2710, ((brake as f64 + 1.0) * 0.5) as f32);
+    } else {
+        let axis = device_axis(m, device, 2);
+        crate::filter::add(m, filter, axis);
+        let f = crate::filter::value(m, filter);
+        if f < 0.0 || f.is_nan() {
+            m.set_f32(car + 0x270c, 0.0);
+            let f = f as f64;
+            m.set_f32(car + 0x2710, (-(f * f * f)) as f32);
+        } else {
+            m.set_f32(car + 0x270c, f);
+            m.set_f32(car + 0x2710, 0.0);
+        }
+    }
+    if m.rd8(car + 0x2700) == 0 {
+        m.set_i16(car + 0x2716, 1);
+        m.set_f32(car + 0x2710, 1.0);
+    }
+}
+
+#[cfg(test)]
+mod pedal_axes_tests {
+    use super::*;
+    fn f32_of(s: &str) -> f32 {
+        f32::from_bits(u32::from_str_radix(&s.chars().collect::<Vec<_>>().chunks(2).rev().map(|c| c.iter().collect::<String>()).collect::<String>(), 16).unwrap())
+    }
+    #[test]
+    fn native_pedal_axes() {
+        let (car, ctl, vals, clock, device) = (0x2a01_0000u32, 0x2a02_0000u32, 0x2a03_0000u32, 0x2a10_0000u32, 0x6d1db8u32);
+        let mut cases = 0;
+        for line in include_str!("../../../tools/emu/golden_pedal_axes.tsv").lines() {
+            let (head, body) = line.trim_end().split_once('\t').unwrap();
+            let h: Vec<&str> = head.split(',').collect();
+            let mut m = Mem::new();
+            globals::install_clock(&mut m, clock, 0.0, 0.0);
+            let two_axes = h[0] == "1";
+            let mix: u32 = h[3].parse().unwrap();
+            crate::filter::new(&mut m, ctl + 0x118, h[1].parse().unwrap(), f32_of(h[2]), mix, f32_of(h[4]));
+            let cfg: Vec<u32> = vec![h[5].parse().unwrap(), h[6].parse().unwrap()];
+            for (k, idx) in [1u32, 2].into_iter().enumerate() {
+                let a = vals + 16 * idx;
+                m.set_u32(device + idx * 4 + 0x280, if cfg[k] & 1 != 0 { a } else { 0 });
+                m.set_u32(device + idx * 4 + 0x28c, if cfg[k] & 2 != 0 { a + 4 } else { 0 });
+            }
+            for (n, frame) in body.split(';').enumerate() {
+                let f: Vec<&str> = frame.split(',').collect();
+                globals::set_time(&mut m, f[0].parse().unwrap());
+                let v: Vec<f32> = f[1].split('/').map(f32_of).collect();
+                for idx in [1u32, 2] {
+                    m.set_f32(vals + 16 * idx, v[(idx as usize - 1) * 2]);
+                    m.set_f32(vals + 16 * idx + 4, v[(idx as usize - 1) * 2 + 1]);
+                }
+                m.wr8(car + 0x2700, f[2].parse().unwrap());
+                m.set_i16(car + 0x2716, 0);
+                pedal_axes(&mut m, car, ctl + 0x118, device, two_axes);
+                let got = (m.u32(car + 0x270c), m.u32(car + 0x2710), m.i16(car + 0x2716));
+                let want = (f[3].parse::<u32>().unwrap(), f[4].parse::<u32>().unwrap(), f[5].parse::<i16>().unwrap());
+                assert_eq!(got, want, "{line:.40} frame {n}: {:?} vs {:?}", (f32::from_bits(got.0), f32::from_bits(got.1)), (f32::from_bits(want.0), f32::from_bits(want.1)));
+                cases += 1;
+            }
+        }
+        assert!(cases > 400);
+    }
+}

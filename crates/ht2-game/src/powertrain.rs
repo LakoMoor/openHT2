@@ -7,6 +7,11 @@ use ht2_sim::{globals, init, input, tech_rec::RECORD_LEN, tech_system as ts};
 
 const CAR: u32 = 0x1000_0000;
 const CLOCK: u32 = 0x1800_0000;
+/// The player's controls object (its filter `injoyfilterA` sits at `+0x118`), the device object and a float
+/// the device axis 2 points at.
+const CONTROLS: u32 = 0x1900_0000;
+const DEVICE: u32 = 0x6d1db8;
+const VALS: u32 = 0x1900_8000;
 
 /// What the powertrain wants from the chassis this step.
 #[derive(Clone, Copy, Debug)]
@@ -74,6 +79,10 @@ impl Powertrain {
         m.set_i16(CAR + 0x2704, 1);
         m.set_i16(CAR + 0x2706, 1);
         ht2_sim::gearbox::fn_004ff770(&mut m, CAR, 1); // automatic
+        // The filter built by 0x531290 (linear weight, one second) and axis 2 bound to VALS.
+        ht2_sim::filter::new(&mut m, CONTROLS + 0x118, ht2_sim::filter::WEIGHT_LINEAR, 1.0, 0, 0.0);
+        m.set_u32(DEVICE + 2 * 4 + 0x280, VALS);
+        m.wr8(CAR + 0x2700, 1); // STAND-IN: driver input enabled
         Ok(Powertrain { m, time: 0.0 })
     }
 
@@ -86,11 +95,11 @@ impl Powertrain {
         m.set_f32(CAR + 0xdc8, speed);
         m.set_f32(CAR + 0xdc0, speed.abs());
         m.set_f32(CAR + 0x270c, throttle.clamp(0.0, 1.0));
-        // 0x53b4c0 (analog pedals): the axis f in -1..1 gives +0x270c = f above the threshold and
-        // +0x2710 = -f^3 below it, so a brake of strength b is f = -b. STAND-IN: the axis itself
-        // (device filters `injoyfilterA`) is not ported, the brake value is used unfiltered.
-        let pedal = if throttle > 0.0 { 0.0 } else { brake.clamp(0.0, 1.0).powi(3) };
-        m.set_f32(CAR + 0x2710, pedal);
+        // Pedals as 0x53b4c0 reads them: one axis (gas positive, brake negative) through the
+        // `injoyfilterA` filter. STAND-IN: the device axis comes straight from the pedals given
+        // here (the original binds keys / a joystick to `0x6d1db8`), and `+0x2700` is set once.
+        m.set_f32(VALS, if throttle > 0.0 { throttle.clamp(0.0, 1.0) } else { -brake.clamp(0.0, 1.0) });
+        input::pedal_axes(m, CAR, CONTROLS + 0x118, DEVICE, false);
         m.set_f32(CAR + 0x3bd4, 1.0); // seconds since the last reset of the vehicle
 
         // Pick drive or reverse like a driver would: throttle from standstill goes forward,
