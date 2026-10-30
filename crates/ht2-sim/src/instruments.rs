@@ -2707,3 +2707,60 @@ mod owner_impact_tests {
         assert!(events>50,"only {events} cases reached the event branch");
     }
 }
+
+/// `0x4e27a5`: game time as the x87 value left in `st0`: the `f32` at `0x6974bc` when the word `0x6974c2`
+/// is nonzero, else the `f64` at `[[0x6974c4]+0xb98]`.
+pub fn game_time_4e27a5(m:&Mem)->f64 {
+    if m.u32(0x6974c2)&0xffff!=0 {m.f32(0x6974bc) as f64}else{m.f64(m.u32(0x6974c4)+0xb98)}
+}
+
+/// `FUN_004ff800` from the entry to the end of the impact block (`0x4ff809..0x4ffb22`): clears the contact value
+/// `[+0x29dc]`, flags a slow body (`[+0x3bd4] < 0.6`: `[+0x29d8] = 0.05`, `[+0x1c1c] = 1`), reads the game time and computes
+/// the contact value from the state words `[+0x2704]`, `[+0x2714]`, `[+0x2716]`, `[+0x2718]` and `[+0x2710]`, then runs
+/// `owner_impact_event`.
+pub fn owner_contact_update(m:&mut Mem,owner:u32) {
+    m.set_u32(owner+0x29dc,0);
+    if !(m.f32(owner+0x3bd4)>=f32::from_bits(0x3f19999a)) {
+        m.set_u32(owner+0x29d8,0x3d4ccccd);m.set_u32(owner+0x1c1c,1);
+    }
+    let t=game_time_4e27a5(m);
+    let now=t as f32;
+    let d=(t-m.f32(owner+0x17dc) as f64) as f32;
+    let w=|m:&Mem,o:u32|(m.u32(owner+o)&0xffff) as u16;
+    if w(m,0x2716)==0 && w(m,0x2714)==0 && w(m,0x2704)!=0 {
+        if (w(m,0x2718) as i16)>=2 {
+            m.set_u32(owner+0x29dc,0x3f800000);
+        }else{
+            let x=m.f32(owner+0x2710);
+            if !(x<0.0||x.is_nan()) && !((x as f64)>1.0) {m.set_u32(owner+0x29dc,m.u32(owner+0x2710));}
+        }
+    }else{
+        let d=d as f64;
+        match w(m,0x2716) {
+            1=>m.set_f32(owner+0x29dc,((d+0.001)/(d as f32 as f64+1.0)) as f32),
+            2=>m.set_f32(owner+0x29dc,((d+0.001)/(d+(0.1f64))) as f32),
+            _=>{}
+        }
+    }
+    owner_impact_event(m,owner,now);
+}
+#[cfg(test)]
+mod owner_contact_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_owner_contact(){
+        let mut cases=[0usize;3];
+        for line in include_str!("../../../tools/emu/golden_owner_contact.tsv").lines(){
+            let v:Vec<_>=line.trim_end().split('\t').collect();let mut m=Mem::new();let owner=0x2a000000u32;let clock=0x2a100000u32;
+            m.write(owner,&bytes(v[0]));m.write(0x702630,&bytes(v[1]));
+            m.write(0x6974c2,&(v[2].parse::<u16>().unwrap()).to_le_bytes());m.write(0x6974bc,&bytes(v[3]));m.set_u32(0x6974c4,clock);m.write(clock+0xb98,&bytes(v[4]));
+            owner_contact_update(&mut m,owner);
+            let want=bytes(v[5]);let mut got=Vec::new();
+            for o in [0x17dcu32,0x29d8,0x29dc,0x1c1c,0x3c18,0x3c1c,0x3c20,0x3c24,0x3c28,0x3c2c,0x3c30] {got.extend(m.read(owner+o,4));}
+            assert_eq!(got,want,"{line}");
+            if m.f32(owner+0x29dc)>0.5 {cases[0]+=1;}if m.u32(owner+0x3c18)!=0 && m.u32(owner+0x3c18)<3 {cases[1]+=1;}if m.f32(owner+0x29dc)>0.001 {cases[2]+=1;}
+        }
+        assert!(cases[0]>40&&cases[2]>40,"coverage {cases:?}");
+    }
+}
