@@ -4101,3 +4101,33 @@ mod net_veh_in_put_tests {
         assert!(clean > 100);
     }
 }
+
+/// `0x55186d..0x551895` of `0x54ff80`: once `[scene+0x5090] + [scene+0x508c]` (kept in extended precision) is
+/// below the game clock `[[0x6ef1fc]+0xb98]` (`f64`), `[scene+0x5080]` becomes 1.
+pub fn scene_light_timeout(m: &mut Mem, scene: u32) {
+    let sum = m.f32(scene + 0x5090) as f64 + m.f32(scene + 0x508c) as f64;
+    if sum < m.f64(m.u32(0x6ef1fc) + 0xb98) {
+        m.set_u32(scene + 0x5080, 1);
+    }
+}
+#[cfg(test)]
+mod scene_light_timeout_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_scene_light_timeout() {
+        let (scene, clock) = (0x2a01_0000u32, 0x2a04_0000u32);
+        for (n, line) in include_str!("../../../tools/emu/golden_scene_light_timeout.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            m.write(scene + 0x508c, &bytes(v[0]));
+            m.set_u32(scene + 0x5080, v[2].parse().unwrap());
+            m.set_u32(0x6ef1fc, clock);
+            m.write(clock + 0xb98, &bytes(v[1]));
+            scene_light_timeout(&mut m, scene);
+            assert_eq!(m.u32(scene + 0x5080), v[3].parse::<u32>().unwrap(), "case {n}");
+        }
+    }
+}
