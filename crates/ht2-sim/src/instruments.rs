@@ -2654,3 +2654,56 @@ mod scene_flag_bits_tests {
         }
     }
 }
+
+/// `0x4eb5e0` (thiscall on `owner+0x3f8c`): linear interpolation `a + (b - a) * [+0x24]` between the
+/// floats at `+idx*4` and `+idx*4+0xc`, `idx = [+0x28]`.
+pub fn interpolate_4eb5e0(m:&Mem,at:u32)->f64 {
+    let idx=m.u32(at+0x28);let a=m.f32(at.wrapping_add(idx.wrapping_mul(4))) as f64;let b=m.f32(at.wrapping_add(idx.wrapping_mul(4)).wrapping_add(12)) as f64;
+    ((b-a)*m.f32(at+0x24) as f64)+a
+}
+
+/// Impact event block of `FUN_004ff800` (`0x4ff917..0x4ffb22`) of the vehicle object `owner`; `now` is the
+/// time value at `[esp+0x10]`. While the contact value `[+0x29dc]` is at most 0.001 only `[+0x17dc]` follows `now`.
+/// Otherwise, with `[+0xdc8] > 0.5`, `[+0x29dc] > 0.5` and both words `[+0x19a4]`, `[+0x19a6]` zero, the event
+/// `[+0x3c18]` becomes 1 (when `0x4eb5e0 > 0`) or 2 and the two world points `[+0x3c1c..]`, `[+0x3c28..]` are set from
+/// the vectors `[+0x1844..]`/`[+0x1850..]` plus `[+0x1b74]`/`[+0x1b78]` times the axis `0x702630`. This is the
+/// writer of the field the flash flags (`update_flash_flags`) read.
+pub fn owner_impact_event(m:&mut Mem,owner:u32,now:f32) {
+    let c=m.f32(owner+0x29dc) as f64;
+    if !(c>0.001) {m.set_f32(owner+0x17dc,now);return;}
+    if !(m.f32(owner+0xdc8) as f64>0.5) || !(c>0.5) {return;}
+    if m.rd8(owner+0x19a4)!=0||m.rd8(owner+0x19a5)!=0||m.rd8(owner+0x19a6)!=0||m.rd8(owner+0x19a7)!=0 {return;}
+    let v=interpolate_4eb5e0(m,owner+0x3f8c);
+    m.set_u32(owner+0x3c18,if v>0.0 {1}else{2});
+    let ax=[m.f32(0x702630) as f64,m.f32(0x702634) as f64,m.f32(0x702638) as f64];
+    let mat:Vec<f64>=(0..12).map(|i|m.f32(owner+0x10+i*4) as f64).collect();
+    for (src,scale,dst) in [(0x1844u32,0x1b74u32,0x3c1cu32),(0x1850,0x1b78,0x3c28)] {
+        let s=m.f32(owner+scale) as f64;
+        let t0=(s*ax[0]) as f32 as f64;let t1=(s*ax[1]) as f32 as f64;let t2=s*ax[2];
+        let c0=(t0+m.f32(owner+src) as f64) as f32 as f64;let c1=(t1+m.f32(owner+src+4) as f64) as f32 as f64;let c2=t2+m.f32(owner+src+8) as f64;
+        let x=(((c2*mat[6]+c1*mat[3])+c0*mat[0])+mat[9]) as f32;
+        let y=(((c2*mat[7]+c1*mat[4])+c0*mat[1])+mat[10]) as f32;
+        let z=(((c2*mat[8]+c1*mat[5])+c0*mat[2])+mat[11]) as f32;
+        m.set_f32(owner+dst,x);m.set_f32(owner+dst+4,y);m.set_f32(owner+dst+8,z);
+    }
+}
+#[cfg(test)]
+mod owner_impact_tests {
+    use super::*;
+    fn bytes(s:&str)->Vec<u8>{(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+    #[test]
+    fn native_owner_impact_event(){
+        let mut events=0;
+        for line in include_str!("../../../tools/emu/golden_impact_event.tsv").lines(){
+            let v:Vec<_>=line.trim_end().split('\t').collect();let mut m=Mem::new();let owner=0x2a000000u32;
+            m.write(owner,&bytes(v[0]));m.write(0x702630,&bytes(v[1]));
+            let now=f32::from_le_bytes(bytes(v[2]).try_into().unwrap());
+            owner_impact_event(&mut m,owner,now);
+            let want=bytes(v[3]);let mut got=Vec::new();
+            for o in [0x17dcu32,0x3c18,0x3c1c,0x3c20,0x3c24,0x3c28,0x3c2c,0x3c30] {got.extend(m.read(owner+o,4));}
+            assert_eq!(got,want,"{line}");
+            if m.u32(owner+0x3c18)!=u32::from_le_bytes(bytes(v[0])[0x3c18..0x3c1c].try_into().unwrap()) {events+=1;}
+        }
+        assert!(events>50,"only {events} cases reached the event branch");
+    }
+}
