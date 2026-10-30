@@ -86,7 +86,11 @@ impl Powertrain {
         m.set_f32(CAR + 0xdc8, speed);
         m.set_f32(CAR + 0xdc0, speed.abs());
         m.set_f32(CAR + 0x270c, throttle.clamp(0.0, 1.0));
-        m.set_f32(CAR + 0x2710, 0.0); // clutch pedal
+        // 0x53b4c0 (analog pedals): the axis f in -1..1 gives +0x270c = f above the threshold and
+        // +0x2710 = -f^3 below it, so a brake of strength b is f = -b. STAND-IN: the axis itself
+        // (device filters `injoyfilterA`) is not ported, the brake value is used unfiltered.
+        let pedal = if throttle > 0.0 { 0.0 } else { brake.clamp(0.0, 1.0).powi(3) };
+        m.set_f32(CAR + 0x2710, pedal);
         m.set_f32(CAR + 0x3bd4, 1.0); // seconds since the last reset of the vehicle
 
         // Pick drive or reverse like a driver would: throttle from standstill goes forward,
@@ -133,5 +137,24 @@ impl Powertrain {
         self.m.wr8(CAR + 0x2702, (dir > 0) as u8);
         self.m.wr8(CAR + 0x2703, (dir < 0) as u8);
         self.m.set_i16(CAR + 0x2706, 0);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    /// Braking while rolling raises the demand `+0x29dc` above 0.5 and the gearbox raises the
+    /// effect event (original `0x4ff800`); coasting without the brake never does.
+    #[test]
+    #[ignore = "requires HT2_GAME installed game data"]
+    fn braking_at_speed_raises_the_effect_event() {
+        let game = std::path::PathBuf::from(std::env::var("HT2_GAME").unwrap());
+        let tech = std::fs::read(game.join("vehicle.tech")).unwrap();
+        let events = |brake: f32| {
+            let mut p = Powertrain::new(&tech, 0, 4, &[false, false, true, true], 8000.0).unwrap();
+            (0..200).map(|_| p.step(0.02, 0.0, brake, 15.0).effect_event).filter(|&e| e != 0).count()
+        };
+        assert!(events(1.0) > 0, "braking produced no effect event");
+        assert_eq!(events(0.0), 0);
     }
 }
