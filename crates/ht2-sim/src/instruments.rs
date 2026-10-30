@@ -2843,3 +2843,173 @@ mod impact_spark_tests {
         }
     }
 }
+
+/// `0x5940d0` (thiscall): take the head node of the free list `[this+0x68]` and push it on the active
+/// list `[this+0x6c]` (nodes link through their first word). Returns the node, 0 when none is free.
+pub fn spark_slot_alloc(m: &mut Mem, this: u32) -> u32 {
+    let node = m.u32(this + 0x68);
+    if node == 0 {
+        return 0;
+    }
+    let next = m.u32(node);
+    m.set_u32(this + 0x68, next);
+    let active = m.u32(this + 0x6c);
+    m.set_u32(node, active);
+    m.set_u32(this + 0x6c, node);
+    node
+}
+#[cfg(test)]
+mod spark_alloc_tests {
+    use super::*;
+    #[test]
+    fn native_spark_slot_alloc() {
+        let (this, nodes) = (0x2a00_1000u32, 0x2a00_2000u32);
+        for line in include_str!("../../../tools/emu/golden_spark_alloc.tsv").lines() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let n: u32 = v[0].parse().unwrap();
+            let want: Vec<u32> = v[2].split(',').map(|s| s.parse().unwrap()).collect();
+            let mut m = Mem::new();
+            for i in 0..n {
+                m.set_u32(nodes + 0x40 * i, if i + 1 < n { nodes + 0x40 * (i + 1) } else { 0 });
+            }
+            m.set_u32(this + 0x68, if n > 0 { nodes } else { 0 });
+            m.set_u32(this + 0x6c, v[1].parse().unwrap());
+            let got = spark_slot_alloc(&mut m, this);
+            let mut have = vec![got, m.u32(this + 0x68), m.u32(this + 0x6c)];
+            have.extend((0..n).map(|i| m.u32(nodes + 0x40 * i)));
+            assert_eq!(have, want, "{line}");
+        }
+    }
+}
+
+/// What the spark flash needs from the scene: the heap (`0x632643`), the light object's base constructors
+/// (`0x5f19b0("ThrowLamp", 0x15, 1)` and `0x5ad4c0`) and the registration of the light with the scene
+/// (virtual call `[vtable + 0x14](0, lamp)` on `[clock + 0x210]`).
+pub trait SparkFlashOwner {
+    fn allocate(&mut self, m: &mut Mem, size: u32) -> u32;
+    fn construct_lamp(&mut self, m: &mut Mem, lamp: u32);
+    fn register_lamp(&mut self, m: &mut Mem, scene: u32, lamp: u32);
+}
+
+/// `0x594b60` (thiscall): link `node` after `tail` of the flash list (`0x6f66b0` is the tail).
+pub fn spark_flash_link(m: &mut Mem, node: u32, tail: u32) {
+    if tail == 0 {
+        m.set_u32(0x6f66b0, node);
+        return;
+    }
+    m.set_u32(node, tail);
+    let tail_prev = m.u32(tail + 4);
+    m.set_u32(node + 4, tail_prev);
+    if tail_prev == 0 {
+        m.set_u32(0x6f66b0, node);
+        m.set_u32(tail + 4, node);
+        return;
+    }
+    m.set_u32(tail_prev, node);
+    m.set_u32(tail + 4, node);
+}
+
+/// `0x5949f0` (thiscall on the 0x20-byte `node`): a "ThrowLamp" light at `position` of strength `p`.
+pub fn construct_spark_flash(m: &mut Mem, node: u32, clock: u32, position: u32, p: f32, a5: u32, a6: u32, owner: &mut impl SparkFlashOwner) {
+    for o in [0xc, 0x10, 0x14, 4, 0] {
+        m.set_u32(node + o, 0);
+    }
+    for i in 0..3 {
+        let v = m.u32(position + 4 * i);
+        m.set_u32(node + 0xc + 4 * i, v);
+    }
+    let lamp = owner.allocate(m, 0x90);
+    owner.construct_lamp(m, lamp);
+    m.set_u32(lamp, 0x64d444);
+    m.set_u32(lamp + 0x88, 1);
+    m.set_u32(lamp + 0x8c, 0);
+    m.set_u32(node + 0x18, lamp);
+    m.set_u32(lamp + 0x88, 1);
+    m.set_u32(lamp + 0x8c, 1);
+    let scale = |c: u32| (p as f64 * f32::from_bits(c) as f64) as f32;
+    m.set_u32(lamp + 0x38, 2);
+    for i in 0..3 {
+        let v = m.u32(node + 0xc + 4 * i);
+        m.set_u32(lamp + 0x3c + 4 * i, v);
+    }
+    m.set_u32(lamp + 0x60, 0x3f800000);
+    m.set_f32(lamp + 0x6c, p);
+    m.set_f32(lamp + 0x70, scale(0x3f70f0e9));
+    m.set_f32(lamp + 0x74, scale(0x3f3ebebe));
+    m.set_u32(lamp + 0x54, 0x3f800000);
+    m.set_u32(lamp + 0x58, 0);
+    m.set_u32(lamp + 0x5c, a6);
+    m.set_u32(lamp + 0x80, 0x46);
+    let scene = m.u32(clock + 0x210);
+    if scene != 0 {
+        owner.register_lamp(m, scene, lamp);
+    }
+    m.set_u32(node + 8, a5);
+    let t = m.f64(clock + 0xb98);
+    m.set_f32(node + 0x1c, t as f32);
+}
+
+/// `0x594c90`: a spark flash of strength `p` (nothing below 0.05, at most 1.0) appended to the flash list.
+pub fn emit_spark_flash(m: &mut Mem, clock: u32, position: u32, p: f32, a5: u32, a6: u32, owner: &mut impl SparkFlashOwner) {
+    if !(p >= f32::from_bits(0x3d4ccccd)) {
+        return;
+    }
+    let node = owner.allocate(m, 0x20);
+    if node != 0 {
+        let strength = if p > 1.0 { 1.0 } else { p };
+        construct_spark_flash(m, node, clock, position, strength, a5, a6, owner);
+    }
+    let tail = m.u32(0x6f66b0);
+    spark_flash_link(m, node, tail);
+}
+#[cfg(test)]
+mod spark_flash_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    struct Owner {
+        next: u32,
+        registered: Option<(u32, u32, u32)>,
+    }
+    impl SparkFlashOwner for Owner {
+        fn allocate(&mut self, _: &mut Mem, size: u32) -> u32 {
+            let a = self.next;
+            self.next += (size + 15) & !15;
+            a
+        }
+        fn construct_lamp(&mut self, _: &mut Mem, _: u32) {}
+        fn register_lamp(&mut self, _: &mut Mem, scene: u32, lamp: u32) {
+            self.registered = Some((scene, 0, lamp));
+        }
+    }
+    #[test]
+    fn native_spark_flash() {
+        let (heap, clock, pos, scene, vt, list) = (0x2a04_0000u32, 0x2a00_3000u32, 0x2a00_2000u32, 0x2a00_3800u32, 0x2a00_3900u32, 0x2a00_5000u32);
+        for (n, line) in include_str!("../../../tools/emu/golden_spark_flash.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            m.write(heap, &vec![0xcc; 0x400]);
+            m.write(pos, &bytes(v[0]));
+            let p = f32::from_le_bytes(bytes(v[1]).try_into().unwrap());
+            m.write(clock + 0xb98, &bytes(v[4]));
+            m.set_u32(clock + 0x210, if v[5] == "1" { scene } else { 0 });
+            m.set_u32(scene, vt);
+            let (tail, prev): (u32, u32) = (v[6].parse().unwrap(), v[7].parse().unwrap());
+            m.set_u32(0x6f66b0, tail);
+            m.write(list, &[0x11, 0x11, 0x11, 0x11]);
+            m.set_u32(list + 4, prev);
+            m.set_u32(list + 0x100, 0x22222222);
+            m.set_u32(list + 0x104, 0x33333333);
+            let mut owner = Owner { next: heap, registered: None };
+            emit_spark_flash(&mut m, clock, pos, p, v[2].parse().unwrap(), v[3].parse().unwrap(), &mut owner);
+            let used = (owner.next - heap) as usize;
+            assert_eq!(m.read(heap, used), bytes(v[8]), "case {n}: objects");
+            assert_eq!(m.read(list, 8), bytes(v[9]), "case {n}: old tail");
+            assert_eq!(m.read(list + 0x100, 8), bytes(v[10]), "case {n}: previous");
+            assert_eq!(m.read(0x6f66b0, 4), bytes(v[11]), "case {n}: tail pointer");
+            let want = if v[12] == "-" { None } else { let t: Vec<u32> = v[12].split(',').map(|s| s.parse().unwrap()).collect(); Some((t[0], t[1], t[2])) };
+            assert_eq!(owner.registered, want, "case {n}: registration");
+        }
+    }
+}
