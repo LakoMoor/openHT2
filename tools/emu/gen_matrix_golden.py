@@ -65,6 +65,7 @@ for _ in range(40):
     ang = r.uniform(-7, 7)
     sx, sy, sz, sa = [struct.unpack('<f', pack('f', v))[0] for v in (x, y, z, ang)]
     h.case(IDENT, lambda e: e.call(0x5abc40, [C, x, y, z], 'ifff'), f'matrix::mat_translation(&mut m, {T(C)}, {sx!r}f32, {sy!r}f32, {sz!r}f32)', WATCH)
+    h.case(IDENT, lambda e: e.call(0x5abe90, [C, x, y, z], 'ifff'), f'matrix::mat_scale(&mut m, {T(C)}, {sx!r}f32, {sy!r}f32, {sz!r}f32)', WATCH)
     h.case([], lambda e: e.call(0x5ac0c0, [C, ang], 'if'), f'matrix::mat_rot_z(&mut m, {T(C)}, {sa!r}f32)', WATCH)
     h.case([], lambda e: e.call(0x5abfd0, [C, ang], 'if'), f'matrix::mat_rot_y(&mut m, {T(C)}, {sa!r}f32)', WATCH)
     h.case([], lambda e: e.call(0x5abee0, [C, ang], 'if'), f'matrix::mat_rot_x(&mut m, {T(C)}, {sa!r}f32)', WATCH)

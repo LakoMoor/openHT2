@@ -227,6 +227,18 @@ pub fn mat_translation(m: &mut Mem, dst: u32, x: f32, y: f32, z: f32) {
     put12(m, dst, &o);
 }
 
+/// `0x5abe90`: a scaling by `(x, y, z)`: the identity with the diagonal replaced.
+pub fn mat_scale(m: &mut Mem, dst: u32, x: f32, y: f32, z: f32) {
+    let mut o = [0.0f32; 12];
+    for (i, v) in o.iter_mut().enumerate() {
+        *v = m.f32(crate::globals::MAT_IDENTITY + 4 * i as u32);
+    }
+    o[0] = x;
+    o[4] = y;
+    o[8] = z;
+    put12(m, dst, &o);
+}
+
 /// `0x5ac0c0`: rotation about Z.
 pub fn mat_rot_z(m: &mut Mem, dst: u32, a: f32) {
     let (s, c) = (a as f64).sin_cos();

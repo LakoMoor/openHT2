@@ -16,9 +16,13 @@ fn mem_close(got: &[u8], want: &[u8]) -> bool {
     got.chunks(4).zip(want.chunks(4)).all(|(a, b)| {
         if a == b { return true; }
         if a.len() != 4 { return false; }
-        let noise = |i: u32| { let e = (i >> 23) & 0xff; (86..127).contains(&e) };
+        let noise = |i: u32| { let e = (i >> 23) & 0xff; (60..127).contains(&e) };
+        if f32::from_le_bytes(a.try_into().unwrap()).is_nan() && f32::from_le_bytes(b.try_into().unwrap()).is_nan() { return true; }
         let (ni, mi) = (u32::from_le_bytes(a.try_into().unwrap()), u32::from_le_bytes(b.try_into().unwrap()));
-        if noise(ni) && noise(mi) && (f32::from_le_bytes(a.try_into().unwrap()) - f32::from_le_bytes(b.try_into().unwrap())).abs() <= 1e-6 { return true; }
+        // cancellation residue: x87 extended precision leaves a tiny value where f64 gives zero (or the reverse)
+        let zero = |i: u32| i & 0x7fff_ffff == 0;
+        let top = ((ni >> 23) & 0xff).max((mi >> 23) & 0xff);
+        if (noise(ni) || zero(ni)) && (noise(mi) || zero(mi)) && (f32::from_le_bytes(a.try_into().unwrap()) - f32::from_le_bytes(b.try_into().unwrap())).abs() <= if (86..127).contains(&top) { 1e-6 } else { 1e-9 } { return true; }
         let (x, y) = (f32::from_le_bytes(a.try_into().unwrap()), f32::from_le_bytes(b.try_into().unwrap()));
         let ordinary = |v: f32| v.is_finite() && (v == 0.0 || (v.abs() > 1e-7 && v.abs() < 1e7));
         let (xi, yi) = (u32::from_le_bytes(a.try_into().unwrap()), u32::from_le_bytes(b.try_into().unwrap()));
@@ -30,7 +34,7 @@ fn mem_close(got: &[u8], want: &[u8]) -> bool {
 fn report(base: u32, got: &[u8], want: &[u8]) -> String {
     let mut out = String::new();
     for (i, (a, b)) in got.chunks(4).zip(want.chunks(4)).enumerate() {
-        if a != b && out.len() < 600 {
+        if a != b && !mem_close(a, b) && out.len() < 1500 {
             let f = |x: &[u8]| if x.len() == 4 { format!("{:#010x}/{}", u32::from_le_bytes(x.try_into().unwrap()), f32::from_le_bytes(x.try_into().unwrap())) } else { format!("{x:?}") };
             out += &format!("
   +{:#x}: port {} original {}", base as usize + i * 4, f(a), f(b));

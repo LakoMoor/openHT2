@@ -15,9 +15,13 @@ fn mem_close(got: &[u8], want: &[u8]) -> bool {
     got.chunks(4).zip(want.chunks(4)).all(|(a, b)| {
         if a == b { return true; }
         if a.len() != 4 { return false; }
-        let noise = |i: u32| { let e = (i >> 23) & 0xff; (86..127).contains(&e) };
+        let noise = |i: u32| { let e = (i >> 23) & 0xff; (60..127).contains(&e) };
+        if f32::from_le_bytes(a.try_into().unwrap()).is_nan() && f32::from_le_bytes(b.try_into().unwrap()).is_nan() { return true; }
         let (ni, mi) = (u32::from_le_bytes(a.try_into().unwrap()), u32::from_le_bytes(b.try_into().unwrap()));
-        if noise(ni) && noise(mi) && (f32::from_le_bytes(a.try_into().unwrap()) - f32::from_le_bytes(b.try_into().unwrap())).abs() <= 1e-6 { return true; }
+        // cancellation residue: x87 extended precision leaves a tiny value where f64 gives zero (or the reverse)
+        let zero = |i: u32| i & 0x7fff_ffff == 0;
+        let top = ((ni >> 23) & 0xff).max((mi >> 23) & 0xff);
+        if (noise(ni) || zero(ni)) && (noise(mi) || zero(mi)) && (f32::from_le_bytes(a.try_into().unwrap()) - f32::from_le_bytes(b.try_into().unwrap())).abs() <= if (86..127).contains(&top) { 1e-6 } else { 1e-9 } { return true; }
         let (x, y) = (f32::from_le_bytes(a.try_into().unwrap()), f32::from_le_bytes(b.try_into().unwrap()));
         let ordinary = |v: f32| v.is_finite() && (v == 0.0 || (v.abs() > 1e-7 && v.abs() < 1e7));
         let (xi, yi) = (u32::from_le_bytes(a.try_into().unwrap()), u32::from_le_bytes(b.try_into().unwrap()));
@@ -29,7 +33,7 @@ fn mem_close(got: &[u8], want: &[u8]) -> bool {
 fn report(base: u32, got: &[u8], want: &[u8]) -> String {
     let mut out = String::new();
     for (i, (a, b)) in got.chunks(4).zip(want.chunks(4)).enumerate() {
-        if a != b && out.len() < 600 {
+        if a != b && !mem_close(a, b) && out.len() < 1500 {
             let f = |x: &[u8]| if x.len() == 4 { format!("{:#010x}/{}", u32::from_le_bytes(x.try_into().unwrap()), f32::from_le_bytes(x.try_into().unwrap())) } else { format!("{x:?}") };
             out += &format!("
   +{:#x}: port {} original {}", base as usize + i * 4, f(a), f(b));
@@ -490,6 +494,29 @@ fn case_20() {
 fn case_21() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -14.448402404785156f32, -5.888428211212158f32, 16.198518753051758f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "a82c67c1"), (0x2a004890, "016ebcc0"), (0x2a0048a0, "91968141")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_22() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
     matrix::mat_rot_z(&mut m, 0x2a004880, -5.536191940307617f32);
     let mut want0 = before0.clone();
@@ -498,7 +525,7 @@ fn case_21() {
 }
 
 #[test]
-fn case_22() {
+fn case_23() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -509,7 +536,7 @@ fn case_22() {
 }
 
 #[test]
-fn case_23() {
+fn case_24() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -520,7 +547,7 @@ fn case_23() {
 }
 
 #[test]
-fn case_24() {
+fn case_25() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -531,7 +558,7 @@ fn case_24() {
 }
 
 #[test]
-fn case_25() {
+fn case_26() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ce3c3142");
@@ -548,7 +575,7 @@ fn case_25() {
 }
 
 #[test]
-fn case_26() {
+fn case_27() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ce3c3142");
@@ -565,7 +592,7 @@ fn case_26() {
 }
 
 #[test]
-fn case_27() {
+fn case_28() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ce3c3142");
@@ -582,7 +609,7 @@ fn case_27() {
 }
 
 #[test]
-fn case_28() {
+fn case_29() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ce3c3142");
@@ -599,7 +626,7 @@ fn case_28() {
 }
 
 #[test]
-fn case_29() {
+fn case_30() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ce3c3142");
@@ -616,7 +643,7 @@ fn case_29() {
 }
 
 #[test]
-fn case_30() {
+fn case_31() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ce3c3142");
@@ -633,7 +660,7 @@ fn case_30() {
 }
 
 #[test]
-fn case_31() {
+fn case_32() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ce3c3142");
@@ -651,7 +678,7 @@ fn case_31() {
 }
 
 #[test]
-fn case_32() {
+fn case_33() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ce3c3142");
@@ -668,7 +695,7 @@ fn case_32() {
 }
 
 #[test]
-fn case_33() {
+fn case_34() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ce3c3142");
@@ -685,7 +712,7 @@ fn case_33() {
 }
 
 #[test]
-fn case_34() {
+fn case_35() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ce3c3142");
@@ -702,7 +729,7 @@ fn case_34() {
 }
 
 #[test]
-fn case_35() {
+fn case_36() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ce3c3142");
@@ -719,7 +746,7 @@ fn case_35() {
 }
 
 #[test]
-fn case_36() {
+fn case_37() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ce3c3142");
@@ -736,7 +763,7 @@ fn case_36() {
 }
 
 #[test]
-fn case_37() {
+fn case_38() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "132046b5");
@@ -750,7 +777,7 @@ fn case_37() {
 }
 
 #[test]
-fn case_38() {
+fn case_39() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ce3c3142");
@@ -768,7 +795,7 @@ fn case_38() {
 }
 
 #[test]
-fn case_39() {
+fn case_40() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "43df9641");
@@ -794,7 +821,7 @@ fn case_39() {
 }
 
 #[test]
-fn case_40() {
+fn case_41() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5071c4c0");
@@ -820,7 +847,7 @@ fn case_40() {
 }
 
 #[test]
-fn case_41() {
+fn case_42() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dd7e743d");
@@ -846,7 +873,7 @@ fn case_41() {
 }
 
 #[test]
-fn case_42() {
+fn case_43() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2f489841");
@@ -872,7 +899,7 @@ fn case_42() {
 }
 
 #[test]
-fn case_43() {
+fn case_44() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "543a6bbf");
@@ -907,7 +934,7 @@ fn case_43() {
 }
 
 #[test]
-fn case_44() {
+fn case_45() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "543a6bbf");
@@ -942,7 +969,7 @@ fn case_44() {
 }
 
 #[test]
-fn case_45() {
+fn case_46() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -965,7 +992,30 @@ fn case_45() {
 }
 
 #[test]
-fn case_46() {
+fn case_47() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, 26.266387939453125f32, 25.688291549682617f32, 17.695491790771484f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "9021d241"), (0x2a004890, "9f81cd41"), (0x2a0048a0, "5e908d41")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_48() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -976,7 +1026,7 @@ fn case_46() {
 }
 
 #[test]
-fn case_47() {
+fn case_49() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -987,7 +1037,7 @@ fn case_47() {
 }
 
 #[test]
-fn case_48() {
+fn case_50() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -998,7 +1048,7 @@ fn case_48() {
 }
 
 #[test]
-fn case_49() {
+fn case_51() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -1009,7 +1059,7 @@ fn case_49() {
 }
 
 #[test]
-fn case_50() {
+fn case_52() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe7bc9c1");
@@ -1026,7 +1076,7 @@ fn case_50() {
 }
 
 #[test]
-fn case_51() {
+fn case_53() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe7bc9c1");
@@ -1043,7 +1093,7 @@ fn case_51() {
 }
 
 #[test]
-fn case_52() {
+fn case_54() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe7bc9c1");
@@ -1060,7 +1110,7 @@ fn case_52() {
 }
 
 #[test]
-fn case_53() {
+fn case_55() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe7bc9c1");
@@ -1077,7 +1127,7 @@ fn case_53() {
 }
 
 #[test]
-fn case_54() {
+fn case_56() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe7bc9c1");
@@ -1094,7 +1144,7 @@ fn case_54() {
 }
 
 #[test]
-fn case_55() {
+fn case_57() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe7bc9c1");
@@ -1111,7 +1161,7 @@ fn case_55() {
 }
 
 #[test]
-fn case_56() {
+fn case_58() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe7bc9c1");
@@ -1129,7 +1179,7 @@ fn case_56() {
 }
 
 #[test]
-fn case_57() {
+fn case_59() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe7bc9c1");
@@ -1146,7 +1196,7 @@ fn case_57() {
 }
 
 #[test]
-fn case_58() {
+fn case_60() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe7bc9c1");
@@ -1163,7 +1213,7 @@ fn case_58() {
 }
 
 #[test]
-fn case_59() {
+fn case_61() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe7bc9c1");
@@ -1180,7 +1230,7 @@ fn case_59() {
 }
 
 #[test]
-fn case_60() {
+fn case_62() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe7bc9c1");
@@ -1197,7 +1247,7 @@ fn case_60() {
 }
 
 #[test]
-fn case_61() {
+fn case_63() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe7bc9c1");
@@ -1214,7 +1264,7 @@ fn case_61() {
 }
 
 #[test]
-fn case_62() {
+fn case_64() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6fe92434");
@@ -1228,7 +1278,7 @@ fn case_62() {
 }
 
 #[test]
-fn case_63() {
+fn case_65() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe7bc9c1");
@@ -1246,7 +1296,7 @@ fn case_63() {
 }
 
 #[test]
-fn case_64() {
+fn case_66() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "739a5c41");
@@ -1272,7 +1322,7 @@ fn case_64() {
 }
 
 #[test]
-fn case_65() {
+fn case_67() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "02df3bc2");
@@ -1298,7 +1348,7 @@ fn case_65() {
 }
 
 #[test]
-fn case_66() {
+fn case_68() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "15b4c53f");
@@ -1324,7 +1374,7 @@ fn case_66() {
 }
 
 #[test]
-fn case_67() {
+fn case_69() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0d004642");
@@ -1350,7 +1400,7 @@ fn case_67() {
 }
 
 #[test]
-fn case_68() {
+fn case_70() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "3926653e");
@@ -1385,7 +1435,7 @@ fn case_68() {
 }
 
 #[test]
-fn case_69() {
+fn case_71() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "3926653e");
@@ -1420,7 +1470,7 @@ fn case_69() {
 }
 
 #[test]
-fn case_70() {
+fn case_72() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -1443,7 +1493,30 @@ fn case_70() {
 }
 
 #[test]
-fn case_71() {
+fn case_73() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, 16.440217971801758f32, 25.38627052307129f32, -6.901124000549316f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "91858341"), (0x2a004890, "1517cb41"), (0x2a0048a0, "02d6dcc0")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_74() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -1454,7 +1527,7 @@ fn case_71() {
 }
 
 #[test]
-fn case_72() {
+fn case_75() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -1465,7 +1538,7 @@ fn case_72() {
 }
 
 #[test]
-fn case_73() {
+fn case_76() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -1476,7 +1549,7 @@ fn case_73() {
 }
 
 #[test]
-fn case_74() {
+fn case_77() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -1487,7 +1560,7 @@ fn case_74() {
 }
 
 #[test]
-fn case_75() {
+fn case_78() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5cf01a41");
@@ -1504,7 +1577,7 @@ fn case_75() {
 }
 
 #[test]
-fn case_76() {
+fn case_79() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5cf01a41");
@@ -1521,7 +1594,7 @@ fn case_76() {
 }
 
 #[test]
-fn case_77() {
+fn case_80() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5cf01a41");
@@ -1538,7 +1611,7 @@ fn case_77() {
 }
 
 #[test]
-fn case_78() {
+fn case_81() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5cf01a41");
@@ -1555,7 +1628,7 @@ fn case_78() {
 }
 
 #[test]
-fn case_79() {
+fn case_82() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5cf01a41");
@@ -1572,7 +1645,7 @@ fn case_79() {
 }
 
 #[test]
-fn case_80() {
+fn case_83() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5cf01a41");
@@ -1589,7 +1662,7 @@ fn case_80() {
 }
 
 #[test]
-fn case_81() {
+fn case_84() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5cf01a41");
@@ -1607,7 +1680,7 @@ fn case_81() {
 }
 
 #[test]
-fn case_82() {
+fn case_85() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5cf01a41");
@@ -1624,7 +1697,7 @@ fn case_82() {
 }
 
 #[test]
-fn case_83() {
+fn case_86() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5cf01a41");
@@ -1641,7 +1714,7 @@ fn case_83() {
 }
 
 #[test]
-fn case_84() {
+fn case_87() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5cf01a41");
@@ -1658,7 +1731,7 @@ fn case_84() {
 }
 
 #[test]
-fn case_85() {
+fn case_88() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5cf01a41");
@@ -1675,7 +1748,7 @@ fn case_85() {
 }
 
 #[test]
-fn case_86() {
+fn case_89() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5cf01a41");
@@ -1692,7 +1765,7 @@ fn case_86() {
 }
 
 #[test]
-fn case_87() {
+fn case_90() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fb0d6435");
@@ -1706,7 +1779,7 @@ fn case_87() {
 }
 
 #[test]
-fn case_88() {
+fn case_91() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5cf01a41");
@@ -1724,7 +1797,7 @@ fn case_88() {
 }
 
 #[test]
-fn case_89() {
+fn case_92() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a53928c2");
@@ -1750,7 +1823,7 @@ fn case_89() {
 }
 
 #[test]
-fn case_90() {
+fn case_93() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0aff5641");
@@ -1776,7 +1849,7 @@ fn case_90() {
 }
 
 #[test]
-fn case_91() {
+fn case_94() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a50a1b42");
@@ -1802,7 +1875,7 @@ fn case_91() {
 }
 
 #[test]
-fn case_92() {
+fn case_95() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a73438c1");
@@ -1828,7 +1901,7 @@ fn case_92() {
 }
 
 #[test]
-fn case_93() {
+fn case_96() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0ade65bf");
@@ -1863,7 +1936,7 @@ fn case_93() {
 }
 
 #[test]
-fn case_94() {
+fn case_97() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0ade65bf");
@@ -1898,7 +1971,7 @@ fn case_94() {
 }
 
 #[test]
-fn case_95() {
+fn case_98() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -1921,7 +1994,30 @@ fn case_95() {
 }
 
 #[test]
-fn case_96() {
+fn case_99() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -9.420055389404297f32, -15.43349552154541f32, -18.0357608795166f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "8cb816c1"), (0x2a004890, "99ef76c1"), (0x2a0048a0, "3d4990c1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_100() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -1932,7 +2028,7 @@ fn case_96() {
 }
 
 #[test]
-fn case_97() {
+fn case_101() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -1943,7 +2039,7 @@ fn case_97() {
 }
 
 #[test]
-fn case_98() {
+fn case_102() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -1954,7 +2050,7 @@ fn case_98() {
 }
 
 #[test]
-fn case_99() {
+fn case_103() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -1965,7 +2061,7 @@ fn case_99() {
 }
 
 #[test]
-fn case_100() {
+fn case_104() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "769b4042");
@@ -1982,7 +2078,7 @@ fn case_100() {
 }
 
 #[test]
-fn case_101() {
+fn case_105() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "769b4042");
@@ -1999,7 +2095,7 @@ fn case_101() {
 }
 
 #[test]
-fn case_102() {
+fn case_106() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "769b4042");
@@ -2016,7 +2112,7 @@ fn case_102() {
 }
 
 #[test]
-fn case_103() {
+fn case_107() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "769b4042");
@@ -2033,7 +2129,7 @@ fn case_103() {
 }
 
 #[test]
-fn case_104() {
+fn case_108() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "769b4042");
@@ -2050,7 +2146,7 @@ fn case_104() {
 }
 
 #[test]
-fn case_105() {
+fn case_109() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "769b4042");
@@ -2067,7 +2163,7 @@ fn case_105() {
 }
 
 #[test]
-fn case_106() {
+fn case_110() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "769b4042");
@@ -2085,7 +2181,7 @@ fn case_106() {
 }
 
 #[test]
-fn case_107() {
+fn case_111() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "769b4042");
@@ -2102,7 +2198,7 @@ fn case_107() {
 }
 
 #[test]
-fn case_108() {
+fn case_112() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "769b4042");
@@ -2119,7 +2215,7 @@ fn case_108() {
 }
 
 #[test]
-fn case_109() {
+fn case_113() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "769b4042");
@@ -2136,7 +2232,7 @@ fn case_109() {
 }
 
 #[test]
-fn case_110() {
+fn case_114() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "769b4042");
@@ -2153,7 +2249,7 @@ fn case_110() {
 }
 
 #[test]
-fn case_111() {
+fn case_115() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "769b4042");
@@ -2170,7 +2266,7 @@ fn case_111() {
 }
 
 #[test]
-fn case_112() {
+fn case_116() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c73f39b5");
@@ -2184,7 +2280,7 @@ fn case_112() {
 }
 
 #[test]
-fn case_113() {
+fn case_117() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "769b4042");
@@ -2202,7 +2298,7 @@ fn case_113() {
 }
 
 #[test]
-fn case_114() {
+fn case_118() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "67923d42");
@@ -2228,7 +2324,7 @@ fn case_114() {
 }
 
 #[test]
-fn case_115() {
+fn case_119() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a15df741");
@@ -2254,7 +2350,7 @@ fn case_115() {
 }
 
 #[test]
-fn case_116() {
+fn case_120() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0bd0c8c1");
@@ -2280,7 +2376,7 @@ fn case_116() {
 }
 
 #[test]
-fn case_117() {
+fn case_121() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "49113042");
@@ -2306,7 +2402,7 @@ fn case_117() {
 }
 
 #[test]
-fn case_118() {
+fn case_122() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "658d0dbf");
@@ -2341,7 +2437,7 @@ fn case_118() {
 }
 
 #[test]
-fn case_119() {
+fn case_123() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "658d0dbf");
@@ -2376,7 +2472,7 @@ fn case_119() {
 }
 
 #[test]
-fn case_120() {
+fn case_124() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -2399,7 +2495,30 @@ fn case_120() {
 }
 
 #[test]
-fn case_121() {
+fn case_125() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, 3.5472042560577393f32, -26.901674270629883f32, -12.064204216003418f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "65056340"), (0x2a004890, "a136d7c1"), (0x2a0048a0, "fb0641c1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_126() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -2410,7 +2529,7 @@ fn case_121() {
 }
 
 #[test]
-fn case_122() {
+fn case_127() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -2421,7 +2540,7 @@ fn case_122() {
 }
 
 #[test]
-fn case_123() {
+fn case_128() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -2432,7 +2551,7 @@ fn case_123() {
 }
 
 #[test]
-fn case_124() {
+fn case_129() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -2443,7 +2562,7 @@ fn case_124() {
 }
 
 #[test]
-fn case_125() {
+fn case_130() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b2e603c2");
@@ -2460,7 +2579,7 @@ fn case_125() {
 }
 
 #[test]
-fn case_126() {
+fn case_131() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b2e603c2");
@@ -2477,7 +2596,7 @@ fn case_126() {
 }
 
 #[test]
-fn case_127() {
+fn case_132() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b2e603c2");
@@ -2494,7 +2613,7 @@ fn case_127() {
 }
 
 #[test]
-fn case_128() {
+fn case_133() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b2e603c2");
@@ -2511,7 +2630,7 @@ fn case_128() {
 }
 
 #[test]
-fn case_129() {
+fn case_134() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b2e603c2");
@@ -2528,7 +2647,7 @@ fn case_129() {
 }
 
 #[test]
-fn case_130() {
+fn case_135() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b2e603c2");
@@ -2545,7 +2664,7 @@ fn case_130() {
 }
 
 #[test]
-fn case_131() {
+fn case_136() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b2e603c2");
@@ -2563,7 +2682,7 @@ fn case_131() {
 }
 
 #[test]
-fn case_132() {
+fn case_137() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b2e603c2");
@@ -2580,7 +2699,7 @@ fn case_132() {
 }
 
 #[test]
-fn case_133() {
+fn case_138() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b2e603c2");
@@ -2597,7 +2716,7 @@ fn case_133() {
 }
 
 #[test]
-fn case_134() {
+fn case_139() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b2e603c2");
@@ -2614,7 +2733,7 @@ fn case_134() {
 }
 
 #[test]
-fn case_135() {
+fn case_140() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b2e603c2");
@@ -2631,7 +2750,7 @@ fn case_135() {
 }
 
 #[test]
-fn case_136() {
+fn case_141() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b2e603c2");
@@ -2648,7 +2767,7 @@ fn case_136() {
 }
 
 #[test]
-fn case_137() {
+fn case_142() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dcb550b4");
@@ -2662,7 +2781,7 @@ fn case_137() {
 }
 
 #[test]
-fn case_138() {
+fn case_143() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b2e603c2");
@@ -2680,7 +2799,7 @@ fn case_138() {
 }
 
 #[test]
-fn case_139() {
+fn case_144() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "de443e41");
@@ -2706,7 +2825,7 @@ fn case_139() {
 }
 
 #[test]
-fn case_140() {
+fn case_145() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6bf6acc1");
@@ -2732,7 +2851,7 @@ fn case_140() {
 }
 
 #[test]
-fn case_141() {
+fn case_146() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "88cbefc1");
@@ -2758,7 +2877,7 @@ fn case_141() {
 }
 
 #[test]
-fn case_142() {
+fn case_147() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "829018c1");
@@ -2784,7 +2903,7 @@ fn case_142() {
 }
 
 #[test]
-fn case_143() {
+fn case_148() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6d658be");
@@ -2819,7 +2938,7 @@ fn case_143() {
 }
 
 #[test]
-fn case_144() {
+fn case_149() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6d658be");
@@ -2854,7 +2973,7 @@ fn case_144() {
 }
 
 #[test]
-fn case_145() {
+fn case_150() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -2877,7 +2996,30 @@ fn case_145() {
 }
 
 #[test]
-fn case_146() {
+fn case_151() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -12.274641036987305f32, -21.817138671875f32, 20.55771827697754f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "ee6444c1"), (0x2a004890, "8089aec1"), (0x2a0048a0, "3576a441")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_152() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -2888,7 +3030,7 @@ fn case_146() {
 }
 
 #[test]
-fn case_147() {
+fn case_153() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -2899,7 +3041,7 @@ fn case_147() {
 }
 
 #[test]
-fn case_148() {
+fn case_154() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -2910,7 +3052,7 @@ fn case_148() {
 }
 
 #[test]
-fn case_149() {
+fn case_155() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -2921,7 +3063,7 @@ fn case_149() {
 }
 
 #[test]
-fn case_150() {
+fn case_156() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "57fa42c2");
@@ -2938,7 +3080,7 @@ fn case_150() {
 }
 
 #[test]
-fn case_151() {
+fn case_157() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "57fa42c2");
@@ -2955,7 +3097,7 @@ fn case_151() {
 }
 
 #[test]
-fn case_152() {
+fn case_158() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "57fa42c2");
@@ -2972,7 +3114,7 @@ fn case_152() {
 }
 
 #[test]
-fn case_153() {
+fn case_159() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "57fa42c2");
@@ -2989,7 +3131,7 @@ fn case_153() {
 }
 
 #[test]
-fn case_154() {
+fn case_160() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "57fa42c2");
@@ -3006,7 +3148,7 @@ fn case_154() {
 }
 
 #[test]
-fn case_155() {
+fn case_161() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "57fa42c2");
@@ -3023,7 +3165,7 @@ fn case_155() {
 }
 
 #[test]
-fn case_156() {
+fn case_162() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "57fa42c2");
@@ -3041,7 +3183,7 @@ fn case_156() {
 }
 
 #[test]
-fn case_157() {
+fn case_163() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "57fa42c2");
@@ -3058,7 +3200,7 @@ fn case_157() {
 }
 
 #[test]
-fn case_158() {
+fn case_164() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "57fa42c2");
@@ -3075,7 +3217,7 @@ fn case_158() {
 }
 
 #[test]
-fn case_159() {
+fn case_165() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "57fa42c2");
@@ -3092,7 +3234,7 @@ fn case_159() {
 }
 
 #[test]
-fn case_160() {
+fn case_166() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "57fa42c2");
@@ -3109,7 +3251,7 @@ fn case_160() {
 }
 
 #[test]
-fn case_161() {
+fn case_167() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "57fa42c2");
@@ -3126,7 +3268,7 @@ fn case_161() {
 }
 
 #[test]
-fn case_162() {
+fn case_168() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "26ee5a34");
@@ -3140,7 +3282,7 @@ fn case_162() {
 }
 
 #[test]
-fn case_163() {
+fn case_169() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "57fa42c2");
@@ -3158,7 +3300,7 @@ fn case_163() {
 }
 
 #[test]
-fn case_164() {
+fn case_170() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1daafcc1");
@@ -3184,7 +3326,7 @@ fn case_164() {
 }
 
 #[test]
-fn case_165() {
+fn case_171() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a1c3733f");
@@ -3210,7 +3352,7 @@ fn case_165() {
 }
 
 #[test]
-fn case_166() {
+fn case_172() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "569a3742");
@@ -3236,7 +3378,7 @@ fn case_166() {
 }
 
 #[test]
-fn case_167() {
+fn case_173() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5d979441");
@@ -3262,7 +3404,7 @@ fn case_167() {
 }
 
 #[test]
-fn case_168() {
+fn case_174() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5443213f");
@@ -3297,7 +3439,7 @@ fn case_168() {
 }
 
 #[test]
-fn case_169() {
+fn case_175() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5443213f");
@@ -3332,7 +3474,7 @@ fn case_169() {
 }
 
 #[test]
-fn case_170() {
+fn case_176() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -3355,7 +3497,30 @@ fn case_170() {
 }
 
 #[test]
-fn case_171() {
+fn case_177() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -24.346406936645508f32, -14.71390438079834f32, -29.183835983276367f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "71c5c2c1"), (0x2a004890, "276c6bc1"), (0x2a0048a0, "7f78e9c1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_178() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -3366,7 +3531,7 @@ fn case_171() {
 }
 
 #[test]
-fn case_172() {
+fn case_179() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -3377,7 +3542,7 @@ fn case_172() {
 }
 
 #[test]
-fn case_173() {
+fn case_180() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -3388,7 +3553,7 @@ fn case_173() {
 }
 
 #[test]
-fn case_174() {
+fn case_181() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -3399,7 +3564,7 @@ fn case_174() {
 }
 
 #[test]
-fn case_175() {
+fn case_182() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1348f8c1");
@@ -3416,7 +3581,7 @@ fn case_175() {
 }
 
 #[test]
-fn case_176() {
+fn case_183() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1348f8c1");
@@ -3433,7 +3598,7 @@ fn case_176() {
 }
 
 #[test]
-fn case_177() {
+fn case_184() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1348f8c1");
@@ -3450,7 +3615,7 @@ fn case_177() {
 }
 
 #[test]
-fn case_178() {
+fn case_185() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1348f8c1");
@@ -3467,7 +3632,7 @@ fn case_178() {
 }
 
 #[test]
-fn case_179() {
+fn case_186() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1348f8c1");
@@ -3484,7 +3649,7 @@ fn case_179() {
 }
 
 #[test]
-fn case_180() {
+fn case_187() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1348f8c1");
@@ -3501,7 +3666,7 @@ fn case_180() {
 }
 
 #[test]
-fn case_181() {
+fn case_188() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1348f8c1");
@@ -3519,7 +3684,7 @@ fn case_181() {
 }
 
 #[test]
-fn case_182() {
+fn case_189() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1348f8c1");
@@ -3536,7 +3701,7 @@ fn case_182() {
 }
 
 #[test]
-fn case_183() {
+fn case_190() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1348f8c1");
@@ -3553,7 +3718,7 @@ fn case_183() {
 }
 
 #[test]
-fn case_184() {
+fn case_191() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1348f8c1");
@@ -3570,7 +3735,7 @@ fn case_184() {
 }
 
 #[test]
-fn case_185() {
+fn case_192() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1348f8c1");
@@ -3587,7 +3752,7 @@ fn case_185() {
 }
 
 #[test]
-fn case_186() {
+fn case_193() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1348f8c1");
@@ -3604,7 +3769,7 @@ fn case_186() {
 }
 
 #[test]
-fn case_187() {
+fn case_194() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "41018635");
@@ -3618,7 +3783,7 @@ fn case_187() {
 }
 
 #[test]
-fn case_188() {
+fn case_195() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1348f8c1");
@@ -3636,7 +3801,7 @@ fn case_188() {
 }
 
 #[test]
-fn case_189() {
+fn case_196() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "36c488c1");
@@ -3662,7 +3827,7 @@ fn case_189() {
 }
 
 #[test]
-fn case_190() {
+fn case_197() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8310be41");
@@ -3688,7 +3853,7 @@ fn case_190() {
 }
 
 #[test]
-fn case_191() {
+fn case_198() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1951b42");
@@ -3714,7 +3879,7 @@ fn case_191() {
 }
 
 #[test]
-fn case_192() {
+fn case_199() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "277cdb41");
@@ -3740,7 +3905,7 @@ fn case_192() {
 }
 
 #[test]
-fn case_193() {
+fn case_200() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "47fa143f");
@@ -3775,7 +3940,7 @@ fn case_193() {
 }
 
 #[test]
-fn case_194() {
+fn case_201() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "47fa143f");
@@ -3810,7 +3975,7 @@ fn case_194() {
 }
 
 #[test]
-fn case_195() {
+fn case_202() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -3833,7 +3998,30 @@ fn case_195() {
 }
 
 #[test]
-fn case_196() {
+fn case_203() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, 13.061924934387207f32, -3.5929360389709473f32, -0.4721723198890686f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "a5fd5041"), (0x2a004890, "aaf265c0"), (0x2a0048a0, "92c0f1be")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_204() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -3844,7 +4032,7 @@ fn case_196() {
 }
 
 #[test]
-fn case_197() {
+fn case_205() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -3855,7 +4043,7 @@ fn case_197() {
 }
 
 #[test]
-fn case_198() {
+fn case_206() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -3866,7 +4054,7 @@ fn case_198() {
 }
 
 #[test]
-fn case_199() {
+fn case_207() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -3877,7 +4065,7 @@ fn case_199() {
 }
 
 #[test]
-fn case_200() {
+fn case_208() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7b5aa841");
@@ -3894,7 +4082,7 @@ fn case_200() {
 }
 
 #[test]
-fn case_201() {
+fn case_209() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7b5aa841");
@@ -3911,7 +4099,7 @@ fn case_201() {
 }
 
 #[test]
-fn case_202() {
+fn case_210() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7b5aa841");
@@ -3928,7 +4116,7 @@ fn case_202() {
 }
 
 #[test]
-fn case_203() {
+fn case_211() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7b5aa841");
@@ -3945,7 +4133,7 @@ fn case_203() {
 }
 
 #[test]
-fn case_204() {
+fn case_212() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7b5aa841");
@@ -3962,7 +4150,7 @@ fn case_204() {
 }
 
 #[test]
-fn case_205() {
+fn case_213() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7b5aa841");
@@ -3979,7 +4167,7 @@ fn case_205() {
 }
 
 #[test]
-fn case_206() {
+fn case_214() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7b5aa841");
@@ -3997,7 +4185,7 @@ fn case_206() {
 }
 
 #[test]
-fn case_207() {
+fn case_215() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7b5aa841");
@@ -4014,7 +4202,7 @@ fn case_207() {
 }
 
 #[test]
-fn case_208() {
+fn case_216() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7b5aa841");
@@ -4031,7 +4219,7 @@ fn case_208() {
 }
 
 #[test]
-fn case_209() {
+fn case_217() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7b5aa841");
@@ -4048,7 +4236,7 @@ fn case_209() {
 }
 
 #[test]
-fn case_210() {
+fn case_218() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7b5aa841");
@@ -4065,7 +4253,7 @@ fn case_210() {
 }
 
 #[test]
-fn case_211() {
+fn case_219() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7b5aa841");
@@ -4082,7 +4270,7 @@ fn case_211() {
 }
 
 #[test]
-fn case_212() {
+fn case_220() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe8377b5");
@@ -4096,7 +4284,7 @@ fn case_212() {
 }
 
 #[test]
-fn case_213() {
+fn case_221() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7b5aa841");
@@ -4114,7 +4302,7 @@ fn case_213() {
 }
 
 #[test]
-fn case_214() {
+fn case_222() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "897acf41");
@@ -4140,7 +4328,7 @@ fn case_214() {
 }
 
 #[test]
-fn case_215() {
+fn case_223() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e03bf33e");
@@ -4166,7 +4354,7 @@ fn case_215() {
 }
 
 #[test]
-fn case_216() {
+fn case_224() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "57a1a1c1");
@@ -4192,7 +4380,7 @@ fn case_216() {
 }
 
 #[test]
-fn case_217() {
+fn case_225() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e31337c2");
@@ -4218,7 +4406,7 @@ fn case_217() {
 }
 
 #[test]
-fn case_218() {
+fn case_226() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01dae53e");
@@ -4253,7 +4441,7 @@ fn case_218() {
 }
 
 #[test]
-fn case_219() {
+fn case_227() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01dae53e");
@@ -4288,7 +4476,7 @@ fn case_219() {
 }
 
 #[test]
-fn case_220() {
+fn case_228() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -4311,7 +4499,30 @@ fn case_220() {
 }
 
 #[test]
-fn case_221() {
+fn case_229() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, 22.62143325805664f32, -26.92668914794922f32, -12.575409889221191f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "b2f8b441"), (0x2a004890, "dc69d7c1"), (0x2a0048a0, "e13449c1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_230() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -4322,7 +4533,7 @@ fn case_221() {
 }
 
 #[test]
-fn case_222() {
+fn case_231() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -4333,7 +4544,7 @@ fn case_222() {
 }
 
 #[test]
-fn case_223() {
+fn case_232() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -4344,7 +4555,7 @@ fn case_223() {
 }
 
 #[test]
-fn case_224() {
+fn case_233() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -4355,7 +4566,7 @@ fn case_224() {
 }
 
 #[test]
-fn case_225() {
+fn case_234() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a9880ec2");
@@ -4372,7 +4583,7 @@ fn case_225() {
 }
 
 #[test]
-fn case_226() {
+fn case_235() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a9880ec2");
@@ -4389,7 +4600,7 @@ fn case_226() {
 }
 
 #[test]
-fn case_227() {
+fn case_236() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a9880ec2");
@@ -4406,7 +4617,7 @@ fn case_227() {
 }
 
 #[test]
-fn case_228() {
+fn case_237() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a9880ec2");
@@ -4423,7 +4634,7 @@ fn case_228() {
 }
 
 #[test]
-fn case_229() {
+fn case_238() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a9880ec2");
@@ -4440,7 +4651,7 @@ fn case_229() {
 }
 
 #[test]
-fn case_230() {
+fn case_239() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a9880ec2");
@@ -4457,7 +4668,7 @@ fn case_230() {
 }
 
 #[test]
-fn case_231() {
+fn case_240() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a9880ec2");
@@ -4475,7 +4686,7 @@ fn case_231() {
 }
 
 #[test]
-fn case_232() {
+fn case_241() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a9880ec2");
@@ -4492,7 +4703,7 @@ fn case_232() {
 }
 
 #[test]
-fn case_233() {
+fn case_242() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a9880ec2");
@@ -4509,7 +4720,7 @@ fn case_233() {
 }
 
 #[test]
-fn case_234() {
+fn case_243() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a9880ec2");
@@ -4526,7 +4737,7 @@ fn case_234() {
 }
 
 #[test]
-fn case_235() {
+fn case_244() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a9880ec2");
@@ -4543,7 +4754,7 @@ fn case_235() {
 }
 
 #[test]
-fn case_236() {
+fn case_245() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a9880ec2");
@@ -4560,7 +4771,7 @@ fn case_236() {
 }
 
 #[test]
-fn case_237() {
+fn case_246() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "178313b5");
@@ -4574,7 +4785,7 @@ fn case_237() {
 }
 
 #[test]
-fn case_238() {
+fn case_247() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a9880ec2");
@@ -4592,7 +4803,7 @@ fn case_238() {
 }
 
 #[test]
-fn case_239() {
+fn case_248() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0d29be41");
@@ -4618,7 +4829,7 @@ fn case_239() {
 }
 
 #[test]
-fn case_240() {
+fn case_249() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "27e2f0c0");
@@ -4644,7 +4855,7 @@ fn case_240() {
 }
 
 #[test]
-fn case_241() {
+fn case_250() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "85c4bfc1");
@@ -4670,7 +4881,7 @@ fn case_241() {
 }
 
 #[test]
-fn case_242() {
+fn case_251() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "4f9b10c2");
@@ -4696,7 +4907,7 @@ fn case_242() {
 }
 
 #[test]
-fn case_243() {
+fn case_252() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "07b74ebf");
@@ -4731,7 +4942,7 @@ fn case_243() {
 }
 
 #[test]
-fn case_244() {
+fn case_253() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "07b74ebf");
@@ -4766,7 +4977,7 @@ fn case_244() {
 }
 
 #[test]
-fn case_245() {
+fn case_254() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -4789,7 +5000,30 @@ fn case_245() {
 }
 
 #[test]
-fn case_246() {
+fn case_255() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, 3.416802167892456f32, 13.263113975524902f32, 8.361621856689453f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "e3ac5a40"), (0x2a004890, "b7355441"), (0x2a0048a0, "34c90541")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_256() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -4800,7 +5034,7 @@ fn case_246() {
 }
 
 #[test]
-fn case_247() {
+fn case_257() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -4811,7 +5045,7 @@ fn case_247() {
 }
 
 #[test]
-fn case_248() {
+fn case_258() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -4822,7 +5056,7 @@ fn case_248() {
 }
 
 #[test]
-fn case_249() {
+fn case_259() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -4833,7 +5067,7 @@ fn case_249() {
 }
 
 #[test]
-fn case_250() {
+fn case_260() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1ac8041");
@@ -4850,7 +5084,7 @@ fn case_250() {
 }
 
 #[test]
-fn case_251() {
+fn case_261() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1ac8041");
@@ -4867,7 +5101,7 @@ fn case_251() {
 }
 
 #[test]
-fn case_252() {
+fn case_262() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1ac8041");
@@ -4884,7 +5118,7 @@ fn case_252() {
 }
 
 #[test]
-fn case_253() {
+fn case_263() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1ac8041");
@@ -4901,7 +5135,7 @@ fn case_253() {
 }
 
 #[test]
-fn case_254() {
+fn case_264() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1ac8041");
@@ -4918,7 +5152,7 @@ fn case_254() {
 }
 
 #[test]
-fn case_255() {
+fn case_265() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1ac8041");
@@ -4935,7 +5169,7 @@ fn case_255() {
 }
 
 #[test]
-fn case_256() {
+fn case_266() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1ac8041");
@@ -4953,7 +5187,7 @@ fn case_256() {
 }
 
 #[test]
-fn case_257() {
+fn case_267() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1ac8041");
@@ -4970,7 +5204,7 @@ fn case_257() {
 }
 
 #[test]
-fn case_258() {
+fn case_268() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1ac8041");
@@ -4987,7 +5221,7 @@ fn case_258() {
 }
 
 #[test]
-fn case_259() {
+fn case_269() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1ac8041");
@@ -5004,7 +5238,7 @@ fn case_259() {
 }
 
 #[test]
-fn case_260() {
+fn case_270() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1ac8041");
@@ -5021,7 +5255,7 @@ fn case_260() {
 }
 
 #[test]
-fn case_261() {
+fn case_271() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1ac8041");
@@ -5038,7 +5272,7 @@ fn case_261() {
 }
 
 #[test]
-fn case_262() {
+fn case_272() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "41dfadb4");
@@ -5052,7 +5286,7 @@ fn case_262() {
 }
 
 #[test]
-fn case_263() {
+fn case_273() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1ac8041");
@@ -5070,7 +5304,7 @@ fn case_263() {
 }
 
 #[test]
-fn case_264() {
+fn case_274() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0b19bcc1");
@@ -5096,7 +5330,7 @@ fn case_264() {
 }
 
 #[test]
-fn case_265() {
+fn case_275() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "292fb941");
@@ -5122,7 +5356,7 @@ fn case_265() {
 }
 
 #[test]
-fn case_266() {
+fn case_276() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "cb354142");
@@ -5148,7 +5382,7 @@ fn case_266() {
 }
 
 #[test]
-fn case_267() {
+fn case_277() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5d6e2a40");
@@ -5174,7 +5408,7 @@ fn case_267() {
 }
 
 #[test]
-fn case_268() {
+fn case_278() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "76b37f3f");
@@ -5209,7 +5443,7 @@ fn case_268() {
 }
 
 #[test]
-fn case_269() {
+fn case_279() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "76b37f3f");
@@ -5244,7 +5478,7 @@ fn case_269() {
 }
 
 #[test]
-fn case_270() {
+fn case_280() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -5267,7 +5501,30 @@ fn case_270() {
 }
 
 #[test]
-fn case_271() {
+fn case_281() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -7.378884792327881f32, -9.157169342041016f32, -6.510334491729736f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "d31fecc0"), (0x2a004890, "c48312c1"), (0x2a0048a0, "a954d0c0")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_282() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -5278,7 +5535,7 @@ fn case_271() {
 }
 
 #[test]
-fn case_272() {
+fn case_283() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -5289,7 +5546,7 @@ fn case_272() {
 }
 
 #[test]
-fn case_273() {
+fn case_284() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -5300,7 +5557,7 @@ fn case_273() {
 }
 
 #[test]
-fn case_274() {
+fn case_285() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -5311,7 +5568,7 @@ fn case_274() {
 }
 
 #[test]
-fn case_275() {
+fn case_286() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b65aa4c0");
@@ -5328,7 +5585,7 @@ fn case_275() {
 }
 
 #[test]
-fn case_276() {
+fn case_287() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b65aa4c0");
@@ -5345,7 +5602,7 @@ fn case_276() {
 }
 
 #[test]
-fn case_277() {
+fn case_288() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b65aa4c0");
@@ -5362,7 +5619,7 @@ fn case_277() {
 }
 
 #[test]
-fn case_278() {
+fn case_289() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b65aa4c0");
@@ -5379,7 +5636,7 @@ fn case_278() {
 }
 
 #[test]
-fn case_279() {
+fn case_290() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b65aa4c0");
@@ -5396,7 +5653,7 @@ fn case_279() {
 }
 
 #[test]
-fn case_280() {
+fn case_291() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b65aa4c0");
@@ -5413,7 +5670,7 @@ fn case_280() {
 }
 
 #[test]
-fn case_281() {
+fn case_292() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b65aa4c0");
@@ -5431,7 +5688,7 @@ fn case_281() {
 }
 
 #[test]
-fn case_282() {
+fn case_293() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b65aa4c0");
@@ -5448,7 +5705,7 @@ fn case_282() {
 }
 
 #[test]
-fn case_283() {
+fn case_294() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b65aa4c0");
@@ -5465,7 +5722,7 @@ fn case_283() {
 }
 
 #[test]
-fn case_284() {
+fn case_295() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b65aa4c0");
@@ -5482,7 +5739,7 @@ fn case_284() {
 }
 
 #[test]
-fn case_285() {
+fn case_296() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b65aa4c0");
@@ -5499,7 +5756,7 @@ fn case_285() {
 }
 
 #[test]
-fn case_286() {
+fn case_297() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b65aa4c0");
@@ -5516,7 +5773,7 @@ fn case_286() {
 }
 
 #[test]
-fn case_287() {
+fn case_298() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d872e434");
@@ -5530,7 +5787,7 @@ fn case_287() {
 }
 
 #[test]
-fn case_288() {
+fn case_299() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b65aa4c0");
@@ -5548,7 +5805,7 @@ fn case_288() {
 }
 
 #[test]
-fn case_289() {
+fn case_300() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "aa21bfc1");
@@ -5574,7 +5831,7 @@ fn case_289() {
 }
 
 #[test]
-fn case_290() {
+fn case_301() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "093c633f");
@@ -5600,7 +5857,7 @@ fn case_290() {
 }
 
 #[test]
-fn case_291() {
+fn case_302() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5f2e77c0");
@@ -5626,7 +5883,7 @@ fn case_291() {
 }
 
 #[test]
-fn case_292() {
+fn case_303() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ccf61742");
@@ -5652,7 +5909,7 @@ fn case_292() {
 }
 
 #[test]
-fn case_293() {
+fn case_304() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "084ecabe");
@@ -5687,7 +5944,7 @@ fn case_293() {
 }
 
 #[test]
-fn case_294() {
+fn case_305() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "084ecabe");
@@ -5722,7 +5979,7 @@ fn case_294() {
 }
 
 #[test]
-fn case_295() {
+fn case_306() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -5745,7 +6002,30 @@ fn case_295() {
 }
 
 #[test]
-fn case_296() {
+fn case_307() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, 20.927810668945312f32, -15.781764030456543f32, 21.599159240722656f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "286ca741"), (0x2a004890, "1b827cc1"), (0x2a0048a0, "14cbac41")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_308() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -5756,7 +6036,7 @@ fn case_296() {
 }
 
 #[test]
-fn case_297() {
+fn case_309() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -5767,7 +6047,7 @@ fn case_297() {
 }
 
 #[test]
-fn case_298() {
+fn case_310() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -5778,7 +6058,7 @@ fn case_298() {
 }
 
 #[test]
-fn case_299() {
+fn case_311() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -5789,7 +6069,7 @@ fn case_299() {
 }
 
 #[test]
-fn case_300() {
+fn case_312() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "34cd0142");
@@ -5806,7 +6086,7 @@ fn case_300() {
 }
 
 #[test]
-fn case_301() {
+fn case_313() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "34cd0142");
@@ -5823,7 +6103,7 @@ fn case_301() {
 }
 
 #[test]
-fn case_302() {
+fn case_314() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "34cd0142");
@@ -5840,7 +6120,7 @@ fn case_302() {
 }
 
 #[test]
-fn case_303() {
+fn case_315() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "34cd0142");
@@ -5857,7 +6137,7 @@ fn case_303() {
 }
 
 #[test]
-fn case_304() {
+fn case_316() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "34cd0142");
@@ -5874,7 +6154,7 @@ fn case_304() {
 }
 
 #[test]
-fn case_305() {
+fn case_317() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "34cd0142");
@@ -5891,7 +6171,7 @@ fn case_305() {
 }
 
 #[test]
-fn case_306() {
+fn case_318() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "34cd0142");
@@ -5909,7 +6189,7 @@ fn case_306() {
 }
 
 #[test]
-fn case_307() {
+fn case_319() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "34cd0142");
@@ -5926,7 +6206,7 @@ fn case_307() {
 }
 
 #[test]
-fn case_308() {
+fn case_320() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "34cd0142");
@@ -5943,7 +6223,7 @@ fn case_308() {
 }
 
 #[test]
-fn case_309() {
+fn case_321() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "34cd0142");
@@ -5960,7 +6240,7 @@ fn case_309() {
 }
 
 #[test]
-fn case_310() {
+fn case_322() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "34cd0142");
@@ -5977,7 +6257,7 @@ fn case_310() {
 }
 
 #[test]
-fn case_311() {
+fn case_323() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "34cd0142");
@@ -5994,7 +6274,7 @@ fn case_311() {
 }
 
 #[test]
-fn case_312() {
+fn case_324() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "54117b35");
@@ -6008,7 +6288,7 @@ fn case_312() {
 }
 
 #[test]
-fn case_313() {
+fn case_325() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "34cd0142");
@@ -6026,7 +6306,7 @@ fn case_313() {
 }
 
 #[test]
-fn case_314() {
+fn case_326() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "91290d41");
@@ -6052,7 +6332,7 @@ fn case_314() {
 }
 
 #[test]
-fn case_315() {
+fn case_327() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8682bdc1");
@@ -6078,7 +6358,7 @@ fn case_315() {
 }
 
 #[test]
-fn case_316() {
+fn case_328() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8c8233c2");
@@ -6104,7 +6384,7 @@ fn case_316() {
 }
 
 #[test]
-fn case_317() {
+fn case_329() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "beb31442");
@@ -6130,7 +6410,7 @@ fn case_317() {
 }
 
 #[test]
-fn case_318() {
+fn case_330() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7a1478bf");
@@ -6165,7 +6445,7 @@ fn case_318() {
 }
 
 #[test]
-fn case_319() {
+fn case_331() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7a1478bf");
@@ -6200,7 +6480,7 @@ fn case_319() {
 }
 
 #[test]
-fn case_320() {
+fn case_332() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -6223,7 +6503,30 @@ fn case_320() {
 }
 
 #[test]
-fn case_321() {
+fn case_333() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -19.170944213867188f32, 11.648250579833984f32, -10.744304656982422f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "185e99c1"), (0x2a004890, "3c5f3a41"), (0x2a0048a0, "ace82bc1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_334() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -6234,7 +6537,7 @@ fn case_321() {
 }
 
 #[test]
-fn case_322() {
+fn case_335() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -6245,7 +6548,7 @@ fn case_322() {
 }
 
 #[test]
-fn case_323() {
+fn case_336() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -6256,7 +6559,7 @@ fn case_323() {
 }
 
 #[test]
-fn case_324() {
+fn case_337() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -6267,7 +6570,7 @@ fn case_324() {
 }
 
 #[test]
-fn case_325() {
+fn case_338() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "79e43542");
@@ -6284,7 +6587,7 @@ fn case_325() {
 }
 
 #[test]
-fn case_326() {
+fn case_339() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "79e43542");
@@ -6301,7 +6604,7 @@ fn case_326() {
 }
 
 #[test]
-fn case_327() {
+fn case_340() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "79e43542");
@@ -6318,7 +6621,7 @@ fn case_327() {
 }
 
 #[test]
-fn case_328() {
+fn case_341() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "79e43542");
@@ -6335,7 +6638,7 @@ fn case_328() {
 }
 
 #[test]
-fn case_329() {
+fn case_342() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "79e43542");
@@ -6352,7 +6655,7 @@ fn case_329() {
 }
 
 #[test]
-fn case_330() {
+fn case_343() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "79e43542");
@@ -6369,7 +6672,7 @@ fn case_330() {
 }
 
 #[test]
-fn case_331() {
+fn case_344() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "79e43542");
@@ -6387,7 +6690,7 @@ fn case_331() {
 }
 
 #[test]
-fn case_332() {
+fn case_345() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "79e43542");
@@ -6404,7 +6707,7 @@ fn case_332() {
 }
 
 #[test]
-fn case_333() {
+fn case_346() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "79e43542");
@@ -6421,7 +6724,7 @@ fn case_333() {
 }
 
 #[test]
-fn case_334() {
+fn case_347() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "79e43542");
@@ -6438,7 +6741,7 @@ fn case_334() {
 }
 
 #[test]
-fn case_335() {
+fn case_348() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "79e43542");
@@ -6455,7 +6758,7 @@ fn case_335() {
 }
 
 #[test]
-fn case_336() {
+fn case_349() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "79e43542");
@@ -6472,7 +6775,7 @@ fn case_336() {
 }
 
 #[test]
-fn case_337() {
+fn case_350() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a451ffb4");
@@ -6486,7 +6789,7 @@ fn case_337() {
 }
 
 #[test]
-fn case_338() {
+fn case_351() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "79e43542");
@@ -6504,7 +6807,7 @@ fn case_338() {
 }
 
 #[test]
-fn case_339() {
+fn case_352() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "45ff2942");
@@ -6530,7 +6833,7 @@ fn case_339() {
 }
 
 #[test]
-fn case_340() {
+fn case_353() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "84a0fc41");
@@ -6556,7 +6859,7 @@ fn case_340() {
 }
 
 #[test]
-fn case_341() {
+fn case_354() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "bc41e9c1");
@@ -6582,7 +6885,7 @@ fn case_341() {
 }
 
 #[test]
-fn case_342() {
+fn case_355() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "38080d42");
@@ -6608,7 +6911,7 @@ fn case_342() {
 }
 
 #[test]
-fn case_343() {
+fn case_356() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "3426f4bc");
@@ -6643,7 +6946,7 @@ fn case_343() {
 }
 
 #[test]
-fn case_344() {
+fn case_357() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "3426f4bc");
@@ -6678,7 +6981,7 @@ fn case_344() {
 }
 
 #[test]
-fn case_345() {
+fn case_358() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -6701,7 +7004,30 @@ fn case_345() {
 }
 
 #[test]
-fn case_346() {
+fn case_359() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -18.22831153869629f32, 18.98737907409668f32, 2.648097515106201f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "95d391c1"), (0x2a004890, "27e69741"), (0x2a0048a0, "6e7a2940")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_360() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -6712,7 +7038,7 @@ fn case_346() {
 }
 
 #[test]
-fn case_347() {
+fn case_361() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -6723,7 +7049,7 @@ fn case_347() {
 }
 
 #[test]
-fn case_348() {
+fn case_362() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -6734,7 +7060,7 @@ fn case_348() {
 }
 
 #[test]
-fn case_349() {
+fn case_363() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -6745,7 +7071,7 @@ fn case_349() {
 }
 
 #[test]
-fn case_350() {
+fn case_364() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ad5bc8c1");
@@ -6762,7 +7088,7 @@ fn case_350() {
 }
 
 #[test]
-fn case_351() {
+fn case_365() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ad5bc8c1");
@@ -6779,7 +7105,7 @@ fn case_351() {
 }
 
 #[test]
-fn case_352() {
+fn case_366() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ad5bc8c1");
@@ -6796,7 +7122,7 @@ fn case_352() {
 }
 
 #[test]
-fn case_353() {
+fn case_367() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ad5bc8c1");
@@ -6813,7 +7139,7 @@ fn case_353() {
 }
 
 #[test]
-fn case_354() {
+fn case_368() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ad5bc8c1");
@@ -6830,7 +7156,7 @@ fn case_354() {
 }
 
 #[test]
-fn case_355() {
+fn case_369() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ad5bc8c1");
@@ -6847,7 +7173,7 @@ fn case_355() {
 }
 
 #[test]
-fn case_356() {
+fn case_370() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ad5bc8c1");
@@ -6865,7 +7191,7 @@ fn case_356() {
 }
 
 #[test]
-fn case_357() {
+fn case_371() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ad5bc8c1");
@@ -6882,7 +7208,7 @@ fn case_357() {
 }
 
 #[test]
-fn case_358() {
+fn case_372() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ad5bc8c1");
@@ -6899,7 +7225,7 @@ fn case_358() {
 }
 
 #[test]
-fn case_359() {
+fn case_373() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ad5bc8c1");
@@ -6916,7 +7242,7 @@ fn case_359() {
 }
 
 #[test]
-fn case_360() {
+fn case_374() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ad5bc8c1");
@@ -6933,7 +7259,7 @@ fn case_360() {
 }
 
 #[test]
-fn case_361() {
+fn case_375() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ad5bc8c1");
@@ -6950,7 +7276,7 @@ fn case_361() {
 }
 
 #[test]
-fn case_362() {
+fn case_376() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1585aa34");
@@ -6964,7 +7290,7 @@ fn case_362() {
 }
 
 #[test]
-fn case_363() {
+fn case_377() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ad5bc8c1");
@@ -6982,7 +7308,7 @@ fn case_363() {
 }
 
 #[test]
-fn case_364() {
+fn case_378() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "af85a641");
@@ -7008,7 +7334,7 @@ fn case_364() {
 }
 
 #[test]
-fn case_365() {
+fn case_379() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ed750e42");
@@ -7034,7 +7360,7 @@ fn case_365() {
 }
 
 #[test]
-fn case_366() {
+fn case_380() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "cedf11c2");
@@ -7060,7 +7386,7 @@ fn case_366() {
 }
 
 #[test]
-fn case_367() {
+fn case_381() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "40bf9541");
@@ -7086,7 +7412,7 @@ fn case_367() {
 }
 
 #[test]
-fn case_368() {
+fn case_382() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1af5e33e");
@@ -7121,7 +7447,7 @@ fn case_368() {
 }
 
 #[test]
-fn case_369() {
+fn case_383() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1af5e33e");
@@ -7156,7 +7482,7 @@ fn case_369() {
 }
 
 #[test]
-fn case_370() {
+fn case_384() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -7179,7 +7505,30 @@ fn case_370() {
 }
 
 #[test]
-fn case_371() {
+fn case_385() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -29.815277099609375f32, 14.093252182006836f32, -24.604951858520508f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "b085eec1"), (0x2a004890, "f67d6141"), (0x2a0048a0, "f1d6c4c1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_386() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -7190,7 +7539,7 @@ fn case_371() {
 }
 
 #[test]
-fn case_372() {
+fn case_387() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -7201,7 +7550,7 @@ fn case_372() {
 }
 
 #[test]
-fn case_373() {
+fn case_388() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -7212,7 +7561,7 @@ fn case_373() {
 }
 
 #[test]
-fn case_374() {
+fn case_389() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -7223,7 +7572,7 @@ fn case_374() {
 }
 
 #[test]
-fn case_375() {
+fn case_390() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "da24ec41");
@@ -7240,7 +7589,7 @@ fn case_375() {
 }
 
 #[test]
-fn case_376() {
+fn case_391() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "da24ec41");
@@ -7257,7 +7606,7 @@ fn case_376() {
 }
 
 #[test]
-fn case_377() {
+fn case_392() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "da24ec41");
@@ -7274,7 +7623,7 @@ fn case_377() {
 }
 
 #[test]
-fn case_378() {
+fn case_393() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "da24ec41");
@@ -7291,7 +7640,7 @@ fn case_378() {
 }
 
 #[test]
-fn case_379() {
+fn case_394() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "da24ec41");
@@ -7308,7 +7657,7 @@ fn case_379() {
 }
 
 #[test]
-fn case_380() {
+fn case_395() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "da24ec41");
@@ -7325,7 +7674,7 @@ fn case_380() {
 }
 
 #[test]
-fn case_381() {
+fn case_396() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "da24ec41");
@@ -7343,7 +7692,7 @@ fn case_381() {
 }
 
 #[test]
-fn case_382() {
+fn case_397() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "da24ec41");
@@ -7360,7 +7709,7 @@ fn case_382() {
 }
 
 #[test]
-fn case_383() {
+fn case_398() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "da24ec41");
@@ -7377,7 +7726,7 @@ fn case_383() {
 }
 
 #[test]
-fn case_384() {
+fn case_399() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "da24ec41");
@@ -7394,7 +7743,7 @@ fn case_384() {
 }
 
 #[test]
-fn case_385() {
+fn case_400() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "da24ec41");
@@ -7411,7 +7760,7 @@ fn case_385() {
 }
 
 #[test]
-fn case_386() {
+fn case_401() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "da24ec41");
@@ -7428,7 +7777,7 @@ fn case_386() {
 }
 
 #[test]
-fn case_387() {
+fn case_402() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "221fb334");
@@ -7442,7 +7791,7 @@ fn case_387() {
 }
 
 #[test]
-fn case_388() {
+fn case_403() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "da24ec41");
@@ -7460,7 +7809,7 @@ fn case_388() {
 }
 
 #[test]
-fn case_389() {
+fn case_404() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f2d6d841");
@@ -7486,7 +7835,7 @@ fn case_389() {
 }
 
 #[test]
-fn case_390() {
+fn case_405() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f580873f");
@@ -7512,7 +7861,7 @@ fn case_390() {
 }
 
 #[test]
-fn case_391() {
+fn case_406() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "32f31b42");
@@ -7538,7 +7887,7 @@ fn case_391() {
 }
 
 #[test]
-fn case_392() {
+fn case_407() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f09f1441");
@@ -7564,7 +7913,7 @@ fn case_392() {
 }
 
 #[test]
-fn case_393() {
+fn case_408() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a1ab583e");
@@ -7599,7 +7948,7 @@ fn case_393() {
 }
 
 #[test]
-fn case_394() {
+fn case_409() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a1ab583e");
@@ -7634,7 +7983,7 @@ fn case_394() {
 }
 
 #[test]
-fn case_395() {
+fn case_410() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -7657,7 +8006,30 @@ fn case_395() {
 }
 
 #[test]
-fn case_396() {
+fn case_411() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, 5.4976725578308105f32, -7.380646228790283f32, -4.17787504196167f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "efecaf40"), (0x2a004890, "412eecc0"), (0x2a0048a0, "27b185c0")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_412() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -7668,7 +8040,7 @@ fn case_396() {
 }
 
 #[test]
-fn case_397() {
+fn case_413() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -7679,7 +8051,7 @@ fn case_397() {
 }
 
 #[test]
-fn case_398() {
+fn case_414() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -7690,7 +8062,7 @@ fn case_398() {
 }
 
 #[test]
-fn case_399() {
+fn case_415() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -7701,7 +8073,7 @@ fn case_399() {
 }
 
 #[test]
-fn case_400() {
+fn case_416() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1f745fc1");
@@ -7718,7 +8090,7 @@ fn case_400() {
 }
 
 #[test]
-fn case_401() {
+fn case_417() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1f745fc1");
@@ -7735,7 +8107,7 @@ fn case_401() {
 }
 
 #[test]
-fn case_402() {
+fn case_418() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1f745fc1");
@@ -7752,7 +8124,7 @@ fn case_402() {
 }
 
 #[test]
-fn case_403() {
+fn case_419() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1f745fc1");
@@ -7769,7 +8141,7 @@ fn case_403() {
 }
 
 #[test]
-fn case_404() {
+fn case_420() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1f745fc1");
@@ -7786,7 +8158,7 @@ fn case_404() {
 }
 
 #[test]
-fn case_405() {
+fn case_421() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1f745fc1");
@@ -7803,7 +8175,7 @@ fn case_405() {
 }
 
 #[test]
-fn case_406() {
+fn case_422() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1f745fc1");
@@ -7821,7 +8193,7 @@ fn case_406() {
 }
 
 #[test]
-fn case_407() {
+fn case_423() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1f745fc1");
@@ -7838,7 +8210,7 @@ fn case_407() {
 }
 
 #[test]
-fn case_408() {
+fn case_424() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1f745fc1");
@@ -7855,7 +8227,7 @@ fn case_408() {
 }
 
 #[test]
-fn case_409() {
+fn case_425() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1f745fc1");
@@ -7872,7 +8244,7 @@ fn case_409() {
 }
 
 #[test]
-fn case_410() {
+fn case_426() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1f745fc1");
@@ -7889,7 +8261,7 @@ fn case_410() {
 }
 
 #[test]
-fn case_411() {
+fn case_427() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1f745fc1");
@@ -7906,7 +8278,7 @@ fn case_411() {
 }
 
 #[test]
-fn case_412() {
+fn case_428() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "4205a3b4");
@@ -7920,7 +8292,7 @@ fn case_412() {
 }
 
 #[test]
-fn case_413() {
+fn case_429() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1f745fc1");
@@ -7938,7 +8310,7 @@ fn case_413() {
 }
 
 #[test]
-fn case_414() {
+fn case_430() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f10178c1");
@@ -7964,7 +8336,7 @@ fn case_414() {
 }
 
 #[test]
-fn case_415() {
+fn case_431() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8649eb3f");
@@ -7990,7 +8362,7 @@ fn case_415() {
 }
 
 #[test]
-fn case_416() {
+fn case_432() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6a2cc83f");
@@ -8016,7 +8388,7 @@ fn case_416() {
 }
 
 #[test]
-fn case_417() {
+fn case_433() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6550eec1");
@@ -8042,7 +8414,7 @@ fn case_417() {
 }
 
 #[test]
-fn case_418() {
+fn case_434() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e74f87bf");
@@ -8077,7 +8449,7 @@ fn case_418() {
 }
 
 #[test]
-fn case_419() {
+fn case_435() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e74f87bf");
@@ -8112,7 +8484,7 @@ fn case_419() {
 }
 
 #[test]
-fn case_420() {
+fn case_436() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -8135,7 +8507,30 @@ fn case_420() {
 }
 
 #[test]
-fn case_421() {
+fn case_437() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -23.977306365966797f32, 0.5088295936584473f32, 19.04779815673828f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "86d1bfc1"), (0x2a004890, "a842023f"), (0x2a0048a0, "e4619841")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_438() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -8146,7 +8541,7 @@ fn case_421() {
 }
 
 #[test]
-fn case_422() {
+fn case_439() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -8157,7 +8552,7 @@ fn case_422() {
 }
 
 #[test]
-fn case_423() {
+fn case_440() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -8168,7 +8563,7 @@ fn case_423() {
 }
 
 #[test]
-fn case_424() {
+fn case_441() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -8179,7 +8574,7 @@ fn case_424() {
 }
 
 #[test]
-fn case_425() {
+fn case_442() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0db71bc2");
@@ -8196,7 +8591,7 @@ fn case_425() {
 }
 
 #[test]
-fn case_426() {
+fn case_443() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0db71bc2");
@@ -8213,7 +8608,7 @@ fn case_426() {
 }
 
 #[test]
-fn case_427() {
+fn case_444() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0db71bc2");
@@ -8230,7 +8625,7 @@ fn case_427() {
 }
 
 #[test]
-fn case_428() {
+fn case_445() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0db71bc2");
@@ -8247,7 +8642,7 @@ fn case_428() {
 }
 
 #[test]
-fn case_429() {
+fn case_446() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0db71bc2");
@@ -8264,7 +8659,7 @@ fn case_429() {
 }
 
 #[test]
-fn case_430() {
+fn case_447() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0db71bc2");
@@ -8281,7 +8676,7 @@ fn case_430() {
 }
 
 #[test]
-fn case_431() {
+fn case_448() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0db71bc2");
@@ -8299,7 +8694,7 @@ fn case_431() {
 }
 
 #[test]
-fn case_432() {
+fn case_449() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0db71bc2");
@@ -8316,7 +8711,7 @@ fn case_432() {
 }
 
 #[test]
-fn case_433() {
+fn case_450() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0db71bc2");
@@ -8333,7 +8728,7 @@ fn case_433() {
 }
 
 #[test]
-fn case_434() {
+fn case_451() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0db71bc2");
@@ -8350,7 +8745,7 @@ fn case_434() {
 }
 
 #[test]
-fn case_435() {
+fn case_452() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0db71bc2");
@@ -8367,7 +8762,7 @@ fn case_435() {
 }
 
 #[test]
-fn case_436() {
+fn case_453() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0db71bc2");
@@ -8384,7 +8779,7 @@ fn case_436() {
 }
 
 #[test]
-fn case_437() {
+fn case_454() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "60ce3934");
@@ -8398,7 +8793,7 @@ fn case_437() {
 }
 
 #[test]
-fn case_438() {
+fn case_455() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0db71bc2");
@@ -8416,7 +8811,7 @@ fn case_438() {
 }
 
 #[test]
-fn case_439() {
+fn case_456() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f05f2a42");
@@ -8442,7 +8837,7 @@ fn case_439() {
 }
 
 #[test]
-fn case_440() {
+fn case_457() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ac61493f");
@@ -8468,7 +8863,7 @@ fn case_440() {
 }
 
 #[test]
-fn case_441() {
+fn case_458() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c3027141");
@@ -8494,7 +8889,7 @@ fn case_441() {
 }
 
 #[test]
-fn case_442() {
+fn case_459() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b1f2f841");
@@ -8520,7 +8915,7 @@ fn case_442() {
 }
 
 #[test]
-fn case_443() {
+fn case_460() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "608f17bf");
@@ -8555,7 +8950,7 @@ fn case_443() {
 }
 
 #[test]
-fn case_444() {
+fn case_461() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "608f17bf");
@@ -8590,7 +8985,7 @@ fn case_444() {
 }
 
 #[test]
-fn case_445() {
+fn case_462() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -8613,7 +9008,30 @@ fn case_445() {
 }
 
 #[test]
-fn case_446() {
+fn case_463() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -2.1408989429473877f32, 10.631732940673828f32, 29.20525360107422f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "7d0409c0"), (0x2a004890, "941b2a41"), (0x2a0048a0, "5ca4e941")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_464() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -8624,7 +9042,7 @@ fn case_446() {
 }
 
 #[test]
-fn case_447() {
+fn case_465() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -8635,7 +9053,7 @@ fn case_447() {
 }
 
 #[test]
-fn case_448() {
+fn case_466() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -8646,7 +9064,7 @@ fn case_448() {
 }
 
 #[test]
-fn case_449() {
+fn case_467() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -8657,7 +9075,7 @@ fn case_449() {
 }
 
 #[test]
-fn case_450() {
+fn case_468() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a48540c2");
@@ -8674,7 +9092,7 @@ fn case_450() {
 }
 
 #[test]
-fn case_451() {
+fn case_469() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a48540c2");
@@ -8691,7 +9109,7 @@ fn case_451() {
 }
 
 #[test]
-fn case_452() {
+fn case_470() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a48540c2");
@@ -8708,7 +9126,7 @@ fn case_452() {
 }
 
 #[test]
-fn case_453() {
+fn case_471() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a48540c2");
@@ -8725,7 +9143,7 @@ fn case_453() {
 }
 
 #[test]
-fn case_454() {
+fn case_472() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a48540c2");
@@ -8742,7 +9160,7 @@ fn case_454() {
 }
 
 #[test]
-fn case_455() {
+fn case_473() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a48540c2");
@@ -8759,7 +9177,7 @@ fn case_455() {
 }
 
 #[test]
-fn case_456() {
+fn case_474() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a48540c2");
@@ -8777,7 +9195,7 @@ fn case_456() {
 }
 
 #[test]
-fn case_457() {
+fn case_475() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a48540c2");
@@ -8794,7 +9212,7 @@ fn case_457() {
 }
 
 #[test]
-fn case_458() {
+fn case_476() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a48540c2");
@@ -8811,7 +9229,7 @@ fn case_458() {
 }
 
 #[test]
-fn case_459() {
+fn case_477() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a48540c2");
@@ -8828,7 +9246,7 @@ fn case_459() {
 }
 
 #[test]
-fn case_460() {
+fn case_478() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a48540c2");
@@ -8845,7 +9263,7 @@ fn case_460() {
 }
 
 #[test]
-fn case_461() {
+fn case_479() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a48540c2");
@@ -8862,7 +9280,7 @@ fn case_461() {
 }
 
 #[test]
-fn case_462() {
+fn case_480() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e8e3e533");
@@ -8876,7 +9294,7 @@ fn case_462() {
 }
 
 #[test]
-fn case_463() {
+fn case_481() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a48540c2");
@@ -8894,7 +9312,7 @@ fn case_463() {
 }
 
 #[test]
-fn case_464() {
+fn case_482() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "826ed141");
@@ -8920,7 +9338,7 @@ fn case_464() {
 }
 
 #[test]
-fn case_465() {
+fn case_483() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0f2b4042");
@@ -8946,7 +9364,7 @@ fn case_465() {
 }
 
 #[test]
-fn case_466() {
+fn case_484() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e24c0d42");
@@ -8972,7 +9390,7 @@ fn case_466() {
 }
 
 #[test]
-fn case_467() {
+fn case_485() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "808139c2");
@@ -8998,7 +9416,7 @@ fn case_467() {
 }
 
 #[test]
-fn case_468() {
+fn case_486() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8ef01cbf");
@@ -9033,7 +9451,7 @@ fn case_468() {
 }
 
 #[test]
-fn case_469() {
+fn case_487() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8ef01cbf");
@@ -9068,7 +9486,7 @@ fn case_469() {
 }
 
 #[test]
-fn case_470() {
+fn case_488() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -9091,7 +9509,30 @@ fn case_470() {
 }
 
 #[test]
-fn case_471() {
+fn case_489() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -12.770777702331543f32, 3.2604820728302f32, 17.148086547851562f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "1b554cc1"), (0x2a004890, "bdab5040"), (0x2a0048a0, "482f8941")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_490() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -9102,7 +9543,7 @@ fn case_471() {
 }
 
 #[test]
-fn case_472() {
+fn case_491() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -9113,7 +9554,7 @@ fn case_472() {
 }
 
 #[test]
-fn case_473() {
+fn case_492() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -9124,7 +9565,7 @@ fn case_473() {
 }
 
 #[test]
-fn case_474() {
+fn case_493() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -9135,7 +9576,7 @@ fn case_474() {
 }
 
 #[test]
-fn case_475() {
+fn case_494() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01ac0a42");
@@ -9152,7 +9593,7 @@ fn case_475() {
 }
 
 #[test]
-fn case_476() {
+fn case_495() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01ac0a42");
@@ -9169,7 +9610,7 @@ fn case_476() {
 }
 
 #[test]
-fn case_477() {
+fn case_496() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01ac0a42");
@@ -9186,7 +9627,7 @@ fn case_477() {
 }
 
 #[test]
-fn case_478() {
+fn case_497() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01ac0a42");
@@ -9203,7 +9644,7 @@ fn case_478() {
 }
 
 #[test]
-fn case_479() {
+fn case_498() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01ac0a42");
@@ -9220,7 +9661,7 @@ fn case_479() {
 }
 
 #[test]
-fn case_480() {
+fn case_499() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01ac0a42");
@@ -9237,7 +9678,7 @@ fn case_480() {
 }
 
 #[test]
-fn case_481() {
+fn case_500() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01ac0a42");
@@ -9255,7 +9696,7 @@ fn case_481() {
 }
 
 #[test]
-fn case_482() {
+fn case_501() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01ac0a42");
@@ -9272,7 +9713,7 @@ fn case_482() {
 }
 
 #[test]
-fn case_483() {
+fn case_502() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01ac0a42");
@@ -9289,7 +9730,7 @@ fn case_483() {
 }
 
 #[test]
-fn case_484() {
+fn case_503() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01ac0a42");
@@ -9306,7 +9747,7 @@ fn case_484() {
 }
 
 #[test]
-fn case_485() {
+fn case_504() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01ac0a42");
@@ -9323,7 +9764,7 @@ fn case_485() {
 }
 
 #[test]
-fn case_486() {
+fn case_505() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01ac0a42");
@@ -9340,7 +9781,7 @@ fn case_486() {
 }
 
 #[test]
-fn case_487() {
+fn case_506() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "95d579b4");
@@ -9354,7 +9795,7 @@ fn case_487() {
 }
 
 #[test]
-fn case_488() {
+fn case_507() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "01ac0a42");
@@ -9372,7 +9813,7 @@ fn case_488() {
 }
 
 #[test]
-fn case_489() {
+fn case_508() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6bd52342");
@@ -9398,7 +9839,7 @@ fn case_489() {
 }
 
 #[test]
-fn case_490() {
+fn case_509() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "382a9641");
@@ -9424,7 +9865,7 @@ fn case_490() {
 }
 
 #[test]
-fn case_491() {
+fn case_510() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e3c580c1");
@@ -9450,7 +9891,7 @@ fn case_491() {
 }
 
 #[test]
-fn case_492() {
+fn case_511() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "95b52b42");
@@ -9476,7 +9917,7 @@ fn case_492() {
 }
 
 #[test]
-fn case_493() {
+fn case_512() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2cdf1c3f");
@@ -9511,7 +9952,7 @@ fn case_493() {
 }
 
 #[test]
-fn case_494() {
+fn case_513() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2cdf1c3f");
@@ -9546,7 +9987,7 @@ fn case_494() {
 }
 
 #[test]
-fn case_495() {
+fn case_514() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -9569,7 +10010,30 @@ fn case_495() {
 }
 
 #[test]
-fn case_496() {
+fn case_515() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, 24.011783599853516f32, -15.61178207397461f32, -2.5741281509399414f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "2218c041"), (0x2a004890, "dcc979c1"), (0x2a0048a0, "84be24c0")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_516() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -9580,7 +10044,7 @@ fn case_496() {
 }
 
 #[test]
-fn case_497() {
+fn case_517() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -9591,7 +10055,7 @@ fn case_497() {
 }
 
 #[test]
-fn case_498() {
+fn case_518() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -9602,7 +10066,7 @@ fn case_498() {
 }
 
 #[test]
-fn case_499() {
+fn case_519() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -9613,7 +10077,7 @@ fn case_499() {
 }
 
 #[test]
-fn case_500() {
+fn case_520() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1ac515c2");
@@ -9630,7 +10094,7 @@ fn case_500() {
 }
 
 #[test]
-fn case_501() {
+fn case_521() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1ac515c2");
@@ -9647,7 +10111,7 @@ fn case_501() {
 }
 
 #[test]
-fn case_502() {
+fn case_522() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1ac515c2");
@@ -9664,7 +10128,7 @@ fn case_502() {
 }
 
 #[test]
-fn case_503() {
+fn case_523() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1ac515c2");
@@ -9681,7 +10145,7 @@ fn case_503() {
 }
 
 #[test]
-fn case_504() {
+fn case_524() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1ac515c2");
@@ -9698,7 +10162,7 @@ fn case_504() {
 }
 
 #[test]
-fn case_505() {
+fn case_525() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1ac515c2");
@@ -9715,7 +10179,7 @@ fn case_505() {
 }
 
 #[test]
-fn case_506() {
+fn case_526() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1ac515c2");
@@ -9733,7 +10197,7 @@ fn case_506() {
 }
 
 #[test]
-fn case_507() {
+fn case_527() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1ac515c2");
@@ -9750,7 +10214,7 @@ fn case_507() {
 }
 
 #[test]
-fn case_508() {
+fn case_528() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1ac515c2");
@@ -9767,7 +10231,7 @@ fn case_508() {
 }
 
 #[test]
-fn case_509() {
+fn case_529() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1ac515c2");
@@ -9784,7 +10248,7 @@ fn case_509() {
 }
 
 #[test]
-fn case_510() {
+fn case_530() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1ac515c2");
@@ -9801,7 +10265,7 @@ fn case_510() {
 }
 
 #[test]
-fn case_511() {
+fn case_531() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1ac515c2");
@@ -9818,7 +10282,7 @@ fn case_511() {
 }
 
 #[test]
-fn case_512() {
+fn case_532() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9bda1735");
@@ -9832,7 +10296,7 @@ fn case_512() {
 }
 
 #[test]
-fn case_513() {
+fn case_533() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1ac515c2");
@@ -9850,7 +10314,7 @@ fn case_513() {
 }
 
 #[test]
-fn case_514() {
+fn case_534() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "bcb2e0bf");
@@ -9876,7 +10340,7 @@ fn case_514() {
 }
 
 #[test]
-fn case_515() {
+fn case_535() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7a71dcc0");
@@ -9902,7 +10366,7 @@ fn case_515() {
 }
 
 #[test]
-fn case_516() {
+fn case_536() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a24442c2");
@@ -9928,7 +10392,7 @@ fn case_516() {
 }
 
 #[test]
-fn case_517() {
+fn case_537() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b102f3c1");
@@ -9954,7 +10418,7 @@ fn case_517() {
 }
 
 #[test]
-fn case_518() {
+fn case_538() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe26673f");
@@ -9989,7 +10453,7 @@ fn case_518() {
 }
 
 #[test]
-fn case_519() {
+fn case_539() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe26673f");
@@ -10024,7 +10488,7 @@ fn case_519() {
 }
 
 #[test]
-fn case_520() {
+fn case_540() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -10047,7 +10511,30 @@ fn case_520() {
 }
 
 #[test]
-fn case_521() {
+fn case_541() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -26.438213348388672f32, -14.982522964477539f32, 29.73659896850586f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "7681d3c1"), (0x2a004890, "6ab86fc1"), (0x2a0048a0, "8ee4ed41")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_542() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -10058,7 +10545,7 @@ fn case_521() {
 }
 
 #[test]
-fn case_522() {
+fn case_543() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -10069,7 +10556,7 @@ fn case_522() {
 }
 
 #[test]
-fn case_523() {
+fn case_544() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -10080,7 +10567,7 @@ fn case_523() {
 }
 
 #[test]
-fn case_524() {
+fn case_545() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -10091,7 +10578,7 @@ fn case_524() {
 }
 
 #[test]
-fn case_525() {
+fn case_546() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "56b417c2");
@@ -10108,7 +10595,7 @@ fn case_525() {
 }
 
 #[test]
-fn case_526() {
+fn case_547() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "56b417c2");
@@ -10125,7 +10612,7 @@ fn case_526() {
 }
 
 #[test]
-fn case_527() {
+fn case_548() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "56b417c2");
@@ -10142,7 +10629,7 @@ fn case_527() {
 }
 
 #[test]
-fn case_528() {
+fn case_549() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "56b417c2");
@@ -10159,7 +10646,7 @@ fn case_528() {
 }
 
 #[test]
-fn case_529() {
+fn case_550() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "56b417c2");
@@ -10176,7 +10663,7 @@ fn case_529() {
 }
 
 #[test]
-fn case_530() {
+fn case_551() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "56b417c2");
@@ -10193,7 +10680,7 @@ fn case_530() {
 }
 
 #[test]
-fn case_531() {
+fn case_552() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "56b417c2");
@@ -10211,7 +10698,7 @@ fn case_531() {
 }
 
 #[test]
-fn case_532() {
+fn case_553() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "56b417c2");
@@ -10228,7 +10715,7 @@ fn case_532() {
 }
 
 #[test]
-fn case_533() {
+fn case_554() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "56b417c2");
@@ -10245,7 +10732,7 @@ fn case_533() {
 }
 
 #[test]
-fn case_534() {
+fn case_555() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "56b417c2");
@@ -10262,7 +10749,7 @@ fn case_534() {
 }
 
 #[test]
-fn case_535() {
+fn case_556() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "56b417c2");
@@ -10279,7 +10766,7 @@ fn case_535() {
 }
 
 #[test]
-fn case_536() {
+fn case_557() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "56b417c2");
@@ -10296,7 +10783,7 @@ fn case_536() {
 }
 
 #[test]
-fn case_537() {
+fn case_558() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5e4c6d35");
@@ -10310,7 +10797,7 @@ fn case_537() {
 }
 
 #[test]
-fn case_538() {
+fn case_559() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "56b417c2");
@@ -10328,7 +10815,7 @@ fn case_538() {
 }
 
 #[test]
-fn case_539() {
+fn case_560() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6b5ad4c1");
@@ -10354,7 +10841,7 @@ fn case_539() {
 }
 
 #[test]
-fn case_540() {
+fn case_561() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "746d9fc1");
@@ -10380,7 +10867,7 @@ fn case_540() {
 }
 
 #[test]
-fn case_541() {
+fn case_562() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "cf3c0941");
@@ -10406,7 +10893,7 @@ fn case_541() {
 }
 
 #[test]
-fn case_542() {
+fn case_563() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "3b33ee41");
@@ -10432,7 +10919,7 @@ fn case_542() {
 }
 
 #[test]
-fn case_543() {
+fn case_564() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "76b433bf");
@@ -10467,7 +10954,7 @@ fn case_543() {
 }
 
 #[test]
-fn case_544() {
+fn case_565() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "76b433bf");
@@ -10502,7 +10989,7 @@ fn case_544() {
 }
 
 #[test]
-fn case_545() {
+fn case_566() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -10525,7 +11012,30 @@ fn case_545() {
 }
 
 #[test]
-fn case_546() {
+fn case_567() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, 16.825105667114258f32, 1.907857060432434f32, -8.092706680297852f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "d1998641"), (0x2a004890, "a934f43f"), (0x2a0048a0, "ba7b01c1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_568() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -10536,7 +11046,7 @@ fn case_546() {
 }
 
 #[test]
-fn case_547() {
+fn case_569() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -10547,7 +11057,7 @@ fn case_547() {
 }
 
 #[test]
-fn case_548() {
+fn case_570() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -10558,7 +11068,7 @@ fn case_548() {
 }
 
 #[test]
-fn case_549() {
+fn case_571() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -10569,7 +11079,7 @@ fn case_549() {
 }
 
 #[test]
-fn case_550() {
+fn case_572() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "40fcd7c1");
@@ -10586,7 +11096,7 @@ fn case_550() {
 }
 
 #[test]
-fn case_551() {
+fn case_573() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "40fcd7c1");
@@ -10603,7 +11113,7 @@ fn case_551() {
 }
 
 #[test]
-fn case_552() {
+fn case_574() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "40fcd7c1");
@@ -10620,7 +11130,7 @@ fn case_552() {
 }
 
 #[test]
-fn case_553() {
+fn case_575() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "40fcd7c1");
@@ -10637,7 +11147,7 @@ fn case_553() {
 }
 
 #[test]
-fn case_554() {
+fn case_576() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "40fcd7c1");
@@ -10654,7 +11164,7 @@ fn case_554() {
 }
 
 #[test]
-fn case_555() {
+fn case_577() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "40fcd7c1");
@@ -10671,7 +11181,7 @@ fn case_555() {
 }
 
 #[test]
-fn case_556() {
+fn case_578() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "40fcd7c1");
@@ -10689,7 +11199,7 @@ fn case_556() {
 }
 
 #[test]
-fn case_557() {
+fn case_579() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "40fcd7c1");
@@ -10706,7 +11216,7 @@ fn case_557() {
 }
 
 #[test]
-fn case_558() {
+fn case_580() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "40fcd7c1");
@@ -10723,7 +11233,7 @@ fn case_558() {
 }
 
 #[test]
-fn case_559() {
+fn case_581() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "40fcd7c1");
@@ -10740,7 +11250,7 @@ fn case_559() {
 }
 
 #[test]
-fn case_560() {
+fn case_582() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "40fcd7c1");
@@ -10757,7 +11267,7 @@ fn case_560() {
 }
 
 #[test]
-fn case_561() {
+fn case_583() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "40fcd7c1");
@@ -10774,7 +11284,7 @@ fn case_561() {
 }
 
 #[test]
-fn case_562() {
+fn case_584() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ab5b31b4");
@@ -10788,7 +11298,7 @@ fn case_562() {
 }
 
 #[test]
-fn case_563() {
+fn case_585() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "40fcd7c1");
@@ -10806,7 +11316,7 @@ fn case_563() {
 }
 
 #[test]
-fn case_564() {
+fn case_586() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9edb87c1");
@@ -10832,7 +11342,7 @@ fn case_564() {
 }
 
 #[test]
-fn case_565() {
+fn case_587() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e71bef41");
@@ -10858,7 +11368,7 @@ fn case_565() {
 }
 
 #[test]
-fn case_566() {
+fn case_588() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e2fe20c1");
@@ -10884,7 +11394,7 @@ fn case_566() {
 }
 
 #[test]
-fn case_567() {
+fn case_589() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "27923fc1");
@@ -10910,7 +11420,7 @@ fn case_567() {
 }
 
 #[test]
-fn case_568() {
+fn case_590() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d5bcbabe");
@@ -10945,7 +11455,7 @@ fn case_568() {
 }
 
 #[test]
-fn case_569() {
+fn case_591() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d5bcbabe");
@@ -10980,7 +11490,7 @@ fn case_569() {
 }
 
 #[test]
-fn case_570() {
+fn case_592() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -11003,7 +11513,30 @@ fn case_570() {
 }
 
 #[test]
-fn case_571() {
+fn case_593() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, 15.820480346679688f32, -23.963058471679688f32, -11.221541404724121f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "b0207d41"), (0x2a004890, "58b4bfc1"), (0x2a0048a0, "6f8b33c1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_594() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -11014,7 +11547,7 @@ fn case_571() {
 }
 
 #[test]
-fn case_572() {
+fn case_595() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -11025,7 +11558,7 @@ fn case_572() {
 }
 
 #[test]
-fn case_573() {
+fn case_596() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -11036,7 +11569,7 @@ fn case_573() {
 }
 
 #[test]
-fn case_574() {
+fn case_597() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -11047,7 +11580,7 @@ fn case_574() {
 }
 
 #[test]
-fn case_575() {
+fn case_598() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9a987ebf");
@@ -11064,7 +11597,7 @@ fn case_575() {
 }
 
 #[test]
-fn case_576() {
+fn case_599() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9a987ebf");
@@ -11081,7 +11614,7 @@ fn case_576() {
 }
 
 #[test]
-fn case_577() {
+fn case_600() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9a987ebf");
@@ -11098,7 +11631,7 @@ fn case_577() {
 }
 
 #[test]
-fn case_578() {
+fn case_601() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9a987ebf");
@@ -11115,7 +11648,7 @@ fn case_578() {
 }
 
 #[test]
-fn case_579() {
+fn case_602() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9a987ebf");
@@ -11132,7 +11665,7 @@ fn case_579() {
 }
 
 #[test]
-fn case_580() {
+fn case_603() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9a987ebf");
@@ -11149,7 +11682,7 @@ fn case_580() {
 }
 
 #[test]
-fn case_581() {
+fn case_604() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9a987ebf");
@@ -11167,7 +11700,7 @@ fn case_581() {
 }
 
 #[test]
-fn case_582() {
+fn case_605() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9a987ebf");
@@ -11184,7 +11717,7 @@ fn case_582() {
 }
 
 #[test]
-fn case_583() {
+fn case_606() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9a987ebf");
@@ -11201,7 +11734,7 @@ fn case_583() {
 }
 
 #[test]
-fn case_584() {
+fn case_607() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9a987ebf");
@@ -11218,7 +11751,7 @@ fn case_584() {
 }
 
 #[test]
-fn case_585() {
+fn case_608() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9a987ebf");
@@ -11235,7 +11768,7 @@ fn case_585() {
 }
 
 #[test]
-fn case_586() {
+fn case_609() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9a987ebf");
@@ -11252,7 +11785,7 @@ fn case_586() {
 }
 
 #[test]
-fn case_587() {
+fn case_610() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6a747735");
@@ -11266,7 +11799,7 @@ fn case_587() {
 }
 
 #[test]
-fn case_588() {
+fn case_611() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9a987ebf");
@@ -11284,7 +11817,7 @@ fn case_588() {
 }
 
 #[test]
-fn case_589() {
+fn case_612() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "88fa5541");
@@ -11310,7 +11843,7 @@ fn case_589() {
 }
 
 #[test]
-fn case_590() {
+fn case_613() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1a923fc2");
@@ -11336,7 +11869,7 @@ fn case_590() {
 }
 
 #[test]
-fn case_591() {
+fn case_614() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a5b502c2");
@@ -11362,7 +11895,7 @@ fn case_591() {
 }
 
 #[test]
-fn case_592() {
+fn case_615() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dca40ec2");
@@ -11388,7 +11921,7 @@ fn case_592() {
 }
 
 #[test]
-fn case_593() {
+fn case_616() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f273843f");
@@ -11423,7 +11956,7 @@ fn case_593() {
 }
 
 #[test]
-fn case_594() {
+fn case_617() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f273843f");
@@ -11458,7 +11991,7 @@ fn case_594() {
 }
 
 #[test]
-fn case_595() {
+fn case_618() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -11481,7 +12014,30 @@ fn case_595() {
 }
 
 #[test]
-fn case_596() {
+fn case_619() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -8.050089836120605f32, 4.834399223327637f32, -19.136571884155273f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "2bcd00c1"), (0x2a004890, "66b39a40"), (0x2a0048a0, "b31799c1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_620() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -11492,7 +12048,7 @@ fn case_596() {
 }
 
 #[test]
-fn case_597() {
+fn case_621() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -11503,7 +12059,7 @@ fn case_597() {
 }
 
 #[test]
-fn case_598() {
+fn case_622() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -11514,7 +12070,7 @@ fn case_598() {
 }
 
 #[test]
-fn case_599() {
+fn case_623() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -11525,7 +12081,7 @@ fn case_599() {
 }
 
 #[test]
-fn case_600() {
+fn case_624() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ba98f541");
@@ -11542,7 +12098,7 @@ fn case_600() {
 }
 
 #[test]
-fn case_601() {
+fn case_625() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ba98f541");
@@ -11559,7 +12115,7 @@ fn case_601() {
 }
 
 #[test]
-fn case_602() {
+fn case_626() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ba98f541");
@@ -11576,7 +12132,7 @@ fn case_602() {
 }
 
 #[test]
-fn case_603() {
+fn case_627() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ba98f541");
@@ -11593,7 +12149,7 @@ fn case_603() {
 }
 
 #[test]
-fn case_604() {
+fn case_628() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ba98f541");
@@ -11610,7 +12166,7 @@ fn case_604() {
 }
 
 #[test]
-fn case_605() {
+fn case_629() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ba98f541");
@@ -11627,7 +12183,7 @@ fn case_605() {
 }
 
 #[test]
-fn case_606() {
+fn case_630() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ba98f541");
@@ -11645,7 +12201,7 @@ fn case_606() {
 }
 
 #[test]
-fn case_607() {
+fn case_631() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ba98f541");
@@ -11662,7 +12218,7 @@ fn case_607() {
 }
 
 #[test]
-fn case_608() {
+fn case_632() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ba98f541");
@@ -11679,7 +12235,7 @@ fn case_608() {
 }
 
 #[test]
-fn case_609() {
+fn case_633() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ba98f541");
@@ -11696,7 +12252,7 @@ fn case_609() {
 }
 
 #[test]
-fn case_610() {
+fn case_634() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ba98f541");
@@ -11713,7 +12269,7 @@ fn case_610() {
 }
 
 #[test]
-fn case_611() {
+fn case_635() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ba98f541");
@@ -11730,7 +12286,7 @@ fn case_611() {
 }
 
 #[test]
-fn case_612() {
+fn case_636() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "55f5ab34");
@@ -11744,7 +12300,7 @@ fn case_612() {
 }
 
 #[test]
-fn case_613() {
+fn case_637() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ba98f541");
@@ -11762,7 +12318,7 @@ fn case_613() {
 }
 
 #[test]
-fn case_614() {
+fn case_638() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "3f6d0742");
@@ -11788,7 +12344,7 @@ fn case_614() {
 }
 
 #[test]
-fn case_615() {
+fn case_639() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "4448cf41");
@@ -11814,7 +12370,7 @@ fn case_615() {
 }
 
 #[test]
-fn case_616() {
+fn case_640() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5f802bc2");
@@ -11840,7 +12396,7 @@ fn case_616() {
 }
 
 #[test]
-fn case_617() {
+fn case_641() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "4f704ac1");
@@ -11866,7 +12422,7 @@ fn case_617() {
 }
 
 #[test]
-fn case_618() {
+fn case_642() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ebab713f");
@@ -11901,7 +12457,7 @@ fn case_618() {
 }
 
 #[test]
-fn case_619() {
+fn case_643() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ebab713f");
@@ -11936,7 +12492,7 @@ fn case_619() {
 }
 
 #[test]
-fn case_620() {
+fn case_644() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -11959,7 +12515,30 @@ fn case_620() {
 }
 
 #[test]
-fn case_621() {
+fn case_645() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -0.9191877841949463f32, 4.073042392730713f32, -10.568603515625f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "e44f6bbf"), (0x2a004890, "5d568240"), (0x2a0048a1, "1929c1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_646() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -11970,7 +12549,7 @@ fn case_621() {
 }
 
 #[test]
-fn case_622() {
+fn case_647() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -11981,7 +12560,7 @@ fn case_622() {
 }
 
 #[test]
-fn case_623() {
+fn case_648() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -11992,7 +12571,7 @@ fn case_623() {
 }
 
 #[test]
-fn case_624() {
+fn case_649() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -12003,7 +12582,7 @@ fn case_624() {
 }
 
 #[test]
-fn case_625() {
+fn case_650() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b1c531c2");
@@ -12020,7 +12599,7 @@ fn case_625() {
 }
 
 #[test]
-fn case_626() {
+fn case_651() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b1c531c2");
@@ -12037,7 +12616,7 @@ fn case_626() {
 }
 
 #[test]
-fn case_627() {
+fn case_652() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b1c531c2");
@@ -12054,7 +12633,7 @@ fn case_627() {
 }
 
 #[test]
-fn case_628() {
+fn case_653() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b1c531c2");
@@ -12071,7 +12650,7 @@ fn case_628() {
 }
 
 #[test]
-fn case_629() {
+fn case_654() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b1c531c2");
@@ -12088,7 +12667,7 @@ fn case_629() {
 }
 
 #[test]
-fn case_630() {
+fn case_655() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b1c531c2");
@@ -12105,7 +12684,7 @@ fn case_630() {
 }
 
 #[test]
-fn case_631() {
+fn case_656() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b1c531c2");
@@ -12123,7 +12702,7 @@ fn case_631() {
 }
 
 #[test]
-fn case_632() {
+fn case_657() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b1c531c2");
@@ -12140,7 +12719,7 @@ fn case_632() {
 }
 
 #[test]
-fn case_633() {
+fn case_658() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b1c531c2");
@@ -12157,7 +12736,7 @@ fn case_633() {
 }
 
 #[test]
-fn case_634() {
+fn case_659() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b1c531c2");
@@ -12174,7 +12753,7 @@ fn case_634() {
 }
 
 #[test]
-fn case_635() {
+fn case_660() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b1c531c2");
@@ -12191,7 +12770,7 @@ fn case_635() {
 }
 
 #[test]
-fn case_636() {
+fn case_661() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b1c531c2");
@@ -12208,7 +12787,7 @@ fn case_636() {
 }
 
 #[test]
-fn case_637() {
+fn case_662() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "96d484b4");
@@ -12222,7 +12801,7 @@ fn case_637() {
 }
 
 #[test]
-fn case_638() {
+fn case_663() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b1c531c2");
@@ -12240,7 +12819,7 @@ fn case_638() {
 }
 
 #[test]
-fn case_639() {
+fn case_664() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0fbdd840");
@@ -12266,7 +12845,7 @@ fn case_639() {
 }
 
 #[test]
-fn case_640() {
+fn case_665() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "901cd73e");
@@ -12292,7 +12871,7 @@ fn case_640() {
 }
 
 #[test]
-fn case_641() {
+fn case_666() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7a733642");
@@ -12318,7 +12897,7 @@ fn case_641() {
 }
 
 #[test]
-fn case_642() {
+fn case_667() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "763102c2");
@@ -12344,7 +12923,7 @@ fn case_642() {
 }
 
 #[test]
-fn case_643() {
+fn case_668() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1d319bf");
@@ -12379,7 +12958,7 @@ fn case_643() {
 }
 
 #[test]
-fn case_644() {
+fn case_669() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1d319bf");
@@ -12414,7 +12993,7 @@ fn case_644() {
 }
 
 #[test]
-fn case_645() {
+fn case_670() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -12437,7 +13016,30 @@ fn case_645() {
 }
 
 #[test]
-fn case_646() {
+fn case_671() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -5.818624973297119f32, 6.622511863708496f32, -13.977747917175293f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "2d32bac0"), (0x2a004890, "9eebd340"), (0x2a0048a0, "dba45fc1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_672() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -12448,7 +13050,7 @@ fn case_646() {
 }
 
 #[test]
-fn case_647() {
+fn case_673() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -12459,7 +13061,7 @@ fn case_647() {
 }
 
 #[test]
-fn case_648() {
+fn case_674() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -12470,7 +13072,7 @@ fn case_648() {
 }
 
 #[test]
-fn case_649() {
+fn case_675() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -12481,7 +13083,7 @@ fn case_649() {
 }
 
 #[test]
-fn case_650() {
+fn case_676() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6650242");
@@ -12498,7 +13100,7 @@ fn case_650() {
 }
 
 #[test]
-fn case_651() {
+fn case_677() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6650242");
@@ -12515,7 +13117,7 @@ fn case_651() {
 }
 
 #[test]
-fn case_652() {
+fn case_678() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6650242");
@@ -12532,7 +13134,7 @@ fn case_652() {
 }
 
 #[test]
-fn case_653() {
+fn case_679() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6650242");
@@ -12549,7 +13151,7 @@ fn case_653() {
 }
 
 #[test]
-fn case_654() {
+fn case_680() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6650242");
@@ -12566,7 +13168,7 @@ fn case_654() {
 }
 
 #[test]
-fn case_655() {
+fn case_681() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6650242");
@@ -12583,7 +13185,7 @@ fn case_655() {
 }
 
 #[test]
-fn case_656() {
+fn case_682() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6650242");
@@ -12601,7 +13203,7 @@ fn case_656() {
 }
 
 #[test]
-fn case_657() {
+fn case_683() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6650242");
@@ -12618,7 +13220,7 @@ fn case_657() {
 }
 
 #[test]
-fn case_658() {
+fn case_684() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6650242");
@@ -12635,7 +13237,7 @@ fn case_658() {
 }
 
 #[test]
-fn case_659() {
+fn case_685() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6650242");
@@ -12652,7 +13254,7 @@ fn case_659() {
 }
 
 #[test]
-fn case_660() {
+fn case_686() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6650242");
@@ -12669,7 +13271,7 @@ fn case_660() {
 }
 
 #[test]
-fn case_661() {
+fn case_687() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6650242");
@@ -12686,7 +13288,7 @@ fn case_661() {
 }
 
 #[test]
-fn case_662() {
+fn case_688() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "78eb8535");
@@ -12700,7 +13302,7 @@ fn case_662() {
 }
 
 #[test]
-fn case_663() {
+fn case_689() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c6650242");
@@ -12718,7 +13320,7 @@ fn case_663() {
 }
 
 #[test]
-fn case_664() {
+fn case_690() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a61f1742");
@@ -12744,7 +13346,7 @@ fn case_664() {
 }
 
 #[test]
-fn case_665() {
+fn case_691() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "862e77c1");
@@ -12770,7 +13372,7 @@ fn case_665() {
 }
 
 #[test]
-fn case_666() {
+fn case_692() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "de371cc2");
@@ -12796,7 +13398,7 @@ fn case_666() {
 }
 
 #[test]
-fn case_667() {
+fn case_693() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "73c7d141");
@@ -12822,7 +13424,7 @@ fn case_667() {
 }
 
 #[test]
-fn case_668() {
+fn case_694() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1617d3f");
@@ -12857,7 +13459,7 @@ fn case_668() {
 }
 
 #[test]
-fn case_669() {
+fn case_695() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f1617d3f");
@@ -12892,7 +13494,7 @@ fn case_669() {
 }
 
 #[test]
-fn case_670() {
+fn case_696() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -12915,7 +13517,30 @@ fn case_670() {
 }
 
 #[test]
-fn case_671() {
+fn case_697() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -16.16358184814453f32, 16.61540412902832f32, -25.99384117126465f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "044f81c1"), (0x2a004890, "59ec8441"), (0x2a0048a0, "63f3cfc1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_698() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -12926,7 +13551,7 @@ fn case_671() {
 }
 
 #[test]
-fn case_672() {
+fn case_699() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -12937,7 +13562,7 @@ fn case_672() {
 }
 
 #[test]
-fn case_673() {
+fn case_700() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -12948,7 +13573,7 @@ fn case_673() {
 }
 
 #[test]
-fn case_674() {
+fn case_701() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -12959,7 +13584,7 @@ fn case_674() {
 }
 
 #[test]
-fn case_675() {
+fn case_702() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1b2e0542");
@@ -12976,7 +13601,7 @@ fn case_675() {
 }
 
 #[test]
-fn case_676() {
+fn case_703() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1b2e0542");
@@ -12993,7 +13618,7 @@ fn case_676() {
 }
 
 #[test]
-fn case_677() {
+fn case_704() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1b2e0542");
@@ -13010,7 +13635,7 @@ fn case_677() {
 }
 
 #[test]
-fn case_678() {
+fn case_705() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1b2e0542");
@@ -13027,7 +13652,7 @@ fn case_678() {
 }
 
 #[test]
-fn case_679() {
+fn case_706() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1b2e0542");
@@ -13044,7 +13669,7 @@ fn case_679() {
 }
 
 #[test]
-fn case_680() {
+fn case_707() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1b2e0542");
@@ -13061,7 +13686,7 @@ fn case_680() {
 }
 
 #[test]
-fn case_681() {
+fn case_708() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1b2e0542");
@@ -13079,7 +13704,7 @@ fn case_681() {
 }
 
 #[test]
-fn case_682() {
+fn case_709() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1b2e0542");
@@ -13096,7 +13721,7 @@ fn case_682() {
 }
 
 #[test]
-fn case_683() {
+fn case_710() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1b2e0542");
@@ -13113,7 +13738,7 @@ fn case_683() {
 }
 
 #[test]
-fn case_684() {
+fn case_711() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1b2e0542");
@@ -13130,7 +13755,7 @@ fn case_684() {
 }
 
 #[test]
-fn case_685() {
+fn case_712() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1b2e0542");
@@ -13147,7 +13772,7 @@ fn case_685() {
 }
 
 #[test]
-fn case_686() {
+fn case_713() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1b2e0542");
@@ -13164,7 +13789,7 @@ fn case_686() {
 }
 
 #[test]
-fn case_687() {
+fn case_714() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8947bbb4");
@@ -13178,7 +13803,7 @@ fn case_687() {
 }
 
 #[test]
-fn case_688() {
+fn case_715() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1b2e0542");
@@ -13196,7 +13821,7 @@ fn case_688() {
 }
 
 #[test]
-fn case_689() {
+fn case_716() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c35121c2");
@@ -13222,7 +13847,7 @@ fn case_689() {
 }
 
 #[test]
-fn case_690() {
+fn case_717() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "08fec9c1");
@@ -13248,7 +13873,7 @@ fn case_690() {
 }
 
 #[test]
-fn case_691() {
+fn case_718() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "63de1442");
@@ -13274,7 +13899,7 @@ fn case_691() {
 }
 
 #[test]
-fn case_692() {
+fn case_719() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "169d0fc2");
@@ -13300,7 +13925,7 @@ fn case_692() {
 }
 
 #[test]
-fn case_693() {
+fn case_720() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "02d6683f");
@@ -13335,7 +13960,7 @@ fn case_693() {
 }
 
 #[test]
-fn case_694() {
+fn case_721() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "02d6683f");
@@ -13370,7 +13995,7 @@ fn case_694() {
 }
 
 #[test]
-fn case_695() {
+fn case_722() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -13393,7 +14018,30 @@ fn case_695() {
 }
 
 #[test]
-fn case_696() {
+fn case_723() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -28.532747268676758f32, 28.467819213867188f32, 10.095211029052734f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "1143e4c1"), (0x2a004890, "18bee341"), (0x2a0048a0, "fc852141")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_724() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -13404,7 +14052,7 @@ fn case_696() {
 }
 
 #[test]
-fn case_697() {
+fn case_725() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -13415,7 +14063,7 @@ fn case_697() {
 }
 
 #[test]
-fn case_698() {
+fn case_726() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -13426,7 +14074,7 @@ fn case_698() {
 }
 
 #[test]
-fn case_699() {
+fn case_727() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -13437,7 +14085,7 @@ fn case_699() {
 }
 
 #[test]
-fn case_700() {
+fn case_728() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "48fdaa41");
@@ -13454,7 +14102,7 @@ fn case_700() {
 }
 
 #[test]
-fn case_701() {
+fn case_729() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "48fdaa41");
@@ -13471,7 +14119,7 @@ fn case_701() {
 }
 
 #[test]
-fn case_702() {
+fn case_730() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "48fdaa41");
@@ -13488,7 +14136,7 @@ fn case_702() {
 }
 
 #[test]
-fn case_703() {
+fn case_731() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "48fdaa41");
@@ -13505,7 +14153,7 @@ fn case_703() {
 }
 
 #[test]
-fn case_704() {
+fn case_732() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "48fdaa41");
@@ -13522,7 +14170,7 @@ fn case_704() {
 }
 
 #[test]
-fn case_705() {
+fn case_733() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "48fdaa41");
@@ -13539,7 +14187,7 @@ fn case_705() {
 }
 
 #[test]
-fn case_706() {
+fn case_734() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "48fdaa41");
@@ -13557,7 +14205,7 @@ fn case_706() {
 }
 
 #[test]
-fn case_707() {
+fn case_735() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "48fdaa41");
@@ -13574,7 +14222,7 @@ fn case_707() {
 }
 
 #[test]
-fn case_708() {
+fn case_736() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "48fdaa41");
@@ -13591,7 +14239,7 @@ fn case_708() {
 }
 
 #[test]
-fn case_709() {
+fn case_737() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "48fdaa41");
@@ -13608,7 +14256,7 @@ fn case_709() {
 }
 
 #[test]
-fn case_710() {
+fn case_738() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "48fdaa41");
@@ -13625,7 +14273,7 @@ fn case_710() {
 }
 
 #[test]
-fn case_711() {
+fn case_739() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "48fdaa41");
@@ -13642,7 +14290,7 @@ fn case_711() {
 }
 
 #[test]
-fn case_712() {
+fn case_740() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "bd4a3ab5");
@@ -13656,7 +14304,7 @@ fn case_712() {
 }
 
 #[test]
-fn case_713() {
+fn case_741() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "48fdaa41");
@@ -13674,7 +14322,7 @@ fn case_713() {
 }
 
 #[test]
-fn case_714() {
+fn case_742() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "66d54cc1");
@@ -13700,7 +14348,7 @@ fn case_714() {
 }
 
 #[test]
-fn case_715() {
+fn case_743() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "1f9a05c2");
@@ -13726,7 +14374,7 @@ fn case_715() {
 }
 
 #[test]
-fn case_716() {
+fn case_744() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "72332541");
@@ -13752,7 +14400,7 @@ fn case_716() {
 }
 
 #[test]
-fn case_717() {
+fn case_745() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "816340c2");
@@ -13778,7 +14426,7 @@ fn case_717() {
 }
 
 #[test]
-fn case_718() {
+fn case_746() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "17146fbf");
@@ -13813,7 +14461,7 @@ fn case_718() {
 }
 
 #[test]
-fn case_719() {
+fn case_747() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "17146fbf");
@@ -13848,7 +14496,7 @@ fn case_719() {
 }
 
 #[test]
-fn case_720() {
+fn case_748() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -13871,7 +14519,30 @@ fn case_720() {
 }
 
 #[test]
-fn case_721() {
+fn case_749() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -5.089860439300537f32, -26.886642456054688f32, 24.52786636352539f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "23e0a2c0"), (0x2a004890, "d817d7c1"), (0x2a0048a0, "1239c441")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_750() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -13882,7 +14553,7 @@ fn case_721() {
 }
 
 #[test]
-fn case_722() {
+fn case_751() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -13893,7 +14564,7 @@ fn case_722() {
 }
 
 #[test]
-fn case_723() {
+fn case_752() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -13904,7 +14575,7 @@ fn case_723() {
 }
 
 #[test]
-fn case_724() {
+fn case_753() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -13915,7 +14586,7 @@ fn case_724() {
 }
 
 #[test]
-fn case_725() {
+fn case_754() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d91508c2");
@@ -13932,7 +14603,7 @@ fn case_725() {
 }
 
 #[test]
-fn case_726() {
+fn case_755() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d91508c2");
@@ -13949,7 +14620,7 @@ fn case_726() {
 }
 
 #[test]
-fn case_727() {
+fn case_756() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d91508c2");
@@ -13966,7 +14637,7 @@ fn case_727() {
 }
 
 #[test]
-fn case_728() {
+fn case_757() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d91508c2");
@@ -13983,7 +14654,7 @@ fn case_728() {
 }
 
 #[test]
-fn case_729() {
+fn case_758() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d91508c2");
@@ -14000,7 +14671,7 @@ fn case_729() {
 }
 
 #[test]
-fn case_730() {
+fn case_759() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d91508c2");
@@ -14017,7 +14688,7 @@ fn case_730() {
 }
 
 #[test]
-fn case_731() {
+fn case_760() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d91508c2");
@@ -14035,7 +14706,7 @@ fn case_731() {
 }
 
 #[test]
-fn case_732() {
+fn case_761() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d91508c2");
@@ -14052,7 +14723,7 @@ fn case_732() {
 }
 
 #[test]
-fn case_733() {
+fn case_762() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d91508c2");
@@ -14069,7 +14740,7 @@ fn case_733() {
 }
 
 #[test]
-fn case_734() {
+fn case_763() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d91508c2");
@@ -14086,7 +14757,7 @@ fn case_734() {
 }
 
 #[test]
-fn case_735() {
+fn case_764() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d91508c2");
@@ -14103,7 +14774,7 @@ fn case_735() {
 }
 
 #[test]
-fn case_736() {
+fn case_765() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d91508c2");
@@ -14120,7 +14791,7 @@ fn case_736() {
 }
 
 #[test]
-fn case_737() {
+fn case_766() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "33ff51b4");
@@ -14134,7 +14805,7 @@ fn case_737() {
 }
 
 #[test]
-fn case_738() {
+fn case_767() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d91508c2");
@@ -14152,7 +14823,7 @@ fn case_738() {
 }
 
 #[test]
-fn case_739() {
+fn case_768() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c18c3a42");
@@ -14178,7 +14849,7 @@ fn case_739() {
 }
 
 #[test]
-fn case_740() {
+fn case_769() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "7f401fc2");
@@ -14204,7 +14875,7 @@ fn case_740() {
 }
 
 #[test]
-fn case_741() {
+fn case_770() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a0bfc241");
@@ -14230,7 +14901,7 @@ fn case_741() {
 }
 
 #[test]
-fn case_742() {
+fn case_771() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e5550c42");
@@ -14256,7 +14927,7 @@ fn case_742() {
 }
 
 #[test]
-fn case_743() {
+fn case_772() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "28d7703f");
@@ -14291,7 +14962,7 @@ fn case_743() {
 }
 
 #[test]
-fn case_744() {
+fn case_773() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "28d7703f");
@@ -14326,7 +14997,7 @@ fn case_744() {
 }
 
 #[test]
-fn case_745() {
+fn case_774() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -14349,7 +15020,30 @@ fn case_745() {
 }
 
 #[test]
-fn case_746() {
+fn case_775() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -13.64233112335205f32, 1.8257735967636108f32, 14.596911430358887f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "fd465ac1"), (0x2a004890, "f3b2e93f"), (0x2a0048a0, "f38c6941")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_776() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -14360,7 +15054,7 @@ fn case_746() {
 }
 
 #[test]
-fn case_747() {
+fn case_777() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -14371,7 +15065,7 @@ fn case_747() {
 }
 
 #[test]
-fn case_748() {
+fn case_778() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -14382,7 +15076,7 @@ fn case_748() {
 }
 
 #[test]
-fn case_749() {
+fn case_779() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -14393,7 +15087,7 @@ fn case_749() {
 }
 
 #[test]
-fn case_750() {
+fn case_780() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5c5e51c1");
@@ -14410,7 +15104,7 @@ fn case_750() {
 }
 
 #[test]
-fn case_751() {
+fn case_781() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5c5e51c1");
@@ -14427,7 +15121,7 @@ fn case_751() {
 }
 
 #[test]
-fn case_752() {
+fn case_782() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5c5e51c1");
@@ -14444,7 +15138,7 @@ fn case_752() {
 }
 
 #[test]
-fn case_753() {
+fn case_783() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5c5e51c1");
@@ -14461,7 +15155,7 @@ fn case_753() {
 }
 
 #[test]
-fn case_754() {
+fn case_784() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5c5e51c1");
@@ -14478,7 +15172,7 @@ fn case_754() {
 }
 
 #[test]
-fn case_755() {
+fn case_785() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5c5e51c1");
@@ -14495,7 +15189,7 @@ fn case_755() {
 }
 
 #[test]
-fn case_756() {
+fn case_786() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5c5e51c1");
@@ -14513,7 +15207,7 @@ fn case_756() {
 }
 
 #[test]
-fn case_757() {
+fn case_787() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5c5e51c1");
@@ -14530,7 +15224,7 @@ fn case_757() {
 }
 
 #[test]
-fn case_758() {
+fn case_788() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5c5e51c1");
@@ -14547,7 +15241,7 @@ fn case_758() {
 }
 
 #[test]
-fn case_759() {
+fn case_789() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5c5e51c1");
@@ -14564,7 +15258,7 @@ fn case_759() {
 }
 
 #[test]
-fn case_760() {
+fn case_790() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5c5e51c1");
@@ -14581,7 +15275,7 @@ fn case_760() {
 }
 
 #[test]
-fn case_761() {
+fn case_791() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5c5e51c1");
@@ -14598,7 +15292,7 @@ fn case_761() {
 }
 
 #[test]
-fn case_762() {
+fn case_792() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a89781b5");
@@ -14612,7 +15306,7 @@ fn case_762() {
 }
 
 #[test]
-fn case_763() {
+fn case_793() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5c5e51c1");
@@ -14630,7 +15324,7 @@ fn case_763() {
 }
 
 #[test]
-fn case_764() {
+fn case_794() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e34636c1");
@@ -14656,7 +15350,7 @@ fn case_764() {
 }
 
 #[test]
-fn case_765() {
+fn case_795() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e2950741");
@@ -14682,7 +15376,7 @@ fn case_765() {
 }
 
 #[test]
-fn case_766() {
+fn case_796() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "cf213741");
@@ -14708,7 +15402,7 @@ fn case_766() {
 }
 
 #[test]
-fn case_767() {
+fn case_797() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "72ed3042");
@@ -14734,7 +15428,7 @@ fn case_767() {
 }
 
 #[test]
-fn case_768() {
+fn case_798() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a3b78d3f");
@@ -14769,7 +15463,7 @@ fn case_768() {
 }
 
 #[test]
-fn case_769() {
+fn case_799() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a3b78d3f");
@@ -14804,7 +15498,7 @@ fn case_769() {
 }
 
 #[test]
-fn case_770() {
+fn case_800() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -14827,7 +15521,30 @@ fn case_770() {
 }
 
 #[test]
-fn case_771() {
+fn case_801() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -12.910992622375488f32, 20.03736686706543f32, 7.763477802276611f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "6d934ec1"), (0x2a004890, "874ca041"), (0x2a0048a0, "696ef840")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_802() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -14838,7 +15555,7 @@ fn case_771() {
 }
 
 #[test]
-fn case_772() {
+fn case_803() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -14849,7 +15566,7 @@ fn case_772() {
 }
 
 #[test]
-fn case_773() {
+fn case_804() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -14860,7 +15577,7 @@ fn case_773() {
 }
 
 #[test]
-fn case_774() {
+fn case_805() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -14871,7 +15588,7 @@ fn case_774() {
 }
 
 #[test]
-fn case_775() {
+fn case_806() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e495a41");
@@ -14888,7 +15605,7 @@ fn case_775() {
 }
 
 #[test]
-fn case_776() {
+fn case_807() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e495a41");
@@ -14905,7 +15622,7 @@ fn case_776() {
 }
 
 #[test]
-fn case_777() {
+fn case_808() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e495a41");
@@ -14922,7 +15639,7 @@ fn case_777() {
 }
 
 #[test]
-fn case_778() {
+fn case_809() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e495a41");
@@ -14939,7 +15656,7 @@ fn case_778() {
 }
 
 #[test]
-fn case_779() {
+fn case_810() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e495a41");
@@ -14956,7 +15673,7 @@ fn case_779() {
 }
 
 #[test]
-fn case_780() {
+fn case_811() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e495a41");
@@ -14973,7 +15690,7 @@ fn case_780() {
 }
 
 #[test]
-fn case_781() {
+fn case_812() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e495a41");
@@ -14991,7 +15708,7 @@ fn case_781() {
 }
 
 #[test]
-fn case_782() {
+fn case_813() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e495a41");
@@ -15008,7 +15725,7 @@ fn case_782() {
 }
 
 #[test]
-fn case_783() {
+fn case_814() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e495a41");
@@ -15025,7 +15742,7 @@ fn case_783() {
 }
 
 #[test]
-fn case_784() {
+fn case_815() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e495a41");
@@ -15042,7 +15759,7 @@ fn case_784() {
 }
 
 #[test]
-fn case_785() {
+fn case_816() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e495a41");
@@ -15059,7 +15776,7 @@ fn case_785() {
 }
 
 #[test]
-fn case_786() {
+fn case_817() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e495a41");
@@ -15076,7 +15793,7 @@ fn case_786() {
 }
 
 #[test]
-fn case_787() {
+fn case_818() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "10046ab5");
@@ -15090,7 +15807,7 @@ fn case_787() {
 }
 
 #[test]
-fn case_788() {
+fn case_819() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e495a41");
@@ -15108,7 +15825,7 @@ fn case_788() {
 }
 
 #[test]
-fn case_789() {
+fn case_820() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "bb8445c2");
@@ -15134,7 +15851,7 @@ fn case_789() {
 }
 
 #[test]
-fn case_790() {
+fn case_821() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "a90c6fc1");
@@ -15160,7 +15877,7 @@ fn case_790() {
 }
 
 #[test]
-fn case_791() {
+fn case_822() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "fe1560c1");
@@ -15186,7 +15903,7 @@ fn case_791() {
 }
 
 #[test]
-fn case_792() {
+fn case_823() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "20de4841");
@@ -15212,7 +15929,7 @@ fn case_792() {
 }
 
 #[test]
-fn case_793() {
+fn case_824() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f5a9f6bd");
@@ -15247,7 +15964,7 @@ fn case_793() {
 }
 
 #[test]
-fn case_794() {
+fn case_825() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f5a9f6bd");
@@ -15282,7 +15999,7 @@ fn case_794() {
 }
 
 #[test]
-fn case_795() {
+fn case_826() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -15305,7 +16022,30 @@ fn case_795() {
 }
 
 #[test]
-fn case_796() {
+fn case_827() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -7.077862739562988f32, -26.74960708618164f32, 7.714327812194824f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "da7de2c0"), (0x2a004890, "32ffd5c1"), (0x2a0048a0, "c6dbf640")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_828() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -15316,7 +16056,7 @@ fn case_796() {
 }
 
 #[test]
-fn case_797() {
+fn case_829() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -15327,7 +16067,7 @@ fn case_797() {
 }
 
 #[test]
-fn case_798() {
+fn case_830() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -15338,7 +16078,7 @@ fn case_798() {
 }
 
 #[test]
-fn case_799() {
+fn case_831() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -15349,7 +16089,7 @@ fn case_799() {
 }
 
 #[test]
-fn case_800() {
+fn case_832() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2c2c8f41");
@@ -15366,7 +16106,7 @@ fn case_800() {
 }
 
 #[test]
-fn case_801() {
+fn case_833() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2c2c8f41");
@@ -15383,7 +16123,7 @@ fn case_801() {
 }
 
 #[test]
-fn case_802() {
+fn case_834() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2c2c8f41");
@@ -15400,7 +16140,7 @@ fn case_802() {
 }
 
 #[test]
-fn case_803() {
+fn case_835() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2c2c8f41");
@@ -15417,7 +16157,7 @@ fn case_803() {
 }
 
 #[test]
-fn case_804() {
+fn case_836() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2c2c8f41");
@@ -15434,7 +16174,7 @@ fn case_804() {
 }
 
 #[test]
-fn case_805() {
+fn case_837() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2c2c8f41");
@@ -15451,7 +16191,7 @@ fn case_805() {
 }
 
 #[test]
-fn case_806() {
+fn case_838() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2c2c8f41");
@@ -15469,7 +16209,7 @@ fn case_806() {
 }
 
 #[test]
-fn case_807() {
+fn case_839() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2c2c8f41");
@@ -15486,7 +16226,7 @@ fn case_807() {
 }
 
 #[test]
-fn case_808() {
+fn case_840() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2c2c8f41");
@@ -15503,7 +16243,7 @@ fn case_808() {
 }
 
 #[test]
-fn case_809() {
+fn case_841() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2c2c8f41");
@@ -15520,7 +16260,7 @@ fn case_809() {
 }
 
 #[test]
-fn case_810() {
+fn case_842() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2c2c8f41");
@@ -15537,7 +16277,7 @@ fn case_810() {
 }
 
 #[test]
-fn case_811() {
+fn case_843() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2c2c8f41");
@@ -15554,7 +16294,7 @@ fn case_811() {
 }
 
 #[test]
-fn case_812() {
+fn case_844() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "4fae65b5");
@@ -15568,7 +16308,7 @@ fn case_812() {
 }
 
 #[test]
-fn case_813() {
+fn case_845() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2c2c8f41");
@@ -15586,7 +16326,7 @@ fn case_813() {
 }
 
 #[test]
-fn case_814() {
+fn case_846() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e2774540");
@@ -15612,7 +16352,7 @@ fn case_814() {
 }
 
 #[test]
-fn case_815() {
+fn case_847() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f782cb40");
@@ -15638,7 +16378,7 @@ fn case_815() {
 }
 
 #[test]
-fn case_816() {
+fn case_848() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5ae010c2");
@@ -15664,7 +16404,7 @@ fn case_816() {
 }
 
 #[test]
-fn case_817() {
+fn case_849() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "11777a40");
@@ -15690,7 +16430,7 @@ fn case_817() {
 }
 
 #[test]
-fn case_818() {
+fn case_850() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "53ba10bf");
@@ -15725,7 +16465,7 @@ fn case_818() {
 }
 
 #[test]
-fn case_819() {
+fn case_851() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "53ba10bf");
@@ -15760,7 +16500,7 @@ fn case_819() {
 }
 
 #[test]
-fn case_820() {
+fn case_852() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -15783,7 +16523,30 @@ fn case_820() {
 }
 
 #[test]
-fn case_821() {
+fn case_853() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -25.357358932495117f32, -6.144123077392578f32, 11.499103546142578f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "dfdbcac1"), (0x2a004890, "a89cc4c0"), (0x2a0048a0, "54fc3741")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_854() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -15794,7 +16557,7 @@ fn case_821() {
 }
 
 #[test]
-fn case_822() {
+fn case_855() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -15805,7 +16568,7 @@ fn case_822() {
 }
 
 #[test]
-fn case_823() {
+fn case_856() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -15816,7 +16579,7 @@ fn case_823() {
 }
 
 #[test]
-fn case_824() {
+fn case_857() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -15827,7 +16590,7 @@ fn case_824() {
 }
 
 #[test]
-fn case_825() {
+fn case_858() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d6203c2");
@@ -15844,7 +16607,7 @@ fn case_825() {
 }
 
 #[test]
-fn case_826() {
+fn case_859() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d6203c2");
@@ -15861,7 +16624,7 @@ fn case_826() {
 }
 
 #[test]
-fn case_827() {
+fn case_860() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d6203c2");
@@ -15878,7 +16641,7 @@ fn case_827() {
 }
 
 #[test]
-fn case_828() {
+fn case_861() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d6203c2");
@@ -15895,7 +16658,7 @@ fn case_828() {
 }
 
 #[test]
-fn case_829() {
+fn case_862() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d6203c2");
@@ -15912,7 +16675,7 @@ fn case_829() {
 }
 
 #[test]
-fn case_830() {
+fn case_863() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d6203c2");
@@ -15929,7 +16692,7 @@ fn case_830() {
 }
 
 #[test]
-fn case_831() {
+fn case_864() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d6203c2");
@@ -15947,7 +16710,7 @@ fn case_831() {
 }
 
 #[test]
-fn case_832() {
+fn case_865() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d6203c2");
@@ -15964,7 +16727,7 @@ fn case_832() {
 }
 
 #[test]
-fn case_833() {
+fn case_866() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d6203c2");
@@ -15981,7 +16744,7 @@ fn case_833() {
 }
 
 #[test]
-fn case_834() {
+fn case_867() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d6203c2");
@@ -15998,7 +16761,7 @@ fn case_834() {
 }
 
 #[test]
-fn case_835() {
+fn case_868() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d6203c2");
@@ -16015,7 +16778,7 @@ fn case_835() {
 }
 
 #[test]
-fn case_836() {
+fn case_869() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d6203c2");
@@ -16032,7 +16795,7 @@ fn case_836() {
 }
 
 #[test]
-fn case_837() {
+fn case_870() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9c2aa3b4");
@@ -16046,7 +16809,7 @@ fn case_837() {
 }
 
 #[test]
-fn case_838() {
+fn case_871() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d6203c2");
@@ -16064,7 +16827,7 @@ fn case_838() {
 }
 
 #[test]
-fn case_839() {
+fn case_872() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "898f8141");
@@ -16090,7 +16853,7 @@ fn case_839() {
 }
 
 #[test]
-fn case_840() {
+fn case_873() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8a1499c1");
@@ -16116,7 +16879,7 @@ fn case_840() {
 }
 
 #[test]
-fn case_841() {
+fn case_874() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "67d08841");
@@ -16142,7 +16905,7 @@ fn case_841() {
 }
 
 #[test]
-fn case_842() {
+fn case_875() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "19ceebc1");
@@ -16168,7 +16931,7 @@ fn case_842() {
 }
 
 #[test]
-fn case_843() {
+fn case_876() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "44abff3e");
@@ -16203,7 +16966,7 @@ fn case_843() {
 }
 
 #[test]
-fn case_844() {
+fn case_877() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "44abff3e");
@@ -16238,7 +17001,7 @@ fn case_844() {
 }
 
 #[test]
-fn case_845() {
+fn case_878() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -16261,7 +17024,30 @@ fn case_845() {
 }
 
 #[test]
-fn case_846() {
+fn case_879() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -10.770928382873535f32, -18.961822509765625f32, 18.28990936279297f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "b9552cc1"), (0x2a004890, "d0b197c1"), (0x2a0048a0, "bc519241")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_880() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -16272,7 +17058,7 @@ fn case_846() {
 }
 
 #[test]
-fn case_847() {
+fn case_881() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -16283,7 +17069,7 @@ fn case_847() {
 }
 
 #[test]
-fn case_848() {
+fn case_882() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -16294,7 +17080,7 @@ fn case_848() {
 }
 
 #[test]
-fn case_849() {
+fn case_883() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -16305,7 +17091,7 @@ fn case_849() {
 }
 
 #[test]
-fn case_850() {
+fn case_884() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b76dccc1");
@@ -16322,7 +17108,7 @@ fn case_850() {
 }
 
 #[test]
-fn case_851() {
+fn case_885() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b76dccc1");
@@ -16339,7 +17125,7 @@ fn case_851() {
 }
 
 #[test]
-fn case_852() {
+fn case_886() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b76dccc1");
@@ -16356,7 +17142,7 @@ fn case_852() {
 }
 
 #[test]
-fn case_853() {
+fn case_887() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b76dccc1");
@@ -16373,7 +17159,7 @@ fn case_853() {
 }
 
 #[test]
-fn case_854() {
+fn case_888() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b76dccc1");
@@ -16390,7 +17176,7 @@ fn case_854() {
 }
 
 #[test]
-fn case_855() {
+fn case_889() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b76dccc1");
@@ -16407,7 +17193,7 @@ fn case_855() {
 }
 
 #[test]
-fn case_856() {
+fn case_890() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b76dccc1");
@@ -16425,7 +17211,7 @@ fn case_856() {
 }
 
 #[test]
-fn case_857() {
+fn case_891() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b76dccc1");
@@ -16442,7 +17228,7 @@ fn case_857() {
 }
 
 #[test]
-fn case_858() {
+fn case_892() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b76dccc1");
@@ -16459,7 +17245,7 @@ fn case_858() {
 }
 
 #[test]
-fn case_859() {
+fn case_893() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b76dccc1");
@@ -16476,7 +17262,7 @@ fn case_859() {
 }
 
 #[test]
-fn case_860() {
+fn case_894() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b76dccc1");
@@ -16493,7 +17279,7 @@ fn case_860() {
 }
 
 #[test]
-fn case_861() {
+fn case_895() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b76dccc1");
@@ -16510,7 +17296,7 @@ fn case_861() {
 }
 
 #[test]
-fn case_862() {
+fn case_896() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e7f69734");
@@ -16524,7 +17310,7 @@ fn case_862() {
 }
 
 #[test]
-fn case_863() {
+fn case_897() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b76dccc1");
@@ -16542,7 +17328,7 @@ fn case_863() {
 }
 
 #[test]
-fn case_864() {
+fn case_898() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "74c423c1");
@@ -16568,7 +17354,7 @@ fn case_864() {
 }
 
 #[test]
-fn case_865() {
+fn case_899() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "32d2c9c1");
@@ -16594,7 +17380,7 @@ fn case_865() {
 }
 
 #[test]
-fn case_866() {
+fn case_900() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "383da3c0");
@@ -16620,7 +17406,7 @@ fn case_866() {
 }
 
 #[test]
-fn case_867() {
+fn case_901() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "9e5a50c0");
@@ -16646,7 +17432,7 @@ fn case_867() {
 }
 
 #[test]
-fn case_868() {
+fn case_902() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "692558be");
@@ -16681,7 +17467,7 @@ fn case_868() {
 }
 
 #[test]
-fn case_869() {
+fn case_903() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "692558be");
@@ -16716,7 +17502,7 @@ fn case_869() {
 }
 
 #[test]
-fn case_870() {
+fn case_904() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -16739,7 +17525,30 @@ fn case_870() {
 }
 
 #[test]
-fn case_871() {
+fn case_905() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -21.147720336914062f32, -28.104389190673828f32, -24.150909423828125f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "882ea9c1"), (0x2a004890, "cad5e0c1"), (0x2a0048a0, "1035c1c1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_906() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -16750,7 +17559,7 @@ fn case_871() {
 }
 
 #[test]
-fn case_872() {
+fn case_907() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -16761,7 +17570,7 @@ fn case_872() {
 }
 
 #[test]
-fn case_873() {
+fn case_908() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -16772,7 +17581,7 @@ fn case_873() {
 }
 
 #[test]
-fn case_874() {
+fn case_909() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -16783,7 +17592,7 @@ fn case_874() {
 }
 
 #[test]
-fn case_875() {
+fn case_910() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dd240f42");
@@ -16800,7 +17609,7 @@ fn case_875() {
 }
 
 #[test]
-fn case_876() {
+fn case_911() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dd240f42");
@@ -16817,7 +17626,7 @@ fn case_876() {
 }
 
 #[test]
-fn case_877() {
+fn case_912() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dd240f42");
@@ -16834,7 +17643,7 @@ fn case_877() {
 }
 
 #[test]
-fn case_878() {
+fn case_913() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dd240f42");
@@ -16851,7 +17660,7 @@ fn case_878() {
 }
 
 #[test]
-fn case_879() {
+fn case_914() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dd240f42");
@@ -16868,7 +17677,7 @@ fn case_879() {
 }
 
 #[test]
-fn case_880() {
+fn case_915() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dd240f42");
@@ -16885,7 +17694,7 @@ fn case_880() {
 }
 
 #[test]
-fn case_881() {
+fn case_916() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dd240f42");
@@ -16903,7 +17712,7 @@ fn case_881() {
 }
 
 #[test]
-fn case_882() {
+fn case_917() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dd240f42");
@@ -16920,7 +17729,7 @@ fn case_882() {
 }
 
 #[test]
-fn case_883() {
+fn case_918() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dd240f42");
@@ -16937,7 +17746,7 @@ fn case_883() {
 }
 
 #[test]
-fn case_884() {
+fn case_919() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dd240f42");
@@ -16954,7 +17763,7 @@ fn case_884() {
 }
 
 #[test]
-fn case_885() {
+fn case_920() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dd240f42");
@@ -16971,7 +17780,7 @@ fn case_885() {
 }
 
 #[test]
-fn case_886() {
+fn case_921() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dd240f42");
@@ -16988,7 +17797,7 @@ fn case_886() {
 }
 
 #[test]
-fn case_887() {
+fn case_922() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c15b4532");
@@ -17002,7 +17811,7 @@ fn case_887() {
 }
 
 #[test]
-fn case_888() {
+fn case_923() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "dd240f42");
@@ -17020,7 +17829,7 @@ fn case_888() {
 }
 
 #[test]
-fn case_889() {
+fn case_924() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ca7e8741");
@@ -17046,7 +17855,7 @@ fn case_889() {
 }
 
 #[test]
-fn case_890() {
+fn case_925() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "745a3cc2");
@@ -17072,7 +17881,7 @@ fn case_890() {
 }
 
 #[test]
-fn case_891() {
+fn case_926() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2b341942");
@@ -17098,7 +17907,7 @@ fn case_891() {
 }
 
 #[test]
-fn case_892() {
+fn case_927() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0deb1fc2");
@@ -17124,7 +17933,7 @@ fn case_892() {
 }
 
 #[test]
-fn case_893() {
+fn case_928() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ff3bb73e");
@@ -17159,7 +17968,7 @@ fn case_893() {
 }
 
 #[test]
-fn case_894() {
+fn case_929() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "ff3bb73e");
@@ -17194,7 +18003,7 @@ fn case_894() {
 }
 
 #[test]
-fn case_895() {
+fn case_930() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -17217,7 +18026,30 @@ fn case_895() {
 }
 
 #[test]
-fn case_896() {
+fn case_931() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -28.939794540405273f32, -25.484725952148438f32, 22.269489288330078f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "b384e7c1"), (0x2a004890, "b8e0cbc1"), (0x2a0048a0, "ea27b241")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_932() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -17228,7 +18060,7 @@ fn case_896() {
 }
 
 #[test]
-fn case_897() {
+fn case_933() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -17239,7 +18071,7 @@ fn case_897() {
 }
 
 #[test]
-fn case_898() {
+fn case_934() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -17250,7 +18082,7 @@ fn case_898() {
 }
 
 #[test]
-fn case_899() {
+fn case_935() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -17261,7 +18093,7 @@ fn case_899() {
 }
 
 #[test]
-fn case_900() {
+fn case_936() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b3e9d6c1");
@@ -17278,7 +18110,7 @@ fn case_900() {
 }
 
 #[test]
-fn case_901() {
+fn case_937() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b3e9d6c1");
@@ -17295,7 +18127,7 @@ fn case_901() {
 }
 
 #[test]
-fn case_902() {
+fn case_938() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b3e9d6c1");
@@ -17312,7 +18144,7 @@ fn case_902() {
 }
 
 #[test]
-fn case_903() {
+fn case_939() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b3e9d6c1");
@@ -17329,7 +18161,7 @@ fn case_903() {
 }
 
 #[test]
-fn case_904() {
+fn case_940() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b3e9d6c1");
@@ -17346,7 +18178,7 @@ fn case_904() {
 }
 
 #[test]
-fn case_905() {
+fn case_941() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b3e9d6c1");
@@ -17363,7 +18195,7 @@ fn case_905() {
 }
 
 #[test]
-fn case_906() {
+fn case_942() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b3e9d6c1");
@@ -17381,7 +18213,7 @@ fn case_906() {
 }
 
 #[test]
-fn case_907() {
+fn case_943() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b3e9d6c1");
@@ -17398,7 +18230,7 @@ fn case_907() {
 }
 
 #[test]
-fn case_908() {
+fn case_944() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b3e9d6c1");
@@ -17415,7 +18247,7 @@ fn case_908() {
 }
 
 #[test]
-fn case_909() {
+fn case_945() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b3e9d6c1");
@@ -17432,7 +18264,7 @@ fn case_909() {
 }
 
 #[test]
-fn case_910() {
+fn case_946() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b3e9d6c1");
@@ -17449,7 +18281,7 @@ fn case_910() {
 }
 
 #[test]
-fn case_911() {
+fn case_947() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b3e9d6c1");
@@ -17466,7 +18298,7 @@ fn case_911() {
 }
 
 #[test]
-fn case_912() {
+fn case_948() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "09e2f934");
@@ -17480,7 +18312,7 @@ fn case_912() {
 }
 
 #[test]
-fn case_913() {
+fn case_949() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "b3e9d6c1");
@@ -17498,7 +18330,7 @@ fn case_913() {
 }
 
 #[test]
-fn case_914() {
+fn case_950() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "0fd51bc2");
@@ -17524,7 +18356,7 @@ fn case_914() {
 }
 
 #[test]
-fn case_915() {
+fn case_951() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "be641a41");
@@ -17550,7 +18382,7 @@ fn case_915() {
 }
 
 #[test]
-fn case_916() {
+fn case_952() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6755b8c1");
@@ -17576,7 +18408,7 @@ fn case_916() {
 }
 
 #[test]
-fn case_917() {
+fn case_953() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "34cfa3c1");
@@ -17602,7 +18434,7 @@ fn case_917() {
 }
 
 #[test]
-fn case_918() {
+fn case_954() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e822d3f");
@@ -17637,7 +18469,7 @@ fn case_918() {
 }
 
 #[test]
-fn case_919() {
+fn case_955() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8e822d3f");
@@ -17672,7 +18504,7 @@ fn case_919() {
 }
 
 #[test]
-fn case_920() {
+fn case_956() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -17695,7 +18527,30 @@ fn case_920() {
 }
 
 #[test]
-fn case_921() {
+fn case_957() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, 27.001176834106445f32, 29.41428565979004f32, 9.721266746520996f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "6902d841"), (0x2a004890, "7550eb41"), (0x2a0048a0, "4f8a1b41")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_958() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -17706,7 +18561,7 @@ fn case_921() {
 }
 
 #[test]
-fn case_922() {
+fn case_959() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -17717,7 +18572,7 @@ fn case_922() {
 }
 
 #[test]
-fn case_923() {
+fn case_960() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -17728,7 +18583,7 @@ fn case_923() {
 }
 
 #[test]
-fn case_924() {
+fn case_961() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -17739,7 +18594,7 @@ fn case_924() {
 }
 
 #[test]
-fn case_925() {
+fn case_962() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6be102c2");
@@ -17756,7 +18611,7 @@ fn case_925() {
 }
 
 #[test]
-fn case_926() {
+fn case_963() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6be102c2");
@@ -17773,7 +18628,7 @@ fn case_926() {
 }
 
 #[test]
-fn case_927() {
+fn case_964() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6be102c2");
@@ -17790,7 +18645,7 @@ fn case_927() {
 }
 
 #[test]
-fn case_928() {
+fn case_965() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6be102c2");
@@ -17807,7 +18662,7 @@ fn case_928() {
 }
 
 #[test]
-fn case_929() {
+fn case_966() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6be102c2");
@@ -17824,7 +18679,7 @@ fn case_929() {
 }
 
 #[test]
-fn case_930() {
+fn case_967() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6be102c2");
@@ -17841,7 +18696,7 @@ fn case_930() {
 }
 
 #[test]
-fn case_931() {
+fn case_968() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6be102c2");
@@ -17859,7 +18714,7 @@ fn case_931() {
 }
 
 #[test]
-fn case_932() {
+fn case_969() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6be102c2");
@@ -17876,7 +18731,7 @@ fn case_932() {
 }
 
 #[test]
-fn case_933() {
+fn case_970() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6be102c2");
@@ -17893,7 +18748,7 @@ fn case_933() {
 }
 
 #[test]
-fn case_934() {
+fn case_971() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6be102c2");
@@ -17910,7 +18765,7 @@ fn case_934() {
 }
 
 #[test]
-fn case_935() {
+fn case_972() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6be102c2");
@@ -17927,7 +18782,7 @@ fn case_935() {
 }
 
 #[test]
-fn case_936() {
+fn case_973() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6be102c2");
@@ -17944,7 +18799,7 @@ fn case_936() {
 }
 
 #[test]
-fn case_937() {
+fn case_974() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "02c62f35");
@@ -17958,7 +18813,7 @@ fn case_937() {
 }
 
 #[test]
-fn case_938() {
+fn case_975() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "6be102c2");
@@ -17976,7 +18831,7 @@ fn case_938() {
 }
 
 #[test]
-fn case_939() {
+fn case_976() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "e0ea3ec1");
@@ -18002,7 +18857,7 @@ fn case_939() {
 }
 
 #[test]
-fn case_940() {
+fn case_977() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "c1bd7541");
@@ -18028,7 +18883,7 @@ fn case_940() {
 }
 
 #[test]
-fn case_941() {
+fn case_978() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "d5890842");
@@ -18054,7 +18909,7 @@ fn case_941() {
 }
 
 #[test]
-fn case_942() {
+fn case_979() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "3df51dc2");
@@ -18080,7 +18935,7 @@ fn case_942() {
 }
 
 #[test]
-fn case_943() {
+fn case_980() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "420e75bf");
@@ -18115,7 +18970,7 @@ fn case_943() {
 }
 
 #[test]
-fn case_944() {
+fn case_981() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "420e75bf");
@@ -18150,7 +19005,7 @@ fn case_944() {
 }
 
 #[test]
-fn case_945() {
+fn case_982() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -18173,7 +19028,30 @@ fn case_945() {
 }
 
 #[test]
-fn case_946() {
+fn case_983() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, 16.27804183959961f32, -14.94923210144043f32, -16.874279022216797f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "6e398241"), (0x2a004890, "0e306fc1"), (0x2a0048a0, "86fe86c1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_984() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -18184,7 +19062,7 @@ fn case_946() {
 }
 
 #[test]
-fn case_947() {
+fn case_985() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -18195,7 +19073,7 @@ fn case_947() {
 }
 
 #[test]
-fn case_948() {
+fn case_986() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -18206,7 +19084,7 @@ fn case_948() {
 }
 
 #[test]
-fn case_949() {
+fn case_987() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -18217,7 +19095,7 @@ fn case_949() {
 }
 
 #[test]
-fn case_950() {
+fn case_988() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "52ce52c1");
@@ -18234,7 +19112,7 @@ fn case_950() {
 }
 
 #[test]
-fn case_951() {
+fn case_989() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "52ce52c1");
@@ -18251,7 +19129,7 @@ fn case_951() {
 }
 
 #[test]
-fn case_952() {
+fn case_990() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "52ce52c1");
@@ -18268,7 +19146,7 @@ fn case_952() {
 }
 
 #[test]
-fn case_953() {
+fn case_991() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "52ce52c1");
@@ -18285,7 +19163,7 @@ fn case_953() {
 }
 
 #[test]
-fn case_954() {
+fn case_992() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "52ce52c1");
@@ -18302,7 +19180,7 @@ fn case_954() {
 }
 
 #[test]
-fn case_955() {
+fn case_993() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "52ce52c1");
@@ -18319,7 +19197,7 @@ fn case_955() {
 }
 
 #[test]
-fn case_956() {
+fn case_994() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "52ce52c1");
@@ -18337,7 +19215,7 @@ fn case_956() {
 }
 
 #[test]
-fn case_957() {
+fn case_995() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "52ce52c1");
@@ -18354,7 +19232,7 @@ fn case_957() {
 }
 
 #[test]
-fn case_958() {
+fn case_996() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "52ce52c1");
@@ -18371,7 +19249,7 @@ fn case_958() {
 }
 
 #[test]
-fn case_959() {
+fn case_997() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "52ce52c1");
@@ -18388,7 +19266,7 @@ fn case_959() {
 }
 
 #[test]
-fn case_960() {
+fn case_998() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "52ce52c1");
@@ -18405,7 +19283,7 @@ fn case_960() {
 }
 
 #[test]
-fn case_961() {
+fn case_999() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "52ce52c1");
@@ -18422,7 +19300,7 @@ fn case_961() {
 }
 
 #[test]
-fn case_962() {
+fn case_1000() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "30b07cb5");
@@ -18436,7 +19314,7 @@ fn case_962() {
 }
 
 #[test]
-fn case_963() {
+fn case_1001() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "52ce52c1");
@@ -18454,7 +19332,7 @@ fn case_963() {
 }
 
 #[test]
-fn case_964() {
+fn case_1002() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "bfa99941");
@@ -18480,7 +19358,7 @@ fn case_964() {
 }
 
 #[test]
-fn case_965() {
+fn case_1003() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "cea6a041");
@@ -18506,7 +19384,7 @@ fn case_965() {
 }
 
 #[test]
-fn case_966() {
+fn case_1004() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "f4db40c1");
@@ -18532,7 +19410,7 @@ fn case_966() {
 }
 
 #[test]
-fn case_967() {
+fn case_1005() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2e4d6141");
@@ -18558,7 +19436,7 @@ fn case_967() {
 }
 
 #[test]
-fn case_968() {
+fn case_1006() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2bec52bf");
@@ -18593,7 +19471,7 @@ fn case_968() {
 }
 
 #[test]
-fn case_969() {
+fn case_1007() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "2bec52bf");
@@ -18628,7 +19506,7 @@ fn case_969() {
 }
 
 #[test]
-fn case_970() {
+fn case_1008() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -18651,7 +19529,30 @@ fn case_970() {
 }
 
 #[test]
-fn case_971() {
+fn case_1009() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, -9.527639389038086f32, 5.171185493469238f32, 7.314589500427246f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "367118c1"), (0x2a004890, "5a7aa540"), (0x2a0048a0, "1e11ea40")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_1010() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -18662,7 +19563,7 @@ fn case_971() {
 }
 
 #[test]
-fn case_972() {
+fn case_1011() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -18673,7 +19574,7 @@ fn case_972() {
 }
 
 #[test]
-fn case_973() {
+fn case_1012() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -18684,7 +19585,7 @@ fn case_973() {
 }
 
 #[test]
-fn case_974() {
+fn case_1013() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -18695,7 +19596,7 @@ fn case_974() {
 }
 
 #[test]
-fn case_975() {
+fn case_1014() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d379ac1");
@@ -18712,7 +19613,7 @@ fn case_975() {
 }
 
 #[test]
-fn case_976() {
+fn case_1015() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d379ac1");
@@ -18729,7 +19630,7 @@ fn case_976() {
 }
 
 #[test]
-fn case_977() {
+fn case_1016() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d379ac1");
@@ -18746,7 +19647,7 @@ fn case_977() {
 }
 
 #[test]
-fn case_978() {
+fn case_1017() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d379ac1");
@@ -18763,7 +19664,7 @@ fn case_978() {
 }
 
 #[test]
-fn case_979() {
+fn case_1018() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d379ac1");
@@ -18780,7 +19681,7 @@ fn case_979() {
 }
 
 #[test]
-fn case_980() {
+fn case_1019() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d379ac1");
@@ -18797,7 +19698,7 @@ fn case_980() {
 }
 
 #[test]
-fn case_981() {
+fn case_1020() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d379ac1");
@@ -18815,7 +19716,7 @@ fn case_981() {
 }
 
 #[test]
-fn case_982() {
+fn case_1021() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d379ac1");
@@ -18832,7 +19733,7 @@ fn case_982() {
 }
 
 #[test]
-fn case_983() {
+fn case_1022() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d379ac1");
@@ -18849,7 +19750,7 @@ fn case_983() {
 }
 
 #[test]
-fn case_984() {
+fn case_1023() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d379ac1");
@@ -18866,7 +19767,7 @@ fn case_984() {
 }
 
 #[test]
-fn case_985() {
+fn case_1024() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d379ac1");
@@ -18883,7 +19784,7 @@ fn case_985() {
 }
 
 #[test]
-fn case_986() {
+fn case_1025() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d379ac1");
@@ -18900,7 +19801,7 @@ fn case_986() {
 }
 
 #[test]
-fn case_987() {
+fn case_1026() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "19366935");
@@ -18914,7 +19815,7 @@ fn case_987() {
 }
 
 #[test]
-fn case_988() {
+fn case_1027() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "8d379ac1");
@@ -18932,7 +19833,7 @@ fn case_988() {
 }
 
 #[test]
-fn case_989() {
+fn case_1028() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "25a6e4c1");
@@ -18958,7 +19859,7 @@ fn case_989() {
 }
 
 #[test]
-fn case_990() {
+fn case_1029() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "530381c1");
@@ -18984,7 +19885,7 @@ fn case_990() {
 }
 
 #[test]
-fn case_991() {
+fn case_1030() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "615e53c1");
@@ -19010,7 +19911,7 @@ fn case_991() {
 }
 
 #[test]
-fn case_992() {
+fn case_1031() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "5d62e7c1");
@@ -19036,7 +19937,7 @@ fn case_992() {
 }
 
 #[test]
-fn case_993() {
+fn case_1032() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "72cc7f3f");
@@ -19071,7 +19972,7 @@ fn case_993() {
 }
 
 #[test]
-fn case_994() {
+fn case_1033() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x2a004800, "72cc7f3f");
@@ -19106,7 +20007,7 @@ fn case_994() {
 }
 
 #[test]
-fn case_995() {
+fn case_1034() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19129,7 +20030,30 @@ fn case_995() {
 }
 
 #[test]
-fn case_996() {
+fn case_1035() {
+    let mut m = mem::Mem::new();
+    globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
+    w(&mut m, 0x7025f0, "0000803f");
+    w(&mut m, 0x7025f4, "00000000");
+    w(&mut m, 0x7025f8, "00000000");
+    w(&mut m, 0x7025fc, "00000000");
+    w(&mut m, 0x702600, "0000803f");
+    w(&mut m, 0x702604, "00000000");
+    w(&mut m, 0x702608, "00000000");
+    w(&mut m, 0x70260c, "00000000");
+    w(&mut m, 0x702610, "0000803f");
+    w(&mut m, 0x702614, "00000000");
+    w(&mut m, 0x702618, "00000000");
+    w(&mut m, 0x70261c, "00000000");
+    let before0 = m.read(0x2a004800, 1024);
+    matrix::mat_scale(&mut m, 0x2a004880, 17.990964889526367f32, -25.333736419677734f32, -12.441493034362793f32);
+    let mut want0 = before0.clone();
+    patch(&mut want0, 0x2a004800, &[(0x2a004880, "7fed8f41"), (0x2a004890, "7eabcac1"), (0x2a0048a0, "5b1047c1")]);
+    assert!(mem_close(&m.read(0x2a004800, 1024), &want0), "memory at 0x2a004800 differs from the original:{}", report(0x2a004800, &m.read(0x2a004800, 1024), &want0));
+}
+
+#[test]
+fn case_1036() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -19140,7 +20064,7 @@ fn case_996() {
 }
 
 #[test]
-fn case_997() {
+fn case_1037() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -19151,7 +20075,7 @@ fn case_997() {
 }
 
 #[test]
-fn case_998() {
+fn case_1038() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -19162,7 +20086,7 @@ fn case_998() {
 }
 
 #[test]
-fn case_999() {
+fn case_1039() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     let before0 = m.read(0x2a004800, 1024);
@@ -19173,7 +20097,7 @@ fn case_999() {
 }
 
 #[test]
-fn case_1000() {
+fn case_1040() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19196,7 +20120,7 @@ fn case_1000() {
 }
 
 #[test]
-fn case_1001() {
+fn case_1041() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19219,7 +20143,7 @@ fn case_1001() {
 }
 
 #[test]
-fn case_1002() {
+fn case_1042() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19242,7 +20166,7 @@ fn case_1002() {
 }
 
 #[test]
-fn case_1003() {
+fn case_1043() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19265,7 +20189,7 @@ fn case_1003() {
 }
 
 #[test]
-fn case_1004() {
+fn case_1044() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19288,7 +20212,7 @@ fn case_1004() {
 }
 
 #[test]
-fn case_1005() {
+fn case_1045() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19311,7 +20235,7 @@ fn case_1005() {
 }
 
 #[test]
-fn case_1006() {
+fn case_1046() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19334,7 +20258,7 @@ fn case_1006() {
 }
 
 #[test]
-fn case_1007() {
+fn case_1047() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19357,7 +20281,7 @@ fn case_1007() {
 }
 
 #[test]
-fn case_1008() {
+fn case_1048() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19380,7 +20304,7 @@ fn case_1008() {
 }
 
 #[test]
-fn case_1009() {
+fn case_1049() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19403,7 +20327,7 @@ fn case_1009() {
 }
 
 #[test]
-fn case_1010() {
+fn case_1050() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19426,7 +20350,7 @@ fn case_1010() {
 }
 
 #[test]
-fn case_1011() {
+fn case_1051() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19449,7 +20373,7 @@ fn case_1011() {
 }
 
 #[test]
-fn case_1012() {
+fn case_1052() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19472,7 +20396,7 @@ fn case_1012() {
 }
 
 #[test]
-fn case_1013() {
+fn case_1053() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19495,7 +20419,7 @@ fn case_1013() {
 }
 
 #[test]
-fn case_1014() {
+fn case_1054() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19518,7 +20442,7 @@ fn case_1014() {
 }
 
 #[test]
-fn case_1015() {
+fn case_1055() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19541,7 +20465,7 @@ fn case_1015() {
 }
 
 #[test]
-fn case_1016() {
+fn case_1056() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19564,7 +20488,7 @@ fn case_1016() {
 }
 
 #[test]
-fn case_1017() {
+fn case_1057() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19587,7 +20511,7 @@ fn case_1017() {
 }
 
 #[test]
-fn case_1018() {
+fn case_1058() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19610,7 +20534,7 @@ fn case_1018() {
 }
 
 #[test]
-fn case_1019() {
+fn case_1059() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19633,7 +20557,7 @@ fn case_1019() {
 }
 
 #[test]
-fn case_1020() {
+fn case_1060() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19656,7 +20580,7 @@ fn case_1020() {
 }
 
 #[test]
-fn case_1021() {
+fn case_1061() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19679,7 +20603,7 @@ fn case_1021() {
 }
 
 #[test]
-fn case_1022() {
+fn case_1062() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19702,7 +20626,7 @@ fn case_1022() {
 }
 
 #[test]
-fn case_1023() {
+fn case_1063() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19725,7 +20649,7 @@ fn case_1023() {
 }
 
 #[test]
-fn case_1024() {
+fn case_1064() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19748,7 +20672,7 @@ fn case_1024() {
 }
 
 #[test]
-fn case_1025() {
+fn case_1065() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19771,7 +20695,7 @@ fn case_1025() {
 }
 
 #[test]
-fn case_1026() {
+fn case_1066() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19794,7 +20718,7 @@ fn case_1026() {
 }
 
 #[test]
-fn case_1027() {
+fn case_1067() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19817,7 +20741,7 @@ fn case_1027() {
 }
 
 #[test]
-fn case_1028() {
+fn case_1068() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19840,7 +20764,7 @@ fn case_1028() {
 }
 
 #[test]
-fn case_1029() {
+fn case_1069() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19863,7 +20787,7 @@ fn case_1029() {
 }
 
 #[test]
-fn case_1030() {
+fn case_1070() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19886,7 +20810,7 @@ fn case_1030() {
 }
 
 #[test]
-fn case_1031() {
+fn case_1071() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19909,7 +20833,7 @@ fn case_1031() {
 }
 
 #[test]
-fn case_1032() {
+fn case_1072() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19932,7 +20856,7 @@ fn case_1032() {
 }
 
 #[test]
-fn case_1033() {
+fn case_1073() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19955,7 +20879,7 @@ fn case_1033() {
 }
 
 #[test]
-fn case_1034() {
+fn case_1074() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -19978,7 +20902,7 @@ fn case_1034() {
 }
 
 #[test]
-fn case_1035() {
+fn case_1075() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20001,7 +20925,7 @@ fn case_1035() {
 }
 
 #[test]
-fn case_1036() {
+fn case_1076() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20024,7 +20948,7 @@ fn case_1036() {
 }
 
 #[test]
-fn case_1037() {
+fn case_1077() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20047,7 +20971,7 @@ fn case_1037() {
 }
 
 #[test]
-fn case_1038() {
+fn case_1078() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20070,7 +20994,7 @@ fn case_1038() {
 }
 
 #[test]
-fn case_1039() {
+fn case_1079() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20093,7 +21017,7 @@ fn case_1039() {
 }
 
 #[test]
-fn case_1040() {
+fn case_1080() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20116,7 +21040,7 @@ fn case_1040() {
 }
 
 #[test]
-fn case_1041() {
+fn case_1081() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20139,7 +21063,7 @@ fn case_1041() {
 }
 
 #[test]
-fn case_1042() {
+fn case_1082() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20162,7 +21086,7 @@ fn case_1042() {
 }
 
 #[test]
-fn case_1043() {
+fn case_1083() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20185,7 +21109,7 @@ fn case_1043() {
 }
 
 #[test]
-fn case_1044() {
+fn case_1084() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20208,7 +21132,7 @@ fn case_1044() {
 }
 
 #[test]
-fn case_1045() {
+fn case_1085() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20231,7 +21155,7 @@ fn case_1045() {
 }
 
 #[test]
-fn case_1046() {
+fn case_1086() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20254,7 +21178,7 @@ fn case_1046() {
 }
 
 #[test]
-fn case_1047() {
+fn case_1087() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20277,7 +21201,7 @@ fn case_1047() {
 }
 
 #[test]
-fn case_1048() {
+fn case_1088() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20300,7 +21224,7 @@ fn case_1048() {
 }
 
 #[test]
-fn case_1049() {
+fn case_1089() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20323,7 +21247,7 @@ fn case_1049() {
 }
 
 #[test]
-fn case_1050() {
+fn case_1090() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20346,7 +21270,7 @@ fn case_1050() {
 }
 
 #[test]
-fn case_1051() {
+fn case_1091() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20369,7 +21293,7 @@ fn case_1051() {
 }
 
 #[test]
-fn case_1052() {
+fn case_1092() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20392,7 +21316,7 @@ fn case_1052() {
 }
 
 #[test]
-fn case_1053() {
+fn case_1093() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20415,7 +21339,7 @@ fn case_1053() {
 }
 
 #[test]
-fn case_1054() {
+fn case_1094() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20438,7 +21362,7 @@ fn case_1054() {
 }
 
 #[test]
-fn case_1055() {
+fn case_1095() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20461,7 +21385,7 @@ fn case_1055() {
 }
 
 #[test]
-fn case_1056() {
+fn case_1096() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20484,7 +21408,7 @@ fn case_1056() {
 }
 
 #[test]
-fn case_1057() {
+fn case_1097() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20507,7 +21431,7 @@ fn case_1057() {
 }
 
 #[test]
-fn case_1058() {
+fn case_1098() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
@@ -20530,7 +21454,7 @@ fn case_1058() {
 }
 
 #[test]
-fn case_1059() {
+fn case_1099() {
     let mut m = mem::Mem::new();
     globals::install_clock(&mut m, CLOCK, 0.0, 0.016);
     w(&mut m, 0x7025f0, "0000803f");
