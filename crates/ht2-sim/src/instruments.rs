@@ -2654,3 +2654,29 @@ mod scene_flag_bits_tests {
         }
     }
 }
+
+/// `0x54a330`: 0.3 below 5, 1.0 above 20 and linear in between (returned in `ST0`, so as `f64`).
+pub fn curve_54a330(x: f32) -> f64 {
+    if !(x >= 5.0) {
+        return f32::from_bits(0x3e99999a) as f64;
+    }
+    if x > 20.0 {
+        return 1.0;
+    }
+    (x as f64 - 5.0) * f64::from_bits(0x3fa7e4b17e4b17e4) + f64::from_bits(0x3fd3333333333333)
+}
+#[cfg(test)]
+mod curve_54a330_tests {
+    use super::*;
+    #[test]
+    fn native_curve_54a330() {
+        for line in include_str!("../../../tools/emu/golden_curve_54a330.tsv").lines() {
+            let (x, y) = line.trim_end().split_once('\t').unwrap();
+            let h = |s: &str| (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect::<Vec<u8>>();
+            let x = f32::from_le_bytes(h(x).try_into().unwrap());
+            let want = f64::from_le_bytes(h(y).try_into().unwrap());
+            let got = curve_54a330(x);
+            assert!(got.to_bits() == want.to_bits() || (got.is_nan() && want.is_nan()), "{x}: {got} vs {want}");
+        }
+    }
+}
