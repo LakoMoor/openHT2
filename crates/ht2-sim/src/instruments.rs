@@ -4242,3 +4242,43 @@ mod light_ctors_tests {
         }
     }
 }
+
+/// `0x5f2190` (thiscall `(matrix, mode)`, `ecx = node`): the node transform at `[+0x40]` is replaced by
+/// `matrix` (mode 0), becomes `matrix * old` (mode 1, `0x5abc10`) or has `matrix` applied (mode 2,
+/// `0x5abc00`); any other mode leaves it alone.
+pub fn scene_node_set_transform(m: &mut Mem, node: u32, matrix: u32, mode: u32) {
+    let t = node + 0x40;
+    match mode {
+        0 => {
+            let b = m.read(matrix, 48);
+            m.write(t, &b);
+        }
+        1 => {
+            let tmp = 0x7fff_0000;
+            crate::matrix::mat_mul(m, tmp, matrix, t);
+            let b = m.read(tmp, 48);
+            m.write(t, &b);
+        }
+        2 => crate::matrix::mat_apply(m, t, matrix),
+        _ => {}
+    }
+}
+#[cfg(test)]
+mod node_transform_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_node_transform() {
+        let (n, mat) = (0x2a01_0000u32, 0x2a01_1000u32);
+        for (c, line) in include_str!("../../../tools/emu/golden_node_transform.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            m.write(n + 0x40, &bytes(v[1]));
+            m.write(mat, &bytes(v[2]));
+            scene_node_set_transform(&mut m, n, mat, v[0].parse().unwrap());
+            assert_eq!(m.read(n + 0x40, 48), bytes(v[3]), "case {c} mode {}", v[0]);
+        }
+    }
+}
