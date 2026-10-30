@@ -3138,3 +3138,105 @@ mod scene_impact_trigger_tests {
         }
     }
 }
+
+/// `0x5501d7..0x550452` of `0x54ff80`: smoothing of the body's pitch and roll lean `[scene+0x4f54]` / `[+0x4f58]`
+/// from the frame's velocity change. `v = (position - previous) / dt` goes through the matrix at `+0x264`; the
+/// lean target is a clamped (+-5 degrees) combination of the local velocity and the local acceleration against
+/// the gains `0x6ef2a0` / `0x6ef2a4`, blended with `0.6^(10 dt)` (`pow` is `f64::powf`, a documented stand-in for
+/// the CRT's x87 `pow`). Clears the impact flag and the impact point. `scratch` needs 36 bytes.
+pub fn scene_body_lean(m: &mut Mem, scene: u32, scratch: u32) {
+    let f = |m: &Mem, o: u32| m.f32(scene + o) as f64;
+    let dt = crate::globals::dt(m) as f64;
+    let dz = f(m, 0x1b8) - f(m, 0x1dc);
+    let dy = (f(m, 0x1b4) - f(m, 0x1d8)) as f32 as f64;
+    let dx = (f(m, 0x1b0) - f(m, 0x1d4)) as f32 as f64;
+    let (vz, vy, vx) = (dz / dt, dy / dt, dx / dt);
+    let a = ((vy * f(m, 0x270) + vz * f(m, 0x27c)) + vx * f(m, 0x264)) as f32 as f64;
+    let b = ((vx * f(m, 0x268) + vy * f(m, 0x274)) + vz * f(m, 0x280)) as f32 as f64;
+    let c0 = ((f(m, 0x27c) * f(m, 0x1e8) + f(m, 0x270) * f(m, 0x1e4)) + f(m, 0x264) * f(m, 0x1e0)) as f32;
+    let d = ((f(m, 0x280) * f(m, 0x1e8) + f(m, 0x274) * f(m, 0x1e4)) + f(m, 0x268) * f(m, 0x1e0)) as f32;
+    let e = ((f(m, 0x284) * f(m, 0x1e8) + f(m, 0x278) * f(m, 0x1e4)) + f(m, 0x26c) * f(m, 0x1e0)) as f32;
+    let (vec1, q) = (scratch, scratch + 12);
+    for (i, x) in [c0, d, e].into_iter().enumerate() {
+        m.set_f32(vec1 + 4 * i as u32, x);
+    }
+    crate::carv::fn_004e3132(m, q, vec1, scene + 0x1a4);
+    let (qx, qy) = (m.f32(q) as f64, m.f32(q + 4) as f64);
+    let s = (f(m, 0x1bc) - qx) as f32 as f64;
+    let t = ((f(m, 0x1c0) - qy) / dt) as f32 as f64;
+    let s = (s / dt) as f32 as f64;
+    let p = (0.6f32 as f64).powf(dt * 10.0);
+    let g = |a: u32| m.f32(a) as f64;
+    let u = ((b * f32::from_bits(0x3be56042) as f64) - s * g(0x6ef2a0)) as f32;
+    let v = t * g(0x6ef2a4) - a * f32::from_bits(0x3ba3d70a) as f64;
+    let lim = f32::from_bits(0x3db2b8c2);
+    let mut u = u;
+    if !(u <= lim) {
+        u = lim;
+    }
+    if u < -lim {
+        u = -lim;
+    }
+    let mut v = v;
+    if !(v <= lim as f64) {
+        v = lim as f64;
+    }
+    if v < (-lim) as f64 {
+        v = (-lim) as f64;
+    }
+    let k = 1.0 - p;
+    m.set_u32(scene + 0x2a38, 0);
+    let old = m.f32(scene + 0x4f54) as f64;
+    m.set_f32(scene + 0x4f54, (k * u as f64 + p * old) as f32);
+    let old = m.f32(scene + 0x4f58) as f64;
+    m.set_f32(scene + 0x4f58, (k * v + p * old) as f32);
+    for i in 0..3u32 {
+        let z = m.u32(0x702650 + 4 * i);
+        m.set_u32(scene + 0x2a3c + 4 * i, z);
+    }
+}
+#[cfg(test)]
+mod scene_body_lean_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    /// `pow` is a stand-in (`f64::powf`), so a result may differ from the CRT's by one f32 ulp.
+    #[test]
+    fn native_scene_body_lean() {
+        let (scene, clock) = (0x2a01_0000u32, 0x2a10_0000u32);
+        let (mut exact, mut total) = (0, 0);
+        for (n, line) in include_str!("../../../tools/emu/golden_scene_body_lean.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            m.write(scene + 0x264, &bytes(v[0]));
+            m.write(scene + 0x1b0, &bytes(v[1]));
+            m.write(scene + 0x1a4, &bytes(v[2]));
+            m.write(scene + 0x1bc, &bytes(v[3]));
+            m.write(scene + 0x1d4, &bytes(v[4]));
+            m.write(scene + 0x1e0, &bytes(v[5]));
+            m.write(scene + 0x4f54, &bytes(v[6]));
+            m.write(scene + 0x2a3c, &[0, 0, 0x80, 0x3f, 0, 0, 0, 0x40, 0, 0, 0x40, 0x40]);
+            m.set_u32(scene + 0x2a38, 1);
+            m.write(0x6ef2a0, &bytes(v[8]));
+            m.set_u32(0x6974c4, clock);
+            m.write(clock + 0xb90, &bytes(v[7]));
+            scene_body_lean(&mut m, scene, 0x2a02_0000);
+            let want = bytes(v[9]);
+            let got: Vec<u8> = [m.read(scene + 0x4f54, 8), m.read(scene + 0x2a3c, 12), m.read(scene + 0x2a38, 4)].concat();
+            assert_eq!(&got[8..], &want[8..], "case {n}: point and flag");
+            for i in 0..2 {
+                let (g, w) = (u32::from_le_bytes(got[i * 4..i * 4 + 4].try_into().unwrap()), u32::from_le_bytes(want[i * 4..i * 4 + 4].try_into().unwrap()));
+                total += 1;
+                if g == w {
+                    exact += 1;
+                } else {
+                    assert!((g as i64 - w as i64).abs() <= 1, "case {n} lean {i}: {:?} vs {:?}", f32::from_bits(g), f32::from_bits(w));
+                }
+            }
+        }
+        eprintln!("exact {exact} of {total}");
+        assert!(exact * 100 >= total * 98, "{exact}/{total}");
+    }
+}
