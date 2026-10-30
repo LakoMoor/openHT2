@@ -3013,3 +3013,128 @@ mod spark_flash_tests {
         }
     }
 }
+
+/// `0x4ba130(position, vector, send)`: an impact of strength `|vector|`. Above a quarter of the effect
+/// setting `0x696030 > 0.5` it optionally announces the impact over the network (`send(id 0x3bd, 0x1c bytes)`
+/// when `send` and the session flags `[0x6cec6c]+0x514 == 1` or `+0x524 != 0`) and starts
+/// `0x593720(position, vector, min(|vector|*6, 100) truncated)` through `sparks`.
+pub fn impact_effect(m: &mut Mem, position: u32, vector: u32, send: bool, mut announce: impl FnMut(&mut Mem, u32, [u8; 0x1c]),
+    sparks: impl FnOnce(&mut Mem, u32, u32, u32)) {
+    if !(m.f32(0x696030) > 0.5) {
+        return;
+    }
+    let session = m.u32(0x6cec6c);
+    if send && (m.i32(session + 0x514) == 1 || m.u32(session + 0x524) != 0) {
+        let mut buf = [0u8; 0x1c];
+        buf[0] = 1;
+        for i in 0..3u32 {
+            let (p, v) = (m.u32(position + 4 * i), m.u32(vector + 4 * i));
+            buf[4 + 4 * i as usize..8 + 4 * i as usize].copy_from_slice(&p.to_le_bytes());
+            buf[0x10 + 4 * i as usize..0x14 + 4 * i as usize].copy_from_slice(&v.to_le_bytes());
+        }
+        announce(m, 0x3bd, buf);
+    }
+    let mut n = crate::math::vec_len(m, vector) * 6.0;
+    if n > 100.0 {
+        n = 100.0;
+    }
+    sparks(m, position, vector, n as i32 as u32);
+}
+#[cfg(test)]
+mod impact_effect_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_impact_effect() {
+        let (pos, vec, cfg, clock) = (0x2a00_0100u32, 0x2a00_0200u32, 0x2a00_0300u32, 0x2a00_0400u32);
+        let mut announced_cases = 0;
+        for (n, line) in include_str!("../../../tools/emu/golden_impact_effect.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            m.write(pos, &bytes(v[0]));
+            m.write(vec, &bytes(v[1]));
+            m.write(0x696030, &bytes(v[2]));
+            m.set_u32(0x6cec6c, cfg);
+            m.set_u32(cfg + 0x514, v[3].parse().unwrap());
+            m.set_u32(cfg + 0x524, v[4].parse().unwrap());
+            m.set_u32(0x696224, clock);
+            let mut net = None;
+            let mut spark = None;
+            impact_effect(&mut m, pos, vec, v[5] == "1", |_, id, buf| net = Some((id, buf)), |_, p, vv, c| spark = Some((p, vv, c)));
+            let want_net = if v[6] == "-" { None } else { let t: Vec<&str> = v[6].split(',').collect(); Some((clock + 0x2090, t[1].parse::<u32>().unwrap(), t[2].parse::<usize>().unwrap(), t[3].to_owned())) };
+            let got_net = net.map(|(id, b)| (clock + 0x2090, id, b.len(), b.iter().map(|x| format!("{x:02x}")).collect::<String>()));
+            assert_eq!(got_net.as_ref().map(|g| (g.1, g.2, g.3.clone())), want_net.as_ref().map(|g| (g.1, g.2, g.3.clone())), "case {n}: network");
+            let want_spark = if v[7] == "-" { None } else { let t: Vec<u32> = v[7].split(',').map(|s| s.parse().unwrap()).collect(); Some((t[1], t[2], t[3])) };
+            assert_eq!(spark, want_spark, "case {n}: sparks");
+            announced_cases += got_net.is_some() as u32;
+        }
+        assert!(announced_cases > 10);
+    }
+}
+
+/// `0x54fff3..0x5501d7` of `0x54ff80`: the vehicle scene's impact trigger. When the contact code has left a
+/// point at `[scene+0x2a3c]` (flag `+0x2a38`) and the global `0x6ef200` is clear, the point is carried through the
+/// matrix at `+0x264` into the frame at `+0x1b0 / +0x1bc` (`W`), its direction `U = unit(W)` is tested against the
+/// vector at `+0x3e0` and, for a slow enough contact, `impact(point, W)` runs (`0x54ef90`, which is `0x4ba130`
+/// with the network announcement). `scratch` needs 36 bytes.
+pub fn scene_impact_trigger(m: &mut Mem, scene: u32, scratch: u32, impact: impl FnOnce(&mut Mem, u32, u32)) {
+    if m.u32(scene + 0x2a38) == 0 || m.u32(0x6ef200) != 0 {
+        return;
+    }
+    let f = |m: &Mem, o: u32| m.f32(scene + o) as f64;
+    let p = [m.f32(scene + 0x2a3c), m.f32(scene + 0x2a40), m.f32(scene + 0x2a44)];
+    let (px, py, pz) = (p[0] as f64, p[1] as f64, p[2] as f64);
+    let x = pz * f(m, 0x27c) + py * f(m, 0x270) + px * f(m, 0x264) + f(m, 0x288);
+    let y = ((px * f(m, 0x268) + pz * f(m, 0x280)) + py * f(m, 0x274) + f(m, 0x28c)) as f32 as f64;
+    let z = ((px * f(m, 0x26c) + pz * f(m, 0x284)) + py * f(m, 0x278) + f(m, 0x290)) as f32 as f64;
+    let a = (y * f(m, 0x1bc) - x * f(m, 0x1c0)) as f32 as f64;
+    let b = (x * f(m, 0x1c4) - z * f(m, 0x1bc)) as f32 as f64;
+    let c = (z * f(m, 0x1c0) - y * f(m, 0x1c4)) as f32;
+    let w = [(c as f64 + f(m, 0x1b0)) as f32, (b + f(m, 0x1b4)) as f32, (a + f(m, 0x1b8)) as f32];
+    let (pp, ww, uu) = (scratch, scratch + 12, scratch + 24);
+    for i in 0..3u32 {
+        m.set_f32(pp + 4 * i, p[i as usize]);
+        m.set_f32(ww + 4 * i, w[i as usize]);
+    }
+    crate::matrix::vec_unit(m, uu, ww);
+    if m.u32(scene + 0x38c) == 0 || m.u32(scene + 0x414) != 0 {
+        return;
+    }
+    let u = [m.f32(uu) as f64, m.f32(uu + 4) as f64, m.f32(uu + 8) as f64];
+    let dot = f(m, 0x3e8) * u[2] + f(m, 0x3e4) * u[1] + u[0] * f(m, 0x3e0);
+    if dot.abs() < f64::from_bits(0x3fe3333333333333) && f(m, 0x3e8).abs() < 0.5 {
+        impact(m, pp, ww);
+    }
+}
+#[cfg(test)]
+mod scene_impact_trigger_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_scene_impact_trigger() {
+        let scene = 0x2a01_0000u32;
+        for (n, line) in include_str!("../../../tools/emu/golden_scene_impact_trigger.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            m.write(scene + 0x264, &bytes(v[0]));
+            let frame = bytes(v[1]);
+            m.write(scene + 0x1b0, &frame[..12]);
+            m.write(scene + 0x1bc, &frame[12..24]);
+            m.write(scene + 0x2a3c, &bytes(v[2]));
+            m.write(scene + 0x3e0, &bytes(v[3]));
+            m.set_u32(scene + 0x2a38, v[4].parse().unwrap());
+            m.set_u32(0x6ef200, v[5].parse().unwrap());
+            m.set_u32(scene + 0x38c, v[6].parse().unwrap());
+            m.set_u32(scene + 0x414, v[7].parse().unwrap());
+            let mut got = None;
+            scene_impact_trigger(&mut m, scene, 0x2a02_0000, |m, p, w| got = Some((m.read(p, 12), m.read(w, 12))));
+            let want = if v[8] == "-" { None } else { let t: Vec<&str> = v[8].split(';').collect(); Some((bytes(t[0]), bytes(t[1]))) };
+            assert_eq!(got, want, "case {n}");
+        }
+    }
+}
