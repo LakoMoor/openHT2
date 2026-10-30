@@ -4131,3 +4131,114 @@ mod scene_light_timeout_tests {
         }
     }
 }
+
+/// `0x5ef6d0` (stdcall `(name, kind)`, `ecx = node`): base scene node. The name is copied into a block from
+/// `allocate` (`0x632643`, size = length + 1); an empty or null name leaves `[+0xc] = 0`.
+pub fn scene_node_base(m: &mut Mem, node: u32, name: u32, kind: u32, allocate: &mut impl FnMut(&mut Mem, u32) -> u32) {
+    for o in [4, 8, 0x14, 0x18, 0x1c, 0x20] {
+        m.set_u32(node + o, 0);
+    }
+    m.set_u32(node, 0x652840);
+    if name != 0 && m.rd8(name) != 0 {
+        let mut n = 0;
+        while m.rd8(name + n) != 0 {
+            n += 1;
+        }
+        let p = allocate(m, n + 1);
+        m.set_u32(node + 0xc, p);
+        let bytes = m.read(name, n as usize + 1);
+        m.write(p, &bytes);
+    } else {
+        m.set_u32(node + 0xc, 0);
+    }
+    m.wr8(node + 0x28, 0);
+    m.set_u32(node + 0x10, kind);
+    m.set_u32(node + 0x2c, 0);
+    m.set_u32(node + 0x24, 0);
+}
+
+/// `0x5f19b0` (stdcall `(name, kind, count)`, `ecx = node`): a base node with a zeroed array of `count`
+/// pointers at `[+0x30]` (`[+0x34] = count`), vtable `0x652cb4`.
+pub fn scene_node_array(m: &mut Mem, node: u32, name: u32, kind: u32, count: i32, allocate: &mut impl FnMut(&mut Mem, u32) -> u32) {
+    scene_node_base(m, node, name, kind, allocate);
+    m.set_u32(node, 0x652cb4);
+    m.set_i32(node + 0x34, count);
+    let arr = if count != 0 { allocate(m, (count as u32).wrapping_mul(4)) } else { 0 };
+    m.set_u32(node + 0x30, arr);
+    for i in 0..m.i32(node + 0x34).max(0) as u32 {
+        m.set_u32(arr + 4 * i, 0);
+    }
+}
+
+/// `0x551920` (stdcall `(name, parent)`, `ecx = node`): a light node of kind 0x11 attached to `parent`
+/// (`[+0x40]`), inheriting its `[+0x24]`; vtable `0x64c7dc`, `[+0x54] = -1`.
+pub fn scene_light_node(m: &mut Mem, node: u32, name: u32, parent: u32, allocate: &mut impl FnMut(&mut Mem, u32) -> u32) {
+    scene_node_base(m, node, name, 0x11, allocate);
+    for o in [0x30, 0x34, 0x38, 0x3c] {
+        m.set_u32(node + o, 0);
+    }
+    m.set_u32(node, 0x64c7dc);
+    m.set_u32(node + 0x40, parent);
+    for o in [0x44, 0x48, 0x4c, 0x50] {
+        m.set_u32(node + o, 0);
+    }
+    m.set_u32(node + 0x54, 0xffff_ffff);
+    let v = m.u32(parent + 0x24);
+    m.set_u32(node + 0x24, v);
+}
+
+/// `0x5518d0` (`ecx = node`): the transform-carrying node: `scene_node_array(name 0x68d1c0, 6, 1)`, then
+/// four zero vectors and the identity transform (`0x7025f0`) from `[+0x40]` on, vtable `0x64d7d0`,
+/// `[+0x38] = [+0x3c] = 0`.
+pub fn scene_transform_node(m: &mut Mem, node: u32, allocate: &mut impl FnMut(&mut Mem, u32) -> u32) {
+    scene_node_array(m, node, 0x68d1c0, 6, 1, allocate);
+    for i in 0..12 {
+        m.set_u32(node + 0x40 + 4 * i, 0);
+    }
+    for i in 0..12 {
+        let v = m.u32(0x7025f0 + 4 * i);
+        m.set_u32(node + 0x40 + 4 * i, v);
+    }
+    m.set_u32(node, 0x64d7d0);
+    m.set_u32(node + 0x38, 0);
+    m.set_u32(node + 0x3c, 0);
+}
+#[cfg(test)]
+mod light_ctors_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_light_ctors() {
+        let (n, name_at, heap) = (0x2a01_0000u32, 0x2a00_1000u32, 0x2a80_0000u32);
+        for (c, line) in include_str!("../../../tools/emu/golden_light_ctors.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            let mut next = heap;
+            let mut alloc = |_: &mut Mem, size: u32| {
+                let a = next;
+                next += (size + 15) & !15;
+                a
+            };
+            let name = bytes(v[1]);
+            m.write(name_at, &name);
+            m.wr8(name_at + name.len() as u32, 0);
+            let nm = if name.is_empty() { 0 } else { name_at };
+            m.write(n, &bytes(v[4]));
+            m.write(0x68d1c0, &bytes(v[8]));
+            m.wr8(0x68d1c0 + bytes(v[8]).len() as u32, 0);
+            m.write(0x7025f0, &[0, 0, 0x80, 0x3f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0x3f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0x3f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+            let (a1, a2): (u32, i32) = (v[2].parse().unwrap(), v[3].parse().unwrap());
+            match v[0] {
+                "base" => scene_node_base(&mut m, n, nm, a1, &mut alloc),
+                "array" => scene_node_array(&mut m, n, nm, a1, a2, &mut alloc),
+                "child" => scene_light_node(&mut m, n, nm, n + 0x80, &mut alloc),
+                _ => scene_transform_node(&mut m, n, &mut alloc),
+            }
+            assert_eq!(m.read(n, 0x100), bytes(v[5]), "case {c} ({}): node", v[0]);
+            assert_eq!(m.read(heap, bytes(v[6]).len()), bytes(v[6]), "case {c}: heap");
+            assert_eq!(next - heap, v[7].parse::<u32>().unwrap(), "case {c}: allocated");
+        }
+    }
+}
