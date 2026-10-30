@@ -3715,3 +3715,146 @@ mod scene_light_ray_matrices_tests {
         assert!(exact * 100 >= total * 98);
     }
 }
+
+/// `0x551094..0x551474` of `0x54ff80`: the second set of rays, entered with the frame left by
+/// `scene_light_ray_setup` (`f+0xc0` world transform, `f+0xf0` its inverse, the cosine terms and angles) and an
+/// empty FPU stack. It repeats `scene_light_ray_setup`/`scene_light_ray_points` for the record vector at
+/// `0x6d2554 + 0x5d0 * [scene+0x28b4]`: the point carried through `f+0xc0` and its offset to the camera point
+/// of `[0x6d2078]` (`f+0x34..`, copied to `f+0x68..`, unit vector at `f+0xa8`), the dot products with `f+0xf0`
+/// (`f+0x14`, `f+0x28`; the first one, `A`, stays unrounded on the FPU stack and is used later), the heading
+/// `-atan2(A, f+0x14)`, and, when the heading is outside [1.0472, 2.0944], the scaled blend (`f+0x40`, `f+0x44`,
+/// `f+0x20`), `k = +-0.2` terms (`f+0x78`, `f+0x74`, `f+0x2c`, now rounded to `f32`) and two corner points
+/// (`f+0x68..`, `f+0x50..`; here the record vector is added, not subtracted) up to the first `0x4bdef0` (`vec_set`)
+/// call, which stores `(W*A, W*f+0x14, W*f+0x28)` at `f+0x80`. Returns `true` when the heading is in range and the
+/// original jumps to `0x551860`. `sin/cos/atan2` are stand-ins.
+pub fn scene_light_ray2_points(m: &mut Mem, scene: u32, f: u32) -> bool {
+    let r = |m: &Mem, o: u32| m.f32(f + o) as f64;
+    let g = |m: &Mem, a: u32| m.f32(a) as f64;
+    let tb = 0x6d2554 + 0x5d0 * m.u32(scene + 0x28b4);
+    let (tx, ty, tz) = (g(m, tb), g(m, tb + 4), g(m, tb + 8));
+    let x = r(m, 0xd8) * tz + r(m, 0xcc) * ty + r(m, 0xc0) * tx + r(m, 0xe4);
+    m.set_f32(f + 0x18, x as f32);
+    let y = r(m, 0xdc) * tz + r(m, 0xd0) * ty + r(m, 0xc4) * tx + r(m, 0xe8);
+    m.set_f32(f + 0x10, y as f32);
+    let z = r(m, 0xe0) * tz + r(m, 0xd4) * ty + r(m, 0xc8) * tx + r(m, 0xec);
+    let w = m.u32(0x6d2078);
+    let v3 = g(m, w + 0x5bc) - z;
+    let v2 = g(m, w + 0x5b8) - r(m, 0x10);
+    let v1 = g(m, w + 0x5b4) - r(m, 0x18);
+    m.set_f32(f + 0x34, v1 as f32);
+    m.set_f32(f + 0x38, v2 as f32);
+    m.set_f32(f + 0x3c, v3 as f32);
+    for (d, s) in [(0x68, 0x34), (0x6c, 0x38), (0x70, 0x3c)] {
+        let b = m.u32(f + s);
+        m.set_u32(f + d, b);
+    }
+    crate::matrix::vec_unit(m, f + 0xa8, f + 0x68);
+    let a = r(m, 0xa8) * r(m, 0xf0) + r(m, 0xb0) * r(m, 0x108) + r(m, 0xac) * r(m, 0xfc);
+    let b = r(m, 0xb0) * r(m, 0x10c) + r(m, 0xac) * r(m, 0x100) + r(m, 0xa8) * r(m, 0xf4);
+    m.set_f32(f + 0x14, b as f32);
+    let c = r(m, 0xb0) * r(m, 0x110) + r(m, 0xac) * r(m, 0x104) + r(m, 0xa8) * r(m, 0xf8);
+    m.set_f32(f + 0x28, c as f32);
+    let head = -a.atan2(r(m, 0x14));
+    if head.abs() >= 1.0471975803375244 && head.abs() <= 2.094395160675049 {
+        return true;
+    }
+    m.set_f32(f + 0x10, head.sin().abs() as f32);
+    let d = if head.abs() < 1.0471975803375244 { head.cos() - r(m, 0x74) } else { r(m, 0x20) - head.cos() };
+    let xx = d * r(m, 0x9c);
+    m.set_f32(f + 0x40, (xx * r(m, 0x78)) as f32);
+    m.set_f32(f + 0x44, (xx * r(m, 0x60)) as f32);
+    m.set_f32(f + 0x20, (xx * r(m, 0x48)) as f32);
+    let k: f64 = if m.f32(f + 0x14) > 0.0 { f64::from_bits(0x3fc999999999999a) } else { f64::from_bits(0xbfc999999999999a) };
+    m.set_f32(f + 0x78, (k * g(m, 0x702628)) as f32);
+    m.set_f32(f + 0x74, (k * g(m, 0x702624)) as f32);
+    m.set_f32(f + 0x2c, (k * g(m, 0x702620)) as f32);
+    let wv = r(m, 0x10) * 0.6000000238418579;
+    m.set_f32(f + 0x5c, (r(m, 0x28) * wv) as f32);
+    m.set_f32(f + 0x4c, (r(m, 0x14) * wv) as f32);
+    m.set_f32(f + 0x24, (a * wv) as f32);
+    let t0 = 0x6d2518 + 0x5d0 * m.u32(scene + 0x28b4);
+    // (angle slot, record offset of the highest component, scratch slots a/b/c, scratch products for a/b/c, output slots)
+    let corners: [(u32, u32, [u32; 3], [u32; 3]); 2] = [
+        (0x7c, 0x38, [0x5c, 0x4c, 0x24], [0x68, 0x6c, 0x70]),
+        (0x64, 0x44, [0x5c, 0x4c, 0x24], [0x50, 0x54, 0x58]),
+    ];
+    for (n, &(angle, hi, [pa, pb, pc], [oa, ob, oc])) in corners.iter().enumerate() {
+        if n > 0 {
+            m.set_f32(f + 0x5c, (r(m, 0x28) * wv) as f32);
+            m.set_f32(f + 0x4c, (r(m, 0x14) * wv) as f32);
+            m.set_f32(f + 0x24, (a * wv) as f32);
+        }
+        let q = r(m, angle).sin() * 0.03;
+        m.set_f32(f + 0x10, (q * g(m, 0x702648)) as f32);
+        m.set_f32(f + 0x18, (q * g(m, 0x702644)) as f32);
+        let q2 = q * g(m, 0x702640);
+        let v = (r(m, 0x10) + g(m, t0 + hi)) as f32;
+        m.set_f32(f + 0x10, v);
+        let v = (r(m, 0x18) + g(m, t0 + hi - 4)) as f32;
+        m.set_f32(f + 0x18, v);
+        let rr = q2 + g(m, t0 + hi - 8);
+        let v = (r(m, 0x78) + r(m, 0x10)) as f32;
+        m.set_f32(f + 0x10, v);
+        let v = (r(m, 0x74) + r(m, 0x18)) as f32;
+        m.set_f32(f + 0x18, v);
+        let v = (r(m, 0x2c) + rr) as f32;
+        m.set_f32(f + 0x30, v);
+        let x1 = r(m, pa) + r(m, 0x10);
+        let x2 = r(m, 0x18) + r(m, pb);
+        let x3 = r(m, 0x30) + r(m, pc);
+        m.set_f32(f + oa, x3 as f32);
+        m.set_f32(f + ob, x2 as f32);
+        m.set_f32(f + oc, x1 as f32);
+        if n == 0 {
+            // the products are rebuilt for the next corner
+            m.set_f32(f + 0x5c, (r(m, 0x28) * wv) as f32);
+            m.set_f32(f + 0x4c, (r(m, 0x14) * wv) as f32);
+            m.set_f32(f + 0x24, (a * wv) as f32);
+        }
+    }
+    let (px, py, pz) = (((a * wv) as f32), (wv * r(m, 0x14)) as f32, (wv * r(m, 0x28)) as f32);
+    m.set_f32(f - 0x4, pz);
+    m.set_f32(f - 0x8, py);
+    m.set_f32(f - 0xc, px);
+    crate::math::vec_set(m, f + 0x80, px, py, pz);
+    false
+}
+#[cfg(test)]
+mod scene_light_ray2_points_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_scene_light_ray2_points() {
+        let (scene, world) = (0x2a01_0000u32, 0x2a04_0000u32);
+        let (mut exact, mut total) = (0, 0);
+        for (n, line) in include_str!("../../../tools/emu/golden_scene_light_ray2_points.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            let idx: u32 = v[0].parse().unwrap();
+            m.set_u32(scene + 0x28b4, idx);
+            m.write(0x6d2548 + 0x5d0 * idx, &bytes(v[1]));
+            m.set_u32(0x6d2078, world);
+            m.write(world + 0x5b4, &bytes(v[2]));
+            let f = u32::from_str_radix(v[4].trim_start_matches("0x"), 16).unwrap();
+            m.write(f, &bytes(v[3]));
+            crate::globals::install_constants(&mut m);
+            assert!(!scene_light_ray2_points(&mut m, scene, f), "case {n}");
+            let want = bytes(v[5]);
+            for i in 0..want.len() / 4 {
+                let off = i as i32 * 4 - 0x40;
+                if off < -0xc {
+                    continue;
+                }
+                let a = f.wrapping_add(off as u32);
+                let (g, w) = (m.u32(a), u32::from_le_bytes(want[i * 4..i * 4 + 4].try_into().unwrap()));
+                total += 1;
+                exact += (g == w) as u32;
+                assert!(g == w || (g as i64 - w as i64).abs() <= 2 || (f32::from_bits(g) - f32::from_bits(w)).abs() <= 1e-4, "case {n} frame {off:+#x}: {:?} vs {:?}", f32::from_bits(g), f32::from_bits(w));
+            }
+        }
+        eprintln!("exact {exact} of {total}");
+        assert!(exact * 100 >= total * 98);
+    }
+}
