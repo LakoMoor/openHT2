@@ -4,7 +4,7 @@
 //! * ray cast `[owner->vtable + 0x34]` (kind 7): answered by a `RayWorld` (the game's scene graph, `ht2-game/src/world.rs`)
 //!   directly on the query record in the host memory;
 //! * `SetCaseSwitch` (`0x4e480c`), the reset virtuals `[vtable+0x4c/+0xcc]`, `0x5d32f0`, the calls of `0x554670`
-//!   (`0x581230`, `0x4f0fc0`, ...), the sparks manager and the network impact announcement are recorded in `SceneHost::events`
+//!   (`0x581230` runs ported, only its virtuals `+0x88/+0x90/+0x94/+0x3c` are recorded; `0x4f0fc0`, ...), the sparks manager and the network impact announcement are recorded in `SceneHost::events`
 //!   and have no effect on the game yet;
 //! * effects (`0x551970`), lights and the maneuver chooser are switched off (their gates are closed by the caller or the
 //!   owners do nothing), net messages are collected in `SceneHost::net`.
@@ -69,7 +69,18 @@ impl ResetOwner for Owners<'_, '_> {
     fn log(&mut self, _: &mut Mem, _: &str) {}
 }
 impl ReturnOwner for Owners<'_, '_> {
-    fn call(&mut self, _: &mut Mem, address: u32, this: u32, args: &[u32]) {
+    fn call(&mut self, m: &mut Mem, address: u32, this: u32, args: &[u32]) {
+        if address == 0x581230 && args.len() == 2 {
+            // ported: the clamp runs, its virtuals are stand-ins recorded as "v|slot|this"
+            struct Rec<'s>(&'s std::cell::RefCell<Shared>);
+            impl crate::moving_item::ItemVirtuals for Rec<'_> {
+                fn virt(&mut self, _: &mut Mem, this: u32, slot: u32, _: &[u32]) {
+                    self.0.borrow_mut().events.push(format!("v|{slot:x}|{this:x}"));
+                }
+            }
+            crate::moving_item::moving_item_place(m, this, args[0], args[1], &mut Rec(self.shared));
+            return;
+        }
         let a: Vec<String> = args.iter().map(|x| format!("{x:x}")).collect();
         self.shared.borrow_mut().events.push(format!("r|{address:x}|{this:x}|{}", a.join(",")));
     }

@@ -1,6 +1,7 @@
 //! Velocity setters of the engine's moving item (`MovingItem`, the body object at `scene+0x10`, `__thiscall`), called
 //! by `scene_return_to_last` as `0x5812a0` and `0x5816d0`. The range reports (`0x4e2821(vec, text, limit)`, with a
 //! `sprintf`-built message that only the report reads) are an external owner: `report(vec_address, limit)`.
+use crate::globals::VEC_ZERO;
 use crate::math::vec_len;
 use crate::mem::Mem;
 
@@ -48,6 +49,24 @@ pub fn moving_item_set_w(m: &mut Mem, this: u32, vec: u32, report: impl FnOnce(&
     }
 }
 
+/// A virtual call `[this->vtable + slot](args)` of the moving item (not ported yet: stand-in owner).
+pub trait ItemVirtuals {
+    fn virt(&mut self, m: &mut Mem, this: u32, slot: u32, args: &[u32]);
+}
+
+/// `0x581230(a, b)` ("place"): when the float `b+0x2c` is below -2000 (or NaN) it becomes -1000 and the virtuals
+/// `+0x90(VEC_ZERO, "...")` and `+0x94(VEC_ZERO, "...")` are called first; then `+0x88(a, b)` and `+0x3c()`.
+pub fn moving_item_place(m: &mut Mem, this: u32, a: u32, b: u32, owner: &mut dyn ItemVirtuals) {
+    let z = m.f32(b + 0x2c) as f64;
+    if !(z >= -2000.0) {
+        m.set_u32(b + 0x2c, 0xc47a_0000);
+        owner.virt(m, this, 0x90, &[VEC_ZERO, 0x67d4cc]);
+        owner.virt(m, this, 0x94, &[VEC_ZERO, 0x67d4c0]);
+    }
+    owner.virt(m, this, 0x88, &[a, b]);
+    owner.virt(m, this, 0x3c, &[]);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -88,5 +107,30 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 300);
+    }
+
+    #[test]
+    fn native_moving_item_place() {
+        struct Log(Vec<String>);
+        impl ItemVirtuals for Log {
+            fn virt(&mut self, _: &mut Mem, this: u32, slot: u32, args: &[u32]) {
+                let a: Vec<String> = args.iter().map(|x| format!("{x:x}")).collect();
+                self.0.push(format!("{slot:x}|{this:x}|{}", a.join(",")));
+            }
+        }
+        let (this, a, b) = (0x2a010000u32, 0x2a012000u32, 0x2a013000u32);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_moving_item_place.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            m.write(b,&unhex(v[0]));
+            let mut log = Log(vec![]);
+            moving_item_place(&mut m, this, a, b, &mut log);
+            assert_eq!(log.0.join(";"), v[1], "case {c}");
+            let z: String = m.read(b + 0x2c, 4).iter().map(|x| format!("{x:02x}")).collect();
+            assert_eq!(z, v[2], "case {c}: z");
+            n += 1;
+        }
+        assert_eq!(n, 200);
     }
 }
