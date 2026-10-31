@@ -41,6 +41,7 @@ pub mod scene_state;
 pub mod instruments;
 pub mod gauges;
 pub mod maneuver;
+pub mod pose_objects;
 pub mod scene_level;
 pub mod scene_net;
 pub mod scene_probe;
