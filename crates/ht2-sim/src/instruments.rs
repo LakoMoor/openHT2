@@ -4457,3 +4457,64 @@ mod object_matrix_copy_tests {
         }
     }
 }
+
+/// `0x4018b0` (thiscall, one stack argument): append the C string `s` to the text buffer at `buf`
+/// (`+0xc` data, `+8` capacity, `+0x10` length); stops when the buffer is full. Without data nothing happens.
+pub fn text_buffer_append_str(m: &mut Mem, buf: u32, s: u32) {
+    if m.u32(buf + 0xc) == 0 {
+        return;
+    }
+    let mut p = s;
+    while m.rd8(p) != 0 {
+        let len = m.i32(buf + 0x10);
+        if len >= m.i32(buf + 8) {
+            break;
+        }
+        let data = m.u32(buf + 0xc);
+        m.wr8(data.wrapping_add(len as u32), m.rd8(p));
+        m.set_i32(buf + 0x10, len + 1);
+        p += 1;
+    }
+}
+
+/// `0x401870` (thiscall `(src, n)`): append `n` bytes to the text buffer if they fit strictly below the capacity.
+pub fn text_buffer_append_bytes(m: &mut Mem, buf: u32, src: u32, n: i32) {
+    let data = m.u32(buf + 0xc);
+    if data == 0 {
+        return;
+    }
+    let len = m.i32(buf + 0x10);
+    if len.wrapping_add(n) >= m.i32(buf + 8) {
+        return;
+    }
+    let bytes = m.read(src, n.max(0) as usize);
+    m.write(data.wrapping_add(len as u32), &bytes);
+    m.set_i32(buf + 0x10, len.wrapping_add(n));
+}
+#[cfg(test)]
+mod text_buffer_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_text_buffer() {
+        let (t, d, s) = (0x2a01_0000u32, 0x2a01_1000u32, 0x2a01_2000u32);
+        for (c, line) in include_str!("../../../tools/emu/golden_text_buffer.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            m.set_u32(t + 8, v[1].parse().unwrap());
+            m.set_u32(t + 0xc, if v[3] == "1" { d } else { 0 });
+            m.set_u32(t + 0x10, v[2].parse().unwrap());
+            m.write(d, &bytes(v[4]));
+            m.write(s, &bytes(v[5]));
+            if v[0] == "4018b0" {
+                text_buffer_append_str(&mut m, t, s);
+            } else {
+                text_buffer_append_bytes(&mut m, t, s, v[6].parse().unwrap());
+            }
+            assert_eq!(m.read(t, 0x14), bytes(v[7]), "case {c} ({}): buffer", v[0]);
+            assert_eq!(m.read(d, 64), bytes(v[8]), "case {c} ({}): data", v[0]);
+        }
+    }
+}
