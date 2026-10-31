@@ -69,6 +69,37 @@ fn room_segment_cast(m: &mut Mem, a: u32, room: u32, radius: u32, p0: u32, p1: u
     }
 }
 
+/// `0x4e560a(obj, p0, p1, rec, radius)` (cdecl): a null `obj` gives 0; else fills the record (identity matrix, segment, `+0x74 =
+/// +0x68 = +0x64 = 0`, `rec[0] = radius`) and returns the flags of `[obj->vtable+0x34](6, rec)`.
+pub fn object_cast_raw(m: &mut Mem, obj: u32, p0: u32, p1: u32, rec: u32, radius: u32, owner: &mut dyn ProbeOwner) -> u32 {
+    if obj == 0 {
+        return 0;
+    }
+    for i in 0..12 {
+        let v = m.u32(MAT_IDENTITY + 4 * i);
+        m.set_u32(rec + 4 + 4 * i, v);
+    }
+    for i in 0..3 {
+        let (u, v) = (m.u32(p0 + 4 * i), m.u32(p1 + 4 * i));
+        m.set_u32(rec + 0x4c + 4 * i, u);
+        m.set_u32(rec + 0x58 + 4 * i, v);
+    }
+    m.set_u32(rec + 0x74, 0);
+    m.set_u32(rec + 0x68, 0);
+    m.set_u32(rec, radius);
+    m.set_u32(rec + 0x64, 0);
+    owner.cast(m, obj, 6, rec)
+}
+
+/// `0x4e5a45`: `object_cast_raw` and, on a hit (bit 0), the hit brought into the node's frame (`0x4e5698`).
+pub fn object_cast(m: &mut Mem, obj: u32, p0: u32, p1: u32, rec: u32, radius: u32, owner: &mut dyn ProbeOwner) -> u32 {
+    let r = object_cast_raw(m, obj, p0, p1, rec, radius, owner);
+    if r & 1 != 0 {
+        query_to_local(m, rec, SCRATCH, SCRATCH + 0x100);
+    }
+    r
+}
+
 /// `0x57de90`: where the body keeps its matrix (`+0x1f4`, or `+0x700` while `[+0x5a0] != 0`).
 fn body_matrix(m: &Mem, body: u32) -> u32 {
     if m.u32(body + 0x5a0) != 0 {
@@ -226,5 +257,55 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 200);
+    }
+
+    #[test]
+    fn native_object_cast() {
+        struct Stub {
+            mat: Vec<u8>,
+            pn: Vec<u8>,
+            flags: u32,
+            calls: Vec<String>,
+        }
+        impl ProbeOwner for Stub {
+            fn cast(&mut self, m: &mut Mem, owner: u32, kind: u32, q: u32) -> u32 {
+                let d: String = m.read(q, 0x7c).iter().map(|b| format!("{b:02x}")).collect();
+                self.calls.push(format!("{owner:x}|{kind:x}|{q:x}|{d}"));
+                m.write(q + 4, &self.mat);
+                m.write(q + 0x34, &self.pn);
+                self.flags
+            }
+            fn set_case(&mut self, _: &mut Mem, _: u32, _: i32) {}
+        }
+        let base = 0x2a010000u32;
+        let at = |i: u32| base + 0x2000 * i;
+        let (obj, rec, p0, p1) = (at(0), at(2), at(3), at(4));
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_object_cast.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            m.write(p0, &unhex(v[1]));
+            m.write(p1, &unhex(v[2]));
+            let rad = u32::from_le_bytes(unhex(v[3]).try_into().unwrap());
+            let mut o = Stub { mat: unhex(v[4]), pn: unhex(v[5]), flags: u32::from_str_radix(v[6], 16).unwrap(), calls: vec![] };
+            let r = object_cast(&mut m, if v[0] == "1" { obj } else { 0 }, p0, p1, rec, rad, &mut o);
+            assert_eq!(format!("{r:x}"), v[7], "case {c}");
+            let fin: Vec<String> = (0..0x20).map(|w| format!("{:08x}", m.u32(rec + 4 * w).swap_bytes())).collect();
+            let want: Vec<&str> = (0..0x20).map(|w| &v[8][w * 8..w * 8 + 8]).collect();
+            for w in 0..0x20usize {
+                let written = w == 0 || (1..=0x18).contains(&w) || matches!(w, 0x19 | 0x1a | 0x1d);
+                if written && v[0] == "1" {
+                    assert_eq!(fin[w], want[w], "case {c}: rec word {w:x}");
+                }
+            }
+            let head = |x: &str| x.splitn(4, '|').take(3).collect::<Vec<_>>().join("|");
+            assert_eq!(o.calls.len(), (v[0] == "1") as usize, "case {c}");
+            if let Some(call) = o.calls.first() {
+                assert_eq!(head(call), head(v[9]), "case {c}: call");
+            }
+            n += 1;
+        }
+        assert_eq!(n, 250);
     }
 }
