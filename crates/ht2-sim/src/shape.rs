@@ -10,8 +10,8 @@
 //! The test moves `start` to the hit point and puts the surface normal into `end`. `mode` bit 1
 //! (2) sweeps a sphere of radius `r` instead of a point.
 //!
-//! Ported: kinds 0, 5, 6 and 7 for point queries (what the wheels and the vehicle placement use).
-//! The sphere sweeps and kinds 1..4 are not ported yet and report no hit.
+//! Ported: kinds 0, 1 (sphere, with the swept radius), 5, 6 and 7 for point queries (what the wheels and the vehicle placement use).
+//! The sphere sweeps of the other kinds and kinds 2..4 are not ported yet and report no hit.
 
 use crate::mem::Mem;
 
@@ -34,6 +34,7 @@ fn set3(m: &mut Mem, a: u32, v: [f32; 3]) {
 }
 
 pub const VOL_ALL: u32 = 0;
+pub const VOL_SPHERE: u32 = 1;
 pub const VOL_PLANE: u32 = 5;
 pub const VOL_POLYS: u32 = 6;
 pub const VOL_WALL: u32 = 7;
@@ -453,8 +454,70 @@ pub fn fn_005f6820(m: &mut Mem, vol: u32, mode: u32, start: u32, end: u32, rad: 
             }
             0
         }
+        VOL_SPHERE => fn_005f6a2c(m, vol, mode, start, end, rad),
         _ => 0,
     }
+}
+
+/// `0x5f6a2c`: kind 1 of `0x5f6820`: the segment `start`..`end` (a sphere of radius `rad` swept along it when `mode` has bit 2)
+/// against the sphere `{centre, radius}` at `[vol + 8]`. A segment shorter than 1e-5 is a point: inside the sphere it hits with
+/// `start = end` and the outward normal in `end`. Otherwise the first intersection `t` along the unit direction is found
+/// (no hit when it is behind the start or beyond the end); `start` becomes the hit point moved back along the normal by the
+/// swept radius, `end` the normal.
+pub fn fn_005f6a2c(m: &mut Mem, vol: u32, mode: u32, start: u32, end: u32, rad: f32) -> u32 {
+    use crate::math::vec_len;
+    use crate::matrix::{vec_near, vec_sub_in_place, vec_unit};
+    let (t0, t1, t2) = (0x2ff7_0000u32, 0x2ff7_0100u32, 0x2ff7_0200u32);
+    let sph = m.u32(vol + 8);
+    let c = v3(m, sph);
+    let rho = if mode & 2 != 0 { rad } else { 0.0 };
+    let big_r = (rho as f64 + f(m, sph + 12)) as f32;
+    let sub = |m: &mut Mem, dst: u32, a: [f64; 3], b: [f64; 3]| set3(m, dst, [r(a[0] - b[0]), r(a[1] - b[1]), r(a[2] - b[2])]);
+    if vec_near(m, end, start) {
+        let e = v3(m, end);
+        sub(m, t0, e, c);
+        if !((big_r as f64 + 1e-5) > vec_len(m, t0)) {
+            return 0;
+        }
+        for i in 0..3 {
+            let w = m.u32(end + 4 * i);
+            m.set_u32(start + 4 * i, w);
+        }
+        sub(m, t0, e, c);
+        vec_unit(m, end, t0);
+        return 1;
+    }
+    let (s, e) = (v3(m, start), v3(m, end));
+    sub(m, t0, e, s);
+    vec_unit(m, t1, t0);
+    let u = v3(m, t1);
+    let a = [s[0] - c[0], s[1] - c[1], s[2] - c[2]];
+    let b = r(2.0 * ((a[0] * u[0] + a[2] * u[2]) + a[1] * u[1]));
+    let dist2 = (a[2] * a[2] + a[1] * a[1]) + a[0] * a[0];
+    let cc = r(dist2 - (big_r as f64) * (big_r as f64));
+    let b2 = (b as f64) * (b as f64);
+    let four = cc as f64 * 4.0;
+    if !(b2 >= four) {
+        return 0;
+    }
+    let t = r((-(b as f64) - (b2 - four).sqrt()) * 0.5);
+    if !(t >= 0.0) {
+        return 0;
+    }
+    sub(m, t0, e, s);
+    if !(vec_len(m, t0) >= t as f64) {
+        return 0;
+    }
+    let (t64, uy, uz) = (t as f64, r(u[1] * t as f64), r(u[2] * t as f64));
+    let hit = [r(u[0] * t64 + s[0]), r(uy as f64 + s[1]), r(uz as f64 + s[2])];
+    set3(m, start, hit);
+    let h = v3(m, start);
+    sub(m, t0, h, c);
+    vec_unit(m, end, t0);
+    let n = v3(m, end);
+    set3(m, t2, [r(rho as f64 * n[0]), r(rho as f64 * n[1]), r(rho as f64 * n[2])]);
+    vec_sub_in_place(m, start, t1, t2);
+    1
 }
 
 /// `0x5f5a80`: the segment `start`..`end` against the wall standing on the line from `a` to
@@ -510,4 +573,37 @@ pub fn fn_005f5a80(m: &mut Mem, mode: u32, a: u32, b: u32, start: u32, end: u32,
         return 1;
     }
     0
+}
+
+#[cfg(test)]
+mod sphere_tests {
+    use super::*;
+    fn unhex(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_shape_sphere() {
+        let base = 0x2a010000u32;
+        let (vol, sph, st, en) = (base, base + 0x1000, base + 0x2000, base + 0x3000);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_shape_sphere.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            m.set_u32(vol, 1);
+            m.set_u32(vol + 4, 1);
+            m.set_u32(vol + 8, sph);
+            m.write(sph, &unhex(v[1]));
+            m.write(st, &unhex(v[2]));
+            m.write(en, &unhex(v[3]));
+            let rad = f32::from_le_bytes(unhex(v[4]).try_into().unwrap());
+            let r = fn_005f6820(&mut m, vol, v[0].parse().unwrap(), st, en, rad);
+            let hex = |a: u32| m.read(a, 12).iter().map(|b| format!("{b:02x}")).collect::<String>();
+            assert_eq!(format!("{r:x}"), v[5], "case {c}: result");
+            assert_eq!(hex(st), v[6], "case {c}: start");
+            assert_eq!(hex(en), v[7], "case {c}: end");
+            n += 1;
+        }
+        assert_eq!(n, 400);
+    }
 }
