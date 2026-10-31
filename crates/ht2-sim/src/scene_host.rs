@@ -1,8 +1,8 @@
 //! Host for `vehicle_scene_update` (`0x54ff80`): owns the flat memory the scene lives in and supplies every external
 //! owner. What is ported goes through the ported code; what is not is a **stand-in**, listed here:
 //!
-//! * ray cast `[owner->vtable + 0x34]` (kind 7): answered by a `RayWorld` (the game's scene graph, `ht2-game/src/world.rs`),
-//!   the hit is written into a node record in the host memory (`[node] = type`, `[node + 4] = id`);
+//! * ray cast `[owner->vtable + 0x34]` (kind 7): answered by a `RayWorld` (the game's scene graph, `ht2-game/src/world.rs`)
+//!   directly on the query record in the host memory;
 //! * `SetCaseSwitch` (`0x4e480c`), the reset virtuals `[vtable+0x4c/+0xcc]`, `0x5d32f0`, the calls of `0x554670`
 //!   (`0x581230`, `0x4f0fc0`, ...), the sparks manager and the network impact announcement are recorded in `SceneHost::events`
 //!   and have no effect on the game yet;
@@ -18,29 +18,19 @@ use crate::scene_return::ReturnOwner;
 use crate::scene_update::{vehicle_scene_update, SceneOwners};
 use crate::vehicle_reset::ResetOwner;
 
-/// One hit of a ray cast, in the frame the original's query record uses.
-#[derive(Clone, Debug, PartialEq)]
-pub struct RayHit {
-    /// The 12 floats written to `query + 4` (transform of the hit node).
-    pub matrix: [f32; 12],
-    /// Hit point and normal (`query + 0x34`, `query + 0x40`), in the node's frame before `0x4e5698` brings them back.
-    pub point: [f32; 3],
-    pub normal: [f32; 3],
-    /// Node record fields: type word and the id used for the `K_FLAG_nnn` names.
-    pub node_type: u32,
-    pub node_id: i32,
-}
-
-/// The scene graph as the ray cast sees it.
+/// The scene graph as the ray cast sees it. The query record (`q`, layout of `0x54cb90`: matrix at `+4`, hit point
+/// `+0x34`, normal `+0x40`, segment `+0x4c`/`+0x58`, hit surface record pointer `+0x64`) lives in the host memory,
+/// so a world that keeps its volumes in the same memory (`ht2-game/src/world.rs`) answers it with its own query.
+/// Returns the original's flags (bit 0 = hit); the hit is left in the node's frame (`0x4e5698` brings it back).
 pub trait RayWorld {
-    fn cast(&mut self, kind: u32, from: [f32; 3], to: [f32; 3]) -> Option<RayHit>;
+    fn cast(&mut self, m: &mut Mem, kind: u32, q: u32) -> u32;
 }
 
 /// No world: every ray misses.
 pub struct EmptyWorld;
 impl RayWorld for EmptyWorld {
-    fn cast(&mut self, _: u32, _: [f32; 3], _: [f32; 3]) -> Option<RayHit> {
-        None
+    fn cast(&mut self, _: &mut Mem, _: u32, _: u32) -> u32 {
+        0
     }
 }
 
@@ -51,7 +41,6 @@ pub struct SceneHost {
     pub net: Vec<(i32, Vec<u8>)>,
     /// Stand-in calls: `"v|slot|this"`, `"c|addr|this"`, `"r|addr|this|args"`, `"case|object|index"`, `"impact"`.
     pub events: Vec<String>,
-    node: u32,
 }
 
 #[derive(Default)]
@@ -64,7 +53,6 @@ struct Shared {
 struct Owners<'a, 'w> {
     world: &'a std::cell::RefCell<&'w mut dyn RayWorld>,
     shared: &'a std::cell::RefCell<Shared>,
-    node: u32,
 }
 impl NetOwner for Owners<'_, '_> {
     fn send(&mut self, _: &mut Mem, channel: i32, payload: &[u8]) {
@@ -88,24 +76,7 @@ impl ReturnOwner for Owners<'_, '_> {
 }
 impl ProbeOwner for Owners<'_, '_> {
     fn cast(&mut self, m: &mut Mem, _owner: u32, kind: u32, q: u32) -> u32 {
-        let p = |a: u32| [m.f32(a), m.f32(a + 4), m.f32(a + 8)];
-        let (from, to) = (p(q + 0x4c), p(q + 0x58));
-        match self.world.borrow_mut().cast(kind, from, to) {
-            None => 0,
-            Some(h) => {
-                for (i, v) in h.matrix.iter().enumerate() {
-                    m.set_f32(q + 4 + 4 * i as u32, *v);
-                }
-                for i in 0..3u32 {
-                    m.set_f32(q + 0x34 + 4 * i, h.point[i as usize]);
-                    m.set_f32(q + 0x40 + 4 * i, h.normal[i as usize]);
-                }
-                m.set_u32(self.node, h.node_type);
-                m.set_i32(self.node + 4, h.node_id);
-                m.set_u32(q + 0x64, self.node);
-                1
-            }
-        }
+        self.world.borrow_mut().cast(m, kind, q)
     }
     fn set_case(&mut self, _: &mut Mem, object: u32, index: i32) {
         self.shared.borrow_mut().events.push(format!("case|{object:x}|{index}"));
@@ -146,14 +117,13 @@ impl ManeuverRoad for NoEffects {
 }
 
 const SCENE: u32 = 0x1000_0000;
-const NODE: u32 = 0x1100_0000;
 const FRAME: u32 = 0x1200_0000;
 
 impl SceneHost {
     pub fn new() -> Self {
         let mut mem = Mem::new();
         crate::globals::install_constants(&mut mem);
-        SceneHost { mem, scene: SCENE, net: vec![], events: vec![], node: NODE }
+        SceneHost { mem, scene: SCENE, net: vec![], events: vec![] }
     }
 
     /// One `0x54ff80` step. `impact_strength` of the original goes through `impact_effect`; its network announcement and
@@ -162,7 +132,7 @@ impl SceneHost {
         let shared = std::cell::RefCell::new(Shared { net: std::mem::take(&mut self.net), events: std::mem::take(&mut self.events) });
         {
             let world = std::cell::RefCell::new(world);
-            let h = Owners { world: &world, shared: &shared, node: self.node };
+            let h = Owners { world: &world, shared: &shared };
             let (mut n, mut p, mut r, mut b) = (h, h, h, h);
             let mut imp = |m: &mut Mem, pt: u32, w: u32| {
                 let mut sent = false;
@@ -211,15 +181,17 @@ mod tests {
 
     struct Floor;
     impl RayWorld for Floor {
-        fn cast(&mut self, kind: u32, _: [f32; 3], _: [f32; 3]) -> Option<RayHit> {
+        fn cast(&mut self, m: &mut Mem, kind: u32, q: u32) -> u32 {
             assert_eq!(kind, 7);
-            Some(RayHit {
-                matrix: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-                point: [0.0; 3],
-                normal: [0.0, 1.0, 0.0],
-                node_type: 0x4d,
-                node_id: 5,
-            })
+            let node = 0x1100_0000;
+            for i in 0..12u32 {
+                m.set_f32(q + 4 + 4 * i, if i % 4 == 0 { 1.0 } else { 0.0 });
+            }
+            m.set_f32(q + 0x44, 1.0);
+            m.set_u32(node, 0x4d);
+            m.set_i32(node + 4, 5);
+            m.set_u32(q + 0x64, node);
+            1
         }
     }
 

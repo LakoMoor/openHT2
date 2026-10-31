@@ -648,3 +648,18 @@ impl World for SceneWorld<'_> {
         r
     }
 }
+
+/// Ray world for `ht2_sim::scene_host::SceneHost` (the owner call `[vtable+0x34]` of `0x54cb90`). **Stand-in:** the original
+/// owner is the scene-graph object of the vehicle's room; here the room is found below the segment start (`room_at`) and the
+/// road of it (and of the room the segment leads into) is queried with the kind as mode, on the query record in the host memory.
+pub struct RayRooms<'a> {
+    pub scene: &'a Scene,
+}
+
+impl ht2_sim::scene_host::RayWorld for RayRooms<'_> {
+    fn cast(&mut self, m: &mut Mem, kind: u32, q: u32) -> u32 {
+        let from = v3(m, q + 0x4c);
+        let Some(room) = self.scene.room_at(m, from).and_then(|id| self.scene.room_node(id)) else { return 0 };
+        self.scene.road_query(m, room, kind, q, true)
+    }
+}
