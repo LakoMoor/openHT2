@@ -38,6 +38,16 @@ pub fn segment_cast(m: &mut Mem, a: u32, obj: u32, p0: u32, p1: u32, rec: u32, o
 /// the road of `room` (`0x4e6059(room, 6, rec)`, `World::room_collide(0, ..)`). Returns the query's flags when bit 0 is set,
 /// else 0; the hit stays in the room's frame.
 pub fn road_segment_cast(m: &mut Mem, a: u32, room: u32, radius: u32, p0: u32, p1: u32, rec: u32, world: &mut dyn crate::contact::World) -> u32 {
+    room_segment_cast(m, a, room, radius, p0, p1, rec, 0, world)
+}
+
+/// `0x4e6d41`: the same against the objects of the room (`0x4e623e(room, 6, rec)`, `World::room_collide(1, ..)`).
+pub fn object_segment_cast(m: &mut Mem, a: u32, room: u32, radius: u32, p0: u32, p1: u32, rec: u32, world: &mut dyn crate::contact::World) -> u32 {
+    room_segment_cast(m, a, room, radius, p0, p1, rec, 1, world)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn room_segment_cast(m: &mut Mem, a: u32, room: u32, radius: u32, p0: u32, p1: u32, rec: u32, which: u32, world: &mut dyn crate::contact::World) -> u32 {
     for i in 0..12 {
         let v = m.u32(MAT_IDENTITY + 4 * i);
         m.set_u32(rec + 4 + 4 * i, v);
@@ -51,7 +61,7 @@ pub fn road_segment_cast(m: &mut Mem, a: u32, room: u32, radius: u32, p0: u32, p
     m.set_u32(rec + 0x74, 0);
     m.set_u32(rec + 0x68, 0);
     m.set_u32(rec + 0x78, a);
-    let r = world.room_collide(m, 0, room, 6, rec);
+    let r = world.room_collide(m, which, room, 6, rec);
     if r & 1 != 0 {
         r
     } else {
@@ -164,7 +174,13 @@ mod tests {
 
     #[test]
     fn native_road_segment_cast() {
+        segment_cast_golden(0, include_str!("../../../tools/emu/golden_road_segment_cast.tsv"));
+        segment_cast_golden(1, include_str!("../../../tools/emu/golden_object_segment_cast.tsv"));
+    }
+
+    fn segment_cast_golden(which_id: u32, golden: &str) {
         struct W {
+            which: u32,
             hit: Vec<u8>,
             flags: u32,
             calls: Vec<String>,
@@ -174,7 +190,7 @@ mod tests {
                 unreachable!()
             }
             fn room_collide(&mut self, m: &mut Mem, which: u32, room: u32, mode: u32, rec: u32) -> u32 {
-                assert_eq!(which, 0);
+                assert_eq!(which, self.which);
                 let dump: String = m.read(rec, 0x7c).iter().map(|b| format!("{b:02x}")).collect();
                 self.calls.push(format!("{room:x}|{mode:x}|{rec:x}|{dump}"));
                 m.write(rec + 0x34, &self.hit);
@@ -184,7 +200,7 @@ mod tests {
         let base = 0x2a010000u32;
         let (rec, p0, p1) = (base, base + 0x1000, base + 0x1100);
         let mut n = 0;
-        for (c, line) in include_str!("../../../tools/emu/golden_road_segment_cast.tsv").lines().enumerate() {
+        for (c, line) in golden.lines().enumerate() {
             let v: Vec<&str> = line.split('\t').collect();
             let mut m = Mem::new();
             crate::globals::install_constants(&mut m);
@@ -192,9 +208,9 @@ mod tests {
             m.write(p0, &unhex(v[3]));
             m.write(p1, &unhex(v[4]));
             // the record's previous contents are random in the golden, but the function overwrites all words it reads
-            let mut w = W { hit: unhex(v[5]), flags: u(v[6]), calls: vec![] };
+            let mut w = W { which: which_id, hit: unhex(v[5]), flags: u(v[6]), calls: vec![] };
             let rad = u32::from_le_bytes(unhex(v[2]).try_into().unwrap());
-            let r = road_segment_cast(&mut m, u(v[0]), u(v[1]), rad, p0, p1, rec, &mut w);
+            let r = if which_id == 0 { road_segment_cast(&mut m, u(v[0]), u(v[1]), rad, p0, p1, rec, &mut w) } else { object_segment_cast(&mut m, u(v[0]), u(v[1]), rad, p0, p1, rec, &mut w) };
             assert_eq!(format!("{r:x}"), v[7], "case {c}");
             let fin: String = m.read(rec, 0x80).iter().map(|b| format!("{b:02x}")).collect();
             // compare the words the function writes; the rest of the record was random in the emulator only
