@@ -4716,3 +4716,86 @@ mod small_leaves_tests {
         }
     }
 }
+
+/// `0x5d2500`: the bucket of a name in a name table: the sum of its bytes modulo 500 (0 for a null name).
+pub fn name_table_bucket(m: &Mem, name: u32) -> u32 {
+    if name == 0 {
+        return 0;
+    }
+    let mut sum = 0u32;
+    let mut a = name;
+    while m.rd8(a) != 0 {
+        sum = sum.wrapping_add(m.rd8(a) as u32);
+        a += 1;
+    }
+    sum % 500
+}
+
+/// `0x5d2720` (thiscall, `table` = `ecx`): the value stored under `name` (bucket array at `table + 8`, chain link `+8`,
+/// name pointer `+0xc`, value `+0x10`); `None` for a null name or a name not in the table.
+pub fn name_table_find(m: &Mem, table: u32, name: u32) -> Option<u32> {
+    if name == 0 {
+        return None;
+    }
+    let mut node = m.u32(m.u32(table + 8) + 4 * name_table_bucket(m, name));
+    while node != 0 {
+        let (mut a, mut b) = (name, m.u32(node + 0xc));
+        let same = loop {
+            let (x, y) = (m.rd8(a), m.rd8(b));
+            if x != y {
+                break false;
+            }
+            if x == 0 {
+                break true;
+            }
+            a += 1;
+            b += 1;
+        };
+        if same {
+            return Some(m.u32(node + 0x10));
+        }
+        node = m.u32(node + 8);
+    }
+    None
+}
+
+/// `0x5ef2b0` with a null owner (its `ecx` argument 0): the value of `name` in the global name table `0x71e820`, or 0.
+/// With an owner the original calls its virtual `+0x20`; that branch is not ported.
+pub fn global_name_lookup(m: &Mem, name: u32) -> u32 {
+    name_table_find(m, 0x71e820, name).unwrap_or(0)
+}
+
+#[cfg(test)]
+mod name_table_tests {
+    use super::*;
+    #[test]
+    fn native_name_table() {
+        for (c, line) in include_str!("../../../tools/emu/golden_name_table.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let hex = |s: &str| u32::from_str_radix(s, 16).unwrap();
+            let mut m = Mem::new();
+            let base = 0x0100_0000u32;
+            let (table, strs, query) = (base, base + 0x20000, base + 0x30000);
+            m.set_u32(0x71e828, table);
+            let mut tails: std::collections::HashMap<u32, u32> = Default::default();
+            for (i, rec) in v[0].split(',').filter(|s| !s.is_empty()).enumerate() {
+                let f: Vec<&str> = rec.split(':').collect();
+                let (node, name, val) = (base + 0x2000 + 0x20 * i as u32, f[1], hex(f[2]));
+                let sp = strs + 0x40 * i as u32;
+                m.write(sp, name.as_bytes());
+                m.wr8(sp + name.len() as u32, 0);
+                m.set_u32(node + 0xc, sp);
+                m.set_u32(node + 0x10, val);
+                let b = name.bytes().map(|c| c as u32).sum::<u32>() % 500;
+                match tails.insert(b, node) {
+                    Some(prev) => m.set_u32(prev + 8, node),
+                    None => m.set_u32(table + 4 * b, node),
+                }
+            }
+            m.write(query, v[1].as_bytes());
+            m.wr8(query + v[1].len() as u32, 0);
+            let arg = if hex(v[2]) != 0 { query } else { 0 };
+            assert_eq!(global_name_lookup(&m, arg), hex(v[3]), "case {c} ({})", v[1]);
+        }
+    }
+}
