@@ -4272,7 +4272,7 @@ mod node_transform_tests {
     #[test]
     fn native_node_transform() {
         let (n, mat) = (0x2a01_0000u32, 0x2a01_1000u32);
-        for (c, line) in include_str!("../../../tools/emu/golden_node_transform.tsv").lines().enumerate() {
+        for (c, line) in include_str!("../../../tools/emu/golden_node_set_transform.tsv").lines().enumerate() {
             let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
             let mut m = Mem::new();
             m.write(n + 0x40, &bytes(v[1]));

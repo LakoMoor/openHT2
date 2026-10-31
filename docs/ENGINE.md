@@ -2833,7 +2833,7 @@ min(|вектор|*6, 100))` с усечением. `golden_impact_effect.tsv`, 
 `ht2-sim::instruments::scene_node_set_transform(m, node, matrix, mode)` — `0x5f2190` (thiscall `(матрица, режим)`):
 режим 0 копирует матрицу в `[node+0x40]`, режим 1 (`0x5abc10`) умножает `матрица · старая` через временный буфер,
 режим 2 (`0x5abc00`) применяет матрицу к имеющейся (`mat_apply`), прочие режимы ничего не делают. Эталон
-`tools/emu/gen_node_transform.py` (настоящая функция, 300 случаев), тест `native_node_transform`.
+`tools/emu/gen_node_set_transform.py` (настоящая функция, 300 случаев), тест `native_node_transform`.
 
 ## Циклы создания объектов света в 0x54ff80 (0x550f4c..0x551094 и 0x5517ac..0x551866)
 

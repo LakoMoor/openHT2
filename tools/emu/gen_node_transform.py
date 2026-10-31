@@ -1,25 +1,15 @@
-"""0x5f2190 (thiscall (matrix, mode)): set / multiply / apply the node matrix at +0x40, run unmodified."""
-import math, pathlib, random, struct
-from emu import Emu, OBJ_BASE
-
-r = random.Random(0x5f2190)
-e = Emu()
-N, M = OBJ_BASE + 0x10000, OBJ_BASE + 0x11000
-rows = []
-
-
-def mat():
-    a, b, c = r.uniform(-3, 3), r.uniform(-1.5, 1.5), r.uniform(-3, 3)
-    ca, sa, cb, sb, cc, sc = math.cos(a), math.sin(a), math.cos(b), math.sin(b), math.cos(c), math.sin(c)
-    rot = [cb * cc, cb * sc, -sb, sa * sb * cc - ca * sc, sa * sb * sc + ca * cc, sa * cb, ca * sb * cc + sa * sc, ca * sb * sc - sa * cc, ca * cb]
-    return struct.pack('<12f', *(rot + [r.uniform(-30, 30) for _ in range(3)]))
-
-
-for case in range(300):
-    mode = r.choice([0, 1, 2, 3])
-    before, arg = mat(), mat()
-    e.write(N, bytes(0x40) + before); e.write(M, arg)
-    e.call(0x5f2190, [M, mode], 'ii', this=N)
-    rows.append(chr(9).join([str(mode), before.hex(), arg.hex(), e.read(N + 0x40, 48).hex()]))
-pathlib.Path(__file__).with_name('golden_node_transform.tsv').write_text(chr(10).join(rows) + chr(10))
-print(len(rows), 'cases')
+"""Original 0x5f25c0 transform chains, including mode mutation and bad roots."""
+import pathlib,random,struct
+from emu import Emu,OBJ_BASE
+e=Emu();r=random.Random(0x5f25c0);base=OBJ_BASE;out=base+0x10000;rows=[]
+for case in range(320):
+ count=1+case%8;nodes=[]
+ for i in range(count):
+  node=base+i*0x100;e.write(node,bytes(0x100));mode=r.choice([0,1,2,3,0xffffffff])
+  raw=struct.pack('<12f',*[r.uniform(-2,2) for _ in range(12)])
+  e.set_u32(node+0x2c,node+0x100 if i+1<count else 0);e.set_u32(node+0x38,mode);e.write(node+0x40,raw)
+  nodes.append(str(mode)+','+','.join(map(str,struct.unpack('<12I',raw))))
+ initial=struct.pack('<12f',*[r.uniform(-2,2) for _ in range(12)]);e.write(out,initial)
+ e.call(0x5f25c0,[out],'i',this=base);result=e.eax
+ rows.append(';'.join(nodes)+'\t'+','.join(map(str,struct.unpack('<12I',initial)))+'\t'+str(result)+'\t'+','.join(map(str,struct.unpack('<12I',e.read(out,48))))+'\t'+','.join(str(struct.unpack('<I',e.read(base+i*0x100+0x38,4))[0]) for i in range(count)))
+pathlib.Path(__file__).with_name('golden_node_transform.tsv').write_text('\n'.join(rows)+'\n');print('320 original transform chains captured')
