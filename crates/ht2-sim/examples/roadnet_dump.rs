@@ -16,6 +16,15 @@ fn main() {
     net.mark_towns(&towns);
     let lots = ht2_sim::road::Parking::from_scripts(&scripts);
     net.mark_parkings(&lots);
+    if std::env::var_os("ROOMS").is_some() {
+        let mut seen = std::collections::HashSet::new();
+        for r in &net.segment_rooms {
+            if seen.insert(r.clone()) {
+                println!("{r}");
+            }
+        }
+        return;
+    }
     if std::env::var_os("PARKING").is_some() {
         for (i, l) in lots.iter().enumerate() {
             let nodes: Vec<i64> = l.nodes.iter().map(|(n, _, _)| net.nodes.iter().position(|x| &x.name == n).map_or(-1, |k| k as i64)).collect();
@@ -120,6 +129,30 @@ fn main() {
             }
         }
         println!("routes from places: {same} same, {differ} differ");
+        return;
+    }
+    // with the zone objects of the original (tools/emu/zone_check.py, name table: every second room of ROOMS=1): compare
+    if let Some(file) = std::env::args().nth(2).filter(|f| f.contains("zone")) {
+        let rooms: Vec<String> = std::fs::read_to_string(std::env::var("ROOM_LIST").unwrap()).unwrap().lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect();
+        let lookup = |n: &str| rooms.iter().position(|r| r == n).filter(|i| i % 2 == 0).map_or(0, |i| 0x1000 + i as u32);
+        let (mut same, mut differ) = (0, 0);
+        for line in std::fs::read_to_string(file).unwrap().lines() {
+            let w: Vec<&str> = line.split_whitespace().collect();
+            let pos = [w[1].parse().unwrap(), w[2].parse().unwrap(), w[3].parse().unwrap()];
+            let (res, obj, p) = net.zone_object(w[0], pos, w[4] == "1", &lookup);
+            let ours = format!("{res} {obj} {}", p.map_or("-1 -1 0.0 0 0".to_string(), |p| format!("{} {} {:?} {} {}", p.road, p.node.map_or(-1, |n| n as i64), p.t, p.piece, p.segment)));
+            let want = w[5..].join(" ");
+            if ours == want {
+                same += 1;
+            } else {
+                differ += 1;
+                if differ <= 5 {
+                    println!("original {line}
+    ours {ours}");
+                }
+            }
+        }
+        println!("zones: {same} same, {differ} differ");
         return;
     }
     // with the one-way test of the original (tools/emu/oneway_check.py): compare

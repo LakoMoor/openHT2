@@ -956,6 +956,35 @@ impl RoadNet {
         if self.is_explored(p.road) { f & !0x20 } else { f }
     }
 
+    /// `0x533340`: the object a point belongs to. The place nearest to `pos` in the room `room` (`0x4364f0` turns the
+    /// name into the room number, a name no room has skips this step; `0x437390`) gives the name of its `.way` room, and
+    /// `lookup` (`0x5ef2b0`, the global name table) the object of that name: result 1. With none, and `fallback`, the
+    /// place nearest on all the roads (`0x437220`) is tried the same way: result 2. Otherwise 0. Returns the result, the
+    /// object and the last place found (the original's output `PositionId`; `None` is its "no place" value).
+    pub fn zone_object(&self, room: &str, pos: [f32; 3], fallback: bool, lookup: &dyn Fn(&str) -> u32) -> (u32, u32, Option<Place>) {
+        let q = [pos[0] as f64, pos[1] as f64, pos[2] as f64];
+        let (mut found, mut object) = (None, 0);
+        if self.segment_rooms.iter().any(|r| r == room) {
+            found = self.nearest_in_room_segments(room, q);
+            if let Some(p) = &found {
+                object = lookup(self.room_of(p));
+                if object != 0 {
+                    return (1, object, found);
+                }
+            }
+        }
+        if fallback {
+            found = self.nearest(q);
+            if let Some(p) = &found {
+                object = lookup(self.room_of(p));
+                if object != 0 {
+                    return (2, object, found);
+                }
+            }
+        }
+        (0, object, found)
+    }
+
     /// `0x533510`: whether the segment at a place is one-way (a flag 4 or 8 in what
     /// `getRoadParameters` gives; a place in no room gives 0).
     pub fn place_is_one_way(&self, p: &Place) -> bool {
@@ -1042,6 +1071,22 @@ impl RoadNet {
         for road in self.room_roads(room) {
             for (i, &s) in self.roads[road].segments.iter().enumerate() {
                 if self.segments[s].project(q, &mut best, &mut t, &mut k) {
+                    found = Some((road, i));
+                }
+            }
+        }
+        found.map(|(road, segment)| Place { road, node: None, t, piece: k, segment, reversed: false })
+    }
+
+    /// `getPositionId` for a room number (`0x436bd0`): the place nearest to `q` among the segments of the room itself
+    /// (each one's `project` in turn, in the order the room lists them: here the order they were read, the last one
+    /// that came nearer wins), unlike `nearest_in_room` also on the roads that merely reach the room.
+    pub fn nearest_in_room_segments(&self, room: &str, q: [f64; 3]) -> Option<Place> {
+        let (mut best, mut t, mut k) = (f64::MAX, 0.0, 0usize);
+        let mut found = None;
+        for (road, r) in self.roads.iter().enumerate() {
+            for (i, &s) in r.segments.iter().enumerate() {
+                if self.segment_rooms[s] == room && self.segments[s].project(q, &mut best, &mut t, &mut k) {
                     found = Some((road, i));
                 }
             }
