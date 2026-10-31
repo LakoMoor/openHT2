@@ -4375,3 +4375,61 @@ mod scene_light_loop_tests {
         check(include_str!("../../../tools/emu/golden_scene_light_loop2.tsv"), 0x6ef258);
     }
 }
+
+/// Walk the intrusive list whose head link is `head` (a pointer to `element + 4`; the next link is at
+/// `element + 8`, also pointing to `next + 4`): the first element for which `hit(element)` holds, or 0.
+fn find_in_list(m: &Mem, head: u32, hit: impl Fn(u32) -> bool) -> u32 {
+    if head == 0 {
+        return 0;
+    }
+    let mut cur = head.wrapping_sub(4);
+    while cur != 0 {
+        if hit(cur) {
+            return cur;
+        }
+        let next = m.u32(cur + 8);
+        if next == 0 {
+            return 0;
+        }
+        cur = next.wrapping_sub(4);
+    }
+    0
+}
+
+/// `0x57c9e0` (via `0x57c9a0` and `0x57c9b0`): the object `id` if it is in the list at `[0x6f653c]` (items are
+/// stored `0x178` above the object, the id is the object address), else 0.
+pub fn world_object_by_id(m: &Mem, id: u32) -> u32 {
+    if id == 0 {
+        return 0;
+    }
+    let head = m.u32(0x6f653c);
+    let found = find_in_list(m, head, |e| e.wrapping_sub(0x178) == id);
+    if found == 0 { 0 } else { found.wrapping_sub(0x178) }
+}
+
+/// `0x53f780` (via `0x53f750`): `p - 0x10` (or 0 for a null `p`) if it is an element of the list at `[0x6ef1f8]`, else 0.
+pub fn world_list_find(m: &Mem, p: u32) -> u32 {
+    let key = if p == 0 { 0 } else { p.wrapping_sub(0x10) };
+    find_in_list(m, m.u32(0x6ef1f8), |e| e == key)
+}
+#[cfg(test)]
+mod world_lookup_tests {
+    use super::*;
+    #[test]
+    fn native_world_lookup() {
+        for (c, line) in include_str!("../../../tools/emu/golden_world_lookup.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let hex = |s: &str| u32::from_str_radix(s, 16).unwrap();
+            let elems: Vec<u32> = v[2].split(',').filter(|s| !s.is_empty()).map(hex).collect();
+            let mut m = Mem::new();
+            let head = if v[0] == "57c9e0" { 0x6f653c } else { 0x6ef1f8 };
+            m.set_u32(head, hex(v[3]));
+            for (i, a) in elems.iter().enumerate() {
+                m.set_u32(a + 8, if i + 1 < elems.len() { elems[i + 1] + 4 } else { 0 });
+            }
+            let arg = hex(v[4]);
+            let got = if v[0] == "57c9e0" { world_object_by_id(&m, arg) } else { world_list_find(&m, arg) };
+            assert_eq!(got, hex(v[5]), "case {c} ({})", v[0]);
+        }
+    }
+}
