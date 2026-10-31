@@ -44,6 +44,7 @@ pub mod maneuver;
 pub mod scene_net;
 pub mod scene_probe;
 pub mod scene_requests;
+pub mod scene_update;
 pub mod scene_return;
 pub mod vehicle_reset;
 pub mod condition;
@@ -52,3 +53,5 @@ pub mod ai_scene;
 pub use tech_rec::TechRec;
 
 pub mod scene_events;
+#[cfg(test)]
+mod scene_update_tests;
