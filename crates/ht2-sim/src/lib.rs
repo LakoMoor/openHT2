@@ -39,6 +39,7 @@ pub mod game_message;
 pub mod controller;
 pub mod scene_state;
 pub mod instruments;
+pub mod car_state;
 pub mod gauges;
 pub mod maneuver;
 pub mod pose_objects;
