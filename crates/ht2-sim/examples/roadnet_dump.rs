@@ -122,6 +122,34 @@ fn main() {
         println!("routes from places: {same} same, {differ} differ");
         return;
     }
+    // with the one-way test of the original (tools/emu/oneway_check.py): compare
+    if let Some(file) = std::env::args().nth(2).filter(|f| f.contains("oneway")) {
+        let (mut same, mut differ, mut one_way) = (0, 0, 0);
+        for line in std::fs::read_to_string(file).unwrap().lines() {
+            let w: Vec<&str> = line.split_whitespace().collect();
+            let node = w[1].parse::<i64>().unwrap();
+            let p = ht2_sim::road::Place {
+                road: w[0].parse().unwrap(),
+                node: if node < 0 { None } else { Some(node as usize) },
+                t: w[2].parse().unwrap(),
+                piece: w[3].parse().unwrap(),
+                segment: w[4].parse().unwrap(),
+                reversed: false,
+            };
+            let want = w[6] == "1";
+            one_way += want as usize;
+            if net.place_is_one_way(&p) == want {
+                same += 1;
+            } else {
+                differ += 1;
+                if differ <= 5 {
+                    println!("original {line}\n    ours {}", !want);
+                }
+            }
+        }
+        println!("one-way: {same} same, {differ} differ ({one_way} one-way)");
+        return;
+    }
     // with random start places of the original (tools/emu/place_check.py): compare
     if let Some(file) = std::env::args().nth(2).filter(|f| f.contains("places")) {
         let mut rng = ht2_sim::road::AiRng::default();

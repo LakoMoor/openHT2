@@ -955,6 +955,12 @@ impl RoadNet {
         let f = self.flags_of(self.roads[p.road].segments[p.segment]);
         if self.is_explored(p.road) { f & !0x20 } else { f }
     }
+
+    /// `0x533510`: whether the segment at a place is one-way (a flag 4 or 8 in what
+    /// `getRoadParameters` gives; a place in no room gives 0).
+    pub fn place_is_one_way(&self, p: &Place) -> bool {
+        self.place_flags(p) & 0xc != 0
+    }
 }
 
 impl Segment {
