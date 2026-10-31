@@ -4433,3 +4433,27 @@ mod world_lookup_tests {
         }
     }
 }
+
+/// `0x57df70` (thiscall, `ecx = object`, one stack argument): copy the 12 floats (transform) at `object+0x224` to `dst`.
+pub fn object_matrix_copy(m: &mut Mem, object: u32, dst: u32) {
+    let b = m.read(object + 0x224, 48);
+    m.write(dst, &b);
+}
+#[cfg(test)]
+mod object_matrix_copy_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_object_matrix_copy() {
+        let (o, b) = (0x2a01_0000u32, 0x2a01_2000u32);
+        for (c, line) in include_str!("../../../tools/emu/golden_object_matrix_copy.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            m.write(o, &bytes(v[0]));
+            object_matrix_copy(&mut m, o, b);
+            assert_eq!(m.read(b, 0x40), bytes(v[1]), "case {c}");
+        }
+    }
+}
