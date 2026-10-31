@@ -44,6 +44,7 @@ pub mod maneuver;
 pub mod scene_probe;
 pub mod scene_requests;
 pub mod scene_return;
+pub mod vehicle_reset;
 pub mod condition;
 pub mod ai_scene;
 
