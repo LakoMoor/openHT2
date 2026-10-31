@@ -18,7 +18,7 @@ pub trait ProbeOwner {
 }
 
 /// `0x4e5698`: bring the hit point `q+0x34` and normal `q+0x40` into the frame of the matrix at `q+4`.
-fn query_to_local(m: &mut Mem, q: u32, inv: u32, tmp: u32) {
+pub(crate) fn query_to_local(m: &mut Mem, q: u32, inv: u32, tmp: u32) {
     mat_inverse(m, inv, q + 4);
     transform(m, tmp, q + 0x34, inv);
     for i in 0..3 {
