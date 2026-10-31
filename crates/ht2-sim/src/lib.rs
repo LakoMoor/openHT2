@@ -41,6 +41,7 @@ pub mod scene_state;
 pub mod instruments;
 pub mod gauges;
 pub mod maneuver;
+pub mod scene_probe;
 pub mod scene_requests;
 pub mod condition;
 pub mod ai_scene;
