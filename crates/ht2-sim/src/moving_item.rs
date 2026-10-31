@@ -103,6 +103,42 @@ pub fn moving_item_pose(m: &mut Mem, this: u32, matrix: u32, value: u32, owner: 
     owner.apply(m, this, value, 0);
 }
 
+/// The callees of the collision query dispatcher `0x58dff0` (the body's collision machinery, not ported: stand-ins).
+pub trait CollideOwner {
+    /// `0x5843c0(this, a, b, c, rec)` (cdecl), mode bit 4.
+    fn query_road(&mut self, m: &mut Mem, this: u32, args: [u32; 4]) -> u32;
+    /// `0x5855a0(this, a, b, c, rec, mode)`, mode bit 2.
+    fn query_objects(&mut self, m: &mut Mem, this: u32, args: [u32; 4], mode: u32) -> u32;
+    /// `0x58b120(this, a, b, c, rec, mode)`.
+    fn query_other(&mut self, m: &mut Mem, this: u32, args: [u32; 4], mode: u32) -> u32;
+    /// `0x58cf30` (thiscall) after a successful `0x58b120`.
+    fn after_other(&mut self, m: &mut Mem, this: u32);
+    /// The debug trace of the road branch (log text and `0x4e9ce4` / `0x4e9d90`), only when `[0x6f6620]` is set.
+    fn trace(&mut self, m: &mut Mem, this: u32, rec: u32);
+}
+
+/// `0x58dff0(a, b, c, rec, mode)` (virtual `+0x94` of the tables of the 7 MovingItem classes, `thiscall`, `ret 0x14`):
+/// dispatches by `mode`: bit 4 to the road query (with the debug trace when `[0x6f6620] != 0`, the result has bit 0 and
+/// `[rec+0x74] == 0`), else bit 2 to the object query, else to `0x58b120` followed by `0x58cf30` when it returned non-zero.
+pub fn collide_dispatch(m: &mut Mem, this: u32, a: u32, b: u32, c: u32, rec: u32, mode: u32, owner: &mut dyn CollideOwner) -> u32 {
+    let args = [a, b, c, rec];
+    if mode & 4 != 0 {
+        let r = owner.query_road(m, this, args);
+        if m.u32(0x6f6620) != 0 && r & 1 != 0 && m.u32(rec + 0x74) == 0 {
+            owner.trace(m, this, rec);
+        }
+        return r;
+    }
+    if mode & 2 != 0 {
+        return owner.query_objects(m, this, args, mode);
+    }
+    let r = owner.query_other(m, this, args, mode);
+    if r != 0 {
+        owner.after_other(m, this);
+    }
+    r
+}
+
 /// A virtual call `[this->vtable + slot](args)` of the moving item (not ported yet: stand-in owner).
 pub trait ItemVirtuals {
     fn virt(&mut self, m: &mut Mem, this: u32, slot: u32, args: &[u32]);
@@ -259,5 +295,48 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 200);
+    }
+
+    #[test]
+    fn native_collide_dispatch() {
+        struct Log(Vec<String>, u32);
+        fn h(a: &[u32]) -> String {
+            a.iter().map(|x| format!("{x:x}")).collect::<Vec<_>>().join(",")
+        }
+        impl CollideOwner for Log {
+            fn query_road(&mut self, _: &mut Mem, this: u32, a: [u32; 4]) -> u32 {
+                self.0.push(format!("q4|{this:x},{}", h(&a)));
+                self.1
+            }
+            fn query_objects(&mut self, _: &mut Mem, this: u32, a: [u32; 4], mode: u32) -> u32 {
+                self.0.push(format!("q2|{this:x},{},{mode:x}", h(&a)));
+                self.1
+            }
+            fn query_other(&mut self, _: &mut Mem, this: u32, a: [u32; 4], mode: u32) -> u32 {
+                self.0.push(format!("q0|{this:x},{},{mode:x}", h(&a)));
+                self.1
+            }
+            fn after_other(&mut self, _: &mut Mem, this: u32) {
+                self.0.push(format!("after|{this:x}"));
+            }
+            fn trace(&mut self, _: &mut Mem, _: u32, _: u32) {
+                self.0.push("trace".into());
+            }
+        }
+        let (this, d) = (0x2a010000u32, 0x2a012000u32);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_collide_dispatch.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            m.set_u32(0x6f6620, v[1].parse().unwrap());
+            m.set_u32(d + 0x74, v[2].parse().unwrap());
+            let a: Vec<u32> = v[3].split(',').map(|x| u32::from_str_radix(x, 16).unwrap()).collect();
+            let mut log = Log(vec![], u32::from_str_radix(v[4], 16).unwrap());
+            let r = collide_dispatch(&mut m, this, a[0], a[1], a[2], a[3], v[0].parse().unwrap(), &mut log);
+            assert_eq!(log.0.join(";"), v[5], "case {c}");
+            assert_eq!(format!("{r:x}"), v[6], "case {c}: result");
+            n += 1;
+        }
+        assert_eq!(n, 300);
     }
 }

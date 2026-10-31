@@ -3168,3 +3168,11 @@ NaN), тест `native_moving_item_place` бит-в-бит. В `SceneHost` вы�
 трансформ узла тела `[[this+0x20]+0x44]` ставится в `matrix` (`0x5f2190`, режим 0 — уже портирован как
 `scene_node_set_transform`), `+0x38 = value`, `[node]+0x24()`, `[this]+0x28(value, 0)`. Эталон —
 `tools/emu/gen_moving_item_pose.py` (200 случаев), тест `native_moving_item_pose`.
+
+### `0x58dff0` — диспетчер запросов столкновения MovingItem (`collide_dispatch`)
+
+`thiscall (a, b, c, rec, mode)`, `ret 0x14`. Бит 4 режима → `0x5843c0(this, a, b, c, rec)` (cdecl; при `[0x6f6620] != 0`,
+бите 0 результата и `[rec+0x74] == 0` — отладочный вывод `0x4e9ce4`/`0x4e9d90`, заглушка `trace`); иначе бит 2 →
+`0x5855a0(this, a, b, c, rec, mode)`; иначе `0x58b120(…, mode)` и при ненулевом результате `0x58cf30(this)`. Сами
+запросы (`0x5843c0`, `0x5855a0`, `0x58b120`, `0x58cf30`) — механика столкновений тела, пока заглушки трейта
+`CollideOwner`. Эталон — `tools/emu/gen_collide_dispatch.py` (300 случаев), тест `native_collide_dispatch`.
