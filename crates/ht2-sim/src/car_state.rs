@@ -110,6 +110,52 @@ pub fn car_set_angular(m: &mut Mem, c: u32, vec: u32) {
     car_publish_angular(m, c);
 }
 
+/// `0x4f0fc0(id, pose)`: the pose entry. `+0x10 = pose`, `+0x900 = inverse(pose)` (`0x5ac2e0`), `+0x58` as in
+/// `car_set_angular`, `+0xf4 = id`, and for each of the `[+0xdd4]` wheel points at `+0x1844 + 12 i` the world
+/// point (`+0x64 + 12 i`), a zero vector (`+0xf08 + 12 i`), and the constants of the wheel slots.
+/// `scratch` needs 48 bytes.
+pub fn car_set_pose(m: &mut Mem, c: u32, id: u32, pose: u32, scratch: u32) {
+    for i in 0..12 {
+        let v = m.u32(pose + 4 * i);
+        m.set_u32(c + 0x10 + 4 * i, v);
+    }
+    let inv = crate::math::mat_inverse(m, scratch, c + 0x10);
+    for i in 0..12 {
+        let v = m.u32(inv + 4 * i);
+        m.set_u32(c + 0x900 + 4 * i, v);
+    }
+    let v = [f(m, c + 0x4c), f(m, c + 0x50), f(m, c + 0x54)];
+    let l = [
+        (f(m, c + 0x918) * v[2] + f(m, c + 0x90c) * v[1] + v[0] * f(m, c + 0x900)) as f32,
+        (f(m, c + 0x91c) * v[2] + f(m, c + 0x904) * v[0] + f(m, c + 0x910) * v[1]) as f32,
+        (f(m, c + 0x920) * v[2] + f(m, c + 0x908) * v[0] + f(m, c + 0x914) * v[1]) as f32,
+    ];
+    for i in 0..3 {
+        let q = l[i as usize] / m.f32(c + 0x1f48 + 4 * i);
+        m.set_f32(c + 0x58 + 4 * i, q);
+    }
+    m.set_u32(c + 0xf4, id);
+    let g = |m: &Mem, k: u32| m.f32(c + 0x10 + 4 * k) as f64;
+    for i in 0..m.i32(c + 0xdd4).max(0) as u32 {
+        let p = c + 0x1844 + 12 * i;
+        let (x, y, z) = (f(m, p), f(m, p + 4), f(m, p + 8));
+        let o = [
+            (y * g(m, 3) + z * g(m, 6) + x * g(m, 0) + g(m, 9)) as f32,
+            (y * g(m, 4) + g(m, 1) * x + z * g(m, 7) + g(m, 10)) as f32,
+            (z * g(m, 8) + y * g(m, 5) + x * g(m, 2) + g(m, 11)) as f32,
+        ];
+        for k in 0..3 {
+            m.set_f32(c + 0x64 + 12 * i + 4 * k, o[k as usize]);
+            let z0 = m.u32(VEC_ZERO + 4 * k);
+            m.set_u32(c + 0xf08 + 12 * i + 4 * k, z0);
+        }
+        m.set_u32(c + 0xee8 + 4 * i, 0);
+        m.set_u32(c + 0xf68 + 4 * i, 0);
+        m.set_u32(c + 0x2690 + 4 * i, 0x3c23d70a);
+        m.set_u32(c + 0x2670 + 4 * i, 0x3f000000);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -135,6 +181,11 @@ mod tests {
                 "vel" => car_set_velocity(&mut m, car, vec, |_, _| checked = true),
                 "ang" => car_set_angular(&mut m, car, vec),
                 "der" => car_derive_velocity(&mut m, car),
+                "pose" => {
+                    let b = unhex(v[2]);
+                    m.write(vec, &b[..48]);
+                    car_set_pose(&mut m, car, u32::from_le_bytes([b[48], b[49], b[50], b[51]]), vec, 0x2a040000)
+                }
                 _ => unreachable!(),
             }
             if checked {

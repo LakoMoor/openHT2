@@ -24,7 +24,7 @@ def val():
 for case in range(400):
     checks.clear()
     e.write(CAR, bytes(0x3c00))
-    kind = ['vel', 'ang', 'der'][case % 3]
+    kind = ['vel', 'ang', 'der', 'pose'][case % 4]
     inp = {}
     for o in IN:
         inp[o] = F(val())
@@ -45,8 +45,18 @@ for case in range(400):
         e.write(CAR + o, F(7.0)); inp[o] = F(7.0)
     vec = F(*[val() * r.choice([1, 20, 100]) for _ in range(3)])
     e.write(VEC, vec)
+    POSEB = F(*[r.uniform(-1.5, 1.5) for _ in range(9)] + [r.uniform(-50, 50) for _ in range(3)])
+    PID = r.randrange(0, 2 ** 32)
+    if kind == 'pose':
+        e.write(VEC, POSEB)
+        vec = POSEB + struct.pack('<I', PID)
+        for k in range(4):
+            e.write(CAR + 0x1844 + 12 * k, F(val(), val(), val()))
+            inp[0x1844 + 12 * k] = e.read(CAR + 0x1844 + 12 * k, 12)
     before = e.read(CAR, 0x3c00)
-    if kind == 'vel':
+    if kind == 'pose':
+        e.call(0x4f0fc0, [PID, VEC], 'ii', this=CAR)
+    elif kind == 'vel':
         e.call(0x4f1dd0, [VEC], 'i', this=CAR)
     elif kind == 'ang':
         e.call(0x4f1e20, [VEC], 'i', this=CAR)
