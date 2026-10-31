@@ -4518,3 +4518,124 @@ mod text_buffer_tests {
         }
     }
 }
+
+/// `0x5506d4..0x551866` of `0x54ff80` (the light-ray block, up to the call of `0x54f040`): glue of the pieces
+/// above with the original's control flow. Exits early (`[scene+0x5028] = 0`) unless `[scene+0x51bc] != 0`, the
+/// record `0x6d2518 + 0x5d0 * [scene+0x28b4]` has its first word set, both `[0x6ef254]` and `[0x6ef258]` are
+/// set, and `scene_light_intensity > 0.4`. Otherwise `scene_light_ray_setup`; a heading outside [1.0472, 2.0944]
+/// builds the first ray set (`points`, `matrices`, `scene_light_loop` on `[0x6ef254]`); then the second set
+/// (`scene_light_ray2_points`; when its heading is in range the block ends, else `matrices` and the loop on
+/// `[0x6ef258]`). `f` is the frame of the function.
+pub fn scene_light_rays(m: &mut Mem, scene: u32, f: u32, owner: &mut impl SceneLightOwner) {
+    let idx = m.u32(scene + 0x28b4);
+    let gate = m.u32(scene + 0x51bc) != 0
+        && m.u32(0x6d2518 + 0x5d0 * idx) != 0
+        && m.u32(0x6ef254) != 0
+        && m.u32(0x6ef258) != 0
+        && scene_light_intensity(m, scene) > 0.4;
+    if !gate {
+        m.set_u32(scene + 0x5028, 0);
+        return;
+    }
+    let (head, take) = scene_light_ray_setup(m, scene, f);
+    if !take {
+        scene_light_ray_points(m, scene, f, head);
+        scene_light_ray_matrices(m, f);
+        scene_light_loop(m, f + 0x90, f + 0x264, 3, 0x6ef254, owner);
+    }
+    if scene_light_ray2_points(m, scene, f) {
+        return;
+    }
+    scene_light_ray2_matrices(m, scene, f);
+    scene_light_loop(m, f + 0x90, f + 0x1d4, 3, 0x6ef258, owner);
+}
+#[cfg(test)]
+mod scene_light_rays_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    struct Bump {
+        next: u32,
+        calls: Vec<(u32, u32)>,
+    }
+    impl SceneLightOwner for Bump {
+        fn allocate(&mut self, _: &mut Mem, size: u32) -> u32 {
+            let a = self.next;
+            self.next += (size + 15) & !15;
+            a
+        }
+        fn register(&mut self, _: &mut Mem, registry: u32, light: u32) {
+            self.calls.push((registry, light));
+        }
+    }
+    const AREAS: [(u32, u32); 6] = [(0x200, 0x2f8), (0x28b0, 0x28b8), (0x2540, 0x2548), (0x5000, 0x5100), (0x51b8, 0x51c0), (0x5440, 0x5460)];
+    #[test]
+    fn native_scene_light_rays() {
+        let (scene, world, clock, rec, flag, p1, p2, reg, heap) =
+            (0x2a01_0000u32, 0x2a04_0000u32, 0x2a05_0000u32, 0x2a03_0000u32, 0x2a03_8000u32, 0x2a06_0000u32, 0x2a06_1000u32, 0x2a06_2000u32, 0x2a80_0000u32);
+        let (mut exact, mut total, mut registered) = (0, 0, 0);
+        for (c, line) in include_str!("../../../tools/emu/golden_scene_light_rays.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let f = u32::from_str_radix(v[0].trim_start_matches("0x"), 16).unwrap();
+            let idx: u32 = v[1].parse().unwrap();
+            let mut m = Mem::new();
+            m.write(f, &bytes(v[2]));
+            let mut at = 0;
+            let areas = bytes(v[3]);
+            for (a, b) in AREAS {
+                m.write(scene + a, &areas[at..at + (b - a) as usize]);
+                at += (b - a) as usize;
+            }
+            m.write(0x6d2518 + 0x5d0 * idx, &bytes(v[4]));
+            m.set_u32(0x6d2078, world);
+            m.write(world + 0x5b4, &bytes(v[5]));
+            let pv = bytes(v[6]);
+            m.write(p1 + 0x24, &pv[..4]);
+            m.write(p2 + 0x24, &pv[4..]);
+            m.write(0x6974a8, &bytes(v[7]));
+            m.write(rec, &bytes(v[8]));
+            m.set_u32(scene + 0x2540, rec);
+            m.set_u32(0x6974c4, clock);
+            m.write(clock + 0xb98, &bytes(v[9]));
+            m.write(flag + 0xc, &bytes(v[10]));
+            m.set_u32(scene + 0x5440 + 0x14, flag);
+            let ptrs = bytes(v[11]);
+            m.set_u32(0x6ef254, if ptrs[0] != 0 { p1 } else { 0 });
+            m.set_u32(0x6ef258, if ptrs[4] != 0 { p2 } else { 0 });
+            m.set_u32(0x69622c, reg);
+            m.write(0x7025f0, &[0, 0, 0x80, 0x3f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0x3f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0x3f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+            m.write(0x702620, &[0, 0, 0, 0, 0, 0, 0x80, 0x3f, 0, 0, 0, 0]);
+            m.write(0x702630, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0x3f]);
+            m.write(0x702640, &[0, 0, 0x80, 0x3f, 0, 0, 0, 0, 0, 0, 0, 0]);
+            m.write(0x702650, &[0; 12]);
+            for (at, s) in [(0x67334cu32, v[17]), (0x68d1c0, v[18])] {
+                m.write(at, &bytes(s));
+                m.wr8(at + bytes(s).len() as u32, 0);
+            }
+            let mut owner = Bump { next: heap, calls: vec![] };
+            scene_light_rays(&mut m, scene, f, &mut owner);
+            let used = v[15].parse::<u32>().unwrap();
+            assert_eq!(owner.next - heap, used, "case {c}: allocated");
+            assert_eq!(m.read(heap, used as usize), bytes(v[14]), "case {c}: heap");
+            let got: Vec<String> = owner.calls.iter().map(|(r, l)| format!("{r:x}/0/{l:x}")).collect();
+            assert_eq!(got.join(","), v[16], "case {c}: registrations");
+            registered += !got.is_empty() as u32;
+            let (mut at, after) = (0, bytes(v[12]));
+            for (a, b) in AREAS {
+                for k in 0..(b - a) {
+                    assert_eq!(m.rd8(scene + a + k), after[at], "case {c}: scene +{:#x}", a + k);
+                    at += 1;
+                }
+            }
+            let want = bytes(v[13]);
+            for i in 0..want.len() / 4 {
+                let (g, w) = (m.u32(f + 4 * i as u32), u32::from_le_bytes(want[i * 4..i * 4 + 4].try_into().unwrap()));
+                total += 1;
+                exact += (g == w) as u32;
+            }
+        }
+        eprintln!("frame words exact {exact} of {total}, {registered} cases with registrations");
+        assert!(registered > 100);
+    }
+}
