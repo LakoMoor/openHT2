@@ -4799,3 +4799,116 @@ mod name_table_tests {
         }
     }
 }
+
+/// `0x54f040` (maneuver chooser, `ecx = scene`), from its start to the list lookup `0x54f2fc`: the gates and the
+/// vectors it works on. `f` is the function's frame (`esp` after its pushes; the offsets are the original's `[esp + X]`).
+/// Returns `false` where the original returns 0, `true` where it goes on (to `0x53f780` at `0x54f303`).
+pub fn maneuver_prologue(m: &mut Mem, scene: u32, f: u32) -> bool {
+    use crate::math::vec_len;
+    let clock = m.f64(m.u32(0x6ef1fc) + 0xb98);
+    // fcompp of the limit `[+0x5088]` against the time since `[+0x5084]`: C0 (limit below, or unordered) / not C0|C3 (limit above)
+    let elapsed = |m: &Mem| clock - m.f32(scene + 0x5084) as f64;
+    let expired = |m: &Mem| !(m.f32(scene + 0x5088) as f64 >= elapsed(m));
+    let waiting = |m: &Mem| m.f32(scene + 0x5088) as f64 > elapsed(m);
+    m.set_u32(scene + 0x5078, 0);
+    if m.u32(scene + 0x507c) != 0 || expired(m) {
+        m.set_u32(scene + 0x5074, 0);
+        m.set_u32(scene + 0x5094, 0);
+        m.set_u32(scene + 0x5098, 0);
+    }
+    m.set_u32(f + 0xb0, 0);
+    m.set_u32(f + 0x30, 0);
+    if m.u32(scene + 0x4c4) == 0 || m.u32(scene + 0x390) == 0 || m.i32(m.u32(0x6cec6c) + 0x514) > 1 || m.u32(scene + 0x184) != 0 {
+        return false;
+    }
+    let obj = world_object_by_id(m, m.u32(scene + 0x414));
+    m.set_u32(f + 0x9c, obj);
+    if obj == 0 {
+        return false;
+    }
+    if m.u32(scene + 0x507c) != 0 && waiting(m) {
+        return false;
+    }
+    m.set_u32(scene + 0x507c, 0);
+    m.set_u32(scene + 0x5088, 0x41200000);
+    let (c0, c1, c2) = (m.f32(0x702620) as f64, m.f32(0x702624) as f64, m.f32(0x702628) as f64);
+    for i in 0..3 {
+        m.set_u32(f + 0x34 + 4 * i, m.u32(obj + 0x1c4 + 4 * i));
+    }
+    // the three projections of the scene's axes on (c0, c1, c2): rows 0x234/0x240/0x24c, 0x238/0x244/0x250, 0x23c/0x248/0x254
+    for (k, (a, b, c)) in [(0x24c, 0x240, 0x234), (0x250, 0x244, 0x238), (0x254, 0x248, 0x23c)].into_iter().enumerate() {
+        let v = (c2 * m.f32(scene + a) as f64 + c1 * m.f32(scene + b) as f64) + c0 * m.f32(scene + c) as f64;
+        m.set_f32(f + 0x58 + 4 * k as u32, v as f32);
+    }
+    m.set_f32(f + 0xbc, vec_len(m, f + 0x34) as f32);
+    object_matrix_copy(m, obj, f + 0x1a8);
+    let mut d = [0f32; 3];
+    for i in 0..3u32 {
+        m.set_u32(f + 0x4c + 4 * i, m.u32(obj + 0x1a0 + 4 * i));
+        d[i as usize] = (m.f32(f + 0x4c + 4 * i) as f64 - m.f32(f + 0x34 + 4 * i) as f64) as f32;
+        m.set_f32(f + [0x84, 0x88, 0x8c][i as usize], d[i as usize]);
+    }
+    m.set_f32(f + 0x20, d[0]);
+    m.set_f32(f + 0x24, d[1]);
+    m.set_f32(f + 0x28, d[2]);
+    let len = vec_len(m, f + 0x20);
+    if len > 100.0 {
+        return false;
+    }
+    if !(len >= 2.0) {
+        return false;
+    }
+    let mut dot = 0.0f64;
+    let mut terms = [0.0f64; 3];
+    for i in 0..3u32 {
+        let (p, q) = (m.f32(f + 0x34 + 4 * i) as f64, m.f32(scene + 0x1d4 + 4 * i) as f64);
+        let (a, b) = (p + q, q - p);
+        if i == 2 {
+            m.set_f32(f + 0x28, b as f32);
+        }
+        terms[i as usize] = a * b;
+    }
+    dot += terms[2] + terms[1];
+    dot += terms[0];
+    if dot > 0.0 {
+        m.set_u32(f + 0xb0, 6);
+    }
+    true
+}
+
+#[cfg(test)]
+mod maneuver_prologue_tests {
+    use super::*;
+    #[test]
+    fn native_maneuver_prologue() {
+        for (c, line) in include_str!("../../../tools/emu/golden_maneuver_prologue.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let bytes = |s: &str| -> Vec<u8> { (0..s.len() / 2).map(|i| u8::from_str_radix(&s[2 * i..2 * i + 2], 16).unwrap()).collect() };
+            // the emulator's addresses (tools/emu/gen_maneuver_prologue.py)
+            let (scene, clock_obj, glb, objs_base, f) = (0x2a01_0000u32, 0x2a03_0000u32, 0x2a03_1000u32, 0x2a04_0000u32, 0x2a05_0000u32);
+            let mut m = Mem::new();
+            let mut at = 0;
+            let sc = bytes(v[2]);
+            for (a, b) in [(0x180u32, 0x264u32), (0x390, 0x398), (0x410, 0x418), (0x4c0, 0x4c8), (0x5070, 0x50a0)] {
+                m.write(scene + a, &sc[at..at + (b - a) as usize]);
+                at += (b - a) as usize;
+            }
+            m.set_u32(0x6ef1fc, clock_obj);
+            m.write(clock_obj + 0xb98, &bytes(v[3]));
+            m.write(0x702620, &bytes(v[4]));
+            m.set_u32(0x6cec6c, glb);
+            m.write(glb + 0x514, &bytes(v[6]));
+            m.write(0x6f653c, &bytes(v[7]));
+            let objs = bytes(v[8]);
+            for i in 0..objs.len() / 0xf0 {
+                m.write(objs_base + 0x1000 * (i as u32 + 1) + 0x170, &objs[0xf0 * i..0xf0 * (i + 1)]);
+            }
+            m.write(f, &bytes(v[1]));
+            let go = maneuver_prologue(&mut m, scene, f);
+            let want_stop: u32 = v[0].parse().unwrap();
+            assert_eq!(go, want_stop == 0, "case {c} stop");
+            assert_eq!(m.read(f, 0x200), bytes(v[10]), "case {c} frame");
+            assert_eq!(m.read(scene + 0x5070, 0x30), bytes(v[11]), "case {c} scene");
+        }
+    }
+}
