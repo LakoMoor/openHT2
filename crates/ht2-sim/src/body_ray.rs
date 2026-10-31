@@ -34,6 +34,31 @@ pub fn segment_cast(m: &mut Mem, a: u32, obj: u32, p0: u32, p1: u32, rec: u32, o
     }
 }
 
+/// `0x4e67f9(a, room, radius, p0, p1, rec)` (cdecl): the record as in `segment_cast` but with `rec[0] = radius`, queried against
+/// the road of `room` (`0x4e6059(room, 6, rec)`, `World::room_collide(0, ..)`). Returns the query's flags when bit 0 is set,
+/// else 0; the hit stays in the room's frame.
+pub fn road_segment_cast(m: &mut Mem, a: u32, room: u32, radius: u32, p0: u32, p1: u32, rec: u32, world: &mut dyn crate::contact::World) -> u32 {
+    for i in 0..12 {
+        let v = m.u32(MAT_IDENTITY + 4 * i);
+        m.set_u32(rec + 4 + 4 * i, v);
+    }
+    for i in 0..3 {
+        let (u, v) = (m.u32(p0 + 4 * i), m.u32(p1 + 4 * i));
+        m.set_u32(rec + 0x4c + 4 * i, u);
+        m.set_u32(rec + 0x58 + 4 * i, v);
+    }
+    m.set_u32(rec, radius);
+    m.set_u32(rec + 0x74, 0);
+    m.set_u32(rec + 0x68, 0);
+    m.set_u32(rec + 0x78, a);
+    let r = world.room_collide(m, 0, room, 6, rec);
+    if r & 1 != 0 {
+        r
+    } else {
+        0
+    }
+}
+
 /// `0x57de90`: where the body keeps its matrix (`+0x1f4`, or `+0x700` while `[+0x5a0] != 0`).
 fn body_matrix(m: &Mem, body: u32) -> u32 {
     if m.u32(body + 0x5a0) != 0 {
@@ -135,5 +160,55 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 300);
+    }
+
+    #[test]
+    fn native_road_segment_cast() {
+        struct W {
+            hit: Vec<u8>,
+            flags: u32,
+            calls: Vec<String>,
+        }
+        impl crate::contact::World for W {
+            fn collide(&mut self, _: &mut Mem, _: u32, _: u32, _: u32) -> u32 {
+                unreachable!()
+            }
+            fn room_collide(&mut self, m: &mut Mem, which: u32, room: u32, mode: u32, rec: u32) -> u32 {
+                assert_eq!(which, 0);
+                let dump: String = m.read(rec, 0x7c).iter().map(|b| format!("{b:02x}")).collect();
+                self.calls.push(format!("{room:x}|{mode:x}|{rec:x}|{dump}"));
+                m.write(rec + 0x34, &self.hit);
+                self.flags
+            }
+        }
+        let base = 0x2a010000u32;
+        let (rec, p0, p1) = (base, base + 0x1000, base + 0x1100);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_road_segment_cast.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            let u = |x: &str| u32::from_str_radix(x, 16).unwrap();
+            m.write(p0, &unhex(v[3]));
+            m.write(p1, &unhex(v[4]));
+            // the record's previous contents are random in the golden, but the function overwrites all words it reads
+            let mut w = W { hit: unhex(v[5]), flags: u(v[6]), calls: vec![] };
+            let rad = u32::from_le_bytes(unhex(v[2]).try_into().unwrap());
+            let r = road_segment_cast(&mut m, u(v[0]), u(v[1]), rad, p0, p1, rec, &mut w);
+            assert_eq!(format!("{r:x}"), v[7], "case {c}");
+            let fin: String = m.read(rec, 0x80).iter().map(|b| format!("{b:02x}")).collect();
+            // compare the words the function writes; the rest of the record was random in the emulator only
+            for (i, (a, b)) in fin.as_bytes().chunks(8).zip(v[8].as_bytes().chunks(8)).enumerate() {
+                let written = matches!(i, 0 | 1..=12 | 0x13..=0x18 | 0x1a | 0x1d | 0x1e) || (0xd..=0x12).contains(&i);
+                if written {
+                    assert_eq!(a, b, "case {c}: rec word {i:x}");
+                }
+            }
+            let head = |x: &str| x.splitn(4, '|').take(2).collect::<Vec<_>>().join("|");
+            assert_eq!(w.calls.len(), 1, "case {c}");
+            assert_eq!(head(&w.calls[0]), head(v[9]), "case {c}: room query");
+            n += 1;
+        }
+        assert_eq!(n, 200);
     }
 }
