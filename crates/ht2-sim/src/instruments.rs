@@ -3963,7 +3963,7 @@ fn clamp_542250(x: f32, lim: f32) -> f64 {
 
 /// `__ftol` (`0x61d830`): truncation through `fistp qword`; out of range and NaN give the low half of the
 /// "integer indefinite" `0x8000000000000000`.
-fn ftol_61d830(v: f64) -> u32 {
+pub(crate) fn ftol_61d830(v: f64) -> u32 {
     if v.is_nan() || v.abs() >= 9.223372036854775808e18 {
         0
     } else {
