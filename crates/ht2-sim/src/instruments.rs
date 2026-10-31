@@ -4639,3 +4639,80 @@ mod scene_light_rays_tests {
         assert!(registered > 100);
     }
 }
+
+/// `0x58d170` (thiscall, one stack argument `out`): the next point of a vehicle's point list. The entries with a
+/// non-null flag at `[this+0xf28+4*i]` (`i < [this+0xdf8]`) count; from the cursor `[this+0xe00]` on, the first
+/// one is copied (12 bytes from `this+0xef8+12*i`) to `out` and the cursor moves past it. When none is left the
+/// cursor is reset to 0 and the result is 0; otherwise the result is the new cursor.
+pub fn vehicle_next_point(m: &mut Mem, this: u32, out: u32) -> u32 {
+    let count = m.i32(this + 0xdf8);
+    let mut i = m.i32(this + 0xe00);
+    if i < count {
+        loop {
+            if m.u32(this.wrapping_add((i as u32).wrapping_mul(4)).wrapping_add(0xf28)) != 0 {
+                let src = this.wrapping_add((i as u32).wrapping_mul(12)).wrapping_add(0xef8);
+                let b = m.read(src, 12);
+                m.write(out, &b);
+                m.set_i32(this + 0xe00, i + 1);
+                return (i + 1) as u32;
+            }
+            i += 1;
+            m.set_i32(this + 0xe00, i);
+            if i >= count {
+                break;
+            }
+        }
+    }
+    m.set_u32(this + 0xe00, 0);
+    0
+}
+
+/// `0x53f7b0`: `p - 0x10` for a vehicle of kind 2 (`[p+0x188] == 2` and `[p+0xdf0] == 2`), else 0.
+pub fn vehicle_second_kind(m: &Mem, p: u32) -> u32 {
+    if p != 0 && m.u32(p + 0x188) == 2 && m.u32(p + 0xdf0) == 2 {
+        p.wrapping_sub(0x10)
+    } else {
+        0
+    }
+}
+
+/// `0x57de90` (thiscall, `out`): the 12-float transform at `this+0x700` when `[this+0x5a0]` is set, else the one
+/// at `this+0x1f4`, copied to `out`.
+pub fn object_matrix_select(m: &mut Mem, this: u32, out: u32) {
+    let src = if m.u32(this + 0x5a0) != 0 { this + 0x700 } else { this + 0x1f4 };
+    let b = m.read(src, 48);
+    m.write(out, &b);
+}
+#[cfg(test)]
+mod small_leaves_tests {
+    use super::*;
+    fn bytes(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+    #[test]
+    fn native_small_leaves() {
+        let (o, d) = (0x2a01_0000u32, 0x2a01_4000u32);
+        for (c, line) in include_str!("../../../tools/emu/golden_small_leaves.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
+            let mut m = Mem::new();
+            m.write(o, &bytes(v[1]));
+            let arg = u32::from_str_radix(v[2], 16).unwrap();
+            let res = match v[0] {
+                "58d170" => vehicle_next_point(&mut m, o, d),
+                "53f7b0" => vehicle_second_kind(&m, arg),
+                _ => {
+                    object_matrix_select(&mut m, o, d);
+                    0
+                }
+            };
+            if v[0] == "53f7b0" {
+                assert_eq!(res, u32::from_str_radix(v[3], 16).unwrap(), "case {c}: result");
+            }
+            if v[0] == "58d170" {
+                assert_eq!(res, u32::from_str_radix(v[3], 16).unwrap(), "case {c}: result");
+            }
+            assert_eq!(m.read(d, 0x40), bytes(v[4]), "case {c} ({}): out", v[0]);
+            assert_eq!(m.read(o + 0xdf8, 12), bytes(v[5]), "case {c} ({}): state", v[0]);
+        }
+    }
+}
