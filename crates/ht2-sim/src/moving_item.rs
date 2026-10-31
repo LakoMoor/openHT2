@@ -49,6 +49,32 @@ pub fn moving_item_set_w(m: &mut Mem, this: u32, vec: u32, report: impl FnOnce(&
     }
 }
 
+/// `0x580ce0` (virtual `+0x88`, `__thiscall`): one integration step with the frame length `d` (`0x4e2749`, full precision):
+/// `+0x1a0 += d * (+0x314, +0x318, +0x31c)` (the x product stays unrounded on the FPU, y and z are stored as `f32` first),
+/// report of `+0x1a0` against 150, `+0xc4c = d * +0x1a0`, `+0xc58 = d * +0x1ac` (each stored as `f32`).
+pub fn moving_item_step(m: &mut Mem, this: u32, report: impl FnOnce(&mut Mem, u32, f32)) {
+    let d = crate::globals::dt_hi(m);
+    let f = |m: &Mem, o: u32| m.f32(this + o) as f64;
+    let a = d * f(m, 0x314);
+    let b = (d * f(m, 0x318)) as f32 as f64;
+    let c = (d * f(m, 0x31c)) as f32 as f64;
+    let x = (a + f(m, 0x1a0)) as f32;
+    let y = (b + f(m, 0x1a4)) as f32;
+    let z = (c + f(m, 0x1a8)) as f32;
+    m.set_f32(this + 0x1a0, x);
+    m.set_f32(this + 0x1a4, y);
+    m.set_f32(this + 0x1a8, z);
+    for i in 0..3 {
+        let v = (d * f(m, 0x1a0 + 4 * i)) as f32;
+        m.set_f32(this + 0xc4c + 4 * i, v);
+    }
+    for i in 0..3 {
+        let v = (d * f(m, 0x1ac + 4 * i)) as f32;
+        m.set_f32(this + 0xc58 + 4 * i, v);
+    }
+    report(m, this + 0x1a0, 150.0);
+}
+
 /// A virtual call `[this->vtable + slot](args)` of the moving item (not ported yet: stand-in owner).
 pub trait ItemVirtuals {
     fn virt(&mut self, m: &mut Mem, this: u32, slot: u32, args: &[u32]);
@@ -132,5 +158,39 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 200);
+    }
+
+    #[test]
+    fn native_moving_item_step() {
+        let this = 0x2a010000u32;
+        let clock = 0x2a030000u32;
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_moving_item_step.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(this + u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            m.write(0x6974c2, &(v[1].parse::<i16>().unwrap()).to_le_bytes());
+            m.set_u32(0x6974c4, clock);
+            m.write(clock + 0xb90, &unhex(v[2]));
+            let before = m.read(this, 0x1000);
+            let reported = std::cell::RefCell::new(String::new());
+            moving_item_step(&mut m, this, |m, p, limit| {
+                *reported.borrow_mut() = format!("{}|{:08x}", m.read(p, 12).iter().map(|b| format!("{b:02x}")).collect::<String>(), limit.to_bits());
+            });
+            let after = m.read(this, 0x1000);
+            let mut diff = vec![];
+            for i in (0..0x1000).step_by(4) {
+                if after[i..i + 4] != before[i..i + 4] {
+                    diff.push(format!("{i:x}:{}", after[i..i + 4].iter().map(|b| format!("{b:02x}")).collect::<String>()));
+                }
+            }
+            assert_eq!(diff.join(","), v[3], "case {c}");
+            assert_eq!(*reported.borrow(), v[4], "case {c}: report");
+            n += 1;
+        }
+        assert_eq!(n, 300);
     }
 }
