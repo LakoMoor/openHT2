@@ -75,6 +75,34 @@ pub fn moving_item_step(m: &mut Mem, this: u32, report: impl FnOnce(&mut Mem, u3
     report(m, this + 0x1a0, 150.0);
 }
 
+/// What `0x580f80` calls outside itself: the basis check `0x58e7f0(matrix, text, 0)` (only logs and range reports, no state
+/// effects as read from the disassembly: stand-in), and the virtuals `[[this+0x20]]+0x24` and `[this]+0x28`.
+pub trait PoseOwner {
+    fn check(&mut self, m: &mut Mem, this: u32, matrix: u32);
+    /// `[node->vtable + 0x24]()` with `ecx = node` (`[this+0x20]`).
+    fn node_notify(&mut self, m: &mut Mem, node: u32);
+    /// `[this->vtable + 0x28](a, b)`.
+    fn apply(&mut self, m: &mut Mem, this: u32, a: u32, b: u32);
+}
+
+/// `0x580f80(matrix, value)` (virtual `+0x90`/`+0x94` of the MovingItem tables, `__thiscall`): check of the basis, then with
+/// the byte `+0x46c` set only the notifications (`apply(0, this+0x46c)`), otherwise the transform of the body node
+/// `[[this+0x20]+0x44]` is set to `matrix` (`0x5f2190`, mode 0), `+0x38 = value` and `apply(value, 0)`.
+pub fn moving_item_pose(m: &mut Mem, this: u32, matrix: u32, value: u32, owner: &mut dyn PoseOwner) {
+    owner.check(m, this, matrix);
+    let node = m.u32(this + 0x20);
+    if m.rd8(this + 0x46c) != 0 {
+        owner.node_notify(m, node);
+        owner.apply(m, this, 0, this + 0x46c);
+        return;
+    }
+    let body = m.u32(node + 0x44);
+    crate::instruments::scene_node_set_transform(m, body, matrix, 0);
+    owner.node_notify(m, node);
+    m.set_u32(this + 0x38, value);
+    owner.apply(m, this, value, 0);
+}
+
 /// A virtual call `[this->vtable + slot](args)` of the moving item (not ported yet: stand-in owner).
 pub trait ItemVirtuals {
     fn virt(&mut self, m: &mut Mem, this: u32, slot: u32, args: &[u32]);
@@ -192,5 +220,44 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 300);
+    }
+
+    #[test]
+    fn native_moving_item_pose() {
+        struct Log(Vec<String>);
+        impl PoseOwner for Log {
+            fn check(&mut self, _: &mut Mem, this: u32, matrix: u32) {
+                self.0.push(format!("chk|{this:x}|{matrix:x}|0"));
+            }
+            fn node_notify(&mut self, _: &mut Mem, node: u32) {
+                self.0.push(format!("24|{node:x}"));
+            }
+            fn apply(&mut self, _: &mut Mem, this: u32, a: u32, b: u32) {
+                self.0.push(format!("28|{this:x}|{a:x}|{b:x}"));
+            }
+        }
+        let base = 0x2a010000u32;
+        let (obj, aux, node, mat) = (base, base + 0x2000, base + 0x8000, base + 0xa000);
+        let hex = |m: &Mem, a: u32, n: u32| (0..n).map(|i| format!("{:02x}", m.rd8(a + i))).collect::<String>();
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_moving_item_pose.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            m.set_u32(obj + 0x20, aux);
+            m.set_u32(aux + 0x44, node);
+            m.wr8(obj + 0x46c, v[0].parse().unwrap());
+            m.write(mat, &unhex(v[1]));
+            let (ob, nb) = (m.read(obj, 0x1000), m.read(node, 0x100));
+            let mut log = Log(vec![]);
+            moving_item_pose(&mut m, obj, mat, u32::from_str_radix(v[2], 16).unwrap(), &mut log);
+            let diff = |b: &[u8], a: &Mem, at: u32| {
+                (0..b.len()).step_by(4).filter(|&i| m.read(at + i as u32, 4) != b[i..i + 4]).map(|i| format!("{i:x}:{}", hex(a, at + i as u32, 4))).collect::<Vec<_>>().join(",")
+            };
+            assert_eq!(diff(&ob, &m, obj), v[3], "case {c}: object");
+            assert_eq!(diff(&nb, &m, node), v[4], "case {c}: node");
+            assert_eq!(log.0.join(";"), v[5], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 200);
     }
 }
