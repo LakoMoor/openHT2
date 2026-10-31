@@ -39,6 +39,7 @@ pub mod game_message;
 pub mod controller;
 pub mod scene_state;
 pub mod instruments;
+pub mod gauges;
 pub mod maneuver;
 pub mod condition;
 pub mod ai_scene;
