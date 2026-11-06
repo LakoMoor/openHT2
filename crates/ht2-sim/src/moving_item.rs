@@ -1636,6 +1636,246 @@ pub fn contact_place(m: &mut Mem, this: u32, rec: u32, out: u32, o: &mut dyn Con
     o.virt(m, this, 0x90, &[fv, 0x67d1b8]);
 }
 
+/// What `0x4e7b4d` calls outside itself (stand-ins): the formatter `0x4e7a19(buf, 300, text, A2, A24, A28)` that builds a diagnostic message
+/// (it only writes its own buffer) and the log `0x4e260c(text)` (`text == 0`: a message built by `sprintf` in the frame).
+pub trait ContactSolveLog {
+    fn format(&mut self, m: &mut Mem, a2: u32, a24: u32, a28: u32);
+    fn log(&mut self, text: u32);
+}
+
+/// `0x4e794f(v)`: limits the length of the vector: above 35 it is scaled to 20 (`(35 - 5) * 0.5 + 5`) (`0x4bdd60`), between 5 and 35 to
+/// `(L - 5) * 0.5 + 5` (scaled by that and divided by `L`, `0x4bdd60` / `0x4e10d0`); up to 5 unchanged.
+pub fn vec_soft_limit(m: &mut Mem, v: u32) {
+    const L: u32 = 0x7ffe_f000 + 0xd000 + 0x2000;
+    let (hi, lo, half) = (35.0f32, 5.0f32, 0.5f32);
+    let len = crate::math::vec_len(m, v) as f32;
+    let mid = ((hi as f64 - lo as f64) * half as f64 + lo as f64) as f32;
+    let copy = |m: &mut Mem, dst: u32, src: u32| {
+        for i in 0..3 {
+            let w = m.u32(src + 4 * i);
+            m.set_u32(dst + 4 * i, w);
+        }
+    };
+    if len > hi {
+        crate::matrix::vec_scale(m, L, v, (mid as f64 / len as f64) as f32);
+        copy(m, v, L);
+    } else if len > lo {
+        let s = ((len as f64 - lo as f64) * half as f64 + lo as f64) as f32;
+        crate::matrix::vec_scale(m, L, v, s);
+        crate::matrix::vec_div_scalar(m, L + 0x10, L, len);
+        copy(m, v, L + 0x10);
+    }
+}
+
+/// `0x4e7b4d(A0, A1, A2, A3, f18, f1c, f20, A24, A28, A2c, out30, out34)` (cdecl, frame `0x1270`): a contact solver between two bodies. The
+/// frame is kept in memory exactly like the original's (every temporary is an `f32` slot, the x87 intermediates between stores are `f64`).
+pub fn contact_solve(m: &mut Mem, a: [u32; 4], f18: f32, f1c: f32, f20: f32, a24: u32, a28: u32, a2c: u32, o30: u32, o34: u32, lg: &mut dyn ContactSolveLog) {
+    use crate::matrix::*;
+    const B: u32 = 0x7ffe_f000 + 0xd000 + 0x1400;
+    let p = |o: i32| (B as i32 + o) as u32;
+    let f = |m: &Mem, o: i32| m.f32((B as i32 + o) as u32) as f64;
+    let st = |m: &mut Mem, o: i32, v: f64| m.set_f32((B as i32 + o) as u32, v as f32);
+    let copy3 = |m: &mut Mem, dst: u32, src: u32| {
+        for i in 0..3 {
+            let w = m.u32(src + 4 * i);
+            m.set_u32(dst + 4 * i, w);
+        }
+    };
+    let (a0, a1, a2, a3) = (a[0], a[1], a[2], a[3]);
+    let (f18, f1c, f20) = (f18 as f64, f1c as f64, f20 as f64);
+    rotate(m, p(-0x44), a28, a2);
+    vec_sub(m, p(-0x120), a0, a2 + 0x24);
+    let dot = vec_dot(m, p(-0x120), p(-0x120));
+    st(m, -0x130, dot);
+    st(m, -0x12c, dot.sqrt());
+    let l = f(m, -0x12c) as f32;
+    vec_div_scalar(m, p(-0xd4), p(-0x120), l);
+    rotate(m, p(-0x188), p(-0xd4), a3);
+    rotate(m, p(-0x15c), a1, a3);
+    vec_cross(m, p(-0x114), a1, p(-0xd4));
+    rotate(m, p(-0x1c), a24, a3);
+    copy3(m, p(-0xc8), 0x702650);
+    vec_cross(m, p(-0x1160), p(-0x15c), p(-0x1c));
+    vec_cross(m, p(-0x104), p(-0x1160), p(-0x15c));
+    vec_cross(m, p(-0x116c), a1, p(-0xd4));
+    vec_unit(m, p(-0x9c), p(-0x116c));
+    vec_cross(m, p(-0x1178), p(-0x15c), p(-0x188));
+    vec_unit(m, p(-0x150), p(-0x1178));
+    rotate(m, p(-0x17c), p(-0x9c), a3);
+    // 0x4e30f4: component-wise product
+    for i in 0..3 {
+        let v = m.f32(a28 + 4 * i) as f64 * m.f32(a2c + 4 * i) as f64;
+        m.set_f32(p(-0x10) + 4 * i, v as f32);
+    }
+    let d = vec_dot(m, p(-0x10), p(-0x17c));
+    st(m, -0x1260, d);
+    vec_scale(m, p(-0x7c), p(-0x17c), d as f32);
+    vec_sub(m, p(-0x144), p(-0x10), p(-0x7c));
+    copy3(m, p(-0x5c), p(-0x144));
+    copy3(m, p(-0xbc), 0x702650);
+    copy3(m, o30, a24);
+    copy3(m, o34, a28);
+    vec_cross(m, p(-0x1184), a28, p(-0x188));
+    vec_scale(m, p(-0x194), p(-0x1184), l);
+    rotate(m, p(-0x1190), p(-0x194), a2);
+    copy3(m, p(-0x194), p(-0x1190));
+    vec_add(m, p(-0x119c), a24, p(-0x194));
+    copy3(m, p(-0x194), p(-0x119c));
+    let d2 = vec_dot(m, p(-0x194), a1);
+    st(m, -0x198, d2);
+    if f(m, -0x198) > 0.0 {
+        return;
+    }
+    let cl = vec_len(m, p(-0x114));
+    st(m, -0xec, cl);
+    let thr = f(m, -0x12c) * 0.02;
+    if thr > f(m, -0xec) {
+        // short cross product: a straight contact
+        let d3 = vec_dot(m, a24, a1);
+        st(m, -0x1d4, d3);
+        st(m, -0x1a8, -f1c * f(m, -0x1d4));
+        vec_cross(m, p(-0x11a8), a1, a24);
+        vec_cross(m, p(-0x1a4), p(-0x11a8), a1);
+        vec_scale(m, p(-0x1d0), a1, f(m, -0x1a8) as f32);
+        vec_add(m, p(-0x11b4), p(-0x1d0), p(-0x1a4));
+        copy3(m, o30, p(-0x11b4));
+        let d4 = vec_dot(m, a28, p(-0x188));
+        st(m, -0x1264, d4);
+        vec_scale(m, p(-0x1b8), p(-0x188), d4 as f32);
+        vec_sub(m, p(-0x1c4), a28, p(-0x1b8));
+        st(m, -0x1ac, (f(m, -0x1a8) - f(m, -0x1d4)) * f18);
+        if f(m, -0x1ac) > 0.0 {
+            let len = vec_len(m, p(-0x5c));
+            st(m, -0x1e4, len);
+            st(m, -0x1e8, f(m, -0x1ac) * f20);
+            if f(m, -0x1e8) > f(m, -0x1e4) {
+                st(m, -0x1e4, 0.0);
+            } else {
+                let v = (f(m, -0x1e4) - f(m, -0x1e8)) / f(m, -0x1e4);
+                st(m, -0x1e4, v);
+            }
+            vec_scale_in_place(m, p(-0x5c), p(-0x11c0), f(m, -0x1e4) as f32);
+            copy3(m, p(-0xbc), p(-0x7c));
+            vec_add(m, p(-0x1e0), p(-0xbc), p(-0x5c));
+            let v = [m.f32(p(-0x1e0)), m.f32(p(-0x1e0) + 4), m.f32(p(-0x1e0) + 8)];
+            let r = crate::math::vec_div(m, p(-0x11cc), v, a2c);
+            copy3(m, o34, r);
+        } else {
+            st(m, -0x1ac, f(m, -0x1ac) - 0.1);
+        }
+        return;
+    }
+    // the general case
+    let c1 = vec_dot(m, p(-0x1c), p(-0x15c));
+    st(m, -0x170, c1);
+    let c2 = vec_dot(m, p(-0x7c), p(-0x17c));
+    st(m, -0x70, c2);
+    vec_cross(m, p(-0x11d8), p(-0x188), p(-0x15c));
+    let c3 = vec_len(m, p(-0x11d8));
+    st(m, -0x134, c3);
+    st(m, -0x38, f18 * f(m, -0x12c) * f(m, -0x134));
+    st(m, -0x6c, f18 * 0.5);
+    st(m, -0x50, f(m, -0x170) * f(m, -0x38) + f(m, -0x70));
+    let r = crate::math::vec_div(m, p(-0x11e4), [m.f32(p(-0x17c)), m.f32(p(-0x17c) + 4), m.f32(p(-0x17c) + 8)], a2c);
+    let d5 = vec_dot(m, p(-0x17c), r);
+    st(m, -0x88, d5 * 0.5);
+    if !(f(m, -0x88) > 0.0) {
+        lg.format(m, a2, a24, a28);
+        copy3(m, o30, a24);
+        copy3(m, o34, a28);
+        return;
+    }
+    st(m, -0x138, f(m, -0x170) * f(m, -0x170) * f(m, -0x6c));
+    st(m, -0x4c, f(m, -0x70) * f(m, -0x70) * f(m, -0x88));
+    st(m, -0xe8, f(m, -0x138) + f(m, -0x4c));
+    m.set_f32(p(-0x128), f1c as f32);
+    st(m, -0x68, f(m, -0x38) * f(m, -0x50) * f(m, -0x88));
+    st(m, -0x84, f(m, -0x88) * f(m, -0x38) * f(m, -0x38) + f(m, -0x6c));
+    st(m, -0xa8, f(m, -0x6c) * f(m, -0x88) * f(m, -0x50) * f(m, -0x50));
+    let den = f(m, -0x84) * f(m, -0xe8);
+    if den != 0.0 && !den.is_nan() {
+        st(m, -0x128, f(m, -0xa8) / den);
+    }
+    let c128 = f(m, -0x128);
+    if !(c128 > 1.01) && !(c128 < 0.0 || c128.is_nan()) {
+    } else {
+        lg.log(0);
+        m.set_u32(p(-0x128), 0x3f80_0000);
+        lg.log(0x673f88);
+    }
+    // [ebp-0x124] is a constant zero: the square root below is of 0
+    m.set_u32(p(-0x124), 0);
+    st(m, -0x90, (f(m, -0x124)).sqrt());
+    st(m, -0x48, (f(m, -0x68) + f(m, -0x90)) / f(m, -0x84));
+    st(m, -0x64, (f(m, -0x68) - f(m, -0x90)) / f(m, -0x84));
+    st(m, -0xe4, f(m, -0x50) - f(m, -0x48) * f(m, -0x38));
+    st(m, -0xf8, f(m, -0x50) - f(m, -0x64) * f(m, -0x38));
+    let c170d = f(m, -0x170);
+    let r = crate::math::vec_div(m, p(-0x11f0), [m.f32(p(-0x17c)), m.f32(p(-0x17c) + 4), m.f32(p(-0x17c) + 8)], a2c);
+    vec_scale(m, p(-0x11fc), r, f(m, -0x70) as f32);
+    vec_cross(m, p(-0x1208), p(-0x11fc), p(-0x188));
+    vec_scale(m, p(-0x1214), p(-0x1208), f(m, -0x12c) as f32);
+    let d6 = vec_dot(m, p(-0x1214), p(-0x15c));
+    st(m, -0x8c, d6 + c170d);
+    st(m, -0xa4, (f(m, -0xe4) * f(m, -0x88)) * 2.0 * f(m, -0x12c) + f(m, -0x48));
+    st(m, -0xb0, f(m, -0x64) - (f(m, -0xf8) * f(m, -0x88)) * 2.0 * f(m, -0x12c));
+    st(m, -0xf4, f(m, -0x48) * f(m, -0x48) * f(m, -0x6c) + f(m, -0xe4) * f(m, -0xe4) * f(m, -0x88));
+    st(m, -0x108, f(m, -0x64) * f(m, -0x64) * f(m, -0x6c) + f(m, -0xf8) * f(m, -0xf8) * f(m, -0x88));
+    let c48 = m.u32(p(-0x48));
+    m.set_u32(p(-4), c48);
+    st(m, -0xac, f(m, -0x50) - f(m, -4) * f(m, -0x38));
+    st(m, -0xa0, (f(m, -4) - f(m, -0x170)) * f18);
+    if f(m, -0xa0) > 0.0 {
+        let len = vec_len(m, p(-0x5c));
+        st(m, -0x1128, len);
+        st(m, -0x112c, f(m, -0xa0) * f20);
+        if !(f(m, -0x112c) >= f(m, -0x1128)) {
+            if f(m, -0x1128) != 0.0 && !f(m, -0x1128).is_nan() {
+                let v = (f(m, -0x1128) - f(m, -0x112c)) / f(m, -0x1128);
+                st(m, -0x1128, v);
+            }
+        } else {
+            st(m, -0x1128, 0.0);
+        }
+        vec_scale_in_place(m, p(-0x5c), p(-0x1220), f(m, -0x1128) as f32);
+    }
+    vec_scale(m, p(-0x122c), p(-0x15c), f(m, -4) as f32);
+    copy3(m, p(-0xc8), p(-0x122c));
+    vec_scale(m, p(-0x1238), p(-0x17c), f(m, -0xac) as f32);
+    copy3(m, p(-0xbc), p(-0x1238));
+    vec_add(m, p(-0x34), p(-0xc8), p(-0x104));
+    vec_add(m, p(-0x28), p(-0xbc), p(-0x5c));
+    rotate(m, p(-0x16c), p(-0x34), a2);
+    crate::math::vec_div(m, p(-0xe0), [m.f32(p(-0x28)), m.f32(p(-0x28) + 4), m.f32(p(-0x28) + 8)], a2c);
+    let t1 = vec_dot(m, p(-0xc8), p(-0xc8));
+    st(m, -0x160, t1 * f(m, -0x6c));
+    let t2 = vec_dot(m, p(-0xbc), p(-0xbc));
+    st(m, -0x60, t2 * f(m, -0x88));
+    st(m, -0xf0, f(m, -0x160) + f(m, -0x60));
+    m.set_u32(p(-0x80), 0x3f80_0000);
+    if f(m, -0xe8) > 0.0 {
+        st(m, -0x80, f(m, -0xf0) / f(m, -0xe8));
+        if f(m, -0x80) > 1.01 {
+            lg.log(0x673fac);
+        }
+    }
+    vec_cross(m, p(-0x1244), p(-0xe0), p(-0x188));
+    vec_scale(m, p(-0x1138), p(-0x1244), f(m, -0x12c) as f32);
+    rotate(m, p(-0x1150), p(-0x1138), a2);
+    vec_add(m, p(-0x1144), p(-0x16c), p(-0x1150));
+    let d7 = vec_dot(m, p(-0x1144), a1);
+    st(m, -0x1154, d7);
+    if f(m, -0x1154) < 0.0 || f(m, -0x1154).is_nan() {
+        st(m, -0x1270, f(m, -0x1154) - 0.01);
+        vec_scale(m, p(-0x1250), a1, f(m, -0x1270) as f32);
+        vec_sub_in_place(m, p(-0x16c), p(-0x125c), p(-0x1250));
+        st(m, -0x1154, f(m, -0x1154) * 1.01);
+    }
+    vec_soft_limit(m, p(-0xe0));
+    copy3(m, o30, p(-0x16c));
+    copy3(m, o34, p(-0xe0));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2693,5 +2933,50 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 500);
+    }
+
+    struct CsTest {
+        ev: Vec<String>,
+    }
+    impl ContactSolveLog for CsTest {
+        fn format(&mut self, m: &mut Mem, a2: u32, a24: u32, a28: u32) {
+            self.ev.push(format!("fmt|673ddc|{}|{}|{}", hx(m, a2, 48), hx(m, a24, 12), hx(m, a28, 12)));
+        }
+        fn log(&mut self, text: u32) {
+            self.ev.push(format!("log|{text:x}"));
+        }
+    }
+    #[test]
+    fn native_contact_solve() {
+        let (inp, out) = (0x2a010000u32, 0x2a011000u32);
+        let (a0, a1, a2, a3, a24, a28, a2c, o30, o34) = (inp, inp + 0x10, inp + 0x20, inp + 0x60, inp + 0xa0, inp + 0xb0, inp + 0xc0, out, out + 0x10);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_contact_solve.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            m.set_u32(0x702650, 0);
+            m.set_u32(0x702654, 0);
+            m.set_u32(0x702658, 0);
+            let fl = |s: &str| f32::from_bits(u32::from_str_radix(&s.as_bytes().chunks(2).rev().map(|b| std::str::from_utf8(b).unwrap()).collect::<String>(), 16).unwrap());
+            let i0 = m.read(inp, 0x200);
+            let mut ow = CsTest { ev: vec![] };
+            contact_solve(&mut m, [a0, a1, a2, a3], fl(v[1]), fl(v[2]), fl(v[3]), a24, a28, a2c, o30, o34, &mut ow);
+            let i1 = m.read(inp, 0x200);
+            let d: String = (0..0x200)
+                .step_by(4)
+                .filter(|&i| i0[i..i + 4] != i1[i..i + 4])
+                .map(|i| format!("{:x}:{}", i, i1[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                .collect::<Vec<_>>()
+                .join(",");
+            assert_eq!(d, v[4], "case {c}: inputs");
+            assert_eq!(hx(&m, out, 0x20), v[5], "case {c}: outputs");
+            assert_eq!(ow.ev.join(";"), v[6], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 800);
     }
 }
