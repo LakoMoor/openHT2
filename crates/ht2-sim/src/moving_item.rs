@@ -280,6 +280,32 @@ pub fn moving_item_reset_step(m: &mut Mem, this: u32, flags: u32, owner: &mut dy
     owner.virt(m, this, 0x74, &[]);
 }
 
+/// `0x4e2fb4(mat, o1..o6)` (cdecl): `0x5de950` on the matrix at `mat`; the six doubles (position, three angles) are stored as `f32`
+/// through the output pointers.
+pub fn matrix_pose_f32(m: &mut Mem, mat: u32, outs: [u32; 6]) {
+    let t: [f32; 12] = core::array::from_fn(|i| m.f32(mat + 4 * i as u32));
+    let d = 0x7ffe_f000u32 + 0xd00;
+    crate::chassis::fn_005de950(m, t, d, d + 8, d + 16, d + 24, d + 32, d + 40);
+    for (i, o) in outs.iter().enumerate() {
+        let v = m.f64(d + 8 * i as u32) as f32;
+        m.set_f32(*o, v);
+    }
+}
+
+/// `0x5818d0(a, b, m2, out_pos, out_ang)` (cdecl): `out_pos = a.t - b.t` (`f32` per component) and the angles of `a * m2`
+/// (`0x5aba40`, `0x4e2fb4`): `out_ang = (-p17, p18, p16)` with `p16..p18` the angles of `0x5de950`.
+pub fn pose_delta(m: &mut Mem, a: u32, b: u32, m2: u32, out_pos: u32, out_ang: u32) {
+    for k in 0..3u32 {
+        let v = (m.f32(a + 0x24 + 4 * k) as f64 - m.f32(b + 0x24 + 4 * k) as f64) as f32;
+        m.set_f32(out_pos + 4 * k, v);
+    }
+    let (tmp, junk) = (0x7ffe_f000u32 + 0xe00, 0x7ffe_f000u32 + 0xe40);
+    crate::matrix::mat_mul(m, tmp, a, m2);
+    matrix_pose_f32(m, tmp, [junk, junk + 4, junk + 8, out_ang + 8, out_ang, out_ang + 4]);
+    let x = m.f32(out_ang);
+    m.set_f32(out_ang, -x);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -554,6 +580,27 @@ mod tests {
                 .collect();
             assert_eq!(diff.join(","), v[2], "case {c}");
             assert_eq!(log.0.join(";"), v[3], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 300);
+    }
+    #[test]
+    fn native_pose_delta() {
+        let base = 0x2a010000u32;
+        let at = |i: u32| base + 0x1000 * i;
+        let (a, b, m2, op, oa) = (at(0), at(1), at(2), at(3), at(4));
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_pose_delta.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            m.write(a, &unhex(v[0]));
+            m.write(b, &unhex(v[1]));
+            m.write(m2, &unhex(v[2]));
+            pose_delta(&mut m, a, b, m2, op, oa);
+            let hex = |p: u32| m.read(p, 12).iter().map(|x| format!("{x:02x}")).collect::<String>();
+            assert_eq!(hex(op), v[3], "case {c}: pos");
+            assert_eq!(hex(oa), v[4], "case {c}: angles");
             n += 1;
         }
         assert_eq!(n, 300);
