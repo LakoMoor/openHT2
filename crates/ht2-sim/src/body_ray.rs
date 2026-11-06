@@ -289,6 +289,116 @@ pub fn body_contact_record(m: &mut Mem, a0: u32, a1: u32, set: u32, body: u32, o
     1
 }
 
+/// `0x4e774a(obj, rad, p0, p1, rec)` (cdecl): as `probe_cast_local` but `rec[0] = rad`, virtual kind 6, and any non-zero result
+/// (not only bit 0) is brought to the node frame; the raw result is returned.
+fn probe_cast_swept(m: &mut Mem, obj: u32, rad: u32, p0: u32, p1: u32, rec: u32, owner: &mut dyn ProbeOwner) -> u32 {
+    if obj == 0 {
+        return 0;
+    }
+    for i in 0..12 {
+        let v = m.u32(MAT_IDENTITY + 4 * i);
+        m.set_u32(rec + 4 + 4 * i, v);
+    }
+    for i in 0..3 {
+        let (u, v) = (m.u32(p0 + 4 * i), m.u32(p1 + 4 * i));
+        m.set_u32(rec + 0x4c + 4 * i, u);
+        m.set_u32(rec + 0x58 + 4 * i, v);
+    }
+    m.set_u32(rec + 0x74, 0);
+    m.set_u32(rec + 0x68, 0);
+    m.set_u32(rec, rad);
+    m.set_u32(rec + 0x64, 0);
+    let r = owner.cast(m, obj, 6, rec);
+    if r != 0 {
+        query_to_local(m, rec, SCRATCH, SCRATCH + 0x100);
+    }
+    r
+}
+
+/// `0x584c70(a0*, a1*, rad, set, body, mult)` (cdecl): the swept variant of `body_contact_record` (`0x584820`): the cast carries
+/// the radius `rad` (sphere mode 2 / `0x4e774a`), the flag is `(hit & 1) * mult`, and on a hit the stored point is moved along the
+/// normal by `rad` (the sphere centre); the distance and the scale are then computed from that centre, and the scale takes the
+/// sign of the distance (negative when it is below 0).
+pub fn body_contact_record_swept(m: &mut Mem, a0: u32, a1: u32, rad: u32, set: u32, body: u32, mult: u32, owner: &mut dyn ProbeOwner) -> u32 {
+    let (q, vol, data, c0, c1) = (SCRATCH + 0x600, SCRATCH + 0x700, SCRATCH + 0x720, SCRATCH + 0x740, SCRATCH + 0x750);
+    query_record_init(m, q);
+    let mode = m.u32(body + 0x188);
+    let hit;
+    if mode == 1 || (mode == 2 && m.u32(body + 0xf88) == 3) {
+        hit = probe_cast_swept(m, body + 0x100, rad, a0, a1, q, owner);
+    } else {
+        let mat = body_matrix(m, body);
+        let f = |m: &Mem, a: u32| m.f32(a) as f64;
+        let (x, y, z) = (f(m, body + 0xd78), f(m, body + 0xd7c), f(m, body + 0xd80));
+        let px = ((f(m, mat + 0xc) * y + f(m, mat + 0x18) * z) + x * f(m, mat)) + f(m, mat + 0x24);
+        let py = ((f(m, mat + 0x10) * y + f(m, mat + 0x1c) * z) + x * f(m, mat + 4)) + f(m, mat + 0x28);
+        let pz = ((f(m, mat + 0x14) * y + f(m, mat + 0x20) * z) + x * f(m, mat + 8)) + f(m, mat + 0x2c);
+        m.set_u32(data, (px as f32).to_bits());
+        m.set_u32(data + 4, (py as f32).to_bits());
+        m.set_u32(data + 8, (pz as f32).to_bits());
+        let r = m.u32(body + 0xcd4);
+        m.set_u32(data + 12, r);
+        m.set_u32(vol, 1);
+        m.set_u32(vol + 8, data);
+        for k in 0..3 {
+            let (u, v) = (m.u32(a0 + 4 * k), m.u32(a1 + 4 * k));
+            m.set_u32(c0 + 4 * k, u);
+            m.set_u32(c1 + 4 * k, v);
+        }
+        let r = crate::shape::fn_005f6820(m, vol, 2, c0, c1, f32::from_bits(rad));
+        for k in 0..3 {
+            let (u, v) = (m.u32(c0 + 4 * k), m.u32(c1 + 4 * k));
+            m.set_u32(q + 0x34 + 4 * k, u);
+            m.set_u32(q + 0x40 + 4 * k, v);
+        }
+        m.set_u32(q + 0x74, 0);
+        hit = (r != 0) as u32;
+    }
+    let n = m.u32(set + 0xb00);
+    let flag = (hit & 1).wrapping_mul(mult);
+    m.set_u32(set + 0xb04 + 4 * n, flag);
+    m.set_u32(set + 0x800 + 4 * n, 0x3f80_0000);
+    if flag == 0 {
+        return 0;
+    }
+    m.set_u32(set + 0x800 + 4 * n, 0);
+    for k in 0..3 {
+        let h = m.u32(q + 0x34 + 4 * k);
+        m.set_u32(set + 12 * n + 4 * k, h);
+        let nv = m.f32(q + 0x40 + 4 * k);
+        m.set_u32(set + 0x300 + 12 * n + 4 * k, (-nv).to_bits());
+    }
+    m.set_u32(set + 0x600 + 4 * n, 0);
+    let f = |m: &Mem, a: u32| m.f32(a) as f64;
+    let rr = f32::from_bits(rad) as f64;
+    let (hx, hy, hz) = (f(m, q + 0x34), f(m, q + 0x38), f(m, q + 0x3c));
+    let (nx, ny, nz) = (f(m, q + 0x40), f(m, q + 0x44), f(m, q + 0x48));
+    let r32 = |v: f64| v as f32 as f64;
+    let (cx, cy, cz) = (r32(hx + nx * rr), r32(r32(ny * rr) + hy), r32(r32(nz * rr) + hz));
+    let (ex, ey, ez) = (f(m, q + 0x58), f(m, q + 0x5c), f(m, q + 0x60));
+    let (b0, b1) = ([f(m, a0), f(m, a0 + 4), f(m, a0 + 8)], [f(m, a1), f(m, a1 + 4), f(m, a1 + 8)]);
+    let (v30, v34, ezd) = (r32(ex - b0[0]), r32(ey - b0[1]), ez - b0[2]);
+    let (h10, h14, h18) = (r32(cx - b0[0]), r32(cy - b0[1]), r32(cz - b0[2]));
+    let (ax, by, cz2) = (cx - b1[0], cy - b1[1], cz - b1[2]);
+    let dist = ((by * ny + cz2 * nz) + ax * nx) as f32;
+    m.set_u32(set + 0xa00 + 4 * n, dist.to_bits());
+    let d1 = r32((v30 * v30 + v34 * v34) + ezd * ezd);
+    let d2 = r32((h10 * h10 + h14 * h14) + h18 * h18);
+    if !(d2 > d1) && d1 >= 1e-5 {
+        let mut ratio = d2 / d1;
+        if ratio > 1.0 {
+            ratio = 1.0;
+        }
+        let mut scale = ratio.sqrt() as f32;
+        if !(dist >= 0.0) {
+            scale = -scale;
+        }
+        m.set_u32(set + 0x800 + 4 * n, scale.to_bits());
+    }
+    m.set_u32(set + 0xb00, n + 1);
+    1
+}
+
 /// `0x5843c0(body, target, ratio, distance, rec)` (cdecl, `f32*` for `ratio` and `distance`): casts from the body position to
 /// `target + 0x24` through the room object (`[+0x320]`, or `[+0x7f0]` while `[+0x5a0] != 0`). Returns 0 on a miss, 2 (and
 /// `*ratio = 0`) when either squared length is below 1e-6, else 1 with `*distance = n . (hit - end)` and
@@ -597,6 +707,60 @@ mod tests {
             assert_eq!(format!("{r:x}"), v[11], "case {c}: result");
             assert_eq!(diff.join(","), v[12], "case {c}: set");
             let want: Vec<&str> = v[13].split(';').filter(|e| e.starts_with("cast")).collect();
+            assert_eq!(o.calls.len(), want.len(), "case {c}: calls");
+            n += 1;
+        }
+        assert_eq!(n, 500);
+    }
+
+    #[test]
+    fn native_body_contact_record_swept() {
+        struct Stub {
+            mat: Vec<u8>,
+            pn: Vec<u8>,
+            flags: u32,
+            calls: Vec<String>,
+        }
+        impl ProbeOwner for Stub {
+            fn cast(&mut self, m: &mut Mem, owner: u32, kind: u32, q: u32) -> u32 {
+                let d: String = m.read(q, 0x7c).iter().map(|b| format!("{b:02x}")).collect();
+                self.calls.push(format!("cast|{owner:x}|{kind:x}|{d}"));
+                m.write(q + 4, &self.mat);
+                m.write(q + 0x34, &self.pn);
+                self.flags
+            }
+            fn set_case(&mut self, _: &mut Mem, _: u32, _: i32) {}
+        }
+        let base = 0x2a010000u32;
+        let at = |i: u32| base + 0x2000 * i;
+        let (body, set, a0, a1) = (at(0), at(1), at(2), at(3));
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_contact_record2.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            for it in v[3].split(',') {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(body + u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            m.write(body + if v[2] == "1" { 0x700 } else { 0x1f4 }, &unhex(v[4]));
+            m.set_u32(body + 0x100, at(5));
+            m.write(a0, &unhex(v[5]));
+            m.write(a1, &unhex(v[6]));
+            m.set_u32(set + 0xb00, v[10].parse().unwrap());
+            let before = m.read(set, 0x1000);
+            let mut o = Stub { mat: unhex(v[7]), pn: unhex(v[8]), flags: u32::from_str_radix(v[9], 16).unwrap(), calls: vec![] };
+            let hx = |i: usize| u32::from_str_radix(v[i], 16).unwrap();
+            let r = body_contact_record_swept(&mut m, a0, a1, hx(11), set, body, hx(12), &mut o);
+            let after = m.read(set, 0x1000);
+            let diff: Vec<String> = (0..0x1000)
+                .step_by(4)
+                .filter(|&i| after[i..i + 4] != before[i..i + 4])
+                .map(|i| format!("{i:x}:{}", after[i..i + 4].iter().map(|b| format!("{b:02x}")).collect::<String>()))
+                .collect();
+            assert_eq!(format!("{r:x}"), v[13], "case {c}: result");
+            assert_eq!(diff.join(","), v[14], "case {c}: set");
+            let want: Vec<&str> = v[15].split(';').filter(|e| e.starts_with("cast")).collect();
             assert_eq!(o.calls.len(), want.len(), "case {c}: calls");
             n += 1;
         }
