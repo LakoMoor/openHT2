@@ -1876,6 +1876,73 @@ pub fn contact_solve(m: &mut Mem, a: [u32; 4], f18: f32, f1c: f32, f20: f32, a24
     copy3(m, o34, p(-0xe0));
 }
 
+/// What `0x580a00` calls outside itself (stand-ins): the virtuals `+0x90(vec, text)` / `+0x94(vec, text)` of the body (`ItemVirtuals`) and
+/// the logs of the solver `0x4e7b4d` (`ContactSolveLog`).
+pub trait ContactResponseOwner: ItemVirtuals + ContactSolveLog {}
+impl<T: ItemVirtuals + ContactSolveLog> ContactResponseOwner for T {}
+
+/// `0x580a00(body, A0, n)` (cdecl): the contact response of a body. The solver `0x4e7b4d(A0, n, matrix, inverse, [+0xcc4], [+0x594], 1.0,
+/// v1 [+0x1a0], v2 [+0x1ac], k [+0xcd8], out30, out34)` is run on the body matrix (`+0xc64`) and its inverse (`0x5ac2e0`). With `O = out30`,
+/// `W = ((|n . (O - v1)| * [+0xcc4]) * 2) / [+0xcc4]`, `e = (O x n) x n`, `X = max(|e| - W, 0)` and the unit `e` the vector
+/// `(n . O) * n + X * unit(e)` goes to the virtual `+0x90(vec, 0x67d470)`; `out34` goes to `+0x94(vec, 0x67d458)`. The frame is kept in
+/// memory as the original keeps it (x87 intermediates stay unrounded between stores).
+pub fn contact_response(m: &mut Mem, body: u32, a1: u32, n: u32, o: &mut dyn ContactResponseOwner) {
+    use crate::matrix::*;
+    const S: u32 = 0x7ffe_f000 + 0xd000 + 0x3000;
+    let p = |off: u32| S + off;
+    let f = |m: &Mem, a: u32| m.f32(a) as f64;
+    let copy = |m: &mut Mem, dst: u32, src: u32, k: u32| {
+        for i in 0..k {
+            let w = m.u32(src + 4 * i);
+            m.set_u32(dst + 4 * i, w);
+        }
+    };
+    copy(m, p(0x8c), body + 0xc64, 12);
+    crate::math::mat_inverse(m, p(0xbc), p(0x8c));
+    copy(m, p(0xc), body + 0xcc4, 1);
+    copy(m, p(0x2c), body + 0x1a0, 3);
+    copy(m, p(0x80), body + 0x1ac, 3);
+    copy(m, p(0x74), body + 0xcd8, 3);
+    for off in [0x10, 0x14, 0x18, 0x38, 0x3c, 0x40] {
+        m.set_u32(p(off), 0);
+    }
+    let (f18, f1c) = (m.f32(p(0xc)), m.f32(body + 0x594));
+    contact_solve(m, [a1, n, p(0x8c), p(0xbc)], f18, f1c, 1.0, p(0x2c), p(0x80), p(0x74), p(0x10), p(0x38), o);
+    let (nx, ny, nz) = (f(m, n), f(m, n + 4), f(m, n + 8));
+    let (ox, oy, oz) = (f(m, p(0x10)), f(m, p(0x14)), f(m, p(0x18)));
+    let (dx, dy, dz) = (ox - f(m, p(0x2c)), oy - f(m, p(0x30)), oz - f(m, p(0x34)));
+    let dd = ((nz * dz + nx * dx) + ny * dy).abs();
+    let fc = f(m, p(0xc));
+    m.set_f32(p(0xc), (((dd * fc) + (dd * fc)) / fc) as f32);
+    let wd = ((nz * oz + nx * ox) + ny * oy) as f32 as f64;
+    m.set_f32(p(0x28), wd as f32);
+    let (c0, c1, c2) = (oz * ny - oy * nz, ox * nz - oz * nx, oy * nx - ox * ny);
+    let (e0, e1, e2) = ((c1 * nz - c2 * ny) as f32, (c2 * nx - c0 * nz) as f32, (c0 * ny - c1 * nx) as f32);
+    m.set_f32(p(0x44), e0);
+    m.set_f32(p(0x48), e1);
+    m.set_f32(p(0x4c), e2);
+    let len = crate::math::vec_len(m, p(0x44)) - f(m, p(0xc));
+    m.set_f32(p(0xc), len as f32);
+    if len < 0.0 || len.is_nan() {
+        m.set_u32(p(0xc), 0);
+    }
+    vec_unit(m, p(0x50), p(0x44));
+    let x = f(m, p(0xc));
+    let gx = f(m, p(0x50)) * x;
+    m.set_f32(p(0x60), (f(m, p(0x54)) * x) as f32);
+    m.set_f32(p(0x64), (f(m, p(0x58)) * x) as f32);
+    m.set_f32(p(0x6c), (wd * ny) as f32);
+    m.set_f32(p(0x70), (wd * nz) as f32);
+    let hx = (wd * nx + gx) as f32;
+    let hy = (f(m, p(0x60)) + f(m, p(0x6c))) as f32;
+    let hz = (f(m, p(0x64)) + f(m, p(0x70))) as f32;
+    m.set_f32(p(0x10), hx);
+    m.set_f32(p(0x14), hy);
+    m.set_f32(p(0x18), hz);
+    o.virt(m, body, 0x90, &[p(0x10), 0x67d470]);
+    o.virt(m, body, 0x94, &[p(0x38), 0x67d458]);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2975,6 +3042,56 @@ mod tests {
             assert_eq!(d, v[4], "case {c}: inputs");
             assert_eq!(hx(&m, out, 0x20), v[5], "case {c}: outputs");
             assert_eq!(ow.ev.join(";"), v[6], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 800);
+    }
+
+    struct CrTest {
+        ev: Vec<String>,
+    }
+    impl ItemVirtuals for CrTest {
+        fn virt(&mut self, m: &mut Mem, _this: u32, slot: u32, args: &[u32]) {
+            let nm = if slot == 0x90 { "v90" } else { "v94" };
+            self.ev.push(format!("{nm}|{}|{:x}", hx(m, args[0], 12), args[1]));
+        }
+    }
+    impl ContactSolveLog for CrTest {
+        fn format(&mut self, m: &mut Mem, a2: u32, a24: u32, a28: u32) {
+            self.ev.push(format!("fmt|673ddc|{}|{}|{}", hx(m, a2, 48), hx(m, a24, 12), hx(m, a28, 12)));
+        }
+        fn log(&mut self, text: u32) {
+            self.ev.push(format!("log|{text:x}"));
+        }
+    }
+    #[test]
+    fn native_contact_response() {
+        let (body, arg) = (0x2a010000u32, 0x2a013000u32);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_contact_a00.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            for i in 0..3 {
+                m.set_u32(0x702650 + 4 * i, 0);
+            }
+            let (b0, a0) = (m.read(body, 0x1000), m.read(arg, 0x40));
+            let mut ow = CrTest { ev: vec![] };
+            contact_response(&mut m, body, arg, arg + 0x10, &mut ow);
+            let d = |a: &[u8], b: &[u8]| -> String {
+                (0..a.len())
+                    .step_by(4)
+                    .filter(|&i| a[i..i + 4] != b[i..i + 4])
+                    .map(|i| format!("{:x}:{}", i, b[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            };
+            assert_eq!(d(&b0, &m.read(body, 0x1000)), v[1], "case {c}: body");
+            assert_eq!(d(&a0, &m.read(arg, 0x40)), v[2], "case {c}: args");
+            assert_eq!(ow.ev.join(";"), v[3], "case {c}: events");
             n += 1;
         }
         assert_eq!(n, 800);
