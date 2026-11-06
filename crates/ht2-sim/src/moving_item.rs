@@ -947,6 +947,171 @@ pub fn segment_box_test(m: &mut Mem, body: u32, p: u32, q: u32) -> u32 {
     1
 }
 
+/// `0x58d1f0(out)` (thiscall, `ret 4`): the next 28-byte record of the list at `+0xf94` (count `+0x140c`, index `+0x1410`) goes to
+/// `out`; returns the 1-based index, or 0 (and the index is reset) at the end.
+pub fn record_iter_next(m: &mut Mem, this: u32, out: u32) -> u32 {
+    let (i, n) = (m.i32(this + 0x1410), m.i32(this + 0x140c));
+    if i >= n {
+        m.set_u32(this + 0x1410, 0);
+        return 0;
+    }
+    for k in 0..7 {
+        let w = m.u32(this + 0xf94 + 28 * i as u32 + 4 * k);
+        m.set_u32(out + 4 * k, w);
+    }
+    m.set_u32(this + 0x1410, (i + 1) as u32);
+    (i + 1) as u32
+}
+
+/// `0x58d250(out, index)` (thiscall, `ret 8`): the record `index` of the same list; 1, or 0 when the index is out of range.
+pub fn record_get(m: &mut Mem, this: u32, out: u32, index: i32) -> u32 {
+    if index >= m.i32(this + 0x140c) || index < 0 {
+        return 0;
+    }
+    for k in 0..7 {
+        let w = m.u32(this + 0xf94 + 28 * index as u32 + 4 * k);
+        m.set_u32(out + 4 * k, w);
+    }
+    1
+}
+
+/// `0x58b4f0` (thiscall): zeroes the 28-byte record (`+0..0x1c`; vectors at `+0` and `+0x10` come from `VEC_ZERO`).
+pub fn record_zero(m: &mut Mem, this: u32) {
+    for k in 0..7 {
+        m.set_u32(this + 4 * k, 0);
+    }
+}
+
+/// `0x5917f0(p*, body, rec*, t)` (cdecl): the point `p` against the planes of the body (28-byte records `(n, w, q)` from `+0xf94`, listed by
+/// `0x58d1f0`). `p` is taken into body space (inverse pose `Mi`); a plane with `n . (p - q) > t` rejects (result 0), otherwise the plane
+/// with the largest distance above `-[+0xcd0]` is the best one (index; the point is remembered). The best record (`0x58d250`; the error
+/// log `0x67df80` when it is missing) gives `e = n * t + q`; the remembered point is moved onto the plane through `e` (`0x4e6362`),
+/// carried to world space by the body matrix into `rec+0x34`, `n` rotated into `rec+0x40`; `rec+4..0x34 = Mi`, `rec+0x74 = body`,
+/// `rec+0x64 = rec+0x6c = 0`. Returns 1.
+pub fn hull_cast(m: &mut Mem, pt: u32, body: u32, rec: u32, t: f32, err: &mut dyn FnMut()) -> u32 {
+    use crate::matrix::*;
+    const L: u32 = 0x7ffe_f000 + 0x7000;
+    let (rt, mi, mw, pl, best, e_pt, c_tmp) = (L, L + 0x20, L + 0x50, L + 0x80, L + 0x90, L + 0xa0, L + 0xb0);
+    let f = |m: &Mem, a: u32| m.f32(a) as f64;
+    record_zero(m, rt);
+    let src = if m.u32(body + 0x5a0) != 0 { body + 0x730 } else { body + 0x254 };
+    for i in 0..12 {
+        let w = m.u32(src + 4 * i);
+        m.set_u32(mi + 4 * i, w);
+    }
+    let (px, py, pz) = (f(m, pt), f(m, pt + 4), f(m, pt + 8));
+    let g = |m: &Mem, i: u32| f(m, mi + 4 * i);
+    let pv = [
+        (((g(m, 0) * px + g(m, 6) * pz) + g(m, 3) * py) + g(m, 9)) as f32,
+        (((g(m, 1) * px + g(m, 7) * pz) + g(m, 4) * py) + g(m, 10)) as f32,
+        (((g(m, 2) * px + g(m, 8) * pz) + g(m, 5) * py) + g(m, 11)) as f32,
+    ];
+    for i in 0..3 {
+        m.set_f32(pl + 4 * i, pv[i as usize]);
+        m.set_u32(best + 4 * i, 0);
+    }
+    let mut ok = true;
+    let mut best_d = (-f(m, body + 0xcd0)) as f32;
+    let mut best_i = 0u32;
+    let tt = t as f64;
+    loop {
+        let i = record_iter_next(m, body, rt);
+        if i == 0 {
+            break;
+        }
+        let (a, b, c) = (f(m, pl) - f(m, rt + 0x10), f(m, pl + 4) - f(m, rt + 0x14), f(m, pl + 8) - f(m, rt + 0x18));
+        let d = (b * f(m, rt + 4) + c * f(m, rt + 8)) + a * f(m, rt);
+        if d > tt {
+            ok = false;
+            continue;
+        }
+        if (best_d as f64) < d {
+            best_i = i - 1;
+            best_d = d as f32;
+            for k in 0..3 {
+                let w = m.u32(pl + 4 * k);
+                m.set_u32(best + 4 * k, w);
+            }
+        }
+    }
+    if !ok {
+        return 0;
+    }
+    if record_get(m, body, rt, best_i as i32) == 0 {
+        err();
+    }
+    let n = [f(m, rt), f(m, rt + 4), f(m, rt + 8)];
+    let q = [f(m, rt + 0x10), f(m, rt + 0x14), f(m, rt + 0x18)];
+    let vy = (n[1] * tt) as f32 as f64;
+    let vz = (n[2] * tt) as f32 as f64;
+    let e3 = [((n[0] * tt) + q[0]) as f32, (vy + q[1]) as f32, (vz + q[2]) as f32];
+    for i in 0..3 {
+        m.set_f32(e_pt + 4 * i, e3[i as usize]);
+    }
+    point_to_plane(m, c_tmp, e_pt, rt, best);
+    for i in 0..3 {
+        let w = m.u32(c_tmp + 4 * i);
+        m.set_u32(rec + 0x34 + 4 * i, w);
+        let w = m.u32(rt + 4 * i);
+        m.set_u32(rec + 0x40 + 4 * i, w);
+    }
+    let mat = if m.u32(body + 0x5a0) != 0 { body + 0x700 } else { body + 0x1f4 };
+    for i in 0..12 {
+        let w = m.u32(mat + 4 * i);
+        m.set_u32(mw + 4 * i, w);
+    }
+    let h = |m: &Mem, i: u32| f(m, mw + 4 * i);
+    let (cx, cy, cz) = (f(m, rec + 0x34), f(m, rec + 0x38), f(m, rec + 0x3c));
+    let wv = [
+        (((h(m, 0) * cx + h(m, 6) * cz) + h(m, 3) * cy) + h(m, 9)) as f32,
+        (((h(m, 1) * cx + h(m, 7) * cz) + h(m, 4) * cy) + h(m, 10)) as f32,
+        (((h(m, 2) * cx + h(m, 8) * cz) + h(m, 5) * cy) + h(m, 11)) as f32,
+    ];
+    for i in 0..3 {
+        m.set_f32(rec + 0x34 + 4 * i, wv[i as usize]);
+    }
+    rotate(m, c_tmp, rec + 0x40, mw);
+    for i in 0..3 {
+        let w = m.u32(c_tmp + 4 * i);
+        m.set_u32(rec + 0x40 + 4 * i, w);
+    }
+    m.set_u32(rec + 0x74, body);
+    m.set_u32(rec + 0x64, 0);
+    m.set_u32(rec + 0x6c, 0);
+    for i in 0..12 {
+        let w = m.u32(mi + 4 * i);
+        m.set_u32(rec + 4 + 4 * i, w);
+    }
+    1
+}
+
+/// `0x591b50(p*, q*, body, rec*, t)` (cdecl): the segment `p-q` against the planes of the body. When `p` hits (`hull_cast`) the hit point
+/// becomes `p` and the result is 1 only if `(q - p) . rec.normal < 0`; otherwise `q` is cast, and on a hit the point moves to where the
+/// line `p-q` meets the plane (`line_plane`) and the result is 1.
+pub fn segment_hull_cast(m: &mut Mem, p: u32, q: u32, body: u32, rec: u32, t: f32, err: &mut dyn FnMut()) -> u32 {
+    let hit = hull_cast(m, p, body, rec, t, err);
+    if hit != 0 {
+        for i in 0..3 {
+            let w = m.u32(p + 4 * i);
+            m.set_u32(rec + 0x34 + 4 * i, w);
+        }
+        let f = |m: &Mem, a: u32| m.f32(a) as f64;
+        let (dx, dy, dz) = (f(m, q) - f(m, p), f(m, q + 4) - f(m, p + 4), f(m, q + 8) - f(m, p + 8));
+        let d = (dz * f(m, rec + 0x48) + dy * f(m, rec + 0x44)) + dx * f(m, rec + 0x40);
+        return if !(d >= 0.0) { hit } else { 0 };
+    }
+    if hull_cast(m, q, body, rec, t, err) == 0 {
+        return 0;
+    }
+    let tmp = 0x7ffe_f000 + 0x7100;
+    crate::matrix::line_plane(m, tmp, rec + 0x34, rec + 0x40, p, q);
+    for i in 0..3 {
+        let w = m.u32(tmp + 4 * i);
+        m.set_u32(rec + 0x34 + 4 * i, w);
+    }
+    1
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1562,6 +1727,109 @@ mod tests {
                 m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
             }
             assert_eq!(segment_box_test(&mut m, body, pp, qq).to_string(), v[1], "case {c}");
+            n += 1;
+        }
+        assert_eq!(n, 600);
+    }
+
+    #[test]
+    fn native_record_leaves() {
+        let (this, out) = (0x2a010000u32, 0x2a014000u32);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_small_leaves.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            for it in v[1].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(this + u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            m.write(out, &unhex(v[3]));
+            let before = m.read(this, 0x1800);
+            let res = match v[0] {
+                "0" => record_iter_next(&mut m, this, out),
+                "1" => record_get(&mut m, this, out, v[2].parse().unwrap()),
+                _ => {
+                    record_zero(&mut m, out);
+                    v[4].parse().unwrap()
+                }
+            };
+            let after = m.read(this, 0x1800);
+            let diff: String = (0..0x1800usize)
+                .step_by(4)
+                .filter(|&i| before[i..i + 4] != after[i..i + 4])
+                .map(|i| format!("{:x}:{}", i, after[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                .collect::<Vec<_>>()
+                .join(",");
+            assert_eq!(res.to_string(), v[4], "case {c}: result");
+            assert_eq!(diff, v[5], "case {c}: this");
+            assert_eq!(hx(&m, out, 0x1c), v[6], "case {c}: out");
+            n += 1;
+        }
+        assert_eq!(n, 300);
+    }
+
+    #[test]
+    fn native_hull_cast() {
+        let (body, pp, rec) = (0x2a010000u32, 0x2a01a000u32, 0x2a01b000u32);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_hull_cast.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            let t = f32::from_bits(u32::from_le_bytes(unhex(v[1]).try_into().unwrap()));
+            let (b0, r0) = (m.read(body, 0x1800), m.read(rec, 0x100));
+            let mut errs = vec![];
+            let res = hull_cast(&mut m, pp, body, rec, t, &mut || errs.push("err|67df80"));
+            let d = |a: &[u8], b: &[u8]| -> String {
+                (0..a.len())
+                    .step_by(4)
+                    .filter(|&i| a[i..i + 4] != b[i..i + 4])
+                    .map(|i| format!("{:x}:{}", i, b[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            };
+            assert_eq!(res.to_string(), v[2], "case {c}: result");
+            assert_eq!(d(&r0, &m.read(rec, 0x100)), v[3], "case {c}: rec");
+            assert_eq!(d(&b0, &m.read(body, 0x1800)), v[4], "case {c}: body");
+            assert_eq!(errs.join(";"), v[5], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 600);
+    }
+
+    #[test]
+    fn native_segment_hull_cast() {
+        let (body, pp, qq, rec) = (0x2a010000u32, 0x2a01a000u32, 0x2a01a100u32, 0x2a01b000u32);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_segment_hull.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            let t = f32::from_bits(u32::from_le_bytes(unhex(v[1]).try_into().unwrap()));
+            let (b0, r0) = (m.read(body, 0x1800), m.read(rec, 0x100));
+            let mut errs = vec![];
+            let res = segment_hull_cast(&mut m, pp, qq, body, rec, t, &mut || errs.push("err|67df80"));
+            let d = |a: &[u8], b: &[u8]| -> String {
+                (0..a.len())
+                    .step_by(4)
+                    .filter(|&i| a[i..i + 4] != b[i..i + 4])
+                    .map(|i| format!("{:x}:{}", i, b[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            };
+            assert_eq!(res.to_string(), v[2], "case {c}: result");
+            assert_eq!(d(&r0, &m.read(rec, 0x100)), v[3], "case {c}: rec");
+            assert_eq!(d(&b0, &m.read(body, 0x1800)), v[4], "case {c}: body");
+            assert_eq!(errs.join(";"), v[5], "case {c}: events");
             n += 1;
         }
         assert_eq!(n, 600);
