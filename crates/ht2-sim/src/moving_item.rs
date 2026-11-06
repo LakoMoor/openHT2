@@ -601,6 +601,72 @@ pub fn moving_item_update(m: &mut Mem, this: u32, flags: u32, dt: f32, o: &mut d
     o.virt(m, this, 0x90, &[ppp, 0x67d630]);
 }
 
+/// `0x58cf30` (thiscall): the first `[+0xdf8]` flags at `+0xf28` become 1.
+pub fn moving_item_flags_reset(m: &mut Mem, this: u32) {
+    for i in 0..m.i32(this + 0xdf8).max(0) as u32 {
+        m.set_u32(this + 0xf28 + 4 * i, 1);
+    }
+}
+
+/// What `0x58cf60` calls outside itself (stand-ins): the context constructor `0x5ef5c0`, the cast `0x592a20(this, ctx, out)`
+/// (`out[0]` is the distance) and the room lookup `0x4e5ba7`; the virtuals `+0x1c` / `+0x8c` go through `ItemVirtuals`.
+pub trait ModeOwner: ItemVirtuals {
+    fn ctx_init(&mut self, m: &mut Mem, ctx: u32);
+    fn cast(&mut self, m: &mut Mem, this: u32, ctx: u32, out: u32) -> u32;
+    fn room(&mut self, m: &mut Mem, a: u32, b: u32, c: u32) -> u32;
+}
+
+/// `0x58cf60(mode)` (thiscall, `ret 4`): switches `[+0xe04]`. With `[+0xf90] != 0` the mode is 0; the same mode returns, mode 1
+/// is stored. Otherwise up to three times: cast, move the pose `+0x1f4` by `ctx[0x40..] * (distance + 0.01)`, look the room up
+/// (`+0x1c(1)` and the old room when it fails) and `+0x8c(room, pose)`. Three successful casts end with `+0x8c(old room, old
+/// pose)` and leave the mode; fewer store the mode.
+pub fn moving_item_set_mode(m: &mut Mem, this: u32, mode: u32, o: &mut dyn ModeOwner) {
+    const L: u32 = 0x7ffe_f000 + 0x4000;
+    let mode = if m.u32(this + 0xf90) != 0 { 0 } else { mode };
+    if mode == m.u32(this + 0xe04) {
+        return;
+    }
+    if mode == 1 {
+        m.set_u32(this + 0xe04, 1);
+        return;
+    }
+    let (ctx, out, orig, work, w, tmp) = (L, L + 0x100, L + 0x110, L + 0x140, L + 0x170, L + 0x180);
+    o.ctx_init(m, ctx);
+    for i in 0..12 {
+        let v = m.u32(this + 0x1f4 + 4 * i);
+        m.set_u32(orig + 4 * i, v);
+    }
+    let room0 = m.u32(this + 0x320);
+    let mut n = 0;
+    while n < 3 {
+        if o.cast(m, this, ctx, out) == 0 {
+            break;
+        }
+        let d = m.f32(out) as f64 + 0.01;
+        for i in 0..12 {
+            let v = m.u32(this + 0x1f4 + 4 * i);
+            m.set_u32(work + 4 * i, v);
+        }
+        for i in 0..3 {
+            let x = (m.f32(ctx + 0x40 + 4 * i) as f64 * d) as f32;
+            m.set_f32(w + 4 * i, x);
+        }
+        crate::matrix::vec_add_in_place(m, work + 0x24, tmp, w);
+        let mut room = o.room(m, m.u32(this + 0x320), this + 0x218, work + 0x24);
+        if room == 0 {
+            o.virt(m, this, 0x1c, &[1]);
+            room = m.u32(this + 0x320);
+        }
+        o.virt(m, this, 0x8c, &[room, work]);
+        n += 1;
+    }
+    if n == 3 {
+        o.virt(m, this, 0x8c, &[room0, orig]);
+    } else {
+        m.set_u32(this + 0xe04, mode);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1007,5 +1073,79 @@ mod tests {
         }
         assert_eq!(bad, 0, "{bad} of {n} differ");
         assert_eq!(n, 500);
+    }
+
+    struct ModeTest {
+        ev: Vec<String>,
+        ctx: Vec<u8>,
+        casts: Vec<(u32, f32)>,
+        n: usize,
+        room: u32,
+    }
+    impl ItemVirtuals for ModeTest {
+        fn virt(&mut self, m: &mut Mem, _this: u32, slot: u32, args: &[u32]) {
+            self.ev.push(match slot {
+                0x1c => format!("v1c|{:x}", args[0]),
+                0x8c => format!("v8c|{:x}|{}", args[0], hx(m, args[1], 48)),
+                _ => panic!(),
+            });
+        }
+    }
+    impl ModeOwner for ModeTest {
+        fn ctx_init(&mut self, m: &mut Mem, ctx: u32) {
+            m.write(ctx, &self.ctx);
+        }
+        fn cast(&mut self, m: &mut Mem, this: u32, _ctx: u32, out: u32) -> u32 {
+            let (h, d) = self.casts[self.n.min(self.casts.len() - 1)];
+            self.n += 1;
+            self.ev.push(format!("cast|{this:x}"));
+            m.set_f32(out, d);
+            h
+        }
+        fn room(&mut self, m: &mut Mem, a: u32, b: u32, c: u32) -> u32 {
+            self.ev.push(format!("5ba7|{a:x},{b:x},{}", hx(m, c, 12)));
+            self.room
+        }
+    }
+    #[test]
+    fn native_moving_item_mode() {
+        let this = 0x2a010000u32;
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_mode_set.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            for it in v[2].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(this + u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            let before = m.read(this, 0x1000);
+            let mut o = ModeTest {
+                ev: vec![],
+                ctx: unhex(v[3]),
+                casts: v[4].split(';').map(|s| {
+                    let (h, d) = s.split_once(',').unwrap();
+                    (h.parse().unwrap(), f32::from_bits(u32::from_le_bytes(unhex(d).try_into().unwrap())))
+                }).collect(),
+                n: 0,
+                room: u32::from_str_radix(v[5], 16).unwrap(),
+            };
+            if v[0] == "0" {
+                moving_item_flags_reset(&mut m, this);
+            } else {
+                moving_item_set_mode(&mut m, this, v[1].parse().unwrap(), &mut o);
+            }
+            let after = m.read(this, 0x1000);
+            let diff: String = (0..0x1000usize)
+                .step_by(4)
+                .filter(|&i| after[i..i + 4] != before[i..i + 4])
+                .map(|i| format!("{:x}:{}", i, after[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                .collect::<Vec<_>>()
+                .join(",");
+            assert_eq!(diff, v[6], "case {c}: memory");
+            assert_eq!(o.ev.join(";"), v[7], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 400);
     }
 }
