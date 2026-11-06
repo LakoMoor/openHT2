@@ -1112,6 +1112,181 @@ pub fn segment_hull_cast(m: &mut Mem, p: u32, q: u32, body: u32, rec: u32, t: f3
     1
 }
 
+/// What `0x58a020` calls outside itself (stand-ins): the context constructor `0x5ef5c0`, the object cast
+/// `0x4e52fc(obj, p0, p1, ctx)` and the error log `0x4e260c` (its message is built by `sprintf` and only the log reads it).
+pub trait PairOwner {
+    fn ctx_init(&mut self, m: &mut Mem, ctx: u32);
+    fn object_cast(&mut self, m: &mut Mem, obj: u32, p0: u32, p1: u32, ctx: u32) -> u32;
+    fn error(&mut self);
+}
+
+/// `0x58a020(body, matrix*, set, other, sign)` (cdecl): the sample points of `body` against the other body. Each point goes to world
+/// space (`Pw`, the body matrix) and through `matrix` (`P1`). For `other` of mode 2 a segment outside its box (`0x589eb0`) is skipped.
+/// The segment is taken into the local space of `other` (`inverse(other[+0x2b4] * other matrix)`) and cast by `0x4e52fc` at
+/// `[other+0x140]`; a hit (bit 0) moves hit point and normal back by the same transform (range checked, log on failure) and fills the
+/// owner (`+0x74`: `other` for `sign > 0`, else `body`). A miss against a mode 2 `other` tries the plane list (`0x591b50`, 0.01).
+/// Per point: flag `set+0xb04 = (hit & 1) * sign`, scales `set+0x800` / `set+0x900 = 1.0`; with a flag the scales become 0 and then
+/// the hit point (`set+12n`), the sign-scaled normal (`set+12(n+0x40)`), the owner (`+0x600`), the point index (`+0xc04`), the
+/// distance (`+0xa00`) and the ratios `|hit - pw| / |ctx[0x58] - pw|` (`+0x900`, at most 1) and `(|hit - pw| - 0.01) / |ctx[0x58] - pw|`
+/// (`+0x800`, 0 when not positive) are written; for `sign > 0` `[+0x1444+4i]` gets bit 2 (also `+0x1494`) and the context is copied
+/// to `body+0x1418+0xd0i`. Stops at 63 entries (the iterator is drained). Returns the number of flagged points.
+pub fn body_pair_query(m: &mut Mem, a: u32, mat: u32, set: u32, other: u32, sign: i32, o: &mut dyn PairOwner) -> u32 {
+    use crate::matrix::*;
+    const L: u32 = 0x7ffe_f000 + 0x8000;
+    let (p, pw, p1, oc, mo, zm, ri, pa, pb, ht, nt, ctx, tmp, u2) =
+        (L, L + 0x10, L + 0x20, L + 0x60, L + 0x90, L + 0xc0, L + 0xf0, L + 0x120, L + 0x130, L + 0x140, L + 0x150, L + 0x200, L + 0x300, L + 0x310);
+    let f = |m: &Mem, a: u32| m.f32(a) as f64;
+    let copy = |m: &mut Mem, dst: u32, src: u32, n: u32| {
+        for i in 0..n {
+            let w = m.u32(src + 4 * i);
+            m.set_u32(dst + 4 * i, w);
+        }
+    };
+    o.ctx_init(m, ctx);
+    let a_mat = if m.u32(a + 0x5a0) != 0 { a + 0x700 } else { a + 0x1f4 };
+    let mut counter = 0u32;
+    let mut idx = crate::body_ray::point_iter_next(m, a, p);
+    if idx == 0 {
+        return 0;
+    }
+    loop {
+        let cnt = m.i32(set + 0xb00);
+        if cnt >= 0x3f {
+            while crate::body_ray::point_iter_next(m, a, p) != 0 {}
+            return counter;
+        }
+        let (px, py, pz) = (f(m, p), f(m, p + 4), f(m, p + 8));
+        let g = |m: &Mem, i: u32| f(m, a_mat + 4 * i);
+        let w3 = [
+            (((g(m, 6) * pz + g(m, 3) * py) + g(m, 0) * px) + g(m, 9)) as f32,
+            (((g(m, 7) * pz + g(m, 4) * py) + g(m, 1) * px) + g(m, 10)) as f32,
+            (((g(m, 8) * pz + g(m, 5) * py) + g(m, 2) * px) + g(m, 11)) as f32,
+        ];
+        let b = |m: &Mem, i: u32| f(m, mat + 4 * i);
+        let q3 = [
+            (((pz * b(m, 6) + py * b(m, 3)) + px * b(m, 0)) + b(m, 9)) as f32,
+            (((px * b(m, 1) + pz * b(m, 7)) + py * b(m, 4)) + b(m, 10)) as f32,
+            (((px * b(m, 2) + pz * b(m, 8)) + py * b(m, 5)) + b(m, 11)) as f32,
+        ];
+        for i in 0..3 {
+            m.set_f32(pw + 4 * i, w3[i as usize]);
+            m.set_f32(p1 + 4 * i, q3[i as usize]);
+        }
+        let mut hitraw = 0u32;
+        let omode2 = m.u32(other + 0x188) == 2;
+        let skip = omode2 && segment_box_test(m, other, pw, p1) == 0;
+        if !skip {
+            copy(m, oc, other + 0x2b4, 12);
+            copy(m, mo, if m.u32(other + 0x5a0) != 0 { other + 0x700 } else { other + 0x1f4 }, 12);
+            mat_mul(m, zm, oc, mo);
+            crate::math::mat_inverse(m, ri, zm);
+            let apply = |m: &mut Mem, dst: u32, src: u32| {
+                let (x, y, z) = (f(m, src), f(m, src + 4), f(m, src + 8));
+                let r = |i: u32| f(m, ri + 4 * i);
+                let v = [
+                    (((r(6) * z + r(3) * y) + r(0) * x) + r(9)) as f32,
+                    (((r(7) * z + r(4) * y) + r(1) * x) + r(10)) as f32,
+                    (((r(8) * z + r(5) * y) + r(2) * x) + r(11)) as f32,
+                ];
+                for i in 0..3 {
+                    m.set_f32(dst + 4 * i, v[i as usize]);
+                }
+            };
+            apply(m, pa, pw);
+            apply(m, pb, p1);
+            let obj = m.u32(other + 0x140);
+            hitraw = o.object_cast(m, obj, pa, pb, ctx);
+            if hitraw & 1 != 0 {
+                let (hx, hy, hz) = (f(m, ctx + 0x34), f(m, ctx + 0x38), f(m, ctx + 0x3c));
+                let (nx, ny, nz) = (f(m, ctx + 0x40), f(m, ctx + 0x44), f(m, ctx + 0x48));
+                let r = |i: u32| f(m, zm + 4 * i);
+                let hv = [
+                    (((r(6) * hz + r(3) * hy) + r(0) * hx) + r(9)) as f32,
+                    (((r(7) * hz + r(4) * hy) + r(1) * hx) + r(10)) as f32,
+                    (((r(8) * hz + r(5) * hy) + r(2) * hx) + r(11)) as f32,
+                ];
+                let nv = [
+                    ((r(3) * ny + r(6) * nz) + r(0) * nx) as f32,
+                    ((r(1) * nx + r(4) * ny) + r(7) * nz) as f32,
+                    ((r(2) * nx + r(5) * ny) + r(8) * nz) as f32,
+                ];
+                for i in 0..3 {
+                    m.set_f32(ht + 4 * i, hv[i as usize]);
+                    m.set_f32(nt + 4 * i, nv[i as usize]);
+                }
+                if crate::carv::fn_004e28b0(m, ht, 10000.0) != 0 || crate::carv::fn_004e28b0(m, ctx + 0x40, 2.0) != 0 {
+                    o.error();
+                }
+                copy(m, ctx + 0x34, ht, 3);
+                copy(m, ctx + 0x40, nt, 3);
+                m.set_u32(ctx + 0x74, if sign > 0 { other } else { a });
+            } else if omode2 && segment_hull_cast(m, pw, p1, other, ctx, f32::from_bits(0x3c23_d70a), &mut || o.error()) != 0 {
+                hitraw = 1;
+            }
+        }
+        let c = cnt as u32;
+        let flag = (hitraw & 1) as i32 * sign;
+        m.set_u32(set + 0xb04 + 4 * c, flag as u32);
+        m.set_u32(set + 0x800 + 4 * c, 0x3f80_0000);
+        m.set_u32(set + 0x900 + 4 * c, 0x3f80_0000);
+        if flag != 0 {
+            counter += 1;
+            m.set_u32(set + 0x800 + 4 * c, 0);
+            m.set_u32(set + 0x900 + 4 * c, 0);
+            let sg = sign as f64;
+            copy(m, set + 12 * c, ctx + 0x34, 3);
+            for i in 0..3 {
+                let v = (sg * f(m, ctx + 0x40 + 4 * i)) as f32;
+                m.set_f32(set + 12 * (c + 0x40) + 4 * i, v);
+            }
+            if sign > 0 {
+                let w = m.u32(ctx + 0x74);
+                m.set_u32(set + 0x600 + 4 * c, w);
+                let fl = m.u32(a + 0x1444 + 4 * idx) | 2;
+                m.set_u32(a + 0x1444 + 4 * idx, fl);
+                m.set_u32(a + 0x1494 + 4 * idx, fl);
+                copy(m, a + 0xd0 * idx + 0x1418, ctx, 0x34);
+            } else {
+                m.set_u32(set + 0x600 + 4 * c, a);
+            }
+            m.set_u32(set + 0xc04 + 4 * c, idx - 1);
+            let (qa, qb, qc) = (f(m, ctx + 0x58) - f(m, pw), f(m, ctx + 0x5c) - f(m, pw + 4), f(m, ctx + 0x60) - f(m, pw + 8));
+            for i in 0..3 {
+                let v = (f(m, ctx + 0x34 + 4 * i) - f(m, pw + 4 * i)) as f32;
+                m.set_f32(u2 + 4 * i, v);
+            }
+            let (hx, hy) = (f(m, ctx + 0x34) - f(m, p1), f(m, ctx + 0x38) - f(m, p1 + 4));
+            let hz = (f(m, ctx + 0x3c) - f(m, p1 + 8)) as f32 as f64;
+            let dist = ((hy * f(m, ctx + 0x44) + hz * f(m, ctx + 0x48)) + hx * f(m, ctx + 0x40)) as f32;
+            m.set_f32(set + 0xa00 + 4 * c, dist);
+            let lq = ((qa * qa + qb * qb) + qc * qc) as f32;
+            let _ = tmp;
+            let (ux, uy, uz) = (f(m, u2), f(m, u2 + 4), f(m, u2 + 8));
+            let s = (ux * ux + uy * uy) + uz * uz;
+            if lq as f64 >= 1e-7 {
+                let mut q = s / lq as f64;
+                if !(q <= 1.0) {
+                    q = 1.0;
+                }
+                let rr = q.sqrt() as f32;
+                m.set_f32(set + 0x800 + 4 * c, rr);
+                m.set_f32(set + 0x900 + 4 * c, rr);
+                let wv = s.sqrt() - 0.01;
+                if !(wv <= 0.0) {
+                    m.set_f32(set + 0x800 + 4 * c, (wv / (lq as f64).sqrt()) as f32);
+                } else {
+                    m.set_u32(set + 0x800 + 4 * c, 0);
+                }
+            }
+            m.set_u32(set + 0xb00, c + 1);
+        }
+        idx = crate::body_ray::point_iter_next(m, a, p);
+        if idx == 0 {
+            return counter;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1833,5 +2008,65 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 600);
+    }
+
+    struct PqTest {
+        ev: Vec<String>,
+        blobs: Vec<Vec<u8>>,
+        hits: Vec<u32>,
+        k: usize,
+    }
+    impl PairOwner for PqTest {
+        fn ctx_init(&mut self, m: &mut Mem, ctx: u32) {
+            self.k = 0;
+            m.write(ctx, &self.blobs[0]);
+        }
+        fn object_cast(&mut self, m: &mut Mem, obj: u32, p0: u32, p1: u32, ctx: u32) -> u32 {
+            self.ev.push(format!("cast|{obj:x}|{}|{}", hx(m, p0, 12), hx(m, p1, 12)));
+            self.k += 1;
+            let b = self.blobs[self.k.min(self.blobs.len() - 1)].clone();
+            m.write(ctx, &b);
+            if self.hits.is_empty() { 0 } else { self.hits.remove(0) }
+        }
+        fn error(&mut self) {
+            self.ev.push("err".to_string());
+        }
+    }
+    #[test]
+    fn native_body_pair_query() {
+        let (a, o_, set, b1) = (0x2a010000u32, 0x2a014000u32, 0x2a018000u32, 0x2a01a000u32);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_pair_query.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            let (a0, o0, s0) = (m.read(a, 0x2600), m.read(o_, 0x1800), m.read(set, 0x1000));
+            let mut ow = PqTest {
+                ev: vec![],
+                blobs: v[2].split(';').map(unhex).collect(),
+                hits: v[3].split(',').map(|x| x.parse().unwrap()).collect(),
+                k: 0,
+            };
+            let res = body_pair_query(&mut m, a, b1, set, o_, v[1].parse().unwrap(), &mut ow);
+            let d = |x: &[u8], y: &[u8]| -> String {
+                (0..x.len())
+                    .step_by(4)
+                    .filter(|&i| x[i..i + 4] != y[i..i + 4])
+                    .map(|i| format!("{:x}:{}", i, y[i..i + 4].iter().map(|z| format!("{z:02x}")).collect::<String>()))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            };
+            assert_eq!(res.to_string(), v[4], "case {c}: result");
+            assert_eq!(d(&a0, &m.read(a, 0x2600)), v[5], "case {c}: body");
+            assert_eq!(d(&o0, &m.read(o_, 0x1800)), v[6], "case {c}: other");
+            assert_eq!(d(&s0, &m.read(set, 0x1000)), v[7], "case {c}: set");
+            assert_eq!(ow.ev.join(";"), v[8], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 500);
     }
 }
