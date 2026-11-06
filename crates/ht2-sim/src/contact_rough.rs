@@ -181,7 +181,7 @@ pub fn mat4_vec(m: &mut Mem, out: u32, a: u32, b: u32) {
 }
 
 /// `0x4e30f4(dst, a, b)`: component-wise product.
-fn vec_mul(m: &mut Mem, dst: u32, a: u32, b: u32) {
+pub(crate) fn vec_mul(m: &mut Mem, dst: u32, a: u32, b: u32) {
     for i in 0..3 {
         let v = m.f32(a + 4 * i) as f64 * m.f32(b + 4 * i) as f64;
         m.set_f32(dst + 4 * i, v as f32);
@@ -189,7 +189,7 @@ fn vec_mul(m: &mut Mem, dst: u32, a: u32, b: u32) {
 }
 
 /// `0x4e3170(dst, mat, v)`: the three direction rows of `mat` multiplied component-wise by `v`, translation = the zero vector `0x702650`.
-fn mat_scale_rows(m: &mut Mem, dst: u32, mat: u32, v: u32) {
+pub(crate) fn mat_scale_rows(m: &mut Mem, dst: u32, mat: u32, v: u32) {
     const T: u32 = 0x7ffe_f000 + 0x33600;
     for k in 0..3 {
         vec_mul(m, T + 12 * k, mat + 12 * k, v);
