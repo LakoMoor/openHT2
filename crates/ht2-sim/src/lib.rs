@@ -45,6 +45,7 @@ pub mod maneuver;
 pub mod moving_item;
 pub mod pose_objects;
 pub mod body_ray;
+pub mod contact_set;
 pub mod scene_host;
 pub mod scene_level;
 pub mod scene_net;
