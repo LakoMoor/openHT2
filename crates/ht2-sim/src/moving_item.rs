@@ -251,6 +251,35 @@ pub fn moving_item_bind(m: &mut Mem, this: u32, args: [u32; 7], owner: &mut dyn 
     1
 }
 
+/// `0x583c30(flags)` (MovingItem virtual `+0xcc`, thiscall, `ret 4`): unless `[+0x598] > [+0x690]` (signed) or `flags & 4`, the
+/// displacement `(+0x1a0..+0x1a8) - (+0x7e4..+0x7ec)` times the `f32` at `+0x18c` is stored at `+0x7c0` (x from the unrounded
+/// difference, y/z from the `f32`-rounded ones); with `[+0x688] & 0x2000000` it is scaled by 0.1; then the virtuals
+/// `+0xa4(V3, D)` (`V3` = the words `+0x5ec..`) and `+0x74()` are called (stand-in owner).
+pub fn moving_item_reset_step(m: &mut Mem, this: u32, flags: u32, owner: &mut dyn ItemVirtuals) {
+    if (m.i32(this + 0x598)) > m.i32(this + 0x690) || flags & 4 != 0 {
+        return;
+    }
+    const SCRATCH: u32 = 0x7ffe_f000;
+    let (d, v3) = (SCRATCH + 0xc00, SCRATCH + 0xc10);
+    let f = |m: &Mem, a: u32| m.f32(a) as f64;
+    let s = f(m, this + 0x18c);
+    let a = f(m, this + 0x1a0) - f(m, this + 0x7e4);
+    let b = (f(m, this + 0x1a4) - f(m, this + 0x7e8)) as f32 as f64;
+    let c = (f(m, this + 0x1a8) - f(m, this + 0x7ec)) as f32 as f64;
+    let (x, y, z) = ((a * s) as f32, (b * s) as f32, (c * s) as f32);
+    for (i, v) in [x, y, z].iter().enumerate() {
+        m.set_u32(this + 0x7c0 + 4 * i as u32, v.to_bits());
+        m.set_u32(d + 4 * i as u32, v.to_bits());
+        let w = m.u32(this + 0x5ec + 4 * i as u32);
+        m.set_u32(v3 + 4 * i as u32, w);
+    }
+    if m.u32(this + 0x688) & 0x200_0000 != 0 {
+        crate::matrix::vec_scale_in_place(m, d, SCRATCH + 0xc30, f32::from_bits(0x3dcc_cccd));
+    }
+    owner.virt(m, this, 0xa4, &[v3, d]);
+    owner.virt(m, this, 0x74, &[]);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -495,5 +524,38 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 600);
+    }
+    #[test]
+    fn native_moving_item_reset_step() {
+        struct Log(Vec<String>);
+        impl ItemVirtuals for Log {
+            fn virt(&mut self, m: &mut Mem, _: u32, slot: u32, args: &[u32]) {
+                let hx = |a: u32| m.read(a, 12).iter().map(|b| format!("{b:02x}")).collect::<String>();
+                self.0.push(if slot == 0xa4 { format!("a4|{}|{}", hx(args[0]), hx(args[1])) } else { "74".to_string() });
+            }
+        }
+        let this = 0x2a010000u32;
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_item_reset_step.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            for it in v[1].split(',') {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(this + u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            let before = m.read(this, 0x1000);
+            let mut log = Log(vec![]);
+            moving_item_reset_step(&mut m, this, v[0].parse().unwrap(), &mut log);
+            let after = m.read(this, 0x1000);
+            let diff: Vec<String> = (0..0x1000)
+                .step_by(4)
+                .filter(|&i| after[i..i + 4] != before[i..i + 4])
+                .map(|i| format!("{i:x}:{}", after[i..i + 4].iter().map(|b| format!("{b:02x}")).collect::<String>()))
+                .collect();
+            assert_eq!(diff.join(","), v[2], "case {c}");
+            assert_eq!(log.0.join(";"), v[3], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 300);
     }
 }
