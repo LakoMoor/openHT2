@@ -57,6 +57,7 @@ pub mod scene_return;
 pub mod vehicle_reset;
 pub mod condition;
 pub mod xform_stack;
+pub mod event_queue;
 pub mod ai_scene;
 
 pub use tech_rec::TechRec;
