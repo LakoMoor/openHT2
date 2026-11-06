@@ -169,6 +169,126 @@ pub fn body_contact_test(m: &mut Mem, body: u32, p0: u32, p1: u32, target: u32, 
     0
 }
 
+/// `0x4e570f(obj, p0, p1, rec)` (cdecl, through `0x4e52fc`): the record as in `object_cast_raw` but with `rec[0] = 0` and the
+/// virtual `[obj->vtable+0x34](4, rec)`; on a hit the result is brought to the node frame (`0x4e5698`). 0 for a miss.
+fn probe_cast_local(m: &mut Mem, obj: u32, p0: u32, p1: u32, rec: u32, owner: &mut dyn ProbeOwner) -> u32 {
+    if obj == 0 {
+        return 0;
+    }
+    for i in 0..12 {
+        let v = m.u32(MAT_IDENTITY + 4 * i);
+        m.set_u32(rec + 4 + 4 * i, v);
+    }
+    for i in 0..3 {
+        let (u, v) = (m.u32(p0 + 4 * i), m.u32(p1 + 4 * i));
+        m.set_u32(rec + 0x4c + 4 * i, u);
+        m.set_u32(rec + 0x58 + 4 * i, v);
+    }
+    for o in [0x74, 0x68, 0, 0x64] {
+        m.set_u32(rec + o, 0);
+    }
+    let r = owner.cast(m, obj, 4, rec);
+    if r & 1 != 0 {
+        query_to_local(m, rec, SCRATCH, SCRATCH + 0x100);
+        r
+    } else {
+        0
+    }
+}
+
+/// `0x5ef5c0`: a fresh query record (zero vectors, identity matrix at `+4`, the rest cleared).
+fn query_record_init(m: &mut Mem, q: u32) {
+    for o in (0..0xd0).step_by(4) {
+        m.set_u32(q + o, 0);
+    }
+    for i in 0..12 {
+        let v = m.u32(MAT_IDENTITY + 4 * i);
+        m.set_u32(q + 4 + 4 * i, v);
+    }
+}
+
+/// `0x584820(a0*, a1*, set, body)` (cdecl): casts the segment `a0 -> a1` for the body and appends the result to the contact set
+/// `set` (count at `+0xb00`, flag `+0xb04+4n`, scale `+0x800+4n` (1.0 for a miss), hit point `+12n`, negated normal `+0x300+12n`,
+/// `+0x600+4n = 0`, signed distance of the hit from the end point along the normal `+0xa00+4n`). Mode `[body+0x188] == 1` (or 2 with
+/// `[+0xf88] == 3`) casts through the body's object (`0x4e570f`); otherwise against the sphere centred on the body's local point
+/// `(+0xd78, +0xd7c, +0xd80)` in world space with radius `[+0xcd4]` (volume kind 1, mode 0). On a hit returns 1 with the scale
+/// `sqrt(min(|hit - a0|^2 / |end - a0|^2, 1))` (kept 0 when the hit lies farther than the end or the length is under 1e-5).
+/// The heap block of the sphere (`0x632643` / `0x5f4a90`) is not modelled.
+pub fn body_contact_record(m: &mut Mem, a0: u32, a1: u32, set: u32, body: u32, owner: &mut dyn ProbeOwner) -> u32 {
+    let (q, vol, data, c0, c1) = (SCRATCH + 0x600, SCRATCH + 0x700, SCRATCH + 0x720, SCRATCH + 0x740, SCRATCH + 0x750);
+    query_record_init(m, q);
+    let mode = m.u32(body + 0x188);
+    let hit;
+    if mode == 1 || (mode == 2 && m.u32(body + 0xf88) == 3) {
+        hit = probe_cast_local(m, body + 0x100, a0, a1, q, owner);
+    } else {
+        let mat = body_matrix(m, body);
+        let f = |m: &Mem, a: u32| m.f32(a) as f64;
+        let (x, y, z) = (f(m, body + 0xd78), f(m, body + 0xd7c), f(m, body + 0xd80));
+        // the three sums in the original's order: (+0xc*y + +0x18*z) + x*+0 + +0x24, ((+0x10*y + x*+4) + +0x1c*z) + +0x28, ...
+        let px = ((f(m, mat + 0xc) * y + f(m, mat + 0x18) * z) + x * f(m, mat)) + f(m, mat + 0x24);
+        let py = ((f(m, mat + 0x10) * y + x * f(m, mat + 4)) + f(m, mat + 0x1c) * z) + f(m, mat + 0x28);
+        let pz = ((f(m, mat + 0x14) * y + x * f(m, mat + 8)) + f(m, mat + 0x20) * z) + f(m, mat + 0x2c);
+        m.set_u32(data, (px as f32).to_bits());
+        m.set_u32(data + 4, (py as f32).to_bits());
+        m.set_u32(data + 8, (pz as f32).to_bits());
+        let r = m.u32(body + 0xcd4);
+        m.set_u32(data + 12, r);
+        m.set_u32(vol, 1);
+        m.set_u32(vol + 8, data);
+        for k in 0..3 {
+            let (u, v) = (m.u32(a0 + 4 * k), m.u32(a1 + 4 * k));
+            m.set_u32(c0 + 4 * k, u);
+            m.set_u32(c1 + 4 * k, v);
+        }
+        let r = crate::shape::fn_005f6820(m, vol, 0, c0, c1, 0.0);
+        for k in 0..3 {
+            let (u, v) = (m.u32(c0 + 4 * k), m.u32(c1 + 4 * k));
+            m.set_u32(q + 0x34 + 4 * k, u);
+            m.set_u32(q + 0x40 + 4 * k, v);
+        }
+        m.set_u32(q + 0x74, 0);
+        hit = (r != 0) as u32;
+    }
+    let n = m.u32(set + 0xb00);
+    let flag = hit & 1;
+    m.set_u32(set + 0xb04 + 4 * n, flag);
+    m.set_u32(set + 0x800 + 4 * n, 0x3f80_0000);
+    if flag == 0 {
+        return 0;
+    }
+    m.set_u32(set + 0x800 + 4 * n, 0);
+    for k in 0..3 {
+        let h = m.u32(q + 0x34 + 4 * k);
+        m.set_u32(set + 12 * n + 4 * k, h);
+        let nv = m.f32(q + 0x40 + 4 * k);
+        m.set_u32(set + 0x300 + 12 * n + 4 * k, (-nv).to_bits());
+    }
+    m.set_u32(set + 0x600 + 4 * n, 0);
+    let f = |m: &Mem, a: u32| m.f32(a) as f64;
+    let (hx, hy, hz) = (f(m, q + 0x34), f(m, q + 0x38), f(m, q + 0x3c));
+    let (nx, ny, nz) = (f(m, q + 0x40), f(m, q + 0x44), f(m, q + 0x48));
+    let (ex, ey, ez) = (f(m, q + 0x58), f(m, q + 0x5c), f(m, q + 0x60));
+    let (b0, b1) = ([f(m, a0), f(m, a0 + 4), f(m, a0 + 8)], [f(m, a1), f(m, a1 + 4), f(m, a1 + 8)]);
+    let r = |v: f64| v as f32 as f64;
+    let (v24, v28, ezd) = (r(ex - b0[0]), r(ey - b0[1]), ez - b0[2]);
+    let (h10, h14, h18) = (r(hx - b0[0]), r(hy - b0[1]), r(hz - b0[2]));
+    let (ax, by, cz) = (hx - b1[0], hy - b1[1], hz - b1[2]);
+    let dist = ((by * ny + cz * nz) + ax * nx) as f32;
+    m.set_u32(set + 0xa00 + 4 * n, dist.to_bits());
+    let d1 = r((v24 * v24 + v28 * v28) + ezd * ezd);
+    let d2 = r((h10 * h10 + h14 * h14) + h18 * h18);
+    if !(d2 > d1) && d1 >= 1e-5 {
+        let mut ratio = d2 / d1;
+        if ratio > 1.0 {
+            ratio = 1.0;
+        }
+        m.set_u32(set + 0x800 + 4 * n, (ratio.sqrt() as f32).to_bits());
+    }
+    m.set_u32(set + 0xb00, n + 1);
+    1
+}
+
 /// `0x5843c0(body, target, ratio, distance, rec)` (cdecl, `f32*` for `ratio` and `distance`): casts from the body position to
 /// `target + 0x24` through the room object (`[+0x320]`, or `[+0x7f0]` while `[+0x5a0] != 0`). Returns 0 on a miss, 2 (and
 /// `*ratio = 0`) when either squared length is below 1e-6, else 1 with `*distance = n . (hit - end)` and
@@ -428,5 +548,58 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 300);
+    }
+
+    #[test]
+    fn native_body_contact_record() {
+        struct Stub {
+            mat: Vec<u8>,
+            pn: Vec<u8>,
+            flags: u32,
+            calls: Vec<String>,
+        }
+        impl ProbeOwner for Stub {
+            fn cast(&mut self, m: &mut Mem, owner: u32, kind: u32, q: u32) -> u32 {
+                let d: String = m.read(q, 0x7c).iter().map(|b| format!("{b:02x}")).collect();
+                self.calls.push(format!("cast|{owner:x}|{kind:x}|{d}"));
+                m.write(q + 4, &self.mat);
+                m.write(q + 0x34, &self.pn);
+                self.flags
+            }
+            fn set_case(&mut self, _: &mut Mem, _: u32, _: i32) {}
+        }
+        let base = 0x2a010000u32;
+        let at = |i: u32| base + 0x2000 * i;
+        let (body, set, a0, a1) = (at(0), at(1), at(2), at(3));
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_contact_record.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            for it in v[3].split(',') {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(body + u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            m.write(body + if v[2] == "1" { 0x700 } else { 0x1f4 }, &unhex(v[4]));
+            m.set_u32(body + 0x100, at(5));
+            m.write(a0, &unhex(v[5]));
+            m.write(a1, &unhex(v[6]));
+            m.set_u32(set + 0xb00, v[10].parse().unwrap());
+            let before = m.read(set, 0x1000);
+            let mut o = Stub { mat: unhex(v[7]), pn: unhex(v[8]), flags: u32::from_str_radix(v[9], 16).unwrap(), calls: vec![] };
+            let r = body_contact_record(&mut m, a0, a1, set, body, &mut o);
+            let after = m.read(set, 0x1000);
+            let diff: Vec<String> = (0..0x1000)
+                .step_by(4)
+                .filter(|&i| after[i..i + 4] != before[i..i + 4])
+                .map(|i| format!("{i:x}:{}", after[i..i + 4].iter().map(|b| format!("{b:02x}")).collect::<String>()))
+                .collect();
+            assert_eq!(format!("{r:x}"), v[11], "case {c}: result");
+            assert_eq!(diff.join(","), v[12], "case {c}: set");
+            let want: Vec<&str> = v[13].split(';').filter(|e| e.starts_with("cast")).collect();
+            assert_eq!(o.calls.len(), want.len(), "case {c}: calls");
+            n += 1;
+        }
+        assert_eq!(n, 500);
     }
 }
