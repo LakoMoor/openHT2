@@ -129,6 +129,28 @@ pub fn scene_probe(m: &mut Mem, s: u32, f: u32, owner: &mut dyn ProbeOwner) {
     }
 }
 
+/// What `0x4e480c` calls on the switch node: the case count (virtual `+0x3c`) and the assert report `0x4e460b` (log only).
+pub trait SwitchOwner {
+    fn count(&mut self, m: &mut Mem, obj: u32) -> i32;
+    fn assert(&mut self);
+}
+
+/// `0x4e480c(obj, index)` (cdecl, SetCaseSwitch): reports (and continues on) a node whose kind `[+0x10]` is not 0x12 or an index
+/// outside `0..count`; then `0x5e1a10` stores `[obj+0x38] = index` when the node is a switch (0x12), `index >= 0` and
+/// `index < count` (the count is asked once more).
+pub fn set_case_switch(m: &mut Mem, obj: u32, index: i32, owner: &mut dyn SwitchOwner) {
+    if m.u32(obj + 0x10) != 0x12 {
+        owner.assert();
+    }
+    if index < 0 || index >= owner.count(m, obj) {
+        owner.count(m, obj);
+        owner.assert();
+    }
+    if m.u32(obj + 0x10) == 0x12 && index >= 0 && index < owner.count(m, obj) {
+        m.set_u32(obj + 0x38, index as u32);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -198,5 +220,32 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 500);
+    }
+    #[test]
+    fn native_set_case() {
+        struct Log(Vec<&'static str>, i32);
+        impl SwitchOwner for Log {
+            fn count(&mut self, _: &mut Mem, _: u32) -> i32 {
+                self.0.push("count");
+                self.1
+            }
+            fn assert(&mut self) {
+                self.0.push("assert");
+            }
+        }
+        let obj = 0x2a010000u32;
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_set_case.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            m.set_u32(obj + 0x10, v[0].parse().unwrap());
+            m.set_u32(obj + 0x38, v[3].parse().unwrap());
+            let mut log = Log(vec![], v[2].parse().unwrap());
+            set_case_switch(&mut m, obj, v[1].parse().unwrap(), &mut log);
+            assert_eq!(m.u32(obj + 0x38).to_string(), v[4], "case {c}");
+            assert_eq!(log.0.join(";"), v[5], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 300);
     }
 }
