@@ -1584,6 +1584,58 @@ pub fn body_ground_hit(m: &mut Mem, body: u32, rec: u32, out: u32, o: &mut dyn G
     1
 }
 
+/// What `0x57e2e0` calls outside itself (stand-ins): the range report `0x4e2821(vec, text, limit_bits)` and the virtual `+0x90(vec, text)`.
+pub trait ContactPlaceOwner: ItemVirtuals {
+    fn range(&mut self, m: &mut Mem, vec: u32, text: u32, limit: u32);
+}
+
+/// `0x57e2e0(body, rec, out*)` (cdecl): a contact at the point `rec+0x34` with the normal `rec+0x40` and the depth `rec[0]` (offset `+0.001`)
+/// is turned into a pose for the body. The point `P = depth' * n + point` is taken, `d = body position (+0xc64 matrix) - P`, `c = n x d`,
+/// `e = c x n`, `Q = P + e` and the body matrix with the translation `Q` is written to `*out`. With `b` = the vector at `+0xce4` and `k` =
+/// `[+0x590]`: `F = ((b x n) x n) + k * (|b . n| * n)`; `F` is range-checked (`0x4e2821`, text `0x67d1b8`, 150.0) and handed to the
+/// virtual `+0x90(F, text)`. The x87 intermediates stay unrounded as in the original (`P.z`, `d`, `c.z` are kept in extended registers).
+pub fn contact_place(m: &mut Mem, this: u32, rec: u32, out: u32, o: &mut dyn ContactPlaceOwner) {
+    use crate::matrix::*;
+    const L: u32 = 0x7ffe_f000 + 0xc400;
+    let (mm, h, u, w, hk, fv) = (L, L + 0x40, L + 0x50, L + 0x60, L + 0x70, L + 0x80);
+    let f = |m: &Mem, a: u32| m.f32(a) as f64;
+    let r32 = |v: f64| v as f32 as f64;
+    for i in 0..12 {
+        let x = m.u32(this + 0xc64 + 4 * i);
+        m.set_u32(mm + 4 * i, x);
+    }
+    let n = [f(m, rec + 0x40), f(m, rec + 0x44), f(m, rec + 0x48)];
+    let s = f(m, rec) + 0.001;
+    let (tx, ty, tz) = (r32(s * n[0]), r32(s * n[1]), s * n[2]);
+    let (px, py) = (r32(tx + f(m, rec + 0x34)), r32(ty + f(m, rec + 0x38)));
+    let pz = tz + f(m, rec + 0x3c);
+    let (dx, dy, dz) = (f(m, mm + 36) - px, f(m, mm + 40) - py, f(m, mm + 44) - pz);
+    let cx = r32(dz * n[1] - dy * n[2]);
+    let cy = r32(dx * n[2] - dz * n[0]);
+    let cz = dy * n[0] - dx * n[1];
+    let ex = r32(cy * n[2] - cz * n[1]);
+    let ey = r32(cz * n[0] - cx * n[2]);
+    let ez = cx * n[1] - cy * n[0];
+    let (qx, qy, qz) = ((ex + px) as f32, (py + ey) as f32, (pz + ez) as f32);
+    m.set_f32(mm + 36, qx);
+    m.set_f32(mm + 40, qy);
+    m.set_f32(mm + 44, qz);
+    for i in 0..12 {
+        let x = m.u32(mm + 4 * i);
+        m.set_u32(out + 4 * i, x);
+    }
+    let b = [f(m, this + 0xce4), f(m, this + 0xce8), f(m, this + 0xcec)];
+    let a = (((b[2] * n[2]) + b[1] * n[1]) + b[0] * n[0]).abs();
+    crate::math::vec_set(m, h, (a * n[0]) as f32, (a * n[1]) as f32, (a * n[2]) as f32);
+    crate::math::vec_set(m, u, (n[1] * b[2] - b[1] * n[2]) as f32, (b[0] * n[2] - n[0] * b[2]) as f32, (b[1] * n[0] - n[1] * b[0]) as f32);
+    vec_cross(m, w, u, rec + 0x40);
+    let k = m.f32(this + 0x590);
+    vec_scale(m, hk, h, k);
+    vec_add(m, fv, w, hk);
+    o.range(m, fv, 0x67d1b8, 0x4316_0000);
+    o.virt(m, this, 0x90, &[fv, 0x67d1b8]);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2593,6 +2645,51 @@ mod tests {
             assert_eq!(d(&r0, &m.read(rec, 0x100)), v[4], "case {c}: rec");
             assert_eq!(d(&c0, &m.read(cell, 0x20)), v[5], "case {c}: cells");
             assert_eq!(ow.ev.join(";"), v[6], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 500);
+    }
+
+    struct CpTest {
+        ev: Vec<String>,
+    }
+    impl ItemVirtuals for CpTest {
+        fn virt(&mut self, m: &mut Mem, _this: u32, slot: u32, args: &[u32]) {
+            assert_eq!(slot, 0x90);
+            self.ev.push(format!("v90|{}|{:x}", hx(m, args[0], 12), args[1]));
+        }
+    }
+    impl ContactPlaceOwner for CpTest {
+        fn range(&mut self, m: &mut Mem, vec: u32, text: u32, limit: u32) {
+            self.ev.push(format!("rng|{}|{text:x}|{limit:x}", hx(m, vec, 12)));
+        }
+    }
+    #[test]
+    fn native_contact_place() {
+        let (body, rec, out) = (0x2a010000u32, 0x2a014000u32, 0x2a018000u32);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_contact_e2e0.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            let (b0, r0, o0) = (m.read(body, 0x1000), m.read(rec, 0x100), m.read(out, 0x30));
+            let mut ow = CpTest { ev: vec![] };
+            contact_place(&mut m, body, rec, out, &mut ow);
+            let d = |a: &[u8], b: &[u8]| -> String {
+                (0..a.len())
+                    .step_by(4)
+                    .filter(|&i| a[i..i + 4] != b[i..i + 4])
+                    .map(|i| format!("{:x}:{}", i, b[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            };
+            assert_eq!(d(&b0, &m.read(body, 0x1000)), v[1], "case {c}: body");
+            assert_eq!(d(&r0, &m.read(rec, 0x100)), v[2], "case {c}: rec");
+            assert_eq!(d(&o0, &m.read(out, 0x30)), v[3], "case {c}: out");
+            assert_eq!(ow.ev.join(";"), v[4], "case {c}: events");
             n += 1;
         }
         assert_eq!(n, 500);
