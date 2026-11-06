@@ -1538,6 +1538,52 @@ pub fn cast_wrapper_virt3c_b(m: &mut Mem, this: u32, a0: u32, mat: u32, mat2: u3
     res
 }
 
+/// What `0x592a20` calls outside itself (stand-in): the wrapper `0x589e90(body, set, flags)` (`0x589640` with the identity matrix and
+/// `flags | 0x200`); `body_point_contacts` is its port.
+pub trait GroundOwner {
+    fn point_contacts(&mut self, m: &mut Mem, body: u32, set: u32, flags: u32) -> u32;
+}
+
+/// `0x592a20(body, rec, out*)` (cdecl): the sample-point casts of the body into a local contact set (`0x589e90(body, set, 0x200)`); no hit
+/// gives 0. Otherwise the flagged contact with the largest distance (`+0xa00`, strictly above 0, first of equals) fills the record: point
+/// `rec+0x34`, normal `rec+0x40`, owner `rec+0x74`, `rec+0x64` from `+0x700`, a flag of -1 copies the contact's matrix to `rec+4`;
+/// `*out` = that distance; returns 1.
+pub fn body_ground_hit(m: &mut Mem, body: u32, rec: u32, out: u32, o: &mut dyn GroundOwner) -> u32 {
+    const L: u32 = 0x7ffe_f000 + 0xc000;
+    let set = L;
+    crate::contact_set::contact_set_ctor(m, set);
+    if o.point_contacts(m, body, set, 0x200) == 0 {
+        return 0;
+    }
+    let cnt = m.i32(set + 0xb00);
+    let (mut best, mut idx) = (0.0f64, 0u32);
+    for i in 0..cnt.max(0) as u32 {
+        if m.u32(set + 0xb04 + 4 * i) != 0 {
+            let d = m.f32(set + 0xa00 + 4 * i) as f64;
+            if best < d {
+                best = d;
+                idx = i;
+            }
+        }
+    }
+    for k in 0..3 {
+        let (p, n) = (m.u32(set + 12 * idx + 4 * k), m.u32(set + 0x300 + 12 * idx + 4 * k));
+        m.set_u32(rec + 0x34 + 4 * k, p);
+        m.set_u32(rec + 0x40 + 4 * k, n);
+    }
+    let (w74, w64) = (m.u32(set + 0x600 + 4 * idx), m.u32(set + 0x700 + 4 * idx));
+    m.set_u32(rec + 0x74, w74);
+    m.set_u32(rec + 0x64, w64);
+    if m.u32(set + 0xb04 + 4 * idx) == 0xffff_ffff {
+        for k in 0..12 {
+            let w = m.u32(set + 0xd04 + 0x30 * idx + 4 * k);
+            m.set_u32(rec + 4 + 4 * k, w);
+        }
+    }
+    m.set_f32(out, best as f32);
+    1
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2486,6 +2532,67 @@ mod tests {
                 assert_eq!(d(&s0[k], &m.read(a, n)), v[4 + k], "case {c}: block {k}");
             }
             assert_eq!(ow.ev.join(";"), v[7], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 500);
+    }
+
+    struct GqTest {
+        ev: Vec<String>,
+        script: Vec<(u32, Vec<(u32, Vec<u8>)>)>,
+    }
+    impl GroundOwner for GqTest {
+        fn point_contacts(&mut self, m: &mut Mem, body: u32, set: u32, flags: u32) -> u32 {
+            self.ev.push(format!("pc|{body:x}|{flags:x}"));
+            let (ret, patch) = self.script.remove(0);
+            for (off, b) in patch {
+                m.write(set + off, &b);
+            }
+            ret
+        }
+    }
+    #[test]
+    fn native_body_ground_hit() {
+        let (body, cell, rec) = (0x2a010000u32, 0x2a01b000u32, 0x2a01c000u32);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_ground_query.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            let (b0, r0, c0) = (m.read(body, 0x1000), m.read(rec, 0x100), m.read(cell, 0x20));
+            let script = v[1]
+                .split(';')
+                .map(|s| {
+                    let (a, p) = s.split_once('|').unwrap();
+                    let patch = p
+                        .split(',')
+                        .filter(|x| !x.is_empty())
+                        .map(|x| {
+                            let (o, h) = x.split_once(':').unwrap();
+                            (u32::from_str_radix(o, 16).unwrap(), unhex(h))
+                        })
+                        .collect();
+                    (a.parse().unwrap(), patch)
+                })
+                .collect();
+            let mut ow = GqTest { ev: vec![], script };
+            let res = body_ground_hit(&mut m, body, rec, cell, &mut ow);
+            let d = |a: &[u8], b: &[u8]| -> String {
+                (0..a.len())
+                    .step_by(4)
+                    .filter(|&i| a[i..i + 4] != b[i..i + 4])
+                    .map(|i| format!("{:x}:{}", i, b[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            };
+            assert_eq!(res.to_string(), v[2], "case {c}: result");
+            assert_eq!(d(&b0, &m.read(body, 0x1000)), v[3], "case {c}: body");
+            assert_eq!(d(&r0, &m.read(rec, 0x100)), v[4], "case {c}: rec");
+            assert_eq!(d(&c0, &m.read(cell, 0x20)), v[5], "case {c}: cells");
+            assert_eq!(ow.ev.join(";"), v[6], "case {c}: events");
             n += 1;
         }
         assert_eq!(n, 500);
