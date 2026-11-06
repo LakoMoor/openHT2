@@ -743,6 +743,178 @@ pub fn body_neighbours(m: &mut Mem, body: u32, mat: u32, set: u32, o: &mut dyn N
     sum
 }
 
+/// What `0x589640` calls outside itself (stand-ins): the context constructor `0x5ef5c0`, the room lookup `0x4e5ba7`, the casts
+/// `0x4e67d1` / `0x4e6ac4(room, p0, p1, ctx)` (the hit record is written to `ctx`) and the virtual `+0x1c` (`ItemVirtuals`).
+pub trait PointCastOwner: ItemVirtuals {
+    fn ctx_init(&mut self, m: &mut Mem, ctx: u32);
+    fn room(&mut self, m: &mut Mem, a: u32, b: u32, c: u32) -> u32;
+    fn cast(&mut self, m: &mut Mem, which: u32, room: u32, p0: u32, p1: u32, ctx: u32) -> u32;
+}
+
+/// `0x589640(body, matrix, set, flags)` (cdecl): for each sample point of the body (`0x58d0f0`, or the table variant `0x58d120` with
+/// `flags & 0x200`) a segment is cast: `0x200` — from the body position to the point in world space, otherwise from the world point to
+/// the point transformed by `matrix` (the room is looked up from the body position, `+0x1c(1)` when that fails). A miss may
+/// be turned into a record without a second cast by the tests of `flags & 0x10` (the plane `+0x1420/+0x142c` of the first record,
+/// the limit `+0x1418`, `[+0x1444]` selecting absolute distances) and `flags & 0x20` (the side plane `+0x142c x +0x1438`
+/// against `+0x141c`); otherwise `0x4e6ac4` casts. Each point gives a flag at `set+0xb04+4n` (hit & 1) and scale 1.0; a hit makes the
+/// scale `|hit - p0| / |ctx[0x58] - p0|` (at most 1, sqrt; 0 when the denominator is below 1e-9), copies the hit point /
+/// normal / distance (`set+0xa00+4n = n . (hit - p1)`) / point index, sets `[+0x1444+4i]` / `[+0x1494+4i]` and copies the context
+/// to `body+0x1418+0xd0i`. Stops at 63 entries (the iterator is drained). Returns the number of hits.
+pub fn body_point_contacts(m: &mut Mem, body: u32, mat: u32, set: u32, flags: u32, o: &mut dyn PointCastOwner) -> u32 {
+    use crate::matrix::*;
+    const L: u32 = 0x7ffe_f000 + 0x6000;
+    let (p, p0, p1, mm, ctx, u1, u2, v3, w, junk) = (L, L + 0x10, L + 0x20, L + 0x30, L + 0x80, L + 0x170, L + 0x190, L + 0x1a0, L + 0x1b0, L + 0x1c0);
+    let f = |m: &Mem, a: u32| m.f32(a) as f64;
+    let copy = |m: &mut Mem, dst: u32, src: u32, n: u32| {
+        for i in 0..n {
+            let x = m.u32(src + 4 * i);
+            m.set_u32(dst + 4 * i, x);
+        }
+    };
+    o.ctx_init(m, ctx);
+    let room0 = if m.u32(body + 0x5a0) != 0 { m.u32(body + 0x7f0) } else { m.u32(body + 0x320) };
+    copy(m, mm, if m.u32(body + 0x5a0) != 0 { body + 0x700 } else { body + 0x1f4 }, 12);
+    let mut added = 0u32;
+    loop {
+        let idx = if flags & 0x200 != 0 {
+            let (i, n) = (m.i32(body + 0xdfc), m.i32(body + 0xdf4));
+            if i >= n {
+                m.set_u32(body + 0xdfc, 0);
+                0
+            } else {
+                copy(m, p, body + 0xe08 + 12 * i as u32, 3);
+                m.set_u32(body + 0xdfc, (i + 1) as u32);
+                (i + 1) as u32
+            }
+        } else {
+            crate::body_ray::point_iter_next(m, body, p)
+        };
+        if idx == 0 {
+            return added;
+        }
+        let xf = |m: &Mem, t: u32| -> [f32; 3] {
+            let (px, py, pz) = (f(m, p), f(m, p + 4), f(m, p + 8));
+            let g = |i: u32| f(m, t + 4 * i);
+            [
+                (((g(6) * pz + g(3) * py) + g(0) * px) + g(9)) as f32,
+                (((g(7) * pz + g(4) * py) + g(1) * px) + g(10)) as f32,
+                (((g(8) * pz + g(5) * py) + g(2) * px) + g(11)) as f32,
+            ]
+        };
+        let wv = xf(m, mm);
+        let mut room;
+        if flags & 0x200 != 0 {
+            copy(m, p0, mm + 0x24, 3);
+            for i in 0..3 {
+                m.set_f32(p1 + 4 * i, wv[i as usize]);
+            }
+            room = room0;
+        } else {
+            for i in 0..3 {
+                m.set_f32(p0 + 4 * i, wv[i as usize]);
+            }
+            let nv = xf(m, mat);
+            for i in 0..3 {
+                m.set_f32(p1 + 4 * i, nv[i as usize]);
+            }
+            room = o.room(m, room0, mm + 0x24, p0);
+        }
+        if room == 0 {
+            room = room0;
+            o.virt(m, body, 0x1c, &[1]);
+        }
+        let mut hit = o.cast(m, 0x4e67d1, room, p0, p1, ctx);
+        if hit == 0 {
+            let mut do_cast = true;
+            if flags & 0x10 != 0 {
+                let r = [f(m, body + 0x1420), f(m, body + 0x1424), f(m, body + 0x1428)];
+                let n = [f(m, body + 0x142c), f(m, body + 0x1430), f(m, body + 0x1434)];
+                let side = |m: &Mem, q: u32| (((f(m, q + 8) - r[2]) * n[2] + (f(m, q + 4) - r[1]) * n[1]) + (f(m, q) - r[0]) * n[0]);
+                let flag = m.u32(body + 0x1444);
+                let mut d0 = side(m, p0);
+                let mut d1 = side(m, p1) as f32 as f64;
+                if flag != 0 {
+                    d0 = d0.abs();
+                    d1 = d1.abs();
+                }
+                let t = f(m, body + 0x1418) - 0.5;
+                let mut early = false;
+                if !(d0 >= t) && !(d1 >= t) {
+                    if flag == 0 {
+                        early = d0 > 0.5 && d1 > 0.5;
+                    } else {
+                        early = d0 > 0.0 && d1 > 0.0;
+                    }
+                }
+                if !early && flags & 0x20 != 0 {
+                    let u = [f(m, body + 0x1438), f(m, body + 0x143c), f(m, body + 0x1440)];
+                    let wd = [(u[1] * n[2] - u[2] * n[1]) as f32, (u[2] * n[0] - n[2] * u[0]) as f32, (n[1] * u[0] - u[1] * n[0]) as f32];
+                    for i in 0..3 {
+                        m.set_f32(w + 4 * i, wd[i as usize]);
+                    }
+                    let s = (wd[2] as f64 * f(m, 0x702638) + wd[1] as f64 * f(m, 0x702634)) + wd[0] as f64 * f(m, 0x702630);
+                    if !(s >= 0.0) {
+                        vec_scale_in_place(m, w, junk, -1.0);
+                    }
+                    let (x1, y1, z1) = (f(m, p1) - r[0], f(m, p1 + 4) - r[1], f(m, p1 + 8) - r[2]);
+                    let dot2 = (x1 * f(m, w) + z1 * f(m, w + 8)) + y1 * f(m, w + 4);
+                    early = dot2 > f(m, body + 0x141c);
+                }
+                do_cast = !early;
+            }
+            if do_cast {
+                hit = o.cast(m, 0x4e6ac4, room, p0, p1, ctx);
+            }
+        }
+        let cnt = m.i32(set + 0xb00);
+        if cnt >= 0x3f {
+            while crate::body_ray::point_iter_next(m, body, p) != 0 {}
+            return added;
+        }
+        let c = cnt as u32;
+        let flag = hit & 1;
+        m.set_u32(set + 0xb04 + 4 * c, flag);
+        m.set_u32(set + 0x800 + 4 * c, 0x3f80_0000);
+        if flag == 0 {
+            continue;
+        }
+        m.set_u32(set + 0x800 + 4 * c, 0);
+        added += 1;
+        copy(m, set + 12 * c, ctx + 0x34, 3);
+        copy(m, set + 12 * (c + 0x40), ctx + 0x40, 3);
+        m.set_u32(set + 0xc04 + 4 * c, idx - 1);
+        let fl = m.u32(body + 0x1444 + 4 * idx) | 1;
+        m.set_u32(body + 0x1444 + 4 * idx, fl);
+        m.set_u32(body + 0x1494 + 4 * idx, fl);
+        copy(m, body + 0xd0 * idx + 0x1418, ctx, 0x34);
+        let w74 = m.u32(ctx + 0x74);
+        m.set_u32(set + 0x600 + 4 * c, w74);
+        // u1 = ctx[0x58..] - p0, u2 = hit - p0, v3 = hit - p1 (f32 each)
+        for i in 0..3u32 {
+            let a = (f(m, ctx + 0x58 + 4 * i) - f(m, p0 + 4 * i)) as f32;
+            m.set_f32(u1 + 4 * i, a);
+            let b = (f(m, ctx + 0x34 + 4 * i) - f(m, p0 + 4 * i)) as f32;
+            m.set_f32(u2 + 4 * i, b);
+            let d = (f(m, ctx + 0x34 + 4 * i) - f(m, p1 + 4 * i)) as f32;
+            m.set_f32(v3 + 4 * i, d);
+        }
+        let dist = ((f(m, v3 + 8) * f(m, ctx + 0x48) + f(m, v3 + 4) * f(m, ctx + 0x44)) + f(m, v3) * f(m, ctx + 0x40)) as f32;
+        m.set_f32(set + 0xa00 + 4 * c, dist);
+        let a = vec_dot(m, u1, u1) as f32;
+        let b = vec_dot(m, u2, u2);
+        if !(a as f64 >= 1e-9) {
+            m.set_u32(set + 0xb00, c + 1);
+            continue;
+        }
+        let mut q = b / a as f64;
+        if !(q <= 1.0) {
+            q = 1.0;
+        }
+        m.set_f32(set + 0x800 + 4 * c, q.sqrt() as f32);
+        m.set_u32(set + 0xb00, c + 1);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1274,5 +1446,75 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 400);
+    }
+
+    struct PcTest {
+        ev: Vec<String>,
+        blobs: Vec<Vec<u8>>,
+        hits: Vec<u32>,
+        room: u32,
+        k: usize,
+    }
+    impl ItemVirtuals for PcTest {
+        fn virt(&mut self, _m: &mut Mem, _this: u32, slot: u32, args: &[u32]) {
+            assert_eq!(slot, 0x1c);
+            self.ev.push(format!("v1c|{:x}", args[0]));
+        }
+    }
+    impl PointCastOwner for PcTest {
+        fn ctx_init(&mut self, m: &mut Mem, ctx: u32) {
+            self.k = 0;
+            m.write(ctx, &self.blobs[0]);
+        }
+        fn room(&mut self, m: &mut Mem, a: u32, b: u32, c: u32) -> u32 {
+            self.ev.push(format!("5ba7|{a:x}|{}|{}", hx(m, b, 12), hx(m, c, 12)));
+            self.room
+        }
+        fn cast(&mut self, m: &mut Mem, which: u32, room: u32, p0: u32, p1: u32, ctx: u32) -> u32 {
+            let name = if which == 0x4e67d1 { "c67d1" } else { "c6ac4" };
+            self.ev.push(format!("{name}|{room:x}|{}|{}", hx(m, p0, 12), hx(m, p1, 12)));
+            self.k += 1;
+            let b = self.blobs[(self.k - 1).min(self.blobs.len() - 1)].clone();
+            m.write(ctx, &b);
+            if self.hits.is_empty() { 0 } else { self.hits.remove(0) }
+        }
+    }
+    #[test]
+    fn native_body_point_contacts() {
+        let (body, set, arg1) = (0x2a010000u32, 0x2a020000u32, 0x2a028000u32);
+        let _ = arg1;
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_point_contacts.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            let (b0, s0) = (m.read(body, 0x3000), m.read(set, 0x1000));
+            let mut o = PcTest {
+                ev: vec![],
+                blobs: v[2].split(';').map(unhex).collect(),
+                hits: v[3].split(',').map(|x| x.parse().unwrap()).collect(),
+                room: u32::from_str_radix(v[4], 16).unwrap(),
+                k: 0,
+            };
+            let res = body_point_contacts(&mut m, body, arg1, set, v[1].parse().unwrap(), &mut o);
+            let d = |a: &[u8], b: &[u8]| -> String {
+                (0..a.len())
+                    .step_by(4)
+                    .filter(|&i| a[i..i + 4] != b[i..i + 4])
+                    .map(|i| format!("{:x}:{}", i, b[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            };
+            assert_eq!(res.to_string(), v[5], "case {c}: result");
+            assert_eq!(d(&b0, &m.read(body, 0x3000)), v[6], "case {c}: body");
+            assert_eq!(d(&s0, &m.read(set, 0x1000)), v[7], "case {c}: set");
+            assert_eq!(o.ev.join(";"), v[8], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 500);
     }
 }
