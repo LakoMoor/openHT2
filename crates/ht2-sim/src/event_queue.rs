@@ -142,6 +142,11 @@ pub fn list_insert(m: &mut Mem, list: u32, node: u32, log: &mut dyn QueueLog) {
 /// `0x5d32f0(time)` (thiscall, holder; list at `[+0xc]`): a node from the pool (`0x5d3060`), constructed for this holder; on failure
 /// the list is reported and logged (`0x67fbfc`); then it is inserted (a null node does nothing).
 pub fn schedule(m: &mut Mem, holder: u32, time: u32, log: &mut dyn QueueLog) {
+    schedule_seq(m, holder, time, 0, log)
+}
+
+/// `0x5d3350(time)` (sequence 1) and `0x5d33d0(time)` (sequence 2): as `schedule`, the node made by `0x5d30e0(holder, time, sequence)`.
+pub fn schedule_seq(m: &mut Mem, holder: u32, time: u32, seq: u32, log: &mut dyn QueueLog) {
     let list = m.u32(holder + 0xc);
     if list == 0 {
         return;
@@ -149,6 +154,7 @@ pub fn schedule(m: &mut Mem, holder: u32, time: u32, log: &mut dyn QueueLog) {
     let mut node = pool_alloc(m, POOL);
     if node != 0 {
         node_ctor(m, node, holder, time);
+        m.set_u32(node + 0x14, seq);
     } else {
         node = 0;
     }
@@ -157,6 +163,80 @@ pub fn schedule(m: &mut Mem, holder: u32, time: u32, log: &mut dyn QueueLog) {
         log.message(0x67fbfc, 0);
     }
     list_insert(m, list, node, log);
+}
+
+/// `0x5d21b0` (thiscall): unlinks the node from its neighbours (`+4` / `+8`) and clears its own links.
+fn unlink(m: &mut Mem, n: u32) {
+    let (prev, next) = (m.u32(n + 4), m.u32(n + 8));
+    if prev != 0 {
+        m.set_u32(prev + 8, next);
+    }
+    if next != 0 {
+        m.set_u32(next + 4, prev);
+    }
+    m.set_u32(n + 4, 0);
+    m.set_u32(n + 8, 0);
+}
+
+/// `0x5d3a60(node)` (thiscall, queue): takes the node out of the list `[+0xc]` or `[+8]` (head: the next becomes head, its previous cleared),
+/// otherwise by `0x5d21b0`.
+fn queue_unlink(m: &mut Mem, q: u32, node: u32) {
+    let next = m.u32(node + 8);
+    if node == m.u32(q + 0xc) {
+        m.set_u32(q + 0xc, next);
+    } else if node == m.u32(q + 8) {
+        m.set_u32(q + 8, next);
+    } else {
+        unlink(m, node);
+        return;
+    }
+    if next != 0 {
+        m.set_u32(next + 4, 0);
+    }
+}
+
+/// `0x5d3790(owner)` (thiscall, queue): deletes (`0x5d30c0(1)`) every node of both lists (`[+0xc]`, `[+8]`) whose owner is `owner`. The global
+/// `[0x720118]` equal to `owner` is logged (`0x67fcb4`).
+pub fn queue_remove_owner(m: &mut Mem, q: u32, owner: u32, log: &mut dyn QueueLog) {
+    if m.u32(0x720118) == owner {
+        log.message(0x67fcb4, 0);
+    }
+    for head in [0xc, 8] {
+        let mut n = m.u32(q + head);
+        while n != 0 {
+            let next = m.u32(n + 8);
+            if m.u32(n + 0xc) == owner {
+                queue_unlink(m, q, n);
+                node_delete(m, n, log);
+            }
+            n = next;
+        }
+    }
+}
+
+/// `0x5d35b0(holder)` (thiscall, manager `[holder+0xc]`; holders form a list from `[+4]`): removes the holder's nodes, then the holder
+/// from the chain (head: `[+4]` moves to the next whose previous is cleared; else `0x5d21b0`) and clears `[holder+0xc]`.
+pub fn manager_detach(m: &mut Mem, q: u32, holder: u32, log: &mut dyn QueueLog) {
+    queue_remove_owner(m, q, holder, log);
+    if holder == m.u32(q + 4) {
+        let next = m.u32(holder + 8);
+        m.set_u32(q + 4, next);
+        if next != 0 {
+            m.set_u32(next + 4, 0);
+        }
+    } else {
+        unlink(m, holder);
+    }
+    m.set_u32(holder + 0xc, 0);
+}
+
+/// `0x5d33b0` (thiscall, holder): detaches from its manager when it has one.
+pub fn holder_clear(m: &mut Mem, holder: u32, log: &mut dyn QueueLog) {
+    let q = m.u32(holder + 0xc);
+    if q != 0 {
+        manager_detach(m, q, holder, log);
+    }
+    m.set_u32(holder + 0xc, 0);
 }
 
 #[cfg(test)]
@@ -189,7 +269,7 @@ mod tests {
             let blocks = [(h, 0x400usize), (pb, 0x100), (pm, 0x10), (POOL, 0x14)];
             let s0: Vec<Vec<u8>> = blocks.iter().map(|&(a, n)| m.read(a, n)).collect();
             let mut t = T(vec![]);
-            schedule(&mut m, h, v[1].parse().unwrap(), &mut t);
+            schedule_seq(&mut m, h, v[1].parse().unwrap(), v[2].parse().unwrap(), &mut t);
             for (k, &(a, len)) in blocks.iter().enumerate() {
                 let b = m.read(a, len);
                 let d: String = (0..len)
@@ -198,11 +278,48 @@ mod tests {
                     .map(|i| format!("{:x}:{}", i, b[i..i + 4.min(len - i)].iter().map(|x| format!("{x:02x}")).collect::<String>()))
                     .collect::<Vec<_>>()
                     .join(",");
-                assert_eq!(d, v[2 + k], "case {c}: block {k}");
+                assert_eq!(d, v[3 + k], "case {c}: block {k}");
             }
-            assert_eq!(t.0.join(";"), v[6], "case {c}: events");
+            assert_eq!(t.0.join(";"), v[7], "case {c}: events");
             n += 1;
         }
-        assert_eq!(n, 500);
+        assert_eq!(n, 600);
+    }
+
+    #[test]
+    fn native_event_queue_remove() {
+        let base = 0x2a010000u32;
+        let (q, hb, pb, pm) = (base, base + 0x1000, base + 0x10000, base + 0x11000);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_event_queue2.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            let blocks = [(q, 0x100usize), (pb, 0x100), (pm, 0x10), (POOL, 0x14), (hb, 0x100)];
+            let s0: Vec<Vec<u8>> = blocks.iter().map(|&(a, n)| m.read(a, n)).collect();
+            let arg: u32 = v[2].parse().unwrap();
+            let mut t = T(vec![]);
+            match v[1] {
+                "0" => queue_remove_owner(&mut m, q, arg, &mut t),
+                "1" => manager_detach(&mut m, q, arg, &mut t),
+                _ => holder_clear(&mut m, arg, &mut t),
+            }
+            for (k, &(a, len)) in blocks.iter().enumerate() {
+                let b = m.read(a, len);
+                let d: String = (0..len)
+                    .step_by(4.min(len))
+                    .filter(|&i| s0[k][i..i + 4.min(len - i)] != b[i..i + 4.min(len - i)])
+                    .map(|i| format!("{:x}:{}", i, b[i..i + 4.min(len - i)].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                assert_eq!(d, v[3 + k], "case {c}: block {k}");
+            }
+            assert_eq!(t.0.join(";"), v[8], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 600);
     }
 }
