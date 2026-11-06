@@ -503,6 +503,109 @@ pub fn body_collect_contacts(
     }
 }
 
+/// `0x58d0f0(out)` (thiscall on the body): the next sample point of the body, from the table at `+0xe08` (iterator mode `[+0xe04] == 0`,
+/// count `+0xdf4`, index `+0xdfc`, `0x58d120`) or from the flagged points at `+0xef8` (mode 1: count `+0xdf8`, index `+0xe00`, flags
+/// `+0xf28`, `0x58d170`). Returns the 1-based index of the point, 0 at the end (the index is reset).
+pub fn point_iter_next(m: &mut Mem, this: u32, out: u32) -> u32 {
+    let copy = |m: &mut Mem, from: u32| {
+        for k in 0..3 {
+            let w = m.u32(from + 4 * k);
+            m.set_u32(out + 4 * k, w);
+        }
+    };
+    match m.u32(this + 0xe04) {
+        0 => {
+            let (i, n) = (m.i32(this + 0xdfc), m.i32(this + 0xdf4));
+            if i >= n {
+                m.set_u32(this + 0xdfc, 0);
+                return 0;
+            }
+            copy(m, this + 0xe08 + 12 * i as u32);
+            m.set_u32(this + 0xdfc, (i + 1) as u32);
+            (i + 1) as u32
+        }
+        1 => {
+            let n = m.i32(this + 0xdf8);
+            let mut i = m.i32(this + 0xe00);
+            while i < n {
+                if m.u32(this + 0xf28 + 4 * i as u32) != 0 {
+                    copy(m, this + 0xef8 + 12 * i as u32);
+                    m.set_u32(this + 0xe00, (i + 1) as u32);
+                    return (i + 1) as u32;
+                }
+                i += 1;
+                m.set_u32(this + 0xe00, i as u32);
+            }
+            m.set_u32(this + 0xe00, 0);
+            0
+        }
+        _ => 0,
+    }
+}
+
+/// `0x581ea0(this, matrix, p0, d, min_t*, a*, b*)` (cdecl): for each sample point of the body (`point_iter_next`, at most 20) moved by
+/// `matrix`, `t = (W - p0) . d`; `b[i] = t` (when `b` is non-null), `*min_t` takes the smaller `t`, and a `t < 0.001` counts as a hit
+/// (`a[i] = 1`). `*min_t` starts at 1.0; the unused tail of `a` / `b` is set to 0 / 1.0. Returns the number of hits.
+pub fn sweep_samples(m: &mut Mem, this: u32, mat: u32, p0: u32, d: u32, min_t: u32, a: u32, b: u32) -> u32 {
+    let pts = SCRATCH + 0x1000;
+    let f = |m: &Mem, x: u32| m.f32(x) as f64;
+    m.set_u32(min_t, 0x3f80_0000);
+    let (mut i, mut hits) = (0u32, 0u32);
+    let mut ok = point_iter_next(m, this, pts) != 0;
+    while ok {
+        let p = pts + 12 * i;
+        let (p0x, p1x, p2x) = (f(m, p), f(m, p + 4), f(m, p + 8));
+        let w = [
+            (((p1x * f(m, mat + 0xc) + p0x * f(m, mat)) + p2x * f(m, mat + 0x18)) + f(m, mat + 0x24)) as f32,
+            (((p2x * f(m, mat + 0x1c) + p1x * f(m, mat + 0x10)) + p0x * f(m, mat + 4)) + f(m, mat + 0x28)) as f32,
+            (((f(m, mat + 0x20) * p2x + p0x * f(m, mat + 8)) + f(m, mat + 0x14) * p1x) + f(m, mat + 0x2c)) as f32,
+        ];
+        if a != 0 {
+            m.set_u32(a + 4 * i, 0);
+        }
+        let (dx, dy, dz) = (w[0] as f64 - f(m, p0), w[1] as f64 - f(m, p0 + 4), w[2] as f64 - f(m, p0 + 8));
+        let t = (dz * f(m, d + 8) + f(m, d) * dx) + dy * f(m, d + 4);
+        if b != 0 {
+            m.set_f32(b + 4 * i, t as f32);
+        }
+        if !(t >= f(m, min_t)) {
+            m.set_f32(min_t, t as f32);
+        }
+        if !(t >= 0.001) {
+            if !(t >= f(m, min_t)) {
+                m.set_f32(min_t, t as f32);
+            }
+            hits += 1;
+            if a != 0 {
+                m.set_u32(a + 4 * i, 1);
+            }
+            if b != 0 {
+                m.set_f32(b + 4 * i, t as f32);
+            }
+        }
+        i += 1;
+        ok = point_iter_next(m, this, pts + 12 * i) != 0;
+    }
+    for k in i..20 {
+        if a != 0 {
+            m.set_u32(a + 4 * k, 0);
+        }
+        if b != 0 {
+            m.set_u32(b + 4 * k, 0x3f80_0000);
+        }
+    }
+    hits
+}
+
+/// `0x5820c0(body, matrix, min_t*, t*)` (cdecl): for a body of mode `[+0x188] == 2` the sweep `sweep_samples` from `body+0x3c4` along
+/// `body+0x3d0` (without the flag array); 0 for any other mode.
+pub fn sweep_hits(m: &mut Mem, body: u32, mat: u32, min_t: u32, t: u32) -> u32 {
+    if m.u32(body + 0x188) != 2 {
+        return 0;
+    }
+    sweep_samples(m, body, mat, body + 0x3c4, body + 0x3d0, min_t, 0, t)
+}
+
 /// `0x5843c0(body, target, ratio, distance, rec)` (cdecl, `f32*` for `ratio` and `distance`): casts from the body position to
 /// `target + 0x24` through the room object (`[+0x320]`, or `[+0x7f0]` while `[+0x5a0] != 0`). Returns 0 on a miss, 2 (and
 /// `*ratio = 0`) when either squared length is below 1e-6, else 1 with `*distance = n . (hit - end)` and
@@ -925,6 +1028,38 @@ mod tests {
             let ev: Vec<&str> = v[9].split(';').collect();
             assert_eq!(binds, ev.iter().filter(|e| e.starts_with("bind")).count(), "case {c}: binds");
             assert_eq!(probe.calls, ev.iter().filter(|e| e.starts_with("cast")).count(), "case {c}: casts");
+            n += 1;
+        }
+        assert_eq!(n, 400);
+    }
+    #[test]
+    fn native_sweep_hits() {
+        let base = 0x2a010000u32;
+        let (body, mat, ta, mt) = (base, base + 0x2000, base + 0x4000, base + 0x6000);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_sweep_hits.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            for it in v[0].split(',') {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(body + u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            m.write(mat, &unhex(v[1]));
+            m.write(ta, &unhex(v[2]));
+            m.write(mt, &unhex(v[3]));
+            let before = m.read(body, 0x1000);
+            let r = sweep_hits(&mut m, body, mat, mt, ta);
+            let after = m.read(body, 0x1000);
+            let diff: Vec<String> = (0..0x1000)
+                .step_by(4)
+                .filter(|&i| after[i..i + 4] != before[i..i + 4])
+                .map(|i| format!("{i:x}:{}", after[i..i + 4].iter().map(|b| format!("{b:02x}")).collect::<String>()))
+                .collect();
+            let hx = |a: u32, k: usize| m.read(a, k).iter().map(|b| format!("{b:02x}")).collect::<String>();
+            assert_eq!(format!("{r:x}"), v[4], "case {c}: result");
+            assert_eq!(diff.join(","), v[5], "case {c}: body");
+            assert_eq!(hx(ta, 80), v[6], "case {c}: t");
+            assert_eq!(hx(mt, 4), v[7], "case {c}: min");
             n += 1;
         }
         assert_eq!(n, 400);
