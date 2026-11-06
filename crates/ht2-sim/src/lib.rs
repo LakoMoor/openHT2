@@ -1,4 +1,4 @@
-//! Vehicle simulation, ported function by function from the original game.
+﻿//! Vehicle simulation, ported function by function from the original game.
 //!
 //! Each ported function names its original address (`fn_00507330` = `0x507330` in `king.exe`),
 //! and is checked against the original code running in an emulator (see `tools/emu`).
@@ -46,6 +46,7 @@ pub mod moving_item;
 pub mod pose_objects;
 pub mod body_ray;
 pub mod contact_set;
+pub mod mesh_query;
 pub mod scene_host;
 pub mod scene_level;
 pub mod scene_net;
