@@ -306,6 +306,301 @@ pub fn pose_delta(m: &mut Mem, a: u32, b: u32, m2: u32, out_pos: u32, out_ang: u
     m.set_f32(out_ang, -x);
 }
 
+/// What `0x582c30` calls outside itself (stand-ins, not ported): the world-object lookup `0x57c9e0`, the room lookup `0x4e5ba7`,
+/// the contact routines `0x57e2e0` / `0x57e540` / `0x580a00` / `0x5808c0` (`which` is the address), `0x581990`, `0x588090`, the
+/// range report `0x4e2821(vec, text, limit_bits)` and the error log `0x4e260c`. The virtuals `+0x1c/+0x90/+0x94/+0xa0/+0xdc` go
+/// through `ItemVirtuals`.
+pub trait UpdateOwner: ItemVirtuals {
+    fn range(&mut self, m: &mut Mem, vec: u32, text: u32, limit: u32);
+    fn world_object(&mut self, m: &mut Mem, id: u32) -> u32;
+    fn room(&mut self, m: &mut Mem, a: u32, b: u32, c: u32) -> u32;
+    fn contact(&mut self, m: &mut Mem, which: u32, a: u32, b: u32, c: u32);
+    fn contact_1990(&mut self, m: &mut Mem, a: u32, b: u32, c: u32, d: u32);
+    fn r588090(&mut self, m: &mut Mem, this: u32) -> u32;
+    fn error(&mut self);
+}
+
+/// `0x582c30(flags, dt)` (MovingItem virtual `+0xcc`, thiscall, `ret 8`): the per-step pose / velocity update. Saves the
+/// previous frame into the history ring, advances the pose by `dt` (`0x5abc90` look-at roll and translation from either the
+/// stored velocities or the pose delta), sweeps the new pose (`0x5820c0`), pushes the body out along the hit normal, refreshes
+/// the room, the wheel velocities and the contact bookkeeping (see the body for the order).
+pub fn moving_item_update(m: &mut Mem, this: u32, flags: u32, dt: f32, o: &mut dyn UpdateOwner) {
+    use crate::matrix::*;
+    const L: u32 = 0x7ffe_f000 + 0x3000;
+    let (a_v, b_v, t1, m1, m2, m3, min_t, tarr) = (L, L + 0x10, L + 0x20, L + 0x60, L + 0x90, L + 0xc0, L + 0xf0, L + 0x100);
+    let f = |m: &Mem, a: u32| m.f32(a) as f64;
+    let copy = |m: &mut Mem, dst: u32, src: u32, n: u32| {
+        for i in 0..n {
+            let w = m.u32(src + 4 * i);
+            m.set_u32(dst + 4 * i, w);
+        }
+    };
+    let k = m.i32(this + 0x598);
+    let kk = k as u32;
+    copy(m, this + 0x7f8 + 12u32.wrapping_mul(kk), this + 0x1ac, 3);
+    copy(m, this + 0xd0u32.wrapping_mul(kk) + 0x838, this + 0x5b8, 0x34);
+    o.range(m, this + 0x5ec, 0x67d788, 0x461c_4000);
+    o.range(m, this + 0x5f8, 0x67d76c, 0x4000_0000);
+    if m.u32(this + 0x688) != 0 {
+        o.virt(m, this, 0xa0, &[this + 0x5b8]);
+    }
+    if m.u32(this + 0x404) == 0 {
+        if f(m, this + 0x3d8) > 0.7 && m.u32(this + 0x37c) & 4 == 0 {
+            m.set_u32(this + 0x68c, 1);
+        }
+        if m.u32(this + 0x404) == 0 && m.u32(this + 0x3f4) != 0 && m.u32(m.u32(this + 0x3f4)) == 1 && m.u32(this + 0x37c) & 4 == 0 {
+            copy(m, this + 0x498, this + 0x3d0, 3);
+            copy(m, this + 0x48c, this + 0x3c4, 3);
+        }
+    }
+    let fr = 1.0 - dt as f64;
+    let l64 = fr as f32;
+    m.set_f32(this + 0x5b0, dt);
+    let v = (fr * f(m, this + 0x5ac)) as f32;
+    m.set_f32(this + 0x5ac, v);
+    copy(m, this + 0x460, this + 0x3d0, 3);
+    copy(m, this + 0x390, this + 0x5b8, 0x34);
+    let v = m.u32(this + 0x37c) | 1;
+    m.set_u32(this + 0x37c, v);
+    let now = crate::globals::time(m);
+    m.set_f32(this + 0x388, now);
+    let v = m.u32(this + 0xd88) | 1;
+    m.set_u32(this + 0xd88, v);
+    m.set_u32(this + 0x69c, 0);
+    copy(m, a_v, this + 0xc4c, 3);
+    copy(m, b_v, this + 0xc58, 3);
+    let saved = m.u32(this + 0x5a4);
+    let dtf = dt as f64;
+    let b3 = |m: &Mem, a: u32| [m.f32(a), m.f32(a + 4), m.f32(a + 8)];
+    if m.u32(this + 0x68c) != 0 {
+        let len = vec_len(m, this + 0xc58) as f32;
+        m.set_f32(this + 0x5a4, len);
+        let a = b3(m, this + 0xc4c);
+        mat_translation(m, t1, (dtf * a[0] as f64) as f32, (dtf * a[1] as f64) as f32, (dtf * a[2] as f64) as f32);
+        let th = (dtf * f(m, this + 0x5a4)) as f32;
+        let dir = b3(m, this + 0xc58);
+        mat_look(m, m1, [0.0; 3], dir, th);
+        mat_mul(m, m2, m1, this + 0x760);
+    } else {
+        pose_delta(m, this + 0x6a0, this + 0x224, this + 0x284, a_v, b_v);
+        let lb = vec_len(m, b_v) as f32;
+        let a = b3(m, a_v);
+        mat_translation(m, t1, (dtf * a[0] as f64) as f32, (dtf * a[1] as f64) as f32, (dtf * a[2] as f64) as f32);
+        let th = (dtf * lb as f64) as f32;
+        let dir = b3(m, b_v);
+        mat_look(m, m1, [0.0; 3], dir, th);
+        mat_mul(m, m2, m1, this + 0x224);
+    }
+    mat_mul(m, m3, m2, t1);
+    copy(m, this + 0x700, m3, 12);
+    let obj = o.world_object(m, m.u32(this + 0x404));
+    let hits = crate::body_ray::sweep_hits(m, this, this + 0x700, min_t, tarr);
+    o.range(m, this + 0x724, 0x67d74c, 0x461c_4000);
+    if hits != 0 {
+        let mt = f(m, min_t);
+        let mut v1 = if m.u32(this + 0x68c) != 0 { (0.001 - mt) as f32 } else { (0.01 - mt) as f32 };
+        let (d, vv, uu, ww) = (L + 0x200, L + 0x210, L + 0x220, L + 0x230);
+        copy(m, d, this + 0x3d0, 3);
+        o.virt(m, this, 0xdc, &[vv]);
+        let (d0, d1, d2) = (f(m, d), f(m, d + 4), f(m, d + 8));
+        let (v0, vy, vz) = (f(m, vv), f(m, vv + 4), f(m, vv + 8));
+        let dot = (d0 * v0 + d1 * vy) + d2 * vz;
+        let c = [d2 * vy - d1 * vz, d0 * vz - d2 * v0, d1 * v0 - d0 * vy];
+        let e = [(c[1] * vz - c[2] * vy) as f32, (c[2] * v0 - c[0] * vz) as f32, (c[0] * vy - c[1] * v0) as f32];
+        copy(m, uu, d, 3);
+        if !(dot >= -0.7) {
+            v1 = 0.0;
+        } else if dot < 0.0 {
+            for i in 0..3 {
+                m.set_f32(ww + 4 * i, e[i as usize]);
+            }
+            let inv = 1.0 / vec_len(m, ww);
+            for i in 0..3 {
+                m.set_f32(uu + 4 * i, (e[i as usize] as f64 * inv) as f32);
+            }
+            let p = inv * v1 as f64;
+            v1 = if p > 0.5 { 0.5 } else { p as f32 };
+        }
+        for i in 0..3 {
+            let x = (f(m, uu + 4 * i) * v1 as f64) as f32;
+            m.set_f32(ww + 4 * i, x);
+        }
+        vec_add_in_place(m, this + 0x724, vv, ww);
+        if crate::carv::fn_004e28b0(m, this + 0x724, 10000.0) != 0 {
+            o.error();
+        }
+    }
+    copy(m, this + 0xc4c, a_v, 3);
+    copy(m, this + 0xc58, b_v, 3);
+    m.set_u32(this + 0x5a4, saved);
+    crate::math::mat_inverse(m, m1, this + 0x700);
+    copy(m, this + 0x730, m1, 12);
+    let r = o.room(m, m.u32(this + 0x7f4), this + 0x784, this + 0x724);
+    m.set_u32(this + 0x7f0, r);
+    if r == 0 {
+        let w = m.u32(this + 0x7f4);
+        m.set_u32(this + 0x7f0, w);
+        o.virt(m, this, 0x1c, &[1]);
+    }
+    let (p1, p2, junk) = (L + 0x240, L + 0x250, L + 0x260);
+    let fl = l64 as f64;
+    for (p, s, w) in [(p1, 0x1a0u32, 0x1dcu32), (p2, 0x1ac, 0x1e8)] {
+        for i in 0..2u32 {
+            let q = (fl * f(m, this + w + 4 * i)) as f32 as f64;
+            m.set_f32(p + 4 * i, (f(m, this + s + 4 * i) - q) as f32);
+        }
+        let z = f(m, this + s + 8) - fl * f(m, this + w + 8);
+        m.set_f32(p + 8, z as f32);
+    }
+    vec_scale_in_place(m, this + 0x1dc, junk, dt);
+    vec_scale_in_place(m, this + 0x1e8, junk, dt);
+    o.virt(m, this, 0x90, &[p1, 0x67d670]);
+    o.virt(m, this, 0x94, &[p2, 0x67d650]);
+    if k > m.i32(this + 0x690) {
+        return;
+    }
+    if m.i32(this + 0x688) > 0 {
+        copy(m, this + 0xc64, this + 0x700, 12);
+        copy(m, this + 0xc94, this + 0x730, 12);
+    } else {
+        copy(m, this + 0xc64, this + 0x224, 12);
+        copy(m, this + 0xc94, this + 0x284, 12);
+    }
+    copy(m, this + 0x7e4, this + 0x1a0, 3);
+    if flags & 4 != 0 {
+        o.contact(m, 0x57e2e0, this, this + 0x390, this + 0x1f4);
+        return;
+    }
+    if m.u32(this + 0x188) == 1 && m.u32(this + 0x404) == 0 {
+        o.contact(m, 0x57e540, this, this + 0x390, this + 0x1f4);
+        return;
+    }
+    if obj != 0 {
+        if m.u32(this + 0x698) != 0 {
+            let (a, b) = (m.u32(this + 0x688), m.u32(this + 0x5b0));
+            o.contact_1990(m, this, this + 0x390, a, b);
+        }
+        let v = m.u32(this + 0xd88) | 8;
+        m.set_u32(this + 0xd88, v);
+        return;
+    }
+    if m.u32(this + 0x37c) & 4 != 0 {
+        let v = m.u32(this + 0xd88) | 4;
+        m.set_u32(this + 0xd88, v);
+        if o.r588090(m, this) == 0 {
+            o.contact(m, 0x580a00, this, this + 0x3c4, this + 0x3d0);
+        }
+        m.set_u32(this + 0x69c, 1);
+        let v = m.u32(this + 0x37c) & !4;
+        m.set_u32(this + 0x37c, v);
+        return;
+    }
+    let v = m.u32(this + 0xd88) | 0x10;
+    m.set_u32(this + 0xd88, v);
+    // q: the difference vector (f32 per component); the normalised copy made by 0x5ab400 is never read.
+    let q = [
+        (f(m, this + 0x3c4) - f(m, this + 0xc88)) as f32 as f64,
+        (f(m, this + 0x3c8) - f(m, this + 0xc8c)) as f32 as f64,
+        (f(m, this + 0x3cc) - f(m, this + 0xc90)) as f32 as f64,
+    ];
+    let (qa, qb) = (L + 0x280, L + 0x290);
+    for i in 0..3 {
+        m.set_f32(qa + 4 * i, q[i as usize] as f32);
+    }
+    vec_unit(m, qb, qa);
+    let g = |m: &Mem, o: u32| f(m, this + o);
+    let (a1, a2, a3) = (g(m, 0x1ac), g(m, 0x1b0), g(m, 0x1b4));
+    let e0 = (g(m, 0xc70) * a2 + g(m, 0xc7c) * a3) + a1 * g(m, 0xc64);
+    let e1 = (g(m, 0xc74) * a2 + g(m, 0xc80) * a3) + g(m, 0xc68) * a1;
+    let e2 = (g(m, 0xc78) * a2 + g(m, 0xc84) * a3) + g(m, 0xc6c) * a1;
+    let cx = (q[2] * e1 - q[1] * e2) as f32 as f64;
+    let cy = (e2 * q[0] - q[2] * e0) as f32 as f64;
+    let cz = e0 * q[1] - e1 * q[0];
+    let ux = (cx + g(m, 0x1a0)) as f32 as f64;
+    let uy = (cy + g(m, 0x1a4)) as f32 as f64;
+    let uz = cz + g(m, 0x1a8);
+    let s = ((uz * q[2] + ux * q[0]) + uy * q[1]) as f32 as f64;
+    let (c3, c4) = (this + 0x3c4, this + 0x3d0);
+    let gate = flags & 8 == 0
+        && m.u32(this + 0x688) & 0x400_0000 == 0
+        && crate::globals::time_hi(m) - g(m, 0xc48) >= 1.0
+        && g(m, 0x3d8) >= 0.6
+        && m.u32(this + 0x58c) == 0
+        && !(s > 0.0);
+    if gate {
+        o.contact(m, 0x5808c0, this, c3, c4);
+        return;
+    }
+    o.contact(m, 0x580a00, this, c3, c4);
+    let kc = m.i32(this + 0x598);
+    let mut esi = kc;
+    if kc > 0 {
+        esi = kc - 1;
+        loop {
+            let id = m.u32(this + 0xd0u32.wrapping_mul(esi as u32) + 0x8ac);
+            if o.world_object(m, id) == 0 {
+                break;
+            }
+            esi -= 1;
+            if esi < 0 {
+                esi = m.i32(this + 0x598);
+                break;
+            }
+        }
+    }
+    let kc = m.i32(this + 0x598);
+    if esi == kc {
+        return;
+    }
+    let (rk, re) = (this + 0xd0u32.wrapping_mul(kc as u32), this + 0xd0u32.wrapping_mul(esi as u32));
+    let dq = L + 0x2a0;
+    for i in 0..3 {
+        let x = (f(m, rk + 0x86c + 4 * i) - f(m, re + 0x86c + 4 * i)) as f32;
+        m.set_f32(dq + 4 * i, x);
+    }
+    let dv = L + 0x2b0;
+    vec_unit(m, dv, dq);
+    let (d0, d1, d2) = (f(m, dv), f(m, dv + 4), f(m, dv + 8));
+    let r = [f(m, rk + 0x878), f(m, rk + 0x87c), f(m, rk + 0x880)];
+    let cx2 = (d1 * r[2] - d2 * r[1]) as f32 as f64;
+    let cy2 = (d2 * r[0] - d0 * r[2]) as f32 as f64;
+    let cz2 = (d0 * r[1] - d1 * r[0]) as f32 as f64;
+    let t1v = (a3 * cz2 + a2 * cy2) + a1 * cx2;
+    let vk = this + 0x7f8 + 12u32.wrapping_mul(kc as u32);
+    let t2 = (f(m, vk + 8) * cz2 + f(m, vk + 4) * cy2) + cx2 * f(m, vk);
+    if !(t2 * t1v < 0.0) {
+        return;
+    }
+    if !(t1v.abs() < 0.1) {
+        return;
+    }
+    let n = [cy2 * a3 - cz2 * a2, cz2 * a1 - cx2 * a3, cx2 * a2 - cy2 * a1];
+    let mv = [
+        (cz2 * n[1] - cy2 * n[2]) as f32,
+        (n[2] * cx2 - cz2 * n[0]) as f32,
+        (cy2 * n[0] - n[1] * cx2) as f32,
+    ];
+    let k01 = f32::from_bits(0x3dcc_cccd) as f64;
+    let a0 = r[0] * k01;
+    let r1 = (r[1] * k01) as f32 as f64;
+    let r2 = (r[2] * k01) as f32 as f64;
+    let (b1, b2, b3v) = (g(m, 0x1a0), g(m, 0x1a4), g(m, 0x1a8));
+    let p0 = b3v * r[1] - r[2] * b2;
+    let p1v = r[2] * b1 - r[0] * b3v;
+    let p2v = r[0] * b2 - b1 * r[1];
+    let q0 = (p1v * r[2] - p2v * r[1]) as f32 as f64;
+    let q1 = (p2v * r[0] - p0 * r[2]) as f32 as f64;
+    let q2 = (p0 * r[1] - p1v * r[0]) as f32 as f64;
+    let pp = [(q0 + a0) as f32, (r1 + q1) as f32, (r2 + q2) as f32];
+    let (mvp, ppp) = (L + 0x2c0, L + 0x2d0);
+    for i in 0..3usize {
+        m.set_f32(mvp + 4 * i as u32, mv[i]);
+        m.set_f32(ppp + 4 * i as u32, pp[i]);
+    }
+    o.virt(m, this, 0x94, &[mvp, 0x67d640]);
+    o.virt(m, this, 0x90, &[ppp, 0x67d630]);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -604,5 +899,113 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 300);
+    }
+
+    struct UpOwner {
+        ev: Vec<String>,
+        obj: u32,
+        r5ba7: u32,
+        r8090: u32,
+        vdc: Vec<u8>,
+    }
+    fn hx(m: &Mem, a: u32, n: usize) -> String {
+        m.read(a, n).iter().map(|x| format!("{x:02x}")).collect()
+    }
+    impl ItemVirtuals for UpOwner {
+        fn virt(&mut self, m: &mut Mem, _this: u32, slot: u32, args: &[u32]) {
+            let e = match slot {
+                0x1c => format!("v1c|{:x}", args[0]),
+                0x90 => format!("v90|{}|{:x}", hx(m, args[0], 12), args[1]),
+                0x94 => format!("v94|{}|{:x}", hx(m, args[0], 12), args[1]),
+                0xa0 => format!("va0|{}", hx(m, args[0], 0xd0)),
+                0xdc => {
+                    m.write(args[0], &self.vdc);
+                    "vdc".to_string()
+                }
+                _ => panic!("slot {slot:x}"),
+            };
+            self.ev.push(e);
+        }
+    }
+    impl UpdateOwner for UpOwner {
+        fn range(&mut self, m: &mut Mem, vec: u32, text: u32, limit: u32) {
+            self.ev.push(format!("rng|{}|{:x}|{:x}", hx(m, vec, 12), text, limit));
+        }
+        fn world_object(&mut self, _m: &mut Mem, id: u32) -> u32 {
+            self.ev.push(format!("c9e0|{id:x}"));
+            self.obj
+        }
+        fn room(&mut self, _m: &mut Mem, a: u32, b: u32, c: u32) -> u32 {
+            self.ev.push(format!("5ba7|{a:x},{b:x},{c:x}"));
+            self.r5ba7
+        }
+        fn contact(&mut self, _m: &mut Mem, which: u32, a: u32, b: u32, c: u32) {
+            let n = match which {
+                0x57e2e0 => "e2e0",
+                0x57e540 => "e540",
+                0x580a00 => "0a00",
+                _ => "08c0",
+            };
+            self.ev.push(format!("{n}|{a:x},{b:x},{c:x}"));
+        }
+        fn contact_1990(&mut self, _m: &mut Mem, a: u32, b: u32, c: u32, d: u32) {
+            self.ev.push(format!("1990|{a:x},{b:x},{c:x},{d:x}"));
+        }
+        fn r588090(&mut self, _m: &mut Mem, this: u32) -> u32 {
+            self.ev.push(format!("8090|{this:x}"));
+            self.r8090
+        }
+        fn error(&mut self) {
+            self.ev.push("err".to_string());
+        }
+    }
+    #[test]
+    fn native_moving_item_update() {
+        let (this, clk) = (0x2a010000u32, 0x2a016000u32);
+        let mut n = 0;
+        let mut bad = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_item_update.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            m.set_u32(crate::globals::CLOCK_PTR, clk);
+            m.write(crate::globals::FIXED_STEP_MS, &[0, 0]);
+            for it in v[2].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(this + u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            m.write(clk + 0xb98, &unhex(v[7]));
+            let before = m.read(this, 0x1000);
+            let flags: u32 = v[0].parse().unwrap();
+            let dt = f32::from_bits(u32::from_le_bytes(unhex(v[1]).try_into().unwrap()));
+            let mut o = UpOwner {
+                ev: vec![],
+                obj: u32::from_str_radix(v[3], 16).unwrap(),
+                r5ba7: u32::from_str_radix(v[4], 16).unwrap(),
+                r8090: v[5].parse().unwrap(),
+                vdc: unhex(v[6]),
+            };
+            moving_item_update(&mut m, this, flags, dt, &mut o);
+            let after = m.read(this, 0x1000);
+            let diff: String = (0..0x1000usize)
+                .step_by(4)
+                .filter(|&i| after[i..i + 4] != before[i..i + 4])
+                .map(|i| format!("{:x}:{}", i, after[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                .collect::<Vec<_>>()
+                .join(",");
+            let ev = o.ev.join(";");
+            if diff != v[8] || ev != v[9] {
+                bad += 1;
+                if bad <= 3 {
+                    let (gd, ed): (Vec<&str>, Vec<&str>) = (v[8].split(',').collect(), diff.split(',').collect());
+                    let dif: Vec<&&str> = gd.iter().filter(|x| !ed.contains(x)).collect();
+                    let ext: Vec<&&str> = ed.iter().filter(|x| !gd.contains(x)).collect();
+                    eprintln!("case {c} flags {flags}: missing {dif:?}\n  extra {ext:?}\n  ev ours {ev}\n  ev gold {}", v[9]);
+                }
+            }
+            n += 1;
+        }
+        assert_eq!(bad, 0, "{bad} of {n} differ");
+        assert_eq!(n, 500);
     }
 }
