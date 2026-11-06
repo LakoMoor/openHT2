@@ -10,6 +10,7 @@ pub mod carv;
 pub mod chassis;
 pub mod companies;
 pub mod competition;
+pub mod contact_rough;
 pub mod contact;
 pub mod ctor;
 pub mod curves;
