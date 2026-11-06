@@ -1287,6 +1287,136 @@ pub fn body_pair_query(m: &mut Mem, a: u32, mat: u32, set: u32, other: u32, sign
     }
 }
 
+/// What `0x58b120` calls outside itself (stand-ins): the wrapper `0x589e70` (`0x589640` with `flags & !0x200`, receives the raw
+/// flags), the neighbours `0x58ae30` and the road query `0x585150`, all `(body, matrix, set)`; each appends contacts to the set.
+pub trait QueryOwner {
+    fn point_contacts(&mut self, m: &mut Mem, body: u32, mat: u32, set: u32, flags: u32) -> u32;
+    fn neighbours(&mut self, m: &mut Mem, body: u32, mat: u32, set: u32) -> u32;
+    fn collect(&mut self, m: &mut Mem, body: u32, mat: u32, set: u32) -> u32;
+}
+
+/// `0x58b120(body, matrix, scale*, dist*, rec, flags)` (cdecl): the body against everything. A local contact set (constructor
+/// `0x587c80`) is filled by `0x589e70`, `0x58ae30` and `0x585150`; all three zero gives 0. Otherwise the contact with the smallest scale
+/// (flag set, strictly below 100) is chosen: `*scale *= its scale`, `*dist` = its distance (`+0xa00`). Without neighbour result its hit
+/// point is the weighted blend (`(1.01 - scale)`, only contacts whose normal is within 0.9999 of the chosen one) added to the chosen
+/// point and the normal is the unit chosen normal; with it both are copied. `rec+0x64` / `rec+0x74` get the `+0x700` / owner slots,
+/// a flag of -1 copies the contact's matrix to `rec+4`. The result is a mask: `0x4000000` / `0x2000000` from `[body+0xf38+4*index]`
+/// bits 0 / 1 (mode `[+0xe04] == 0`), `0x8000000` for flag -1, 3 / 8 / 4 for the results of the three calls.
+pub fn body_query_other(m: &mut Mem, body: u32, mat: u32, scale: u32, dist: u32, rec: u32, flags: u32, o: &mut dyn QueryOwner) -> u32 {
+    use crate::matrix::*;
+    const L: u32 = 0x7ffe_f000 + 0xa000;
+    let (acc, out, bp, bn, set) = (L, L + 0x10, L + 0x20, L + 0x30, L + 0x100);
+    let f = |m: &Mem, a: u32| m.f32(a) as f64;
+    crate::contact_set::contact_set_ctor(m, set);
+    let r1 = o.point_contacts(m, body, mat, set, flags);
+    let r2 = o.neighbours(m, body, mat, set);
+    let r3 = o.collect(m, body, mat, set);
+    if r1 == 0 && r2 == 0 && r3 == 0 {
+        return 0;
+    }
+    let cnt = m.i32(set + 0xb00);
+    let (mut b, mut best, mut entry) = (0u32, 100.0f64, 0u32);
+    for i in 0..cnt.max(0) as u32 {
+        if m.u32(set + 0xb04 + 4 * i) != 0 {
+            let s = f(m, set + 0x800 + 4 * i);
+            if best > s {
+                b = i;
+                best = s;
+                entry = m.u32(set + 0xa00 + 4 * i);
+            }
+        }
+    }
+    for i in 0..3 {
+        let (p, n) = (m.u32(set + 12 * b + 4 * i), m.u32(set + 0x300 + 12 * b + 4 * i));
+        m.set_u32(bp + 4 * i, p);
+        m.set_u32(bn + 4 * i, n);
+    }
+    let sb = f(m, set + 0x800 + 4 * b);
+    let v = (sb * f(m, scale)) as f32;
+    m.set_f32(scale, v);
+    for i in 0..3 {
+        let z = m.u32(0x702650 + 4 * i);
+        m.set_u32(acc + 4 * i, z);
+    }
+    if r2 == 0 {
+        let mut sum = 0.0f32;
+        for i in (0..cnt.max(0) as u32).rev() {
+            if m.u32(set + 0xb04 + 4 * i) == 0 {
+                continue;
+            }
+            let g = |m: &Mem, k: u32| f(m, set + 0x300 + 12 * i + 4 * k);
+            let dot = (g(m, 2) * f(m, bn + 8) + g(m, 0) * f(m, bn)) + g(m, 1) * f(m, bn + 4);
+            if !(dot > 0.9999) {
+                continue;
+            }
+            let p = |m: &Mem, k: u32| f(m, set + 12 * i + 4 * k);
+            let dx = p(m, 0) - f(m, bp);
+            let dy = (p(m, 1) - f(m, bp + 4)) as f32 as f64;
+            let dz = (p(m, 2) - f(m, bp + 8)) as f32 as f64;
+            let s = f(m, set + 0x800 + 4 * i);
+            let w = (1.01f64 - s) as f32 as f64;
+            let w3 = [(dx * w) as f32, (dy * w) as f32, (dz * w) as f32];
+            for k in 0..3 {
+                m.set_f32(L + 0x50 + 4 * k, w3[k as usize]);
+            }
+            vec_add_in_place(m, acc, out, L + 0x50);
+            sum = ((1.01f64 - s) + sum as f64) as f32;
+        }
+        vec_div_in_place(m, acc, out, sum);
+        vec_add_in_place(m, acc, out, bp);
+        for k in 0..3 {
+            let w = m.u32(acc + 4 * k);
+            m.set_u32(rec + 0x34 + 4 * k, w);
+        }
+        vec_unit(m, out, bn);
+        for k in 0..3 {
+            let w = m.u32(out + 4 * k);
+            m.set_u32(rec + 0x40 + 4 * k, w);
+        }
+    } else {
+        for k in 0..3 {
+            let (p, n) = (m.u32(bp + 4 * k), m.u32(bn + 4 * k));
+            m.set_u32(rec + 0x34 + 4 * k, p);
+            m.set_u32(rec + 0x40 + 4 * k, n);
+        }
+    }
+    let (w64, w74) = (m.u32(set + 0x700 + 4 * b), m.u32(set + 0x600 + 4 * b));
+    m.set_u32(rec + 0x64, w64);
+    m.set_u32(rec + 0x74, w74);
+    let fl = m.u32(set + 0xb04 + 4 * b);
+    if fl == 0xffff_ffff {
+        for k in 0..12 {
+            let w = m.u32(set + 0xd04 + 0x30 * b + 4 * k);
+            m.set_u32(rec + 4 + 4 * k, w);
+        }
+    }
+    m.set_u32(dist, entry);
+    let mut res = 0u32;
+    if m.u32(body + 0xe04) == 0 {
+        let idx = m.u32(set + 0xc04 + 4 * b);
+        let c = m.u32(body.wrapping_add(idx.wrapping_mul(4)).wrapping_add(0xf38));
+        if c & 1 != 0 {
+            res = 0x400_0000;
+        }
+        if c & 2 != 0 {
+            res |= 0x200_0000;
+        }
+    }
+    if fl == 0xffff_ffff {
+        res |= 0x800_0000;
+    }
+    if r1 != 0 {
+        res |= 3;
+    }
+    if r2 != 0 {
+        res |= 8;
+    }
+    if r3 != 0 {
+        res |= 4;
+    }
+    res
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2065,6 +2195,78 @@ mod tests {
             assert_eq!(d(&o0, &m.read(o_, 0x1800)), v[6], "case {c}: other");
             assert_eq!(d(&s0, &m.read(set, 0x1000)), v[7], "case {c}: set");
             assert_eq!(ow.ev.join(";"), v[8], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 500);
+    }
+
+    struct QoTest {
+        ev: Vec<String>,
+        script: Vec<(u32, Vec<(u32, Vec<u8>)>)>,
+    }
+    impl QoTest {
+        fn run(&mut self, m: &mut Mem, name: &str, body: u32, mat: u32, set: u32, fl: Option<u32>) -> u32 {
+            self.ev.push(format!("{name}|{body:x}|{mat:x}|{}", fl.map(|x| format!("{x:x}")).unwrap_or_default()));
+            let (ret, patch) = self.script.remove(0);
+            for (off, b) in patch {
+                m.write(set + off, &b);
+            }
+            ret
+        }
+    }
+    impl QueryOwner for QoTest {
+        fn point_contacts(&mut self, m: &mut Mem, body: u32, mat: u32, set: u32, flags: u32) -> u32 {
+            self.run(m, "pc", body, mat, set, Some(flags))
+        }
+        fn neighbours(&mut self, m: &mut Mem, body: u32, mat: u32, set: u32) -> u32 {
+            self.run(m, "nb", body, mat, set, None)
+        }
+        fn collect(&mut self, m: &mut Mem, body: u32, mat: u32, set: u32) -> u32 {
+            self.run(m, "col", body, mat, set, None)
+        }
+    }
+    #[test]
+    fn native_body_query_other() {
+        let (body, mat, cell, rec) = (0x2a010000u32, 0x2a01a000u32, 0x2a01b000u32, 0x2a01c000u32);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_query_other.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            let (b0, r0, c0) = (m.read(body, 0x1000), m.read(rec, 0x100), m.read(cell, 0x20));
+            let script = v[2]
+                .split(';')
+                .map(|s| {
+                    let (a, p) = s.split_once('|').unwrap();
+                    let patch = p
+                        .split(',')
+                        .filter(|x| !x.is_empty())
+                        .map(|x| {
+                            let (o, h) = x.split_once(':').unwrap();
+                            (u32::from_str_radix(o, 16).unwrap(), unhex(h))
+                        })
+                        .collect();
+                    (a.parse().unwrap(), patch)
+                })
+                .collect();
+            let mut ow = QoTest { ev: vec![], script };
+            let res = body_query_other(&mut m, body, mat, cell, cell + 0x10, rec, v[1].parse().unwrap(), &mut ow);
+            let d = |a: &[u8], b: &[u8]| -> String {
+                (0..a.len())
+                    .step_by(4)
+                    .filter(|&i| a[i..i + 4] != b[i..i + 4])
+                    .map(|i| format!("{:x}:{}", i, b[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            };
+            assert_eq!(res.to_string(), v[3], "case {c}: result");
+            assert_eq!(d(&b0, &m.read(body, 0x1000)), v[4], "case {c}: body");
+            assert_eq!(d(&r0, &m.read(rec, 0x100)), v[5], "case {c}: rec");
+            assert_eq!(d(&c0, &m.read(cell, 0x20)), v[6], "case {c}: cells");
+            assert_eq!(ow.ev.join(";"), v[7], "case {c}: events");
             n += 1;
         }
         assert_eq!(n, 500);
