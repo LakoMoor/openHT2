@@ -1,4 +1,4 @@
-﻿//! Small pieces of the road-mesh query used by `0x585150`: `0x56f650` (accessor of the collected node list), `0x56f3f0`
+//! Small pieces of the road-mesh query used by `0x585150`: `0x56f650` (accessor of the collected node list), `0x56f3f0`
 //! (starts a collection: the box into globals, the room's traversal virtual `[vtable+0x20](0, 0x56f450)` is an external owner),
 //! and `0x5818b0` (`__thiscall` flag setter).
 use crate::mem::Mem;

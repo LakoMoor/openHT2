@@ -1,4 +1,4 @@
-﻿"""Mesh query helpers: 0x56f650 (cdecl (idx, o1..o6): reads the collected node idx from the array 0x6f2e58, writes six outputs),
+"""Mesh query helpers: 0x56f650 (cdecl (idx, o1..o6): reads the collected node idx from the array 0x6f2e58, writes six outputs),
 0x56f3f0 ((room, a, b, c, d, count*): stores the box in 0x6f3248.., clears 0x6f34c0, calls [room->vtable+0x20](0, 0x56f450), count out) and
 0x5818b0 (thiscall (flags): +0x37c |= flags, +0x388 = 0x4e27a5()). The room traversal is a recording stub that sets the counter.
 Row kind first: 'acc' idx kind...; 'beg' ...; 'flg' ..."""
