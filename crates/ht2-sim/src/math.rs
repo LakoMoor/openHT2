@@ -12,7 +12,7 @@ fn r(x: f64) -> f32 {
 /// `0x5ab4d0`: length of the vector at `v` (left in extended precision by the original).
 pub fn vec_len(m: &Mem, v: u32) -> f64 {
     let (x, y, z) = (m.f32(v) as f64, m.f32(v + 4) as f64, m.f32(v + 8) as f64);
-    (z * z + y * y + x * x).sqrt()
+    (x * x + y * y + z * z).sqrt()
 }
 
 /// `0x5ab480`: normalise the vector at `v` unless it is shorter than 1e-5.

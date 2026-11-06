@@ -1,37 +1,34 @@
-"""0x58d1f0 (thiscall, ret 4: next 28-byte record of the list at +0xf94), 0x58d250 (thiscall, ret 8: record by index) and 0x58b4f0
-(thiscall: zero a 28-byte record) run unmodified. Row: kind, words, arg, result, diff of this (0x1800), out hex."""
+"""Small leaves of 0x54f040 run unmodified: 0x58d170 (cursor over a point list), 0x53f7b0 (second-kind vehicle check),
+0x57de90 (matrix copy chosen by a flag)."""
 import pathlib, random, struct
 from emu import Emu, OBJ_BASE
 
-r = random.Random(0x58d1f0)
+r = random.Random(0x58d170)
 e = Emu()
-U = lambda *v: struct.pack('<%dI' % len(v), *v)
-F = lambda *v: struct.pack('<%df' % len(v), *v)
-THIS, OUT = OBJ_BASE + 0x10000, OBJ_BASE + 0x14000
-e.write(0x702650, F(0, 0, 0))
+O, D = OBJ_BASE + 0x10000, OBJ_BASE + 0x14000
 rows = []
-for case in range(300):
-    e.write(THIS, bytes(0x1800)); e.write(OUT, bytes(0x40))
-    kind = r.choice([0, 1, 2])
-    n = r.choice([0, 1, 3, 8]); i = r.choice([0, 1, 2, 7, 9])
-    w = {0x140c: U(n), 0x1410: U(i)}
-    for k in range(8 * 7): w[0xf94 + 4 * k] = U(r.randrange(2 ** 32))
-    for o, b in w.items(): e.write(THIS + o, b)
-    for k in range(7): e.write(OUT + 4 * k, U(r.randrange(2 ** 32)))
-    idx = r.choice([-1, 0, 1, 2, 3, 7, 9])
-    out0 = e.read(OUT, 0x1c)
-    before = e.read(THIS, 0x1800)
-    if kind == 0:
-        e.call(0x58d1f0, [OUT], 'i', this=THIS)
-    elif kind == 1:
-        e.call(0x58d250, [OUT, idx], 'ii', this=THIS)
+for case in range(400):
+    which = r.choice(['58d170', '53f7b0', '57de90'])
+    blob = bytearray(r.randrange(256) for _ in range(0x1000))
+    if which == '58d170':
+        struct.pack_into('<I', blob, 0xdf8, r.randrange(0, 8))
+        struct.pack_into('<I', blob, 0xe00, r.choice([0, 1, 2, 3, 5, 9]))
+        for i in range(8):
+            struct.pack_into('<I', blob, 0xf28 + 4 * i, r.choice([0, 0, 1, 0xdead]))
+    elif which == '53f7b0':
+        struct.pack_into('<I', blob, 0x188, r.choice([2, 2, 1]))
+        struct.pack_into('<I', blob, 0xdf0, r.choice([2, 2, 3]))
     else:
-        e.write(OUT, bytes(r.randrange(256) for _ in range(0x1c)))
-        out0 = e.read(OUT, 0x1c)
-        e.call(0x58b4f0, [], '', this=OUT)
-    res = e.eax & 0xffffffff
-    after = e.read(THIS, 0x1800)
-    diff = ','.join('%x:%s' % (j, after[j:j + 4].hex()) for j in range(0, 0x1800, 4) if after[j:j + 4] != before[j:j + 4])
-    rows.append(chr(9).join([str(kind), ','.join('%x:%s' % (o, b.hex()) for o, b in w.items()), str(idx), out0.hex(), str(res), diff, e.read(OUT, 0x1c).hex()]))
+        struct.pack_into('<I', blob, 0x5a0, r.choice([0, 1]))
+    e.write(O, bytes(blob)); e.write(D, bytes(0x40))
+    arg = O
+    if which == '53f7b0':
+        arg = r.choice([O, 0])
+        res = e.call(0x53f7b0, [arg], 'i')
+    elif which == '58d170':
+        res = e.call(0x58d170, [D], 'i', this=O)
+    else:
+        res = e.call(0x57de90, [D], 'i', this=O)
+    rows.append(chr(9).join([which, bytes(blob).hex(), '%x' % arg, '%x' % e.eax, e.read(D, 0x40).hex(), e.read(O + 0xdf8, 12).hex()]))
 pathlib.Path(__file__).with_name('golden_small_leaves.tsv').write_text(chr(10).join(rows) + chr(10))
-print(len(rows))
+print(len(rows), 'cases')

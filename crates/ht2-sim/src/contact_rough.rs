@@ -349,6 +349,106 @@ pub fn contact_response_rough(m: &mut Mem, body: u32, a: u32, b: u32, o: &mut dy
     o.virt(m, body, 0x94, &[p(0x18), 0x67d420]);
 }
 
+/// Stand-ins of `0x57e540`: besides the virtuals the report `0x4e2821(vec, text, limit)` of a vector (range check and log).
+pub trait ImpulseOwner: ItemVirtuals {
+    fn report(&mut self, m: &Mem, vec: u32, text: u32, limit: f32);
+}
+
+/// `0x57e540(body, a, b)` (cdecl, frame `0xc4`): friction response of a body against a contact. With the normal `n = [a+0x40]`, the velocity `W = +0x1a0`,
+/// `V = +0x1ac`, `c = n x W`, `cn = c x n`, `u = unit(cn)`, `nW = n . W` and `t = |cn| - 0.1 * |-(nW * [+0x590]) - nW|`: when `t <= 0` (or NaN)
+/// the velocity `V` is damped by `0.8 ^ (dt * 10)` and `t` is 0; otherwise `r` = `n x u` rotated by the inverse of the matrix `b` gives the part of `V`
+/// along `r` (kept with `t / [+0xcd0]`) and the rest damped by `0.7 ^ (dt * 10)`. The impulse `u * t + n * (-(nW * [+0x590]))` goes to the
+/// report (limit 150) and the virtual `+0x90(vec, 0x67d1e0)`, the new velocity to `+0x94(vec, 0x67d1d0)`. The frame is kept in memory (offsets
+/// relative to `esp` after the prologue); the products of `f32` stay exact in `f64`, differences are rounded when stored.
+pub fn contact_friction(m: &mut Mem, body: u32, a: u32, b: u32, o: &mut dyn ImpulseOwner) {
+    use crate::matrix::*;
+    const S: u32 = 0x7ffe_f000 + 0x16000;
+    let p = |off: u32| S + off;
+    let f = |m: &Mem, off: u32| m.f32(S + off) as f64;
+    let copy = |m: &mut Mem, dst: u32, src: u32| {
+        for i in 0..3 {
+            let w = m.u32(src + 4 * i);
+            m.set_u32(dst + 4 * i, w);
+        }
+    };
+    copy(m, p(0x10), a + 0x40);
+    copy(m, p(0x1c), body + 0x1a0);
+    copy(m, p(0x50), body + 0x1ac);
+    let cross = |m: &mut Mem, dst: u32, x: u32, y: u32| {
+        // (x * y) with the component order of the compiled code: first y*z minus ..., stored as f32
+        let g = |a: u32| m.f32(a) as f64;
+        let v = [
+            (g(x + 4) * g(y + 8) - g(x + 8) * g(y + 4)) as f32,
+            (g(x + 8) * g(y) - g(x) * g(y + 8)) as f32,
+            (g(x) * g(y + 4) - g(x + 4) * g(y)) as f32,
+        ];
+        crate::math::vec_set(m, dst, v[0], v[1], v[2]);
+    };
+    // c = n x W, cn = c x n
+    cross(m, p(0x28), p(0x10), p(0x1c));
+    cross(m, p(0x44), p(0x28), p(0x10));
+    copy(m, p(0x38), p(0x44));
+    vec_unit(m, p(0x70), p(0x38));
+    copy(m, p(0x5c), p(0x50));
+    copy(m, p(0x7c), p(0x1c));
+    let dt = crate::globals::dt_hi(m);
+    m.set_f32(p(0x6c), dt as f32);
+    let nw = (f(m, 0x18) * f(m, 0x24) + f(m, 0x20) * f(m, 0x14)) + f(m, 0x10) * f(m, 0x1c);
+    m.set_f32(p(0x34), nw as f32);
+    let len = crate::math::vec_len(m, p(0x44));
+    let kv = m.f32(body + 0x590) as f64;
+    let mv = -(f(m, 0x34) * kv);
+    m.set_f32(p(0x68), mv as f32);
+    let t = len - ((mv - f(m, 0x34)).abs() * 0.1f32 as f64);
+    m.set_f32(p(0x34), t as f32);
+    let ex = f(m, 0x6c) * 10.0;
+    if !(t > 0.0) {
+        m.set_u32(p(0x34), 0);
+        let pw = 0.8f64.powf(ex);
+        let v = [f(m, 0x50) * pw, f(m, 0x54) * pw, f(m, 0x58) * pw];
+        crate::math::vec_set(m, p(0x38), v[0] as f32, v[1] as f32, v[2] as f32);
+        copy(m, p(0x5c), p(0x38));
+    } else {
+        crate::math::mat_inverse(m, p(0x98), b);
+        let g = |m: &Mem, off: u32| m.f32(S + off) as f64;
+        // tv = n x u
+        let (ux, uy, uz) = (g(m, 0x70), g(m, 0x74), g(m, 0x78));
+        let (nx, ny, nz) = (g(m, 0x10), g(m, 0x14), g(m, 0x18));
+        crate::math::vec_set(m, p(0x28), (uz * ny - uy * nz) as f32, (nz * ux - uz * nx) as f32, (uy * nx - ny * ux) as f32);
+        let (tx, ty, tz) = (g(m, 0x28), g(m, 0x2c), g(m, 0x30));
+        let i = |m: &Mem, k: u32| m.f32(S + 0x98 + 4 * k) as f64;
+        let rv = [
+            ((tz * i(m, 6) + ty * i(m, 3)) + tx * i(m, 0)) as f32,
+            ((tz * i(m, 7) + ty * i(m, 4)) + tx * i(m, 1)) as f32,
+            ((tz * i(m, 8) + ty * i(m, 5)) + tx * i(m, 2)) as f32,
+        ];
+        crate::math::vec_set(m, p(0x1c), rv[0], rv[1], rv[2]);
+        let (rx, ry, rz) = (g(m, 0x1c), g(m, 0x20), g(m, 0x24));
+        let (vx, vy, vz) = (g(m, 0x50), g(m, 0x54), g(m, 0x58));
+        let gg = (rz * vz + ry * vy) + rx * vx;
+        crate::math::vec_set(m, p(0x38), (rx * gg) as f32, (ry * gg) as f32, (rz * gg) as f32);
+        copy(m, p(0x44), p(0x38));
+        vec_sub(m, p(0x8c), p(0x50), p(0x44));
+        let kc = m.f32(body + 0xcd0) as f64;
+        let s1 = (f(m, 0x34) / kc) as f32;
+        m.set_f32(p(0x88), s1);
+        let pw = 0.7f64.powf(ex);
+        vec_scale(m, p(0x38), p(0x8c), pw as f32);
+        vec_scale(m, p(0x28), p(0x1c), s1);
+        vec_add(m, p(0xc8), p(0x28), p(0x38));
+        copy(m, p(0x5c), p(0xc8));
+    }
+    let mb = m.f32(p(0x68));
+    vec_scale(m, p(0xc4), p(0x10), mb);
+    let tb = m.f32(p(0x34));
+    vec_scale(m, p(0x8c), p(0x70), tb);
+    vec_add(m, p(0x38), p(0x8c), p(0xc4));
+    copy(m, p(0x7c), p(0x38));
+    o.report(m, p(0x7c), 0x67d1f0, 150.0);
+    o.virt(m, body, 0x90, &[p(0x7c), 0x67d1e0]);
+    o.virt(m, body, 0x94, &[p(0x5c), 0x67d1d0]);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -399,6 +499,51 @@ mod tests {
             };
             assert_eq!(d(&b0, &m.read(body, 0x1000)), v[1], "case {c}: body");
             assert_eq!(d(&a0, &m.read(arg, 0x40)), v[2], "case {c}: args");
+            assert_eq!(ow.ev.join(";"), v[3], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 800);
+    }
+
+    struct FrTest {
+        ev: Vec<String>,
+    }
+    impl ItemVirtuals for FrTest {
+        fn virt(&mut self, m: &mut Mem, _this: u32, slot: u32, args: &[u32]) {
+            let nm = if slot == 0x90 { "v90" } else { "v94" };
+            self.ev.push(format!("{nm}|{}|{:x}", hx(m, args[0], 12), args[1]));
+        }
+    }
+    impl ImpulseOwner for FrTest {
+        fn report(&mut self, m: &Mem, vec: u32, text: u32, limit: f32) {
+            self.ev.push(format!("rep|{}|{:x}|{:x}", hx(m, vec, 12), text, limit.to_bits()));
+        }
+    }
+
+    #[test]
+    fn native_contact_friction() {
+        let (body, arg) = (0x2a010000u32, 0x2a013000u32);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_contact_e540.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            let (b0, a0) = (m.read(body, 0x1000), m.read(arg, 0x200));
+            let mut ow = FrTest { ev: vec![] };
+            contact_friction(&mut m, body, arg, arg + 0x100, &mut ow);
+            let d = |a: &[u8], b: &[u8]| -> String {
+                (0..a.len())
+                    .step_by(4)
+                    .filter(|&i| a[i..i + 4] != b[i..i + 4])
+                    .map(|i| format!("{:x}:{}", i, b[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            };
+            assert_eq!(d(&b0, &m.read(body, 0x1000)), v[1], "case {c}: body");
+            assert_eq!(d(&a0, &m.read(arg, 0x200)), v[2], "case {c}: args");
             assert_eq!(ow.ev.join(";"), v[3], "case {c}: events");
             n += 1;
         }

@@ -2567,7 +2567,7 @@ mod tests {
     fn native_record_leaves() {
         let (this, out) = (0x2a010000u32, 0x2a014000u32);
         let mut n = 0;
-        for (c, line) in include_str!("../../../tools/emu/golden_small_leaves.tsv").lines().enumerate() {
+        for (c, line) in include_str!("../../../tools/emu/golden_record_leaves.tsv").lines().enumerate() {
             let v: Vec<&str> = line.split('\t').collect();
             let mut m = Mem::new();
             crate::globals::install_constants(&mut m);
