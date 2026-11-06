@@ -667,6 +667,82 @@ pub fn moving_item_set_mode(m: &mut Mem, this: u32, mode: u32, o: &mut dyn ModeO
     }
 }
 
+/// What `0x58ae30` calls outside itself (stand-ins): `0x58a020(neighbour, matrix, set, other, flag)` and the swept record
+/// `0x584c70(p, q, rad_bits, set, body, mult)` (see `body_contact_record_swept`).
+pub trait NeighbourOwner {
+    fn pair_query(&mut self, m: &mut Mem, a: u32, mat: u32, set: u32, b: u32, flag: u32) -> u32;
+    fn swept_record(&mut self, m: &mut Mem, p: u32, q: u32, rad: u32, set: u32, body: u32, mult: u32) -> u32;
+}
+
+/// `0x58ae30(body, matrix, set)` (cdecl): the body against its (up to six) neighbours at `+0xdb4` (the list ends at the first
+/// null; the distance test `L(+0xdcc+4i) > ((|dpos|_1 * dt) + r_n + r_b)^2` ends it too). For a neighbour of mode 1 or 2 the matrix
+/// `A0 = inverse(body^-1 * matrix)` (made once, with the first neighbour) is applied to its pose and `0x58a020` (mode 2) or
+/// `0x584c70` (mode 1, the neighbour is stored at `set+0x5fc+4*count` on a contact) adds contacts, whose `+0xd04` slots get `A0`.
+/// Then `0x58a020(body, matrix, set, neighbour, 1)`. Returns the sum of the results.
+pub fn body_neighbours(m: &mut Mem, body: u32, mat: u32, set: u32, o: &mut dyn NeighbourOwner) -> u32 {
+    use crate::matrix::*;
+    const L: u32 = 0x7ffe_f000 + 0x5000;
+    let (a0, a1, a2, nm, m2, prod, binv) = (L, L + 0x30, L + 0x60, L + 0x90, L + 0xc0, L + 0xf0, L + 0x120);
+    for a in [a0, a1, a2] {
+        for i in 0..12 {
+            let v = m.u32(crate::globals::MAT_IDENTITY + 4 * i);
+            m.set_u32(a + 4 * i, v);
+        }
+    }
+    let dt = crate::globals::dt(m) as f64;
+    let f = |m: &Mem, a: u32| m.f32(a) as f64;
+    let copy = |m: &mut Mem, dst: u32, src: u32, n: u32| {
+        for i in 0..n {
+            let w = m.u32(src + 4 * i);
+            m.set_u32(dst + 4 * i, w);
+        }
+    };
+    let mut sum = 0u32;
+    for i in 0..6u32 {
+        let n = m.u32(body + 0xdb4 + 4 * i);
+        if n == 0 {
+            break;
+        }
+        let (dx, dy, dz) = (f(m, n + 0xce4) - f(m, body + 0xce4), f(m, n + 0xce8) - f(m, body + 0xce8), f(m, n + 0xcec) - f(m, body + 0xcec));
+        let rr = (((dz.abs() + dy.abs()) + dx.abs()) * dt + f(m, n + 0xcc8)) + f(m, body + 0xcc8);
+        if f(m, body + 0xdcc + 4 * i) > rr * rr {
+            break;
+        }
+        let mode = m.u32(n + 0x188);
+        if mode == 1 || mode == 2 {
+            if i == 0 {
+                let src = if m.u32(body + 0x5a0) != 0 { body + 0x730 } else { body + 0x254 };
+                copy(m, a2, src, 12);
+                mat_mul(m, prod, a2, mat);
+                copy(m, a1, prod, 12);
+                crate::math::mat_inverse(m, binv, a1);
+                copy(m, a0, binv, 12);
+            }
+            let src = if m.u32(n + 0x5a0) != 0 { n + 0x700 } else { n + 0x1f4 };
+            copy(m, nm, src, 12);
+            mat_mul(m, m2, nm, a0);
+            let before = m.i32(set + 0xb00);
+            if mode == 2 {
+                sum = sum.wrapping_add(o.pair_query(m, n, m2, set, body, u32::MAX));
+            } else {
+                let rad = m.u32(n + 0xcc8);
+                let r = o.swept_record(m, nm + 0x24, m2 + 0x24, rad, set, body, u32::MAX);
+                if r != 0 {
+                    sum = sum.wrapping_add(r);
+                    let c = m.u32(set + 0xb00);
+                    m.set_u32(set + 0x5fc + 4 * c, n);
+                }
+            }
+            let after = m.i32(set + 0xb00);
+            for j in before..after {
+                copy(m, set + 0xd04 + 0x30 * j as u32, a0, 12);
+            }
+        }
+        sum = sum.wrapping_add(o.pair_query(m, body, mat, set, n, 1));
+    }
+    sum
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1144,6 +1220,57 @@ mod tests {
                 .join(",");
             assert_eq!(diff, v[6], "case {c}: memory");
             assert_eq!(o.ev.join(";"), v[7], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 400);
+    }
+
+    struct NbTest {
+        ev: Vec<String>,
+        a020: Vec<u32>,
+        c70: Vec<u32>,
+    }
+    impl NeighbourOwner for NbTest {
+        fn pair_query(&mut self, m: &mut Mem, a: u32, mat: u32, set: u32, b: u32, flag: u32) -> u32 {
+            self.ev.push(format!("a020|{a:x}|{}|{set:x}|{b:x}|{flag:x}", hx(m, mat, 48)));
+            if self.a020.is_empty() { 0 } else { self.a020.remove(0) }
+        }
+        fn swept_record(&mut self, m: &mut Mem, p: u32, q: u32, rad: u32, set: u32, body: u32, mult: u32) -> u32 {
+            self.ev.push(format!("c70|{}|{}|{rad:x}|{set:x}|{body:x}|{mult:x}", hx(m, p, 12), hx(m, q, 12)));
+            let k = if self.c70.is_empty() { 0 } else { self.c70.remove(0) };
+            let c = m.u32(set + 0xb00);
+            m.set_u32(set + 0xb00, c + k);
+            k
+        }
+    }
+    #[test]
+    fn native_body_neighbours() {
+        let (body, set, arg1, clk) = (0x2a010000u32, 0x2a020000u32, 0x2a028000u32, 0x2a02a000u32);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_neighbours.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            m.set_u32(crate::globals::CLOCK_PTR, clk);
+            m.write(crate::globals::FIXED_STEP_MS, &[0, 0]);
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            let before = m.read(set, 0x1000);
+            let nums = |t: &str| t.split(',').filter(|s| !s.is_empty()).map(|x| x.parse().unwrap()).collect::<Vec<u32>>();
+            let mut o = NbTest { ev: vec![], a020: nums(v[4]), c70: nums(v[5]) };
+            let res = body_neighbours(&mut m, body, arg1, set, &mut o);
+            let after = m.read(set, 0x1000);
+            let diff: String = (0..0x1000usize)
+                .step_by(4)
+                .filter(|&i| after[i..i + 4] != before[i..i + 4])
+                .map(|i| format!("{:x}:{}", i, after[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                .collect::<Vec<_>>()
+                .join(",");
+            assert_eq!(res.to_string(), v[1], "case {c}: result");
+            assert_eq!(diff, v[2], "case {c}: set");
+            assert_eq!(o.ev.join(";"), v[3], "case {c}: events");
             n += 1;
         }
         assert_eq!(n, 400);
