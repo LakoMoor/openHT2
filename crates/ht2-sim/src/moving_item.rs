@@ -915,6 +915,38 @@ pub fn body_point_contacts(m: &mut Mem, body: u32, mat: u32, set: u32, flags: u3
     }
 }
 
+/// `0x589eb0(p*, q*)` (thiscall on the body, `ret 8`): the segment `p-q` taken into body space (`0x57dec0` inverse pose; the plane
+/// coordinates `x' = Mi0 x + Mi6 z + Mi3 y + Mi9`, `y' = Mi1 x + Mi7 z + Mi4 y + Mi10`) against the box `+0x13f4/+0x13f8` (x', +-0.01)
+/// and `+0x1400/+0x13fc` (y', +-0.01). 0 when both ends lie outside one side, else 1.
+pub fn segment_box_test(m: &mut Mem, body: u32, p: u32, q: u32) -> u32 {
+    let mi = if m.u32(body + 0x5a0) != 0 { body + 0x730 } else { body + 0x254 };
+    let f = |m: &Mem, a: u32| m.f32(a) as f64;
+    let g = |m: &Mem, i: u32| f(m, mi + 4 * i);
+    let (px, py, pz) = (f(m, p), f(m, p + 4), f(m, p + 8));
+    let (qx, qy, qz) = (f(m, q), f(m, q + 4), f(m, q + 8));
+    let pxs = (((g(m, 0) * px + g(m, 6) * pz) + g(m, 3) * py) + g(m, 9)) as f32 as f64;
+    let pys = ((g(m, 1) * px + g(m, 7) * pz) + g(m, 4) * py) + g(m, 10);
+    let qxs = (((g(m, 6) * qz + g(m, 3) * qy) + g(m, 0) * qx) + g(m, 9)) as f32 as f64;
+    let qys = (((g(m, 7) * qz + g(m, 4) * qy) + g(m, 1) * qx) + g(m, 10)) as f32 as f64;
+    let a = f(m, body + 0x13fc) + 0.01;
+    let c = (f(m, body + 0x1400) - 0.01) as f32 as f64;
+    let d = (f(m, body + 0x13f4) - 0.01) as f32 as f64;
+    let e = (f(m, body + 0x13f8) + 0.01) as f32 as f64;
+    if pys > a && qys > a {
+        return 0;
+    }
+    if !(pys >= c) && !(qys >= c) {
+        return 0;
+    }
+    if !(pxs >= d) && !(qxs >= d) {
+        return 0;
+    }
+    if pxs > e && qxs > e {
+        return 0;
+    }
+    1
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1516,5 +1548,22 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 500);
+    }
+
+    #[test]
+    fn native_segment_box_test() {
+        let (body, pp, qq) = (0x2a010000u32, 0x2a01a000u32, 0x2a01b000u32);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_box_reject.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            assert_eq!(segment_box_test(&mut m, body, pp, qq).to_string(), v[1], "case {c}");
+            n += 1;
+        }
+        assert_eq!(n, 600);
     }
 }
