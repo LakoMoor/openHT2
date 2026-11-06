@@ -1490,6 +1490,54 @@ pub fn cast_wrapper_virt3c(m: &mut Mem, this: u32, flags: u32, rec: u32, o: &mut
     res
 }
 
+/// What `0x5f9d20` calls outside itself (stand-ins): the transform stack push `0x5ae580(stack, matrix, type)` and pop `0x5ae8a0(stack)` and
+/// the virtual `+0x38(a0, mat, mat2, stack)` of the child object `[this+0x40]`.
+pub trait CastVirt2 {
+    fn push(&mut self, m: &mut Mem, stack: u32, mat: u32, kind: u32);
+    fn pop(&mut self, m: &mut Mem, stack: u32);
+    fn virt38(&mut self, m: &mut Mem, obj: u32, a0: u32, mat: u32, mat2: u32, stack: u32) -> u32;
+}
+
+/// `0x5f9d20(a0, mat, mat2, stack)` (thiscall, `ret 0x10`): 0 when `[this+0x28] & 1` (`0x5ef820`) or without child `[+0x40]`. The matrix `mat`
+/// (12 words) is saved. With a node `[+0x44]` its world matrix `M` (`0x5f25c0`, kind = its result) is pushed on the stack object (`0x5ae580`) and
+/// `mat = M * mat2` (`0x5aba40`). The child's virtual `+0x38(a0, mat, mat2, stack)` is called, with a node the stack is popped (`0x5ae8a0`),
+/// `mat` is restored and the virtual's result returned.
+pub fn cast_wrapper_virt3c_b(m: &mut Mem, this: u32, a0: u32, mat: u32, mat2: u32, stack: u32, o: &mut dyn CastVirt2) -> u32 {
+    const L: u32 = 0x7ffe_f000 + 0xb400;
+    let (mm, tmp, saved) = (L, L + 0x40, L + 0x80);
+    if m.u32(this + 0x28) & 1 != 0 {
+        return 0;
+    }
+    let child = m.u32(this + 0x40);
+    if child == 0 {
+        return 0;
+    }
+    for i in 0..12 {
+        let w = m.u32(mat + 4 * i);
+        m.set_u32(saved + 4 * i, w);
+        m.set_u32(mm + 4 * i, m.u32(0x7025f0 + 4 * i));
+    }
+    let node = m.u32(this + 0x44);
+    if node != 0 {
+        let kind = crate::mesh_query::node_world_matrix(m, node, mm);
+        o.push(m, stack, mm, kind);
+        crate::matrix::mat_mul(m, tmp, mm, mat2);
+        for i in 0..12 {
+            let w = m.u32(tmp + 4 * i);
+            m.set_u32(mat + 4 * i, w);
+        }
+    }
+    let res = o.virt38(m, child, a0, mat, mat2, stack);
+    if node != 0 {
+        o.pop(m, stack);
+    }
+    for i in 0..12 {
+        let w = m.u32(saved + 4 * i);
+        m.set_u32(mat + 4 * i, w);
+    }
+    res
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2384,6 +2432,58 @@ mod tests {
             assert_eq!(res.to_string(), v[3], "case {c}: result");
             for (k, &a) in [rec, this, node].iter().enumerate() {
                 assert_eq!(d(&s0[k], &m.read(a, 0x100)), v[4 + k], "case {c}: block {k}");
+            }
+            assert_eq!(ow.ev.join(";"), v[7], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 500);
+    }
+
+    struct Cv2Test {
+        ev: Vec<String>,
+        ret: u32,
+    }
+    impl CastVirt2 for Cv2Test {
+        fn push(&mut self, m: &mut Mem, stack: u32, mat: u32, kind: u32) {
+            self.ev.push(format!("push|{stack:x}|{}|{kind:x}", hx(m, mat, 48)));
+        }
+        fn pop(&mut self, _m: &mut Mem, stack: u32) {
+            self.ev.push(format!("pop|{stack:x}"));
+        }
+        fn virt38(&mut self, m: &mut Mem, obj: u32, a0: u32, mat: u32, mat2: u32, stack: u32) -> u32 {
+            self.ev.push(format!("v38|{obj:x}|{a0:x}|{}|{}|{stack:x}", hx(m, mat, 48), hx(m, mat2, 48)));
+            self.ret
+        }
+    }
+    #[test]
+    fn native_cast_wrapper_virt3c_b() {
+        let base = 0x2a010000u32;
+        let (this, node, mat, mat2, stk) = (base, base + 0x3000, base + 0x5000, base + 0x6000, base + 0x7000);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_cast_virt2.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            for it in v[0].split(',').filter(|s| !s.is_empty()) {
+                let (o, x) = it.split_once(':').unwrap();
+                m.write(u32::from_str_radix(o, 16).unwrap(), &unhex(x));
+            }
+            for i in 0..12 {
+                m.set_f32(0x7025f0 + 4 * i, crate::matrix::IDENTITY[i as usize]);
+            }
+            let s0: Vec<Vec<u8>> = [(mat, 0x40), (this, 0x100), (node, 0x100)].iter().map(|&(a, n)| m.read(a, n)).collect();
+            let mut ow = Cv2Test { ev: vec![], ret: v[2].parse().unwrap() };
+            let res = cast_wrapper_virt3c_b(&mut m, this, v[1].parse().unwrap(), mat, mat2, stk, &mut ow);
+            let d = |a: &[u8], b: &[u8]| -> String {
+                (0..a.len())
+                    .step_by(4)
+                    .filter(|&i| a[i..i + 4] != b[i..i + 4])
+                    .map(|i| format!("{:x}:{}", i, b[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            };
+            assert_eq!(res.to_string(), v[3], "case {c}: result");
+            for (k, &(a, n)) in [(mat, 0x40), (this, 0x100), (node, 0x100)].iter().enumerate() {
+                assert_eq!(d(&s0[k], &m.read(a, n)), v[4 + k], "case {c}: block {k}");
             }
             assert_eq!(ow.ev.join(";"), v[7], "case {c}: events");
             n += 1;
