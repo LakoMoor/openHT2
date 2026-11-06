@@ -157,6 +157,100 @@ pub fn moving_item_place(m: &mut Mem, this: u32, a: u32, b: u32, owner: &mut dyn
     owner.virt(m, this, 0x3c, &[]);
 }
 
+/// What `0x587e20` calls outside itself (stand-ins, not ported): the magnitude `0x5ab4d0(this+0x1c4)` (an `fld` result),
+/// the registry lookup `0x5dbec0`, the flags `0x56f210`, the binding `0x56f120`, the error log `0x4e260c` and the clock
+/// `0x4e27a5` (an `fld` result).
+pub trait BindOwner {
+    fn magnitude(&mut self, m: &mut Mem, vec: u32) -> f32;
+    /// `0x5dbec0` (thiscall on `[0x6ef1fc]`): looks the key `[this+0x320]` and the 12 bytes `pos` up; `None` leaves the handle -1.
+    fn find(&mut self, m: &mut Mem, key: u32, pos: [u32; 3], callback: u32) -> Option<u32>;
+    fn flags(&mut self, m: &mut Mem, handle: u32) -> u32;
+    fn attach(&mut self, m: &mut Mem, handle: u32, kind: u32, this: u32);
+    fn error(&mut self);
+    fn now(&mut self) -> f32;
+}
+
+/// `0x587e20(kind, what, _, a3, a4, vec, extra)` (thiscall, `ret 0x1c`): for `kind == 2` stores `what` at `+0x4b8` and by `what`
+/// records the request (`1/4/5/6`: `a3` (non-zero) at `+0x4c0`, `a4` at `+0x4bc`, 12 bytes of `vec` at `+0x4c4`, for 5 a dword
+/// of `extra` at `+0x4d0`, for 6 two consecutive C strings of `extra` at `+0x4d0`; `2`: `+0x4bc = *extra`; `3`: when
+/// the magnitude of `+0x1c4` is >= 5 looks the object up and, depending on the low half of `*extra`, binds it); then sets
+/// bit 2 of `+0x37c` and stores the clock at `+0x388`. Returns 1, or 0 for another `kind` or an unknown `what`.
+pub fn moving_item_bind(m: &mut Mem, this: u32, args: [u32; 7], owner: &mut dyn BindOwner) -> u32 {
+    if args[0] != 2 {
+        return 0;
+    }
+    let what = args[1];
+    m.set_u32(this + 0x4b8, what);
+    if !matches!(what, 1..=6) {
+        m.set_u32(this + 0x4b8, 0);
+        return 0;
+    }
+    let (a3, a4, vec, extra) = (args[3], args[4], args[5], args[6]);
+    match what {
+        2 => {
+            let v = m.u32(extra);
+            m.set_u32(this + 0x4bc, v);
+        }
+        3 => {
+            let mag = owner.magnitude(m, this + 0x1c4) as f64;
+            if mag >= 5.0 {
+                let esi = m.u32(extra) & 0xffff;
+                if esi > 2 {
+                    owner.error();
+                }
+                let pos = [m.u32(this + 0x218), m.u32(this + 0x21c), m.u32(this + 0x220)];
+                let key = m.u32(this + 0x320);
+                match owner.find(m, key, pos, 0x587e00) {
+                    None => owner.error(),
+                    Some(h) => {
+                        let fl = owner.flags(m, h);
+                        let mask = match esi {
+                            0 => 3,
+                            1 => 0xc,
+                            2 => 0x30,
+                            _ => 0xff_ffff,
+                        };
+                        if esi <= 2 && fl & mask & 0xff == 0 {
+                            owner.attach(m, h, esi, this);
+                        }
+                    }
+                }
+            }
+        }
+        _ => {
+            if a3 != 0 {
+                m.set_u32(this + 0x4c0, a3);
+                m.set_u32(this + 0x4bc, a4);
+                for i in 0..3 {
+                    let w = m.u32(vec + 4 * i);
+                    m.set_u32(this + 0x4c4 + 4 * i, w);
+                }
+                if what == 5 {
+                    let w = m.u32(extra);
+                    m.set_u32(this + 0x4d0, w);
+                } else if what == 6 {
+                    let mut at = 0;
+                    for _ in 0..2 {
+                        loop {
+                            let b = m.rd8(extra + at);
+                            m.wr8(this + 0x4d0 + at, b);
+                            at += 1;
+                            if b == 0 {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let f = m.u32(this + 0x37c);
+    m.set_u32(this + 0x37c, f | 4);
+    let t = owner.now();
+    m.set_u32(this + 0x388, t.to_bits());
+    1
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -338,5 +432,68 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 300);
+    }
+    #[test]
+    fn native_moving_item_bind() {
+        struct Log {
+            ev: Vec<String>,
+            mag: f32,
+            now: f32,
+            handle: u32,
+            flags: u32,
+        }
+        impl BindOwner for Log {
+            fn magnitude(&mut self, _: &mut Mem, _: u32) -> f32 {
+                self.mag
+            }
+            fn find(&mut self, _: &mut Mem, key: u32, p: [u32; 3], cb: u32) -> Option<u32> {
+                self.ev.push(format!("find|{key:x}|{:x},{:x},{:x}|{cb:x}", p[0], p[1], p[2]));
+                (self.handle != 0xffff_ffff).then_some(self.handle)
+            }
+            fn flags(&mut self, _: &mut Mem, h: u32) -> u32 {
+                self.ev.push(format!("flags|{h:x}"));
+                self.flags
+            }
+            fn attach(&mut self, _: &mut Mem, h: u32, k: u32, t: u32) {
+                self.ev.push(format!("attach|{h:x},{k:x},{t:x}"));
+            }
+            fn error(&mut self) {
+                self.ev.push("err".into());
+            }
+            fn now(&mut self) -> f32 {
+                self.now
+            }
+        }
+        let this = 0x2a010000u32;
+        let (p5, p6) = (0x2a012010u32, 0x2a012040u32);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_item_bind.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let f = |s: &str| f32::from_bits(u32::from_le_bytes(unhex(s).try_into().unwrap()));
+            let hx = |s: &str| u32::from_str_radix(s, 16).unwrap();
+            let mut m = Mem::new();
+            let pre: Vec<&str> = v[10].split('|').collect();
+            m.write(this + 0x218, &unhex(pre[1]));
+            m.write(this + 0x320, &unhex(pre[2]));
+            m.write(this + 0x37c, &unhex(pre[3]));
+            m.write(this + 0x4b0, &unhex(pre[4]));
+            m.write(p5, &unhex(v[8]));
+            m.write(p6, &unhex(v[9]));
+            let before = m.read(this, 0x600);
+            let mut log = Log { ev: vec![], mag: f(v[2]), now: f(v[3]), handle: hx(v[4]), flags: hx(v[5]) };
+            let args = [v[0].parse().unwrap(), v[1].parse().unwrap(), 0, hx(v[6]), hx(v[7]), p5, p6];
+            let ret = moving_item_bind(&mut m, this, args, &mut log);
+            let after = m.read(this, 0x600);
+            let diff: Vec<String> = (0..0x600)
+                .step_by(4)
+                .filter(|&i| after[i..i + 4] != before[i..i + 4])
+                .map(|i| format!("{i:x}:{}", after[i..i + 4].iter().map(|b| format!("{b:02x}")).collect::<String>()))
+                .collect();
+            assert_eq!(diff.join(","), v[11], "case {c}");
+            assert_eq!(format!("{ret:x}"), v[12], "case {c}: ret");
+            assert_eq!(log.ev.join(";"), v[13], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 600);
     }
 }
