@@ -60,6 +60,134 @@ pub fn contact_flags_set(m: &mut Mem, this: u32, flags: u32) {
     m.set_f32(this + 0x388, v);
 }
 
+/// `0x5f25c0(out)` (thiscall, `this` = node): the node's matrix `+0x40` composed along the parent chain `[+0x2c]`. A node with a
+/// parent is switched to mode 2 (`+0x38 = 2`). Mode 0: `out = matrix`, result 0; mode 1: `out = matrix`, result 1; mode 2
+/// without parent as mode 0, else `out = matrix * (parent's world matrix)` and the parent's result; other modes leave `out` alone
+/// and return 0.
+pub fn node_world_matrix(m: &mut Mem, node: u32, out: u32) -> u32 {
+    let parent = m.u32(node + 0x2c);
+    if parent != 0 {
+        m.set_u32(node + 0x38, 2);
+    }
+    let copy = |m: &mut Mem| {
+        let b = m.read(node + 0x40, 48);
+        m.write(out, &b);
+    };
+    match m.u32(node + 0x38) {
+        0 => {
+            copy(m);
+            0
+        }
+        1 => {
+            copy(m);
+            1
+        }
+        2 => {
+            if parent == 0 {
+                copy(m);
+                return 0;
+            }
+            let r = node_world_matrix(m, parent, out);
+            let tmp = 0x7ffd_0000;
+            crate::matrix::mat_mul(m, tmp, node + 0x40, out);
+            let b = m.read(tmp, 48);
+            m.write(out, &b);
+            r
+        }
+        _ => 0,
+    }
+}
+
+/// The virtuals the collector calls on scene nodes (the graph's classes are not ported here: stand-in owner).
+pub trait CollectOwner {
+    /// `[child->vtable + 0x20](0, 0x56f450)`: walks the child with the collector (type 0x11 nodes).
+    fn traverse(&mut self, m: &mut Mem, child: u32);
+    /// `[node->vtable + 0x3c]()`: the number of children (type 0x12 nodes).
+    fn count(&mut self, m: &mut Mem, node: u32) -> i32;
+}
+
+/// The cache `0x6f34c4`: the parent node of the type 0x11 group being walked.
+pub const GROUP_CACHE: u32 = 0x6f34c4;
+
+/// `0x56f450(node)` (cdecl): the collector callback. Returns -1, or for a type 0x12 node the child index to visit. A node with
+/// flag bit 0 or with 30 nodes already collected is skipped. A kind-9 node named `sharp...` whose `+0x40` is 7 is collected into
+/// the list `0x6f2e58` (with the parent node it hangs on in `0x6f326c`) when the distance of its bounding centre (`+0x48`, taken
+/// through the world matrix of that parent) from the box centre `0x6f3248` is at most the box radius plus its own radius
+/// (`[+0x3c]`). A type 0x11 group (flag bit 3 clear) walks its child with the group cached in `0x6f34c4`.
+pub fn mesh_collect(m: &mut Mem, node: u32, owner: &mut dyn CollectOwner) -> u32 {
+    use crate::math::vec_len;
+    if m.u32(node + 0x28) & 1 != 0 || m.i32(COUNT) >= 0x1e {
+        return u32::MAX;
+    }
+    let ty = m.u32(node + 0x10);
+    if ty == 9 {
+        let name = m.u32(node + 0xc);
+        let sharp = name != 0 && (0..5).all(|i| m.rd8(name + i) == b"sharp"[i as usize]);
+        if sharp && m.u32(node + 0x40) == 7 {
+            let (mat, vec) = (0x7ffc_0000u32, 0x7ffc_0100u32);
+            for i in 0..12 {
+                let w = m.u32(crate::globals::MAT_IDENTITY + 4 * i);
+                m.set_u32(mat + 4 * i, w);
+            }
+            let shape = m.u32(node + 0x2c);
+            let mut parent = 0;
+            if m.u32(shape + 0x10) == 4 {
+                parent = m.u32(shape + 0x3c);
+                if parent != 0 {
+                    node_world_matrix(m, parent, mat);
+                }
+            } else {
+                parent = m.u32(GROUP_CACHE);
+                if parent != 0 {
+                    node_world_matrix(m, parent, mat);
+                }
+            }
+            let r = m.f32(m.u32(node + 0x3c)) as f64;
+            let c = m.u32(node + 0x48);
+            let g = |m: &Mem, i: u32| m.f32(mat + 4 * i) as f64;
+            let cv = [m.f32(c) as f64, m.f32(c + 4) as f64, m.f32(c + 8) as f64];
+            let x = ((g(m, 0) * cv[0] + g(m, 6) * cv[2]) + g(m, 3) * cv[1]) + g(m, 9);
+            let y = (((g(m, 1) * cv[0] + g(m, 7) * cv[2]) + g(m, 4) * cv[1]) + g(m, 10)) as f32;
+            let z = (((g(m, 2) * cv[0] + g(m, 8) * cv[2]) + g(m, 5) * cv[1]) + g(m, 11)) as f32;
+            let d = [(x - m.f32(BOX) as f64) as f32, (y as f64 - m.f32(BOX + 4) as f64) as f32, (z as f64 - m.f32(BOX + 8) as f64) as f32];
+            for (i, v) in d.iter().enumerate() {
+                m.set_f32(vec + 4 * i as u32, *v);
+            }
+            let l = vec_len(m, vec);
+            let reach = m.f32(BOX + 12) as f64 + r;
+            if !(l > reach) {
+                let n = m.u32(COUNT);
+                m.set_u32(NODE_LIST + 4 * n, node);
+                m.set_u32(NODE_EXTRA + 4 * n, parent);
+                m.set_u32(COUNT, n + 1);
+            }
+            return u32::MAX;
+        }
+    }
+    if ty == 0x11 {
+        if m.u32(node + 0x28) & 8 != 0 {
+            return u32::MAX;
+        }
+        let w = m.u32(node + 0x44);
+        m.set_u32(GROUP_CACHE, w);
+        let child = m.u32(node + 0x40);
+        owner.traverse(m, child);
+        m.set_u32(GROUP_CACHE, 0);
+        return u32::MAX;
+    }
+    if ty == 0x12 {
+        let mut idx = m.i32(node + 0x38);
+        let link = m.u32(node + 0x3c);
+        if link != 0 {
+            idx = m.i32(link + 0x38);
+        }
+        if !(idx < owner.count(m, node)) {
+            idx = owner.count(m, node) - 1;
+        }
+        return idx as u32;
+    }
+    u32::MAX
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,6 +254,85 @@ mod tests {
         }
         assert_eq!(counts, (120, 60, 60));
     }
-}
 
+    #[test]
+    fn native_node_world_matrix() {
+        let base = 0x2a010000u32;
+        let out = base + 0x10000;
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_node_matrix.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let len: usize = v[0].parse().unwrap();
+            let mut m = Mem::new();
+            let node = |i: usize| base + 0x200 * i as u32;
+            for (i, d) in v[1].split(';').enumerate() {
+                let (mode, mat) = d.split_once(',').unwrap();
+                m.set_u32(node(i) + 0x38, mode.parse().unwrap());
+                m.write(node(i) + 0x40, &unhex(mat));
+                m.set_u32(node(i) + 0x2c, if i + 1 < len { node(i + 1) } else { 0 });
+            }
+            let r = node_world_matrix(&mut m, node(0), out);
+            assert_eq!(format!("{r:x}"), v[2], "case {c}: result");
+            let got: String = m.read(out, 0x30).iter().map(|b| format!("{b:02x}")).collect();
+            assert_eq!(got, v[3], "case {c}: matrix");
+            let modes: Vec<String> = (0..len).map(|i| m.u32(node(i) + 0x38).to_string()).collect();
+            assert_eq!(modes.join(","), v[4], "case {c}: modes");
+            n += 1;
+        }
+        assert_eq!(n, 200);
+    }
 
+    #[test]
+    fn native_mesh_collect() {
+        struct Ev(Vec<String>, i32);
+        impl CollectOwner for Ev {
+            fn traverse(&mut self, m: &mut Mem, child: u32) {
+                self.0.push(format!("t|{child:x}|56f450|{:x}", m.u32(GROUP_CACHE) & 0xff));
+            }
+            fn count(&mut self, _: &mut Mem, node: u32) -> i32 {
+                self.0.push(format!("c|{node:x}"));
+                self.1
+            }
+        }
+        let base = 0x2a010000u32;
+        let at = |i: u32| base + 0x400 * i;
+        let (node, own, chain2, name, bnd, cen, child) = (at(0), at(1), at(3), at(4), at(5), at(6), at(7));
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_mesh_collect.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            let put = |m: &mut Mem, at: u32, list: &str| {
+                for it in list.split(',').filter(|s| !s.is_empty()) {
+                    let (o, x) = it.split_once(':').unwrap();
+                    m.set_u32(at + u32::from_str_radix(o, 16).unwrap(), u32::from_str_radix(x, 16).unwrap());
+                }
+            };
+            put(&mut m, node, v[0]);
+            put(&mut m, own, v[1]);
+            m.write(own + 0x40, &unhex(v[2]));
+            m.set_u32(at(2) + 0x38, 3);
+            m.set_u32(chain2 + 0x38, u32::from_str_radix(v[3], 16).unwrap());
+            m.write(chain2 + 0x40, &unhex(v[4]));
+            let nm = unhex(v[5]);
+            m.write(name, &nm);
+            m.wr8(name + nm.len() as u32, 0);
+            m.write(bnd, &unhex(v[6]));
+            m.write(cen, &unhex(v[7]));
+            m.write(BOX, &unhex(v[8]));
+            m.set_u32(COUNT, v[9].parse().unwrap());
+            m.set_u32(GROUP_CACHE, u32::from_str_radix(v[10], 16).unwrap());
+            let _ = child;
+            let mut o = Ev(vec![], v[11].parse().unwrap());
+            let r = mesh_collect(&mut m, node, &mut o);
+            let hex = |a: u32, k: usize| m.read(a, k).iter().map(|b| format!("{b:02x}")).collect::<String>();
+            assert_eq!(format!("{r:x}"), v[12], "case {c}: result");
+            assert_eq!(hex(NODE_LIST, 32), v[13], "case {c}: list");
+            assert_eq!(hex(NODE_EXTRA, 32), v[14], "case {c}: extra");
+            assert_eq!(hex(COUNT, 4), v[15], "case {c}: count");
+            assert_eq!(hex(GROUP_CACHE, 4), v[16], "case {c}: cache");
+            assert_eq!(o.0.join(";"), v[17], "case {c}: events");
+            n += 1;
+        }
+        assert_eq!(n, 400);
+    }}
