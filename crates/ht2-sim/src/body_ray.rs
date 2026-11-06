@@ -399,6 +399,110 @@ pub fn body_contact_record_swept(m: &mut Mem, a0: u32, a1: u32, rad: u32, set: u
     1
 }
 
+/// `0x585150(body, matrix*, set)` (cdecl): the body against the road-mesh nodes near it. The query box is the body's local point
+/// `(+0xd6c, +0xd70, +0xd74)` in the frame `matrix` with the reach `dt * [+0xd84] + [+0xcc8] + 2` (`0x56f3f0`); `body+0x254` (or
+/// `+0x730`) times `matrix`, inverted, brings a world vertex into the body's frame. For each collected node of kind 7 (`0x56f650`)
+/// every vertex is moved by the node's world matrix (`0x5e19d0` for the extra node), and when it is within
+/// `sqrt(reach^2 + s^2)` of the body matrix position (`s` the node's scaled size) a contact is recorded with `0x584820` (node
+/// flag `+0x30 == 0`) or `0x584c70` (radius `s`, multiplier 1); on a contact the node's data word (low / high 16 bits) goes to
+/// the binder `0x587e20` (`bind`) when the node has data (`o5 != 0`), else `0x5818b0(4)`. Returns the number of contacts, negated
+/// when a binder call returned non-zero.
+pub fn body_collect_contacts(
+    m: &mut Mem,
+    body: u32,
+    matrix: u32,
+    set: u32,
+    probe: &mut dyn ProbeOwner,
+    trav: &mut dyn crate::mesh_query::MeshTraversal,
+    bind: &mut dyn FnMut(&mut Mem, u32, [u32; 7]) -> u32,
+) -> u32 {
+    use crate::mesh_query::{contact_flags_set, mesh_node_info, mesh_query_begin, node_world_matrix};
+    let f = |m: &Mem, a: u32| m.f32(a) as f64;
+    let r32 = |v: f64| v as f32;
+    let (cnt, tm, inv, os, rm, wv, lv) = (SCRATCH + 0x800, SCRATCH + 0x900, SCRATCH + 0x940, SCRATCH + 0xa00, SCRATCH + 0xa80, SCRATCH + 0xb00, SCRATCH + 0xb10);
+    let (lx, ly, lz) = (f(m, body + 0xd6c), f(m, body + 0xd70), f(m, body + 0xd74));
+    let x = r32(((f(m, matrix + 0x18) * lz + f(m, matrix + 0xc) * ly) + lx * f(m, matrix)) + f(m, matrix + 0x24));
+    let y = r32(((f(m, matrix + 4) * lx + f(m, matrix + 0x1c) * lz) + f(m, matrix + 0x10) * ly) + f(m, matrix + 0x28));
+    let z = r32(((f(m, matrix + 8) * lx + f(m, matrix + 0x20) * lz) + f(m, matrix + 0x14) * ly) + f(m, matrix + 0x2c));
+    let dt = crate::globals::dt_hi(m);
+    let reach = r32((dt * f(m, body + 0xd84) + f(m, body + 0xcc8)) + 2.0);
+    let alt = m.u32(body + 0x5a0) != 0;
+    let room = if alt { m.u32(body + 0x7f0) } else { m.u32(body + 0x320) };
+    let list = mesh_query_begin(m, room, [x.to_bits(), y.to_bits(), z.to_bits(), reach.to_bits()], cnt, trav);
+    let count = m.u32(cnt) as i32;
+    if count <= 0 {
+        return 0;
+    }
+    let bm = body_matrix(m, body);
+    let b2 = if alt { body + 0x730 } else { body + 0x254 };
+    crate::matrix::mat_mul(m, tm, b2, matrix);
+    crate::math::mat_inverse(m, inv, tm);
+    let reach2 = (reach as f64) * (reach as f64);
+    let (mut total, mut bound) = (0u32, 0u32);
+    for i in 0..count as u32 {
+        let n = mesh_node_info(m, i, [os + 0x20, os, os + 8, os + 0x14, os + 0x18, os + 0x1c]);
+        let (o1, o2, s, o4, o5, extra) = (m.u32(os + 0x20), m.u32(os), m.f64(os + 8), m.u32(os + 0x14), m.u32(os + 0x18), m.u32(os + 0x1c));
+        if (n as i32) <= 0 {
+            continue;
+        }
+        for k in 0..n {
+            for j in 0..12 {
+                let v = m.u32(crate::globals::MAT_IDENTITY + 4 * j);
+                m.set_u32(rm + 4 * j, v);
+            }
+            if extra != 0 && m.u32(extra + 0x10) == 6 {
+                node_world_matrix(m, extra, rm);
+            }
+            let va = o1 + 12 * k;
+            let (vx, vy, vz) = (f(m, va), f(m, va + 4), f(m, va + 8));
+            let rr = |m: &Mem, j: u32| f(m, rm + 4 * j);
+            let ya = ((rr(m, 1) * vx + rr(m, 7) * vz) + rr(m, 4) * vy) + rr(m, 10);
+            let za = ((rr(m, 2) * vx + rr(m, 8) * vz) + rr(m, 5) * vy) + rr(m, 11);
+            let xa = ((rr(m, 0) * vx + rr(m, 6) * vz) + rr(m, 3) * vy) + rr(m, 9);
+            let (x32, y32, z32) = (r32(xa), r32(ya), r32(za));
+            let dx = r32(x32 as f64 - f(m, bm + 0x24)) as f64;
+            let dy = r32(ya - f(m, bm + 0x28)) as f64;
+            let dz = za - f(m, bm + 0x2c);
+            let sum = (((dx * dx + dy * dy) + dz * dz) + s * s) as f64;
+            if sum > reach2 {
+                continue;
+            }
+            let iv = |m: &Mem, j: u32| f(m, inv + 4 * j);
+            let xf = x32 as f64;
+            let ox = r32(((iv(m, 3) * ya + iv(m, 6) * za) + iv(m, 0) * xf) + iv(m, 9));
+            let oy = r32(((iv(m, 1) * xf + iv(m, 4) * ya) + iv(m, 7) * za) + iv(m, 10));
+            let oz = r32(((iv(m, 2) * xf + iv(m, 5) * ya) + iv(m, 8) * za) + iv(m, 11));
+            for (a, v) in [(wv, x32), (wv + 4, y32), (wv + 8, z32), (lv, ox), (lv + 4, oy), (lv + 8, oz)] {
+                m.set_u32(a, v.to_bits());
+            }
+            let e = if o2 == 0 {
+                body_contact_record(m, wv, lv, set, body, probe)
+            } else {
+                body_contact_record_swept(m, wv, lv, r32(s).to_bits(), set, body, 1, probe)
+            };
+            if e != 0 {
+                if o5 != 0 {
+                    let w = m.u32(o4);
+                    let (lo, hi) = (w as u16 as i16 as i32 as u32, ((w as i32) >> 16) as u32);
+                    let cnt_set = m.u32(set + 0xb00);
+                    let vec = set.wrapping_add(cnt_set.wrapping_mul(12)).wrapping_sub(12);
+                    let node = m.u32(list + 4 * i);
+                    let r = bind(m, body, [lo, hi, 1, extra, node, vec, o4 + 4]);
+                    bound = bound.wrapping_add(r);
+                } else {
+                    contact_flags_set(m, body, 4);
+                }
+            }
+            total = total.wrapping_add(e);
+        }
+    }
+    if bound != 0 {
+        total.wrapping_neg()
+    } else {
+        total
+    }
+}
+
 /// `0x5843c0(body, target, ratio, distance, rec)` (cdecl, `f32*` for `ratio` and `distance`): casts from the body position to
 /// `target + 0x24` through the room object (`[+0x320]`, or `[+0x7f0]` while `[+0x5a0] != 0`). Returns 0 on a miss, 2 (and
 /// `*ratio = 0`) when either squared length is below 1e-6, else 1 with `*distance = n . (hit - end)` and
@@ -765,5 +869,64 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 500);
+    }
+    #[test]
+    fn native_collect_contacts() {
+        struct Stub {
+            mat: Vec<u8>,
+            pn: Vec<u8>,
+            flags: u32,
+            calls: usize,
+        }
+        impl ProbeOwner for Stub {
+            fn cast(&mut self, m: &mut Mem, _: u32, _: u32, q: u32) -> u32 {
+                self.calls += 1;
+                m.write(q + 4, &self.mat);
+                m.write(q + 0x34, &self.pn);
+                self.flags
+            }
+            fn set_case(&mut self, _: &mut Mem, _: u32, _: i32) {}
+        }
+        struct Trav(u32);
+        impl crate::mesh_query::MeshTraversal for Trav {
+            fn traverse(&mut self, m: &mut Mem, _: u32) {
+                m.set_u32(crate::mesh_query::COUNT, self.0);
+            }
+        }
+        let base = 0x2a000000u32;
+        let (body, mat, set) = (base + 0x10000, base + 0x14000, base + 0x12000);
+        let mut n = 0;
+        for (c, line) in include_str!("../../../tools/emu/golden_collect_contacts.tsv").lines().enumerate() {
+            let v: Vec<&str> = line.split('\t').collect();
+            let mut m = Mem::new();
+            crate::globals::install_constants(&mut m);
+            for it in v[0].split(',') {
+                let (a, x) = it.split_once(':').unwrap();
+                let a = u32::from_str_radix(a, 16).unwrap();
+                m.write(if a < 0x400000 { a + base } else { a }, &unhex(x));
+            }
+            m.set_u32(0x6974c4, base + 0x1a000);
+            let (bb, sb) = (m.read(body, 0x1000), m.read(set, 0x1000));
+            let mut probe = Stub { mat: unhex(v[3]), pn: unhex(v[4]), flags: u32::from_str_radix(v[5], 16).unwrap(), calls: 0 };
+            let mut trav = Trav(v[1].parse().unwrap());
+            let bindret: u32 = v[2].parse().unwrap();
+            let mut binds = 0usize;
+            let r = body_collect_contacts(&mut m, body, mat, set, &mut probe, &mut trav, &mut |_, _, _| {
+                binds += 1;
+                bindret
+            });
+            let (ba, sa) = (m.read(body, 0x1000), m.read(set, 0x1000));
+            let dif = |b: &[u8], a: &[u8]| -> String {
+                (0..0x1000).step_by(4).filter(|&i| a[i..i + 4] != b[i..i + 4]).map(|i| format!("{i:x}:{}", a[i..i + 4].iter().map(|x| format!("{x:02x}")).collect::<String>())).collect::<Vec<_>>().join(",")
+            };
+            assert_eq!(format!("{r:x}"), v[6], "case {c}: result");
+            assert_eq!(dif(&sb, &sa), v[7], "case {c}: set");
+            assert_eq!(dif(&bb, &ba), v[8], "case {c}: body");
+            let ev: Vec<&str> = v[9].split(';').collect();
+            assert_eq!(binds, ev.iter().filter(|e| e.starts_with("bind")).count(), "case {c}: binds");
+            assert_eq!(probe.calls, ev.iter().filter(|e| e.starts_with("cast")).count(), "case {c}: casts");
+            n += 1;
+        }
+        assert_eq!(n, 400);
     }
 }
